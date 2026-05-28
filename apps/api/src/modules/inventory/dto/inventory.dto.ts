@@ -1,0 +1,268 @@
+import { Type } from "class-transformer";
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  NotEquals
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { StockMovementType } from "../../../generated/prisma/enums";
+
+export class StockInDto {
+  @ApiProperty({ example: "BATCH-2026-001" })
+  @IsString()
+  @MaxLength(120)
+  batchNumber!: string;
+
+  @ApiPropertyOptional({ example: "2026-12-31" })
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string | null;
+
+  @ApiPropertyOptional({ example: 5, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lowStockThreshold?: number;
+
+  @ApiProperty({ example: 150, minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  mrp!: number;
+
+  @ApiPropertyOptional({ example: "Initial procurement stock." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  productId!: string;
+
+  @ApiProperty({ example: 90, minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  purchasePrice!: number;
+
+  @ApiProperty({ example: 10, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+
+  @ApiProperty({ example: 120, minimum: 0 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  sellingPrice!: number;
+
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  variantId?: string | null;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  warehouseId!: string;
+}
+
+export class AdjustStockDto {
+  @ApiPropertyOptional({ example: "BATCH-2026-001" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  batchNumber?: string;
+
+  @ApiPropertyOptional({ example: 5, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  lowStockThreshold?: number;
+
+  @ApiProperty({ example: "Cycle count correction." })
+  @IsString()
+  @MaxLength(1000)
+  reason!: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  productId!: string;
+
+  @ApiProperty({
+    description: "Signed adjustment quantity. Positive adds stock; negative removes stock.",
+    example: -2
+  })
+  @IsInt()
+  @NotEquals(0)
+  quantityDelta!: number;
+
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  variantId?: string | null;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  warehouseId!: string;
+}
+
+export class TransferStockDto {
+  @ApiPropertyOptional({ example: "BATCH-2026-001" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  batchNumber?: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  fromWarehouseId!: string;
+
+  @ApiPropertyOptional({ example: "Transfer for regional demand." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  notes?: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  productId!: string;
+
+  @ApiProperty({ example: 3, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  toWarehouseId!: string;
+
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  variantId?: string | null;
+}
+
+export class InventoryListQueryDto {
+  @ApiPropertyOptional({ default: 20, maximum: 100, minimum: 1 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  productId?: string;
+
+  @ApiPropertyOptional({ example: "forceps" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  search?: string;
+
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  warehouseId?: string;
+}
+
+export class NearExpiryQueryDto extends InventoryListQueryDto {
+  @ApiPropertyOptional({ default: 30, maximum: 365, minimum: 1 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  days?: number;
+}
+
+export class StockMovementQueryDto extends InventoryListQueryDto {
+  @ApiPropertyOptional({ enum: StockMovementType, example: StockMovementType.IN })
+  @IsOptional()
+  @IsEnum(StockMovementType)
+  type?: StockMovementType;
+}
+
+export class InventoryStockResponseDto {
+  @ApiProperty({ example: 10 })
+  availableQuantity!: number;
+
+  @ApiProperty({ example: "stock-id" })
+  id!: string;
+
+  @ApiProperty({ example: 5 })
+  lowStockThreshold!: number;
+
+  @ApiProperty({ example: "product-id" })
+  productId!: string;
+
+  @ApiProperty({ example: 0 })
+  reservedQuantity!: number;
+
+  @ApiProperty({ example: "variant-id", nullable: true })
+  variantId!: string | null;
+
+  @ApiProperty({ example: "warehouse-id" })
+  warehouseId!: string;
+}
+
+export class StockBatchResponseDto {
+  @ApiProperty({ example: "BATCH-2026-001" })
+  batchNumber!: string;
+
+  @ApiProperty({ example: "2026-12-31T00:00:00.000Z", nullable: true })
+  expiryDate!: Date | null;
+
+  @ApiProperty({ example: "batch-id" })
+  id!: string;
+
+  @ApiProperty({ example: 150 })
+  mrp!: number;
+
+  @ApiProperty({ example: "product-id" })
+  productId!: string;
+
+  @ApiProperty({ example: 90 })
+  purchasePrice!: number;
+
+  @ApiProperty({ example: 10 })
+  quantity!: number;
+
+  @ApiProperty({ example: 120 })
+  sellingPrice!: number;
+
+  @ApiProperty({ example: "warehouse-id" })
+  warehouseId!: string;
+}
+
+export class StockMovementResponseDto {
+  @ApiProperty({ example: "movement-id" })
+  id!: string;
+
+  @ApiProperty({ example: "product-id" })
+  productId!: string;
+
+  @ApiProperty({ example: 3 })
+  quantity!: number;
+
+  @ApiProperty({ enum: StockMovementType, example: StockMovementType.IN })
+  type!: StockMovementType;
+
+  @ApiProperty({ example: "warehouse-id" })
+  warehouseId!: string;
+}

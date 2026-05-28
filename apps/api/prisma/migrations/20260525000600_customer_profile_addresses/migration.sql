@@ -1,0 +1,9 @@
+ALTER TYPE "AddressType" ADD VALUE IF NOT EXISTS 'CLINIC';
+ALTER TYPE "AddressType" ADD VALUE IF NOT EXISTS 'HOSPITAL';
+ALTER TYPE "AddressType" ADD VALUE IF NOT EXISTS 'OTHER';
+
+ALTER TABLE "User"
+  ADD COLUMN "gstNumber" TEXT,
+  ADD COLUMN "businessName" TEXT;
+
+CREATE INDEX "User_gstNumber_idx" ON "User"("gstNumber");

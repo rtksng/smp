@@ -1,0 +1,36 @@
+{
+  "name": "surgical-medical-equipment-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:parallel": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --parallel --filter @surgical/web --filter @surgical/admin --filter @surgical/api --filter @surgical/worker dev",
+    "dev:web": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/web dev",
+    "dev:admin": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/admin dev",
+    "dev:api": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/api dev",
+    "dev:worker": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/worker dev",
+    "build": "corepack pnpm -r --sort build",
+    "format": "prettier --write .",
+    "lint": "corepack pnpm -r --sort lint",
+    "test": "node --test scripts/*.test.mjs && corepack pnpm -r --sort --if-present test",
+    "typecheck": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm -r --sort typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^8.57.1",
+    "@nestjs/cli": "^10.4.0",
+    "@next/eslint-plugin-next": "^16.2.6",
+    "@types/node": "^20.17.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.12.0",
+    "prettier": "3.6.2",
+    "prisma": "^7.8.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.16.0"
+  }
+}

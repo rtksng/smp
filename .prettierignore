@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+storage/uploads/
+
+apps/api/src/generated/
+apps/api/dist/
+apps/worker/dist/
+packages/*/dist/
+
+*.log
+*.tsbuildinfo
+pnpm-lock.yaml
