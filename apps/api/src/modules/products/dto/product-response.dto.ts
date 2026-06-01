@@ -102,6 +102,12 @@ export class ProductResponseDto {
   @ApiProperty({ example: "category-id" })
   categoryId!: string;
 
+  @ApiProperty({ nullable: true, type: ProductCategoryResponseDto })
+  subcategory!: ProductCategoryResponseDto | null;
+
+  @ApiProperty({ example: "subcategory-id", nullable: true })
+  subcategoryId!: string | null;
+
   @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
   createdAt!: Date;
 

@@ -1,10 +1,25 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "../..",
     "incremental": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
+    "paths": {
+      "@/*": [
+        "apps/admin/*"
+      ],
+      "@surgical/config": [
+        "packages/config/src/index.ts"
+      ],
+      "@surgical/types": [
+        "packages/types/src/index.ts"
+      ],
+      "@surgical/ui": [
+        "packages/ui/src/index.ts"
+      ]
+    },
     "plugins": [
       {
         "name": "next"

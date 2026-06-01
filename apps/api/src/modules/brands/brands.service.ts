@@ -5,6 +5,10 @@ import { Prisma } from "../../generated/prisma/client";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import type { CreateBrandDto } from "./dto/create-brand.dto";
 import type { UpdateBrandDto } from "./dto/update-brand.dto";
+import {
+  FIXED_CATALOG_BRAND_SLUGS,
+  isFixedCatalogBrandSlug
+} from "./fixed-catalog-brands";
 
 type BrandRecord = {
   deletedAt: Date | null;
@@ -39,12 +43,20 @@ export class BrandsService {
       },
       where: {
         deletedAt: null,
-        isActive: true
+        isActive: true,
+        slug: {
+          in: [...FIXED_CATALOG_BRAND_SLUGS]
+        }
       }
     });
 
     return brands
-      .filter((brand) => brand.deletedAt === null && brand.isActive)
+      .filter(
+        (brand) =>
+          brand.deletedAt === null &&
+          brand.isActive &&
+          isFixedCatalogBrandSlug(brand.slug)
+      )
       .sort((left, right) => left.name.localeCompare(right.name))
       .map((brand) => this.serializeBrand(brand));
   }
@@ -55,16 +67,25 @@ export class BrandsService {
         name: "asc"
       },
       where: {
-        deletedAt: null
+        deletedAt: null,
+        slug: {
+          in: [...FIXED_CATALOG_BRAND_SLUGS]
+        }
       }
     });
 
     return brands
-      .filter((brand) => brand.deletedAt === null)
+      .filter(
+        (brand) => brand.deletedAt === null && isFixedCatalogBrandSlug(brand.slug)
+      )
       .map((brand) => this.serializeBrand(brand));
   }
 
   async getPublicBrandBySlug(slug: string) {
+    if (!isFixedCatalogBrandSlug(slug)) {
+      throw new NotFoundException("Brand was not found.");
+    }
+
     const brand = await this.prisma.brand.findFirst({
       where: {
         deletedAt: null,

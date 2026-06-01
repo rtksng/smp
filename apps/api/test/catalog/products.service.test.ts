@@ -17,6 +17,7 @@ type RelatedFixture = {
   id: string;
   isActive: boolean;
   name: string;
+  parentId?: string | null;
   slug: string;
 };
 
@@ -84,6 +85,8 @@ type ProductFixture = {
   slug: string;
   status: ProductStatusFixture;
   sterile: boolean;
+  subcategory: RelatedFixture | null;
+  subcategoryId: string | null;
   taxRate: string;
   unit: string;
   updatedAt: Date;
@@ -107,16 +110,26 @@ const activeBrand: RelatedFixture = {
   deletedAt: null,
   id: "brand-1",
   isActive: true,
-  name: "Acme Surgical",
-  slug: "acme-surgical"
+  name: "Abbott",
+  slug: "abbott"
 };
 
 const activeCategory: RelatedFixture = {
   deletedAt: null,
   id: "category-1",
   isActive: true,
-  name: "Surgical Instruments",
-  slug: "surgical-instruments"
+  name: "Dental",
+  parentId: null,
+  slug: "dental"
+};
+
+const activeSubcategory: RelatedFixture = {
+  deletedAt: null,
+  id: "subcategory-1",
+  isActive: true,
+  name: "Endodontics",
+  parentId: activeCategory.id,
+  slug: "endodontics"
 };
 
 function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
@@ -174,6 +187,8 @@ function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
     slug: "curved-artery-forceps",
     status: "ACTIVE",
     sterile: true,
+    subcategory: activeSubcategory,
+    subcategoryId: activeSubcategory.id,
     taxRate: "18.00",
     unit: "piece",
     updatedAt: now,
@@ -250,9 +265,17 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
     },
     calls,
     category: {
-      findFirst: async (args: unknown) => {
+      findFirst: async (args: { where?: { id?: string } }) => {
         calls.categoryFindFirst.push(args);
-        return activeCategory;
+        if (args.where?.id === activeSubcategory.id) {
+          return activeSubcategory;
+        }
+
+        if (args.where?.id === activeCategory.id) {
+          return activeCategory;
+        }
+
+        return null;
       }
     },
     product: {
@@ -338,8 +361,8 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
   const service = new ProductsService(prisma);
 
   const result = await service.listPublicProducts({
-    brand: "acme-surgical",
-    category: "surgical-instruments",
+    brand: "abbott",
+    category: "dental",
     disposable: false,
     expirySensitive: false,
     inStock: true,
@@ -350,7 +373,10 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
     page: 2,
     search: "forceps",
     sort: "price_low_to_high",
-    sterile: true
+    sterile: true,
+    subcategory: "endodontics"
+  } as Parameters<ProductsService["listPublicProducts"]>[0] & {
+    subcategory: string;
   });
 
   assert.equal(result.pagination.page, 2);
@@ -359,11 +385,17 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
   assert.equal(result.items[0]?.slug, "curved-artery-forceps");
   assert.equal(result.items[0]?.inStock, true);
   assert.equal(result.items[0]?.sellingPrice, 120);
+  assert.equal(
+    (result.items[0] as { subcategory?: { slug: string } } | undefined)?.subcategory
+      ?.slug,
+    "endodontics"
+  );
 
   assert.deepEqual(prisma.calls.productFindMany[0], {
     include: {
       brand: true,
       category: true,
+      subcategory: true,
       documents: {
         orderBy: [{ type: "asc" }, { title: "asc" }]
       },
@@ -407,15 +439,23 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
               { slug: { contains: "forceps", mode: "insensitive" } }
             ]
           }
+        },
+        {
+          subcategory: {
+            OR: [
+              { name: { contains: "forceps", mode: "insensitive" } },
+              { slug: { contains: "forceps", mode: "insensitive" } }
+            ]
+          }
         }
       ],
       brand: {
         deletedAt: null,
-        OR: [{ id: "acme-surgical" }, { slug: "acme-surgical" }]
+          OR: [{ id: "abbott" }, { slug: "abbott" }]
       },
       category: {
         deletedAt: null,
-        OR: [{ id: "surgical-instruments" }, { slug: "surgical-instruments" }]
+          OR: [{ id: "dental" }, { slug: "dental" }]
       },
       deletedAt: null,
       disposable: false,
@@ -438,7 +478,11 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
       status: {
         in: ["ACTIVE", "OUT_OF_STOCK"]
       },
-      sterile: true
+      sterile: true,
+      subcategory: {
+        deletedAt: null,
+        OR: [{ id: "endodontics" }, { slug: "endodontics" }]
+      }
     }
   });
   assert.deepEqual(prisma.calls.productCount[0], {
@@ -462,6 +506,7 @@ test("getPublicProductBySlug accepts public product ids from detail links", asyn
     include: {
       brand: true,
       category: true,
+      subcategory: true,
       documents: {
         orderBy: [{ type: "asc" }, { title: "asc" }]
       },
@@ -515,7 +560,8 @@ test("createProduct validates brand and category and persists nested catalogue d
       basePrice: 100,
       brandId: activeBrand.id,
       categoryId: activeCategory.id,
-      description: "Reusable artery forceps for operating rooms.",
+      description:
+        '<h2>Clinical use</h2><p><strong>Reusable</strong> artery forceps.</p><script>alert("xss")</script>',
       disposable: false,
       documents: [
         {
@@ -544,6 +590,7 @@ test("createProduct validates brand and category and persists nested catalogue d
       slug: "curved-artery-forceps",
       status: "ACTIVE",
       sterile: true,
+      subcategoryId: activeSubcategory.id,
       taxRate: 18,
       unit: "piece",
       variants: [
@@ -558,6 +605,8 @@ test("createProduct validates brand and category and persists nested catalogue d
           status: "ACTIVE"
         }
       ]
+    } as Parameters<ProductsService["createProduct"]>[0] & {
+      subcategoryId: string;
     },
     adminContext
   );
@@ -565,13 +614,49 @@ test("createProduct validates brand and category and persists nested catalogue d
   assert.deepEqual(prisma.calls.brandFindFirst[0], {
     where: {
       deletedAt: null,
-      id: activeBrand.id
+      id: activeBrand.id,
+      slug: {
+        in: [
+          "mb-plus",
+          "abbott",
+          "contec",
+          "volk",
+          "orikam",
+          "healthium",
+          "gc",
+          "j-mitra"
+        ]
+      }
     }
   });
   assert.deepEqual(prisma.calls.categoryFindFirst[0], {
     where: {
       deletedAt: null,
-      id: activeCategory.id
+      id: activeCategory.id,
+      parentId: null,
+      slug: {
+        in: [
+          "dental",
+          "diagnostics",
+          "consumables",
+          "equipment",
+          "orthopedics",
+          "ophthalmology",
+          "nephrology",
+          "pharma",
+          "cardiology",
+          "physiotherapy",
+          "vaccines",
+          "ivf-gynae"
+        ]
+      }
+    }
+  });
+  assert.deepEqual(prisma.calls.categoryFindFirst[1], {
+    where: {
+      deletedAt: null,
+      id: activeSubcategory.id,
+      parentId: activeCategory.id
     }
   });
   assert.deepEqual(prisma.calls.productCreate[0], {
@@ -579,7 +664,8 @@ test("createProduct validates brand and category and persists nested catalogue d
       basePrice: 100,
       brandId: activeBrand.id,
       categoryId: activeCategory.id,
-      description: "Reusable artery forceps for operating rooms.",
+      description:
+        "<h2>Clinical use</h2><p><strong>Reusable</strong> artery forceps.</p>",
       disposable: false,
       documents: {
         create: [
@@ -616,6 +702,7 @@ test("createProduct validates brand and category and persists nested catalogue d
       slug: "curved-artery-forceps",
       status: "ACTIVE",
       sterile: true,
+      subcategoryId: activeSubcategory.id,
       taxRate: 18,
       unit: "piece",
       variants: {
@@ -636,6 +723,7 @@ test("createProduct validates brand and category and persists nested catalogue d
     include: {
       brand: true,
       category: true,
+      subcategory: true,
       documents: {
         orderBy: [{ type: "asc" }, { title: "asc" }]
       },
@@ -716,6 +804,7 @@ test("updateProduct replaces only nested collections that are provided", async (
     include: {
       brand: true,
       category: true,
+      subcategory: true,
       documents: {
         orderBy: [{ type: "asc" }, { title: "asc" }]
       },

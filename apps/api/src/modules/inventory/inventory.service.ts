@@ -6,7 +6,12 @@ import {
   Optional
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma, StockMovementType, WarehouseStatus } from "../../generated/prisma/client";
+import {
+  Prisma,
+  ProductStatus,
+  StockMovementType,
+  WarehouseStatus
+} from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
 import type {
   SendLowStockAlertJobData,
@@ -77,7 +82,11 @@ export class InventoryService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       await this.assertActiveWarehouse(tx, input.warehouseId);
-      await this.assertProductAndVariant(tx, input.productId, input.variantId ?? null);
+      const product = await this.assertProductAndVariant(
+        tx,
+        input.productId,
+        input.variantId ?? null
+      );
       const beforeStock = await this.findInventoryStock(tx, {
         productId: input.productId,
         variantId: input.variantId ?? null,
@@ -124,6 +133,8 @@ export class InventoryService {
               warehouseId: input.warehouseId
             }
           });
+
+      await this.publishProductWhenStocked(tx, product, updatedStock);
 
       await tx.stockMovement.create({
         data: {
@@ -675,7 +686,7 @@ export class InventoryService {
     }
 
     if (variantId === null) {
-      return;
+      return product;
     }
 
     const variant = await tx.productVariant.findFirst({
@@ -689,6 +700,31 @@ export class InventoryService {
     if (!variant) {
       throw new NotFoundException("Product variant was not found.");
     }
+
+    return product;
+  }
+
+  private async publishProductWhenStocked(
+    tx: Prisma.TransactionClient,
+    product: { id: string; status: ProductStatus },
+    stock: InventoryStockRecord
+  ) {
+    if (
+      stock.availableQuantity <= 0 ||
+      (product.status !== ProductStatus.DRAFT &&
+        product.status !== ProductStatus.OUT_OF_STOCK)
+    ) {
+      return;
+    }
+
+    await tx.product.update({
+      data: {
+        status: ProductStatus.ACTIVE
+      },
+      where: {
+        id: product.id
+      }
+    });
   }
 
   private findInventoryStock(

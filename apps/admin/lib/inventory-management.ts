@@ -1,6 +1,30 @@
 import { z } from "zod";
 import type { QueryParams } from "./admin-api";
 
+export const INVENTORY_OVERVIEW_PATH = "/inventory";
+export const INVENTORY_ACTIONS_PATH = "/inventory/actions";
+export const INVENTORY_MOVEMENTS_PATH = "/inventory/movements";
+
+export const INVENTORY_TABS = [
+  {
+    href: INVENTORY_OVERVIEW_PATH,
+    label: "Overview",
+    value: "overview"
+  },
+  {
+    href: INVENTORY_ACTIONS_PATH,
+    label: "Stock actions",
+    value: "actions"
+  },
+  {
+    href: INVENTORY_MOVEMENTS_PATH,
+    label: "Movements",
+    value: "movements"
+  }
+] as const;
+
+export type InventoryView = (typeof INVENTORY_TABS)[number]["value"];
+
 export const STOCK_MOVEMENT_TYPES = [
   "IN",
   "OUT",
@@ -309,7 +333,9 @@ export function buildTransferStockPayload(values: TransferStockFormValues) {
   };
 }
 
-export function isLowStock(stock: Pick<InventoryStock, "availableQuantity" | "lowStockThreshold">) {
+export function isLowStock(
+  stock: Pick<InventoryStock, "availableQuantity" | "lowStockThreshold">
+) {
   return stock.availableQuantity <= stock.lowStockThreshold;
 }
 

@@ -73,6 +73,8 @@ export const productSchema = z.object({
   slug: z.string(),
   status: productStatusSchema,
   sterile: z.boolean(),
+  subcategory: productCategorySchema.nullable(),
+  subcategoryId: z.string().nullable(),
   taxRate: z.number(),
   unit: z.string(),
   updatedAt: z.string(),

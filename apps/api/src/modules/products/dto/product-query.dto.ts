@@ -53,6 +53,15 @@ export class ProductListQueryDto {
   category?: string;
 
   @ApiPropertyOptional({
+    description: "Filter by subcategory id or subcategory slug.",
+    example: "endodontics"
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  subcategory?: string;
+
+  @ApiPropertyOptional({
     description: "Filter disposable products.",
     example: false
   })

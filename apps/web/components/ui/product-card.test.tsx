@@ -41,6 +41,12 @@ const product: Product = {
   slug: "surgipro-artery-forceps",
   status: "ACTIVE",
   sterile: true,
+  subcategory: {
+    id: "subcategory-1",
+    name: "Endodontics",
+    slug: "endodontics"
+  },
+  subcategoryId: "subcategory-1",
   taxRate: 12,
   unit: "box",
   updatedAt: "2026-05-26T00:00:00.000Z",

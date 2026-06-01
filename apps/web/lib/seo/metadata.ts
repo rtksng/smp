@@ -117,12 +117,13 @@ export function buildPrivateMetadata(input: BuildMetadataInput): Metadata {
 
 export function buildProductMetadata(product: ProductMetadataRecord): Metadata {
   const image = product.images.find((item) => item.isPrimary) ?? product.images[0];
+  const fallbackDescription = stripHtml(product.description);
 
   return buildMetadata({
     description:
-      product.metaDescription ??
-      product.shortDescription ??
-      trimMetaDescription(product.description),
+      product.metaDescription ||
+      product.shortDescription ||
+      trimMetaDescription(fallbackDescription),
     image: image?.url,
     imageAlt: image ? getProductImageAlt(product.name, image.altText) : undefined,
     path: `/products/${product.slug}`,
@@ -168,6 +169,21 @@ export function trimMetaDescription(description: string, maxLength = 160) {
   const safeText = lastSpace > 0 ? trimmed.slice(0, lastSpace) : trimmed;
 
   return `${safeText.trimEnd()}${suffix}`;
+}
+
+export function stripHtml(value: string) {
+  return value
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function getProductImageAlt(productName: string, imageAlt: string | null | undefined) {

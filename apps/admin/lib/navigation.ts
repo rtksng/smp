@@ -3,8 +3,14 @@ import {
   hasAnyPermission,
   type AdminPermission
 } from "./permissions";
+import {
+  INVENTORY_ACTIONS_PATH,
+  INVENTORY_MOVEMENTS_PATH,
+  INVENTORY_OVERVIEW_PATH
+} from "./inventory-management";
 
 export type AdminNavigationItem = {
+  children?: readonly AdminNavigationItem[];
   href: string;
   label: string;
   permissions?: readonly AdminPermission[];
@@ -31,8 +37,25 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
-    href: "/inventory",
+    href: INVENTORY_OVERVIEW_PATH,
     label: "Inventory",
+    children: [
+      {
+        href: INVENTORY_OVERVIEW_PATH,
+        label: "Overview",
+        permissions: [ADMIN_PERMISSION.InventoryRead]
+      },
+      {
+        href: INVENTORY_ACTIONS_PATH,
+        label: "Stock actions",
+        permissions: [ADMIN_PERMISSION.InventoryUpdate]
+      },
+      {
+        href: INVENTORY_MOVEMENTS_PATH,
+        label: "Movements",
+        permissions: [ADMIN_PERMISSION.InventoryRead]
+      }
+    ],
     permissions: [ADMIN_PERMISSION.InventoryRead]
   },
   {
@@ -48,6 +71,18 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
     href: "/warehouses",
     label: "Warehouses",
+    children: [
+      {
+        href: "/warehouses/staff",
+        label: "Warehouse staff",
+        permissions: [ADMIN_PERMISSION.WarehouseStaffManage]
+      },
+      {
+        href: "/warehouses/list",
+        label: "Warehouse list",
+        permissions: [ADMIN_PERMISSION.WarehouseRead]
+      }
+    ],
     permissions: [ADMIN_PERMISSION.WarehouseRead]
   },
   {
@@ -68,7 +103,12 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
 ];
 
 export function getVisibleNavigationItems(permissions: readonly string[] | undefined) {
-  return adminNavigationItems.filter((item) =>
-    hasAnyPermission(permissions, item.permissions)
-  );
+  return adminNavigationItems
+    .filter((item) => hasAnyPermission(permissions, item.permissions))
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) =>
+        hasAnyPermission(permissions, child.permissions)
+      )
+    }));
 }

@@ -17,7 +17,8 @@ export const productQuerySchema = z.object({
   sort: z
     .enum(["latest", "name_az", "price_high_to_low", "price_low_to_high"])
     .optional(),
-  sterile: z.boolean().optional()
+  sterile: z.boolean().optional(),
+  subcategory: z.string().trim().min(1).max(160).optional()
 });
 
 export type ProductQuery = z.infer<typeof productQuerySchema>;

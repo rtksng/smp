@@ -62,3 +62,51 @@ p {
   background: #c8eeea;
   color: #17211f;
 }
+
+.productDescriptionRichText h1,
+.productDescriptionRichText h2,
+.productDescriptionRichText h3,
+.productDescriptionRichText h4,
+.productDescriptionRichText h5,
+.productDescriptionRichText h6 {
+  color: #17211f;
+  font-weight: 900;
+  line-height: 1.25;
+  margin: 1rem 0 0.5rem;
+}
+
+.productDescriptionRichText h1 {
+  font-size: 1.75rem;
+}
+
+.productDescriptionRichText h2 {
+  font-size: 1.45rem;
+}
+
+.productDescriptionRichText h3 {
+  font-size: 1.2rem;
+}
+
+.productDescriptionRichText p {
+  margin: 0.75rem 0;
+}
+
+.productDescriptionRichText ol,
+.productDescriptionRichText ul {
+  margin: 0.75rem 0 0.75rem 1.25rem;
+  padding: 0;
+}
+
+.productDescriptionRichText ul {
+  list-style: disc;
+}
+
+.productDescriptionRichText ol {
+  list-style: decimal;
+}
+
+.productDescriptionRichText a {
+  color: #006d77;
+  font-weight: 800;
+  text-decoration: underline;
+}

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildProductEditPath,
   buildProductPayload,
   createEmptyProductFormValues,
+  getSubcategoriesForCategory,
   productFormSchema,
   productToFormValues,
+  type AdminCategory,
   type AdminProduct
 } from "./product-form";
 
@@ -40,11 +43,12 @@ function validFormValues() {
     slug: "curved-artery-forceps",
     status: "ACTIVE",
     sterile: true,
+    subcategoryId: "subcategory-1",
     taxRate: "18",
     unit: "piece",
     variants: [
       {
-        attributesText: "{\"size\":\"6 inch\",\"sterile\":true}",
+        attributesText: '{"size":"6 inch","sterile":true}',
         mrp: "175",
         name: "6 inch",
         sellingPrice: "140",
@@ -104,6 +108,7 @@ describe("product form helpers", () => {
       slug: "curved-artery-forceps",
       status: "ACTIVE",
       sterile: true,
+      subcategoryId: "subcategory-1",
       taxRate: 18,
       unit: "piece",
       variants: [
@@ -204,6 +209,12 @@ describe("product form helpers", () => {
       slug: "curved-artery-forceps",
       status: "ACTIVE",
       sterile: true,
+      subcategory: {
+        id: "subcategory-1",
+        name: "Endodontics",
+        slug: "endodontics"
+      },
+      subcategoryId: "subcategory-1",
       taxRate: 18,
       unit: "piece",
       updatedAt: "2026-05-25T10:00:00.000Z",
@@ -238,9 +249,10 @@ describe("product form helpers", () => {
       mrp: "300",
       searchTags: "forceps, artery",
       sellingPrice: "240",
+      subcategoryId: "subcategory-1",
       variants: [
         {
-          attributesText: "{\n  \"size\": \"6 inch\"\n}",
+          attributesText: '{\n  "size": "6 inch"\n}',
           mrp: "175",
           name: "6 inch",
           sellingPrice: "140",
@@ -249,5 +261,55 @@ describe("product form helpers", () => {
         }
       ]
     });
+  });
+
+  it("builds product edit routes for dedicated edit pages", () => {
+    expect(buildProductEditPath("product/1")).toBe("/products/product%2F1/edit");
+  });
+
+  it("returns subcategory options for the selected parent category", () => {
+    const categories: AdminCategory[] = [
+      {
+        children: [
+          {
+            children: [],
+            id: "endodontics",
+            isActive: true,
+            name: "Endodontics",
+            parentId: "dental",
+            slug: "endodontics",
+            sortOrder: 1
+          },
+          {
+            children: [],
+            id: "orthodontics",
+            isActive: true,
+            name: "Orthodontics",
+            parentId: "dental",
+            slug: "orthodontics",
+            sortOrder: 2
+          }
+        ],
+        id: "dental",
+        isActive: true,
+        name: "Dental",
+        parentId: null,
+        slug: "dental",
+        sortOrder: 1
+      },
+      {
+        children: [],
+        id: "vaccines",
+        isActive: true,
+        name: "Vaccines",
+        parentId: null,
+        slug: "vaccines",
+        sortOrder: 11
+      }
+    ];
+
+    expect(getSubcategoriesForCategory(categories, "dental").map((item) => item.slug))
+      .toEqual(["endodontics", "orthodontics"]);
+    expect(getSubcategoriesForCategory(categories, "vaccines")).toEqual([]);
   });
 });

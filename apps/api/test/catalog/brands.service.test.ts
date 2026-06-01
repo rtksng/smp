@@ -135,9 +135,15 @@ function createBrandPrismaMock(records: BrandFixture[]): BrandPrismaMock {
 test("listPublicBrands returns only active brands with logo support", async () => {
   const active = brandFixture({
     id: "brand-1",
-    logoUrl: "https://cdn.example.com/brands/acme.svg",
-    name: "Acme Surgical",
-    slug: "acme-surgical"
+    logoUrl: "https://cdn.example.com/brands/abbott.svg",
+    name: "Abbott",
+    slug: "abbott"
+  });
+  const nonFixed = brandFixture({
+    id: "brand-legacy",
+    isActive: true,
+    name: "Legacy Brand",
+    slug: "legacy-brand"
   });
   const inactive = brandFixture({
     id: "brand-2",
@@ -151,40 +157,58 @@ test("listPublicBrands returns only active brands with logo support", async () =
     name: "Deleted",
     slug: "deleted"
   });
-  const prisma = createBrandPrismaMock([deleted, inactive, active]);
+  const prisma = createBrandPrismaMock([deleted, inactive, nonFixed, active]);
   const service = new BrandsService(prisma);
 
   const brands = await service.listPublicBrands();
 
   assert.deepEqual(
     brands.map((brand) => brand.slug),
-    ["acme-surgical"]
+    ["abbott"]
   );
-  assert.equal(brands[0]?.logoUrl, "https://cdn.example.com/brands/acme.svg");
+  assert.equal(brands[0]?.logoUrl, "https://cdn.example.com/brands/abbott.svg");
   assert.deepEqual(prisma.calls.findMany[0], {
     orderBy: {
       name: "asc"
     },
     where: {
       deletedAt: null,
-      isActive: true
+      isActive: true,
+      slug: {
+        in: [
+          "mb-plus",
+          "abbott",
+          "contec",
+          "volk",
+          "orikam",
+          "healthium",
+          "gc",
+          "j-mitra"
+        ]
+      }
     }
   });
 });
 
-test("listAdminBrands returns active and inactive non-deleted brands", async () => {
+test("listAdminBrands returns active and inactive fixed brands", async () => {
   const prisma = createBrandPrismaMock([
     brandFixture({
       id: "brand-1",
       isActive: true,
-      name: "Acme Surgical",
-      slug: "acme-surgical"
+      name: "Abbott",
+      slug: "abbott"
     }),
     brandFixture({
       id: "brand-2",
       isActive: false,
-      name: "Archived Brand",
-      slug: "archived-brand"
+      name: "GC",
+      slug: "gc"
+    }),
+    brandFixture({
+      id: "brand-legacy",
+      isActive: true,
+      name: "Legacy Brand",
+      slug: "legacy-brand"
     }),
     brandFixture({
       deletedAt: now,
@@ -208,12 +232,12 @@ test("listAdminBrands returns active and inactive non-deleted brands", async () 
       {
         id: "brand-1",
         isActive: true,
-        name: "Acme Surgical"
+        name: "Abbott"
       },
       {
         id: "brand-2",
         isActive: false,
-        name: "Archived Brand"
+        name: "GC"
       }
     ]
   );
@@ -222,7 +246,19 @@ test("listAdminBrands returns active and inactive non-deleted brands", async () 
       name: "asc"
     },
     where: {
-      deletedAt: null
+      deletedAt: null,
+      slug: {
+        in: [
+          "mb-plus",
+          "abbott",
+          "contec",
+          "volk",
+          "orikam",
+          "healthium",
+          "gc",
+          "j-mitra"
+        ]
+      }
     }
   });
 });

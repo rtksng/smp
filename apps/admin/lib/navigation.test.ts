@@ -28,4 +28,40 @@ describe("admin navigation", () => {
 
     expect(labels).toEqual(["Dashboard", "Delivery", "Settings"]);
   });
+
+  it("shows warehouse subnavigation under warehouses for warehouse readers", () => {
+    const warehousesItem = getVisibleNavigationItems([
+      ADMIN_PERMISSION.WarehouseRead,
+      ADMIN_PERMISSION.WarehouseManage,
+      ADMIN_PERMISSION.WarehouseStaffManage
+    ]).find((item) => item.href === "/warehouses");
+
+    expect(warehousesItem?.children?.map((item) => item.label)).toEqual([
+      "Warehouse staff",
+      "Warehouse list"
+    ]);
+  });
+
+  it("shows inventory subnavigation under inventory for inventory readers", () => {
+    const inventoryItem = getVisibleNavigationItems([
+      ADMIN_PERMISSION.InventoryRead,
+      ADMIN_PERMISSION.InventoryUpdate
+    ]).find((item) => item.href === "/inventory");
+
+    expect(inventoryItem?.children?.map((item) => item.label)).toEqual([
+      "Overview",
+      "Stock actions",
+      "Movements"
+    ]);
+  });
+
+  it("keeps warehouse child tabs permission-aware", () => {
+    const warehousesItem = getVisibleNavigationItems([
+      ADMIN_PERMISSION.WarehouseRead
+    ]).find((item) => item.href === "/warehouses");
+
+    expect(warehousesItem?.children?.map((item) => item.label)).toEqual([
+      "Warehouse list"
+    ]);
+  });
 });

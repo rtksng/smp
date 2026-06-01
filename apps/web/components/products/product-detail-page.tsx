@@ -81,9 +81,15 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     queryFn: () =>
       getProducts({
         category: product?.category.slug,
+        subcategory: product?.subcategory?.slug,
         limit: 4
       }),
-    queryKey: ["related-products", "category", product?.category.slug]
+    queryKey: [
+      "related-products",
+      "category",
+      product?.category.slug,
+      product?.subcategory?.slug
+    ]
   });
   const selectedImage = useMemo(() => {
     if (!product) {
@@ -255,6 +261,14 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   <a className="rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]" href={`/categories/${product.category.slug}`}>
                     {product.category.name}
                   </a>
+                  {product.subcategory ? (
+                    <a
+                      className="rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]"
+                      href={`/categories/${product.category.slug}?subcategory=${product.subcategory.slug}`}
+                    >
+                      {product.subcategory.name}
+                    </a>
+                  ) : null}
                   <span className="rounded-full bg-[#eef3f1] px-3 py-1">
                     {product.inStock ? "In stock" : "Product out of stock"}
                   </span>
@@ -289,9 +303,10 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   <h2 className="text-lg font-extrabold text-[#17211f]">
                     Product summary
                   </h2>
-                  <p className="mt-3 whitespace-pre-line text-base leading-8 text-[#687773]">
-                    {product.description}
-                  </p>
+                  <div
+                    className="productDescriptionRichText mt-3 text-base leading-8 text-[#687773]"
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
                 </div>
               </section>
 

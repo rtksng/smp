@@ -80,7 +80,20 @@ This phase intentionally does not include a delivery partner web app, customer m
    pnpm --filter @surgical/api exec prisma migrate dev --schema ./prisma/schema.prisma
    ```
 
-7. Run development services:
+7. Seed default access control, the fixed product category tree, and fixed brands:
+
+   ```bash
+   pnpm --filter @surgical/api seed
+   ```
+
+   The catalog seed creates the fixed top-level categories and their
+   subcategories, including Dental, Diagnostics, Consumables, Equipment,
+   Orthopedics, Ophthalmology, Nephrology, Pharma, Cardiology, Physiotherapy,
+   Vaccines, and IVF/Gynae. Vaccines and Orthopedics currently have no
+   required subcategories. It also creates the fixed brands Mb+, Abbott,
+   Contec, Volk, Orikam, Healthium, GC, and J.Mitra.
+
+8. Run development services:
 
    ```bash
    pnpm dev
@@ -318,17 +331,24 @@ Admin panel routes:
 - `/categories`
 - `/brands`
 - `/inventory`
+- `/inventory/actions`
+- `/inventory/movements`
 - `/orders`
 - `/orders/[id]`
 - `/customers`
 - `/warehouses`
+- `/warehouses/create`
+- `/warehouses/list`
+- `/warehouses/staff`
 - `/delivery`
 - `/reports`
 - `/settings`
 
-The `/products` admin route is a full product management workspace. It uses the guarded admin product APIs to search by name or SKU, filter by category, brand, status, sterile, disposable, expiry-sensitive, and medical specialty, create and edit products with React Hook Form and Zod validation, upload product images and product documents through the admin upload endpoints, manage variants, activate or deactivate products, and soft delete products behind confirmation dialogs.
+The `/products` admin route is a full product management workspace. It uses the guarded admin product APIs to search by name or SKU, filter by fixed category, subcategory, brand, status, sterile, disposable, expiry-sensitive, and medical specialty, create and edit products with React Hook Form and Zod validation, upload product images and product documents through the admin upload endpoints, manage variants, activate or deactivate products, and soft delete products behind confirmation dialogs. Product create/edit uses separate category and subcategory selectors, with subcategory options loaded from the selected parent category, and the product description field is a Lexical-backed rich text editor for headings, emphasis, lists, links, paragraph formatting, and alignment.
 
-The `/categories` and `/brands` admin routes use guarded admin catalog APIs, including inactive records, for create/edit/upload/visibility/soft-delete workflows. Category images and brand logos are uploaded through the shared admin image upload endpoint with catalog-specific upload purposes.
+Customer catalog pages render the seeded category tree with subcategories under their parent categories. Product listing filters support `subcategory`, category pages expose subcategory navigation chips, and product detail pages render sanitized rich product descriptions from the API.
+
+The `/categories` and `/brands` admin routes use guarded admin catalog APIs, including inactive records, for create/edit/upload/visibility/soft-delete workflows. Category images and brand images are uploaded through the shared admin image upload endpoint with catalog-specific upload purposes.
 
 The `/customers` admin route uses `GET /api/v1/admin/customers` for support-facing account search. It filters by active state, searches customer name, mobile, email, business name, and GSTIN, and displays order/address counts from the backend list response.
 
@@ -336,9 +356,9 @@ The `/settings` admin route uses `settings.manage` to show role and permission c
 
 Warehouse and inventory admin screens are permission-aware in the UI, but backend guards remain authoritative. Warehouse CRUD requires warehouse permissions, inventory mutations require inventory permissions, and non-`SUPER_ADMIN` users are scoped to warehouses assigned through `WarehouseStaff`.
 
-The `/warehouses` admin route lists the warehouses visible to the signed-in admin, supports search/status/state filtering, opens warehouse detail records through the guarded detail API, and exposes create/edit/activate/deactivate flows only to admins with `warehouse.manage`. Deactivation is preferred over hard delete and is guarded by a confirmation dialog. Staff assignment and removal are shown only to admins with `warehouse.staff.manage`.
+The `/warehouses` admin route shows warehouse analytics with search/status/state filtering. The warehouse sidebar opens `/warehouses/list` for a filtered table with edit and deactivate actions, `/warehouses/staff` for filtered staff assignments, and button-driven `/warehouses/create` flows. Create actions from the analytics and list pages return to `/warehouses/list` after save, and list edits open the create/edit page before returning to the table. Warehouse create/edit/activate/deactivate actions require `warehouse.manage`; staff assignment and removal are shown only to admins with `warehouse.staff.manage`.
 
-The `/inventory` admin route uses the warehouse and inventory APIs for aggregate stock, low-stock stock, near-expiry batches, movement history, stock-in, signed adjustments, and stock transfers. Forms validate warehouse/product IDs, batch numbers, quantities, prices, expiry dates, and reasons before submit. Stock-changing actions require confirmation, stock rows show low-stock and near-expiry warnings, and batch views show batch number plus expiry date.
+The inventory admin route group is split into `/inventory` for aggregate stock, low-stock, and near-expiry overview tables, `/inventory/actions` for stock-in, signed adjustments, and warehouse transfers, and `/inventory/movements` for the movement audit trail. It uses the warehouse and inventory APIs, validates warehouse/product IDs, batch numbers, quantities, prices, expiry dates, and reasons before submit, and keeps stock-changing actions behind confirmation dialogs. Stock rows show low-stock and near-expiry warnings, and batch views show batch number plus expiry date.
 
 The `/orders` admin route uses the guarded admin order APIs for warehouse-scoped order search by order status, payment status, date range, customer mobile, order number, and warehouse. `/orders/[id]` shows customer info, delivery address, linked warehouse, order items, totals, payment attempts, invoice summary, and status timeline. Status updates, cancellation, and delivery assignment are permission-aware in the UI and still enforced by backend order, delivery, and warehouse-access guards; destructive or operational actions use confirmation dialogs.
 

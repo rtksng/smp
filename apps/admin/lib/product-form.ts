@@ -69,6 +69,12 @@ export type AdminProduct = {
   slug: string;
   status: ProductStatus;
   sterile: boolean;
+  subcategory: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  subcategoryId: string | null;
   taxRate: number;
   unit: string;
   updatedAt: Date | string;
@@ -94,6 +100,9 @@ export type ProductListResponse = {
     totalPages: number;
   };
 };
+
+export const PRODUCT_LIST_PATH = "/products";
+export const PRODUCT_CREATE_PATH = "/products/create";
 
 export type AdminBrand = {
   id: string;
@@ -133,14 +142,20 @@ const amountString = (label: string) =>
     .string()
     .trim()
     .min(1, `${label} is required.`)
-    .refine((value) => amountPattern.test(value), `Enter a valid ${label.toLowerCase()}.`);
+    .refine(
+      (value) => amountPattern.test(value),
+      `Enter a valid ${label.toLowerCase()}.`
+    );
 
 const optionalUrl = (label: string) =>
   z
     .string()
     .trim()
     .max(2048, `${label} is too long.`)
-    .refine((value) => value === "" || isHttpUrl(value), `${label} must be a valid URL.`);
+    .refine(
+      (value) => value === "" || isHttpUrl(value),
+      `${label} must be a valid URL.`
+    );
 
 export const productImageFormSchema = z
   .object({
@@ -149,7 +164,10 @@ export const productImageFormSchema = z
     sortOrder: z
       .string()
       .trim()
-      .refine((value) => value === "" || intPattern.test(value), "Sort order must be a whole number."),
+      .refine(
+        (value) => value === "" || intPattern.test(value),
+        "Sort order must be a whole number."
+      ),
     url: optionalUrl("Image URL")
   })
   .superRefine((value, context) => {
@@ -186,7 +204,8 @@ export const productVariantFormSchema = z
     if (!skuPattern.test(value.sku)) {
       context.addIssue({
         code: "custom",
-        message: "Variant SKU must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
+        message:
+          "Variant SKU must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
         path: ["sku"]
       });
     }
@@ -253,9 +272,11 @@ export const productFormSchema = z
     basePrice: amountString("Base price"),
     brandId: requiredText("Brand", 120),
     categoryId: requiredText("Category", 120),
-    description: requiredText("Description", 5000),
+    description: requiredText("Description", 20000),
     disposable: z.boolean(),
-    documents: z.array(productDocumentFormSchema).max(20, "Add no more than 20 documents."),
+    documents: z
+      .array(productDocumentFormSchema)
+      .max(20, "Add no more than 20 documents."),
     expirySensitive: z.boolean(),
     images: z.array(productImageFormSchema).max(20, "Add no more than 20 images."),
     material: optionalText("Material", 120),
@@ -278,6 +299,7 @@ export const productFormSchema = z
     ),
     status: z.enum(PRODUCT_STATUSES),
     sterile: z.boolean(),
+    subcategoryId: z.string().trim(),
     taxRate: amountString("Tax rate"),
     unit: requiredText("Unit", 40),
     variants: z.array(productVariantFormSchema).max(50, "Add no more than 50 variants.")
@@ -372,6 +394,7 @@ export type ProductPayload = {
   slug: string;
   status: ProductStatus;
   sterile: boolean;
+  subcategoryId: string | null;
   taxRate: number;
   unit: string;
   variants: Array<{
@@ -408,6 +431,7 @@ export function createEmptyProductFormValues(): ProductFormValues {
     slug: "",
     status: "DRAFT",
     sterile: false,
+    subcategoryId: "",
     taxRate: "0",
     unit: "piece",
     variants: []
@@ -457,12 +481,14 @@ export function buildProductPayload(values: ProductFormValues): ProductPayload {
       type: document.type
     })),
     expirySensitive: values.expirySensitive,
-    images: values.images.filter((image) => image.url !== "").map((image) => ({
-      altText: blankToNull(image.altText),
-      isPrimary: image.isPrimary,
-      sortOrder: image.sortOrder === "" ? 0 : Number(image.sortOrder),
-      url: image.url
-    })),
+    images: values.images
+      .filter((image) => image.url !== "")
+      .map((image) => ({
+        altText: blankToNull(image.altText),
+        isPrimary: image.isPrimary,
+        sortOrder: image.sortOrder === "" ? 0 : Number(image.sortOrder),
+        url: image.url
+      })),
     material: blankToNull(values.material),
     medicalSpecialty: blankToNull(values.medicalSpecialty),
     metaDescription: blankToNull(values.metaDescription),
@@ -477,6 +503,7 @@ export function buildProductPayload(values: ProductFormValues): ProductPayload {
     slug: values.slug,
     status: values.status,
     sterile: values.sterile,
+    subcategoryId: blankToNull(values.subcategoryId),
     taxRate: Number(values.taxRate),
     unit: values.unit,
     variants: values.variants.filter(isVariantFilled).map((variant) => ({
@@ -524,6 +551,7 @@ export function productToFormValues(product: AdminProduct): ProductFormValues {
     slug: product.slug,
     status: product.status,
     sterile: product.sterile,
+    subcategoryId: product.subcategoryId ?? "",
     taxRate: numberToString(product.taxRate),
     unit: product.unit,
     variants: product.variants.map((variant) => ({
@@ -557,6 +585,26 @@ export function flattenCategories(categories: AdminCategory[]) {
   categories.forEach((category) => visit(category, 0));
 
   return flattened;
+}
+
+export function getSubcategoriesForCategory(
+  categories: AdminCategory[],
+  categoryId: string
+) {
+  const category = categories.find((item) => item.id === categoryId);
+
+  return category?.children.filter((child) => child.isActive) ?? [];
+}
+
+export function buildProductEditPath(productId: string) {
+  return `${PRODUCT_LIST_PATH}/${encodeURIComponent(productId)}/edit`;
+}
+
+export function getProductRouteId(value: string | string[] | null | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const productId = rawValue?.trim();
+
+  return productId ? productId : null;
 }
 
 function normalizeTags(value: string) {
@@ -611,15 +659,13 @@ function isVariantFilled(value: {
   );
 }
 
-function isDocumentFilled(value: {
-  fileKey: string;
-  fileUrl: string;
-  title: string;
-}) {
+function isDocumentFilled(value: { fileKey: string; fileUrl: string; title: string }) {
   return Boolean(value.fileKey || value.fileUrl || value.title);
 }
 
-function parseAttributesText(value: string):
+function parseAttributesText(
+  value: string
+):
   | { success: true; value: Record<string, unknown> }
   | { success: false; value?: undefined } {
   if (value === "") {

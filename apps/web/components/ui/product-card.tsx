@@ -125,6 +125,11 @@ export function ProductCard({ product }: ProductCardProps) {
           <span className="rounded-full bg-[#eef3f1] px-3 py-1">
             {product.taxRate}% GST
           </span>
+          {product.subcategory ? (
+            <span className="rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]">
+              {product.subcategory.name}
+            </span>
+          ) : null}
           {product.sterile ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]">
               <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />

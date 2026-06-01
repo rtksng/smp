@@ -44,6 +44,12 @@ describe("customer catalog schemas", () => {
       slug: "curved-artery-forceps",
       status: "ACTIVE",
       sterile: true,
+      subcategory: {
+        id: "subcategory-id",
+        name: "Endodontics",
+        slug: "endodontics"
+      },
+      subcategoryId: "subcategory-id",
       taxRate: 18,
       unit: "piece",
       updatedAt: "2026-05-25T10:00:00.000Z",

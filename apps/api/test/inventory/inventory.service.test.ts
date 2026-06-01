@@ -10,6 +10,7 @@ import type { WarehouseAccessService } from "../../src/modules/warehouses/wareho
 import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
+type InventoryProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 
 function adminAuth(role = AdminRoleCode.InventoryManager): AuthJwtPayload {
   return {
@@ -66,7 +67,9 @@ class FakeInventoryQueue {
   }
 }
 
-function createInventoryPrismaMock() {
+function createInventoryPrismaMock({
+  productStatus = "ACTIVE"
+}: { productStatus?: InventoryProductStatus } = {}) {
   const calls: Record<string, unknown[]> = {
     adminAuditLogCreate: [],
     inventoryStockCreate: [],
@@ -74,6 +77,7 @@ function createInventoryPrismaMock() {
     inventoryStockFindMany: [],
     inventoryStockUpdate: [],
     productFindFirst: [],
+    productUpdate: [],
     stockBatchCreate: [],
     stockBatchFindFirst: [],
     stockBatchFindMany: [],
@@ -145,7 +149,16 @@ function createInventoryPrismaMock() {
         calls.productFindFirst.push(args);
         return {
           deletedAt: null,
-          id: "product-1"
+          id: "product-1",
+          status: productStatus
+        };
+      },
+      update: async (args: unknown) => {
+        calls.productUpdate.push(args);
+        return {
+          deletedAt: null,
+          id: "product-1",
+          status: "ACTIVE"
         };
       }
     },
@@ -232,6 +245,38 @@ test("stockIn updates aggregate stock, batch quantity, movement audit, and admin
   assert.equal(prisma.calls.stockBatchUpdate.length, 1);
   assert.equal(prisma.calls.stockMovementCreate.length, 1);
   assert.equal(prisma.calls.adminAuditLogCreate.length, 1);
+});
+
+test("stockIn publishes draft products once saleable stock is received", async () => {
+  const prisma = createInventoryPrismaMock({ productStatus: "DRAFT" });
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await service.stockIn(
+    {
+      batchNumber: "BATCH-1",
+      expiryDate: "2026-07-01",
+      lowStockThreshold: 5,
+      mrp: 150,
+      productId: "product-1",
+      purchasePrice: 90,
+      quantity: 4,
+      sellingPrice: 120,
+      warehouseId: "warehouse-1"
+    },
+    actionContext()
+  );
+
+  assert.deepEqual(prisma.calls.productUpdate[0], {
+    data: {
+      status: "ACTIVE"
+    },
+    where: {
+      id: "product-1"
+    }
+  });
 });
 
 test("adjustStock rejects negative aggregate stock", async () => {

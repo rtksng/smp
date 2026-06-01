@@ -117,6 +117,23 @@ describe("web SEO metadata helpers", () => {
     ]);
   });
 
+  it("strips rich text markup when product metadata falls back to description", () => {
+    const metadata = buildProductMetadata({
+      description:
+        "<h2>Clinical use</h2><p><strong>Reusable</strong> forceps for operating rooms.</p>",
+      images: [],
+      metaDescription: null,
+      metaTitle: null,
+      name: "Curved Artery Forceps",
+      shortDescription: "",
+      slug: "curved-artery-forceps"
+    });
+
+    expect(metadata.description).toBe(
+      "Clinical use Reusable forceps for operating rooms."
+    );
+  });
+
   it("generates category and brand metadata from public catalog records", () => {
     expect(
       buildCategoryMetadata({

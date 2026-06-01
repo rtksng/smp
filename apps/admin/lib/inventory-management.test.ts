@@ -5,6 +5,10 @@ import {
   buildInventoryRequest,
   buildStockInPayload,
   buildTransferStockPayload,
+  INVENTORY_ACTIONS_PATH,
+  INVENTORY_MOVEMENTS_PATH,
+  INVENTORY_OVERVIEW_PATH,
+  INVENTORY_TABS,
   isLowStock,
   isNearExpiry,
   stockInFormSchema,
@@ -115,11 +119,26 @@ describe("inventory management helpers", () => {
     });
   });
 
+  it("defines inventory route tabs for overview, stock actions, and movements", () => {
+    expect(INVENTORY_OVERVIEW_PATH).toBe("/inventory");
+    expect(INVENTORY_ACTIONS_PATH).toBe("/inventory/actions");
+    expect(INVENTORY_MOVEMENTS_PATH).toBe("/inventory/movements");
+    expect(INVENTORY_TABS.map((tab) => tab.label)).toEqual([
+      "Overview",
+      "Stock actions",
+      "Movements"
+    ]);
+  });
+
   it("builds stock warning flags from thresholds and expiry dates", () => {
     expect(isLowStock({ availableQuantity: 4, lowStockThreshold: 5 })).toBe(true);
     expect(isLowStock({ availableQuantity: 6, lowStockThreshold: 5 })).toBe(false);
-    expect(isNearExpiry("2026-06-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"))).toBe(true);
-    expect(isNearExpiry("2026-08-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"))).toBe(false);
+    expect(
+      isNearExpiry("2026-06-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"))
+    ).toBe(true);
+    expect(
+      isNearExpiry("2026-08-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"))
+    ).toBe(false);
   });
 
   it("normalizes adjustment and transfer payloads", () => {

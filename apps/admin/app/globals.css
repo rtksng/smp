@@ -1,6 +1,34 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #233d4d;
+  --color-secondary-foreground: #ffffff;
+  --color-warning: var(--warning);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--muted);
+  --color-accent: #d8f3dc;
+  --color-accent-foreground: #12342d;
+  --color-destructive: #9b2226;
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+}
+
 :root {
+  --admin-sidebar-width: 280px;
   --background: #eef3f1;
   --sidebar: #16231f;
   --surface: #ffffff;
@@ -20,7 +48,7 @@ body {
   background: var(--background);
   color: var(--text);
   font-family:
-    Inter,
+    var(--font-admin),
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -28,6 +56,7 @@ body {
     "Segoe UI",
     sans-serif;
   margin: 0;
+  overflow-x: hidden;
 }
 
 a {
@@ -47,22 +76,34 @@ button {
 }
 
 .shell {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
+  width: 100%;
 }
 
 .sidebar {
-  background: var(--sidebar);
+  background: linear-gradient(180deg, #172721 0%, var(--sidebar) 46%, #101a17 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 18px 0 42px rgba(15, 23, 42, 0.16);
   color: #ffffff;
-  padding: 28px;
+  display: grid;
+  gap: 24px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
+  left: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 28px 22px;
+  position: fixed;
+  top: 0;
+  width: var(--admin-sidebar-width);
+  z-index: 20;
 }
 
 .brandBlock {
   align-items: center;
   display: flex;
   gap: 12px;
-  margin-bottom: 34px;
+  margin-bottom: 0;
 }
 
 .brandMark {
@@ -90,41 +131,83 @@ button {
   margin-bottom: 0;
 }
 
+.sidebarNavScroller {
+  margin-right: -6px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebarNavScroller::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebarNavScroller::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+}
+
 .sidebar nav {
   display: grid;
   gap: 8px;
 }
 
+.sidebarNavGroup {
+  display: grid;
+  gap: 6px;
+}
+
 .sidebar a {
+  border: 1px solid transparent;
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.74);
+  display: block;
   font-size: 14px;
   font-weight: 750;
   padding: 12px;
   text-transform: capitalize;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
 .sidebar a:hover,
 .sidebar a[aria-current="page"] {
   background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
+.sidebarSubnav {
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  display: grid;
+  gap: 4px;
+  margin: 0 0 2px 12px;
+  padding-left: 10px;
+}
+
+.sidebarSubnav a {
+  font-size: 13px;
+  min-height: 34px;
+  padding: 9px 10px;
+}
+
 .workspace {
+  margin-left: var(--admin-sidebar-width);
+  min-height: 100vh;
+  min-width: 0;
+  overflow-x: hidden;
   padding: 32px;
 }
 
-.topbar,
 .panelHeader,
 .queueRow {
   align-items: center;
   display: flex;
   justify-content: space-between;
-}
-
-.topbar {
-  gap: 24px;
-  margin-bottom: 26px;
 }
 
 .eyebrow {
@@ -160,23 +243,68 @@ h2 {
   padding: 12px 14px;
 }
 
-.adminIdentity {
-  align-items: flex-end;
+.sidebarFooter {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: grid;
-  gap: 5px;
-  justify-items: end;
-  min-width: 220px;
+  gap: 14px;
+  padding: 14px;
 }
 
-.adminIdentity span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+.sidebarAdminIdentity {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-width: 0;
 }
 
-.adminIdentity strong {
+.sidebarAvatar {
+  align-items: center;
+  background: #d8f3dc;
+  border-radius: 8px;
+  color: #12342d;
+  display: inline-grid;
+  font-size: 13px;
+  font-weight: 900;
+  height: 42px;
+  letter-spacing: 0;
+  place-items: center;
+  width: 42px;
+}
+
+.sidebarAdminIdentity div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sidebarAdminIdentity strong {
+  color: #ffffff;
   font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.sidebarAdminIdentity span,
+.sidebarAdminIdentity small {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.ghostButton.sidebarLogoutButton {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  width: 100%;
+}
+
+.ghostButton.sidebarLogoutButton:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .ghostButton,
@@ -189,6 +317,37 @@ h2 {
   font-weight: 850;
   min-height: 40px;
   padding: 10px 14px;
+}
+
+.buttonLink {
+  text-align: center;
+}
+
+.inventorySubTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 18px;
+}
+
+.inventorySubTab {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 850;
+  min-height: 38px;
+  padding: 9px 14px;
+  text-decoration: none;
+}
+
+.inventorySubTab[aria-current="page"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
 }
 
 .ghostButton {
@@ -238,6 +397,7 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  min-width: 0;
 }
 
 .metric {
@@ -293,7 +453,7 @@ h2 {
   max-width: 720px;
 }
 
-.panelHeader span {
+.panelHeader > span {
   color: var(--muted);
   font-size: 14px;
   font-weight: 750;
@@ -453,6 +613,30 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.splitGrid,
+.threeColumnGrid,
+.productManagementGrid,
+.warehouseManagementGrid,
+.settingsManagementGrid,
+.deliveryManagementGrid,
+.reportChartsGrid,
+.orderDetailGrid,
+.orderActionsGrid {
+  min-width: 0;
+}
+
+.splitGrid > *,
+.threeColumnGrid > *,
+.productManagementGrid > *,
+.warehouseManagementGrid > *,
+.settingsManagementGrid > *,
+.deliveryManagementGrid > *,
+.reportChartsGrid > *,
+.orderDetailGrid > *,
+.orderActionsGrid > * {
+  min-width: 0;
+}
+
 .dataList {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -479,6 +663,10 @@ h2 {
 .listRow[data-active="true"] {
   background: #e7f3f2;
   border-left: 4px solid var(--primary);
+}
+
+.staticListRow {
+  cursor: default;
 }
 
 .listRow span,
@@ -513,6 +701,36 @@ h2 {
   border-radius: 8px;
   min-height: 42px;
   padding: 10px 12px;
+}
+
+.warehouseStaffPicker {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, auto);
+  margin-bottom: 16px;
+}
+
+.warehouseStaffPicker label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 750;
+  gap: 6px;
+}
+
+.warehouseStaffPicker select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.warehouseStaffPicker p {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  margin: 0 0 10px;
 }
 
 .emptyPanel {
@@ -563,9 +781,77 @@ h2 {
   overflow: auto;
 }
 
+.brandTableScroll {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.brandDataTable {
+  border-collapse: collapse;
+  min-width: 820px;
+  width: 100%;
+}
+
+.categoryDataTable {
+  min-width: 940px;
+}
+
+.productDataTable {
+  min-width: 1120px;
+}
+
+.brandDataTable th,
+.brandDataTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 13px 16px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.brandDataTable th {
+  background: #e8efed;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.brandDataTable td {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.brandDataTable tr:last-child td {
+  border-bottom: 0;
+}
+
+.brandDataTable td strong {
+  color: var(--text);
+  display: block;
+}
+
+.brandImagePreview {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  height: 44px;
+  object-fit: contain;
+  padding: 6px;
+  width: 96px;
+}
+
+.tableSubtext {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 .resourceTable {
   border: 1px solid var(--border);
   border-radius: 8px;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
 }
 
@@ -573,7 +859,7 @@ h2 {
 .resourceTableRow {
   display: grid;
   gap: 14px;
-  min-width: 720px;
+  min-width: min(720px, 100%);
   padding: 13px 16px;
 }
 
@@ -613,6 +899,11 @@ h2 {
   vertical-align: -2px;
 }
 
+.resourceTableRow[data-active="true"] {
+  background: #e7f3f2;
+  border-left: 4px solid var(--primary);
+}
+
 .productManagementGrid {
   align-items: start;
   display: grid;
@@ -644,57 +935,41 @@ h2 {
 .reportFilters {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
 .warehouseFilters {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) minmax(
-      160px,
-      0.7fr
-    ) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
 }
 
 .customerFilters {
-  grid-template-columns: minmax(280px, 1fr) minmax(160px, 0.45fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
 .settingsFilters {
-  grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.7fr) minmax(
-      160px,
-      0.6fr
-    ) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
 }
 
 .inventoryFilters {
-  grid-template-columns:
-    minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(220px, 1.1fr)
-    minmax(130px, 0.55fr) minmax(140px, 0.55fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
 }
 
 .ordersFilters {
-  grid-template-columns:
-    minmax(170px, 0.75fr) minmax(170px, 0.75fr) minmax(140px, 0.6fr)
-    minmax(140px, 0.6fr) minmax(170px, 0.75fr) minmax(190px, 0.9fr)
-    minmax(210px, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
 }
 
 .deliveryFilters {
-  grid-template-columns: minmax(220px, 0.7fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   margin-bottom: 18px;
 }
 
 .reportFilters {
   align-items: end;
-  grid-template-columns:
-    minmax(150px, 0.65fr) minmax(150px, 0.65fr) minmax(240px, 1fr)
-    minmax(140px, 0.55fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
 }
 
 .deliveryAssignmentFilters {
-  grid-template-columns: minmax(190px, 0.75fr) minmax(220px, 0.95fr) minmax(
-      240px,
-      1fr
-    ) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
 }
 
 .productFilters label,
@@ -711,6 +986,7 @@ h2 {
   font-size: 13px;
   font-weight: 850;
   gap: 8px;
+  min-width: 0;
 }
 
 .productFilters input,
@@ -736,6 +1012,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
+  min-width: 0;
   min-height: 42px;
   padding: 10px 12px;
   width: 100%;
@@ -744,6 +1021,149 @@ h2 {
 .productForm textarea {
   min-height: 94px;
   resize: vertical;
+}
+
+.richTextField {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 850;
+  gap: 8px;
+  min-width: 0;
+}
+
+.richTextFieldLabel {
+  display: inline-flex;
+}
+
+.lexicalEditorFrame {
+  background: #fbfdfc;
+  border: 1px solid #bfd0ca;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 0 rgba(15, 23, 42, 0.04),
+    0 12px 28px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.lexicalEditorFrame:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.richTextToolbar {
+  align-items: center;
+  background: #f7faf9;
+  border-bottom: 1px solid #d9e4e0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px;
+}
+
+.richTextToolbar select {
+  min-height: 38px;
+  width: auto;
+}
+
+.richTextButton {
+  align-self: auto;
+  background: #ffffff;
+  min-height: 38px;
+  min-width: 38px;
+  padding: 9px;
+}
+
+.richTextEditorShell {
+  position: relative;
+}
+
+.richTextEditor {
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  min-height: 240px;
+  outline: none;
+  overflow-wrap: anywhere;
+  padding: 16px;
+}
+
+.richTextPlaceholder {
+  color: var(--muted);
+  left: 13px;
+  pointer-events: none;
+  position: absolute;
+  top: 13px;
+}
+
+.richTextEditor:focus {
+  box-shadow: none;
+}
+
+.richTextHeading,
+.richTextParagraph {
+  margin: 0 0 10px;
+}
+
+.richTextHeading1 {
+  font-size: 28px;
+  line-height: 1.25;
+}
+
+.richTextHeading2 {
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.richTextHeading3 {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.richTextHeading4 {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.richTextBold {
+  font-weight: 800;
+}
+
+.richTextItalic {
+  font-style: italic;
+}
+
+.richTextUnderline {
+  text-decoration: underline;
+}
+
+.richTextLink {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.richTextList {
+  margin: 0 0 10px 22px;
+  padding: 0;
+}
+
+.richTextNestedListItem {
+  list-style-type: none;
+}
+
+.richTextEditor h1,
+.richTextEditor h2,
+.richTextEditor h3,
+.richTextEditor h4,
+.richTextEditor p {
+  margin: 0 0 10px;
+}
+
+.richTextEditor ol,
+.richTextEditor ul {
+  margin: 0 0 10px 22px;
+  padding: 0;
 }
 
 .searchInput {
@@ -777,6 +1197,7 @@ h2 {
 
 .productFilterActions {
   align-self: end;
+  min-width: 0;
 }
 
 .paginationControls {
@@ -835,6 +1256,18 @@ h2 {
   grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.9fr) auto;
 }
 
+.warehouseTableRow {
+  grid-template-columns:
+    minmax(220px, 1.2fr) minmax(180px, 0.95fr) minmax(180px, 0.95fr)
+    minmax(120px, 0.55fr) minmax(250px, 1.15fr);
+  min-width: 960px;
+}
+
+.warehouseAnalyticsTableRow {
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(110px, 0.6fr));
+  min-width: min(620px, 100%);
+}
+
 .inventoryActionForm h3 {
   align-items: center;
   display: flex;
@@ -848,6 +1281,8 @@ h2 {
 .inventoryTable {
   border: 1px solid var(--border);
   border-radius: 8px;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
 }
 
@@ -902,6 +1337,8 @@ h2 {
 .productTable {
   border: 1px solid var(--border);
   border-radius: 8px;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
 }
 
@@ -1030,9 +1467,11 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .tableActions button,
+.tableActions a,
 .fileUploadButton {
   align-items: center;
   display: inline-flex;
@@ -1040,9 +1479,60 @@ h2 {
   justify-content: center;
 }
 
-.tableActions button {
+.tableActions button,
+.tableActions a {
   min-height: 36px;
   padding: 8px 10px;
+}
+
+.categoryChildSummary {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 220px;
+}
+
+.categoryChildSummary strong {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.categoryChildDialog {
+  max-height: min(720px, calc(100dvh - 48px));
+  max-width: 720px;
+  overflow: auto;
+  width: min(100%, 720px);
+}
+
+.categoryChildModalHeader,
+.categoryChildModalRow {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.categoryChildModalList {
+  display: grid;
+  gap: 10px;
+}
+
+.categoryChildModalRow {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.categoryChildModalActions {
+  flex-wrap: nowrap;
+}
+
+.categoryChildModalActions button,
+.categoryChildModalActions a {
+  min-height: 34px;
+  padding: 7px 10px;
 }
 
 .productForm {
@@ -1108,30 +1598,19 @@ h2 {
 .assetRow,
 .documentRow,
 .variantRow {
+  align-items: end;
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  min-width: 0;
   padding: 14px;
 }
 
-.assetRow {
-  grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) 110px 120px 130px 44px;
-}
-
-.documentRow {
-  grid-template-columns: minmax(150px, 1fr) 130px minmax(150px, 1fr) minmax(
-      180px,
-      1.4fr
-    ) 130px 44px;
-}
-
-.variantRow {
-  grid-template-columns: repeat(2, minmax(150px, 1fr)) repeat(
-      3,
-      minmax(110px, 0.75fr)
-    ) 1.3fr auto;
+.singleAssetRow {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .fileUploadButton {
@@ -1263,6 +1742,16 @@ h2 {
   grid-template-columns: repeat(5, minmax(120px, 1fr));
   min-width: 700px;
   padding: 13px 16px;
+}
+
+.dataTable,
+.ordersTable,
+.orderItemsTable,
+.deliveryPartnerTable,
+.deliveryAssignmentTable,
+.warehouseStockChart {
+  max-width: 100%;
+  min-width: 0;
 }
 
 .dataTableHeader {
@@ -1733,12 +2222,22 @@ h2 {
 }
 
 @media (max-width: 980px) {
-  .shell {
-    grid-template-columns: 1fr;
+  .sidebar {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 0;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    height: auto;
+    max-height: min(100dvh, 560px);
+    position: sticky;
+    width: 100%;
   }
 
-  .sidebar {
-    position: static;
+  .sidebarNavScroller {
+    max-height: 280px;
+  }
+
+  .workspace {
+    margin-left: 0;
   }
 
   .sidebar nav {
@@ -1767,6 +2266,22 @@ h2 {
   }
 }
 
+@media (max-width: 1280px) {
+  .productManagementGrid,
+  .warehouseManagementGrid,
+  .splitGrid,
+  .settingsManagementGrid,
+  .deliveryManagementGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .threeColumnGrid,
+  .metricGrid,
+  .reportMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .workspace,
   .sidebar {
@@ -1777,15 +2292,9 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .topbar,
   .panelHeader {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .adminIdentity {
-    align-items: flex-start;
-    justify-items: start;
   }
 
   h1 {
@@ -1800,9 +2309,11 @@ h2 {
   .roleGrid,
   .formGrid,
   .inlineForm,
+  .productFilters,
   .customerFilters,
   .settingsFilters,
   .warehouseFilters,
+  .warehouseStaffPicker,
   .inventoryFilters,
   .ordersFilters,
   .deliveryFilters,
@@ -1811,7 +2322,23 @@ h2 {
   .reportChartsGrid,
   .detailGrid,
   .orderActionsGrid,
-  .warehouseStaffRow {
+  .warehouseStaffRow,
+  .singleAssetRow,
+  .slugField,
+  .toggleGrid {
     grid-template-columns: 1fr;
+  }
+
+  .productFilterActions,
+  .actionRow,
+  .paginationControls {
+    justify-content: stretch;
+  }
+
+  .productFilterActions button,
+  .actionRow button,
+  .paginationControls button,
+  .fileUploadButton {
+    width: 100%;
   }
 }

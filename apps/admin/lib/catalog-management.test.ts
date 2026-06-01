@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   brandFormSchema,
   brandToFormValues,
+  buildBrandEditPath,
   buildBrandPayload,
+  buildCategoryEditPath,
   buildCategoryPayload,
   categoryFormSchema,
   categoryToFormValues,
   createEmptyBrandFormValues,
   createEmptyCategoryFormValues,
   flattenCategoryOptions,
+  filterRootCategories,
+  formatChildCategoryCount,
+  getRootCategoryOptions,
   slugifyCatalogName,
   type AdminBrand,
   type AdminCategory
@@ -106,14 +111,58 @@ describe("catalog management helpers", () => {
       slug: "acme-surgical"
     });
     expect(flattenCategoryOptions([category]).map((item) => item.depth)).toEqual([
-      0,
-      1
+      0, 1
     ]);
+  });
+
+  it("uses only root categories for parent dropdown options", () => {
+    const secondRoot: AdminCategory = {
+      children: [],
+      description: null,
+      id: "category-root-2",
+      imageUrl: null,
+      isActive: true,
+      name: "Diagnostics",
+      parentId: null,
+      slug: "diagnostics",
+      sortOrder: 2
+    };
+
+    expect(getRootCategoryOptions([category, secondRoot]).map((item) => item.id)).toEqual([
+      "category-root",
+      "category-root-2"
+    ]);
+    expect(
+      getRootCategoryOptions([category, secondRoot], "category-root").map(
+        (item) => item.id
+      )
+    ).toEqual(["category-root-2"]);
+  });
+
+  it("filters root category rows while allowing child category matches", () => {
+    expect(filterRootCategories([category], "forceps").map((item) => item.id)).toEqual([
+      "category-root"
+    ]);
+    expect(filterRootCategories([category], "missing")).toEqual([]);
+  });
+
+  it("formats child category counts for table summaries", () => {
+    expect(formatChildCategoryCount(0)).toBe("0 child categories");
+    expect(formatChildCategoryCount(1)).toBe("1 child category");
+    expect(formatChildCategoryCount(7)).toBe("7 child categories");
   });
 
   it("generates URL slugs compatible with backend catalog DTOs", () => {
     expect(slugifyCatalogName("  Surgical Forceps & Clamps  ")).toBe(
       "surgical-forceps-clamps"
     );
+  });
+
+  it("builds brand edit routes for dedicated edit pages", () => {
+    expect(buildBrandEditPath("brand/1")).toBe("/brands/brand%2F1/edit");
+  });
+
+  it("builds category edit routes for dedicated edit pages", () => {
+    expect(buildCategoryEditPath("category/1")).toBe("/categories/category%2F1/edit");
   });
 });

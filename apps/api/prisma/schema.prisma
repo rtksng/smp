@@ -268,20 +268,21 @@ model RolePermission {
 }
 
 model Category {
-  id          String     @id @default(uuid())
-  parentId    String?
-  name        String
-  slug        String     @unique
-  description String?
-  imageUrl    String?
-  sortOrder   Int        @default(0)
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  deletedAt   DateTime?
-  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryTree")
-  products    Product[]
+  id                  String     @id @default(uuid())
+  parentId            String?
+  name                String
+  slug                String     @unique
+  description         String?
+  imageUrl            String?
+  sortOrder           Int        @default(0)
+  isActive            Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
+  parent              Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children            Category[] @relation("CategoryTree")
+  products            Product[]  @relation("ProductCategory")
+  subcategoryProducts Product[]  @relation("ProductSubcategory")
 
   @@index([parentId])
   @@index([slug])
@@ -313,6 +314,7 @@ model Product {
   sku              String            @unique
   brandId          String
   categoryId       String
+  subcategoryId    String?
   shortDescription String
   description      String
   status           ProductStatus     @default(DRAFT)
@@ -335,7 +337,8 @@ model Product {
   deletedAt        DateTime?
   brand            Brand             @relation(fields: [brandId], references: [id])
   cartItems        CartItem[]
-  category         Category          @relation(fields: [categoryId], references: [id])
+  category         Category          @relation("ProductCategory", fields: [categoryId], references: [id])
+  subcategory      Category?         @relation("ProductSubcategory", fields: [subcategoryId], references: [id])
   documents        ProductDocument[]
   images           ProductImage[]
   inventoryStocks  InventoryStock[]
@@ -350,6 +353,7 @@ model Product {
   @@index([name])
   @@index([brandId])
   @@index([categoryId])
+  @@index([subcategoryId])
   @@index([status])
   @@index([sellingPrice])
   @@index([expirySensitive])
@@ -362,6 +366,7 @@ model Product {
   @@index([status, deletedAt, sellingPrice])
   @@index([brandId, status, deletedAt])
   @@index([categoryId, status, deletedAt])
+  @@index([subcategoryId, status, deletedAt])
   @@index([deletedAt])
 }
 

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { Outfit } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "./providers";
 import "./globals.css";
+
+const outfit = Outfit({
+  display: "swap",
+  subsets: ["latin"],
+  variable: "--font-admin"
+});
 
 export const metadata: Metadata = {
   title: "Surgical Platform Admin",
@@ -11,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={outfit.variable}>
         <Providers>{children}</Providers>
       </body>
     </html>

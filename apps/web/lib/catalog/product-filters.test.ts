@@ -21,7 +21,8 @@ describe("product browsing filters", () => {
         q: " forceps ",
         sort: "price_low_to_high",
         sterile: "true",
-        stock: "in_stock"
+        stock: "in_stock",
+        subcategory: "endodontics"
       })
     );
 
@@ -38,7 +39,8 @@ describe("product browsing filters", () => {
       search: "forceps",
       sort: "price_low_to_high",
       sterile: true,
-      stock: "in_stock"
+      stock: "in_stock",
+      subcategory: "endodontics"
     });
   });
 
@@ -53,7 +55,8 @@ describe("product browsing filters", () => {
       search: "scalpel",
       sort: "name_az",
       sterile: true,
-      stock: "out_of_stock"
+      stock: "out_of_stock",
+      subcategory: "endodontics"
     });
 
     expect(query).toEqual({
@@ -65,7 +68,8 @@ describe("product browsing filters", () => {
       page: 2,
       search: "scalpel",
       sort: "name_az",
-      sterile: true
+      sterile: true,
+      subcategory: "endodontics"
     });
   });
 
@@ -79,11 +83,12 @@ describe("product browsing filters", () => {
       page: 1,
       search: "forceps",
       sort: "latest",
-      stock: "in_stock"
+      stock: "in_stock",
+      subcategory: "endodontics"
     });
 
     expect(params.toString()).toBe(
-      "q=forceps&category=surgical-instruments&brand=acme-surgical&minPrice=1000&maxPrice=5000&stock=in_stock&medicalSpecialty=General+Surgery"
+      "q=forceps&category=surgical-instruments&subcategory=endodontics&brand=acme-surgical&minPrice=1000&maxPrice=5000&stock=in_stock&medicalSpecialty=General+Surgery"
     );
   });
 });

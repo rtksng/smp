@@ -188,6 +188,14 @@ export function ProductListingPage({
                 title="Unable to load brand"
               />
             ) : null}
+            {context.type === "category" && categoryQuery.data ? (
+              <SubcategoryNav
+                category={categoryQuery.data}
+                filters={filters}
+                lockedFilters={lockedFilters}
+                pathname={pathname}
+              />
+            ) : null}
           </Container>
         </section>
 
@@ -343,6 +351,11 @@ function FiltersForm({
   pathname: string;
   showTitle?: boolean;
 }) {
+  const subcategoryGroups = getSubcategoryGroups(
+    categories,
+    lockedFilters.category ?? filters.category
+  );
+
   return (
     <form
       className={className}
@@ -390,6 +403,26 @@ function FiltersForm({
           </select>
         </Field>
       )}
+
+      <Field label="Subcategory">
+        <select
+          className={inputClassName}
+          defaultValue={filters.subcategory ?? ""}
+          disabled={subcategoryGroups.length === 0}
+          name="subcategory"
+        >
+          <option value="">All subcategories</option>
+          {subcategoryGroups.map((group) => (
+            <optgroup key={group.category.slug} label={group.category.name}>
+              {group.subcategories.map((subcategory) => (
+                <option key={subcategory.id} value={subcategory.slug}>
+                  {subcategory.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </Field>
 
       {lockedFilters.brand ? (
         <LockedField label="Brand" value={brandName ?? lockedFilters.brand} />
@@ -510,6 +543,62 @@ function ClearFiltersLink({ pathname }: { pathname: string }) {
   );
 }
 
+function SubcategoryNav({
+  category,
+  filters,
+  lockedFilters,
+  pathname
+}: {
+  category: Category;
+  filters: ProductFilters;
+  lockedFilters: { brand?: string; category?: string };
+  pathname: string;
+}) {
+  if (category.children.length === 0) {
+    return null;
+  }
+
+  return (
+    <nav className="mt-6" aria-label={`${category.name} subcategories`}>
+      <div className="flex flex-wrap gap-2">
+        <a
+          className={[
+            "rounded-full border px-3 py-2 text-sm font-extrabold transition",
+            filters.subcategory
+              ? "border-[#d8e2df] bg-white text-[#31413d]"
+              : "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
+          ].join(" ")}
+          href={productFiltersToHref(
+            pathname,
+            { ...filters, page: 1, subcategory: undefined },
+            lockedFilters
+          )}
+        >
+          All {category.name}
+        </a>
+        {category.children.map((subcategory) => (
+          <a
+            className={[
+              "rounded-full border px-3 py-2 text-sm font-extrabold transition",
+              filters.subcategory === subcategory.slug
+                ? "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
+                : "border-[#d8e2df] bg-white text-[#31413d]"
+            ].join(" ")}
+            href={productFiltersToHref(
+              pathname,
+              { ...filters, page: 1, subcategory: subcategory.slug },
+              lockedFilters
+            )}
+            key={subcategory.id}
+          >
+            {subcategory.name}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function Field({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <label className="grid gap-2 text-sm font-extrabold text-[#31413d]">
@@ -613,7 +702,8 @@ function filtersFromForm(
     search: readFormString(formData, "q"),
     sort: readFormSort(formData) ?? currentFilters.sort,
     sterile: readFormBoolean(formData, "sterile"),
-    stock: readFormStock(formData)
+    stock: readFormStock(formData),
+    subcategory: readFormString(formData, "subcategory")
   };
 }
 
@@ -646,6 +736,23 @@ function readFormStock(formData: FormData) {
   const value = readFormString(formData, "stock");
 
   return value === "in_stock" || value === "out_of_stock" ? value : undefined;
+}
+
+function getSubcategoryGroups(
+  categories: Category[] | undefined,
+  categorySlug: string | undefined
+) {
+  const roots = categories ?? [];
+  const filteredRoots = categorySlug
+    ? roots.filter((category) => category.slug === categorySlug)
+    : roots;
+
+  return filteredRoots
+    .map((category) => ({
+      category,
+      subcategories: category.children
+    }))
+    .filter((group) => group.subcategories.length > 0);
 }
 
 function buildHeading(

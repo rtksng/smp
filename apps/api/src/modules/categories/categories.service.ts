@@ -8,6 +8,10 @@ import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
+import {
+  FIXED_ROOT_CATEGORY_SLUGS,
+  isFixedRootCategorySlug
+} from "./fixed-catalog-taxonomy";
 import type { CreateCategoryDto } from "./dto/create-category.dto";
 import type { UpdateCategoryDto } from "./dto/update-category.dto";
 
@@ -50,11 +54,25 @@ export class CategoriesService {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       where: {
         deletedAt: null,
-        isActive: true
+        isActive: true,
+        OR: [
+          {
+            slug: {
+              in: [...FIXED_ROOT_CATEGORY_SLUGS]
+            }
+          },
+          {
+            parent: {
+              slug: {
+                in: [...FIXED_ROOT_CATEGORY_SLUGS]
+              }
+            }
+          }
+        ]
       }
     });
 
-    return this.buildCategoryTree(categories).roots;
+    return this.getFixedCatalogRoots(categories);
   }
 
   async listAdminCategories() {
@@ -73,17 +91,55 @@ export class CategoriesService {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       where: {
         deletedAt: null,
-        isActive: true
+        isActive: true,
+        OR: [
+          {
+            slug: {
+              in: [...FIXED_ROOT_CATEGORY_SLUGS]
+            }
+          },
+          {
+            parent: {
+              slug: {
+                in: [...FIXED_ROOT_CATEGORY_SLUGS]
+              }
+            }
+          }
+        ]
       }
     });
-    const tree = this.buildCategoryTree(categories);
-    const category = [...tree.byId.values()].find((item) => item.slug === slug);
+    const category = this.findCategoryBySlug(this.getFixedCatalogRoots(categories), slug);
 
     if (!category) {
       throw new NotFoundException("Category was not found.");
     }
 
     return category;
+  }
+
+  private getFixedCatalogRoots(categories: CategoryRecord[]) {
+    return this.buildCategoryTree(categories).roots.filter((category) =>
+      isFixedRootCategorySlug(category.slug)
+    );
+  }
+
+  private findCategoryBySlug(
+    categories: CategoryResponse[],
+    slug: string
+  ): CategoryResponse | null {
+    for (const category of categories) {
+      if (category.slug === slug) {
+        return category;
+      }
+
+      const childMatch = this.findCategoryBySlug(category.children, slug);
+
+      if (childMatch) {
+        return childMatch;
+      }
+    }
+
+    return null;
   }
 
   async createCategory(input: CreateCategoryDto, context?: AdminActionContext) {

@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { QueryParams } from "./admin-api";
 
 export const WAREHOUSE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
+export const WAREHOUSE_CREATE_PATH = "/warehouses/create";
+export const WAREHOUSE_LIST_PATH = "/warehouses/list";
 
 export type WarehouseStatus = (typeof WAREHOUSE_STATUSES)[number];
 
@@ -47,6 +49,13 @@ export type WarehouseFilters = {
   search: string;
   state: string;
   status: "" | WarehouseStatus;
+};
+
+export type WarehouseFilterView = "analytics" | "create" | "list" | "staff";
+
+export type WarehouseFilterContent = {
+  searchPlaceholder: string;
+  submitLabel: string;
 };
 
 export type WarehousePayload = {
@@ -195,6 +204,69 @@ export function buildWarehouseQuery(filters: WarehouseFilters, page = 1): QueryP
   };
 }
 
+export function buildWarehouseCreatePath(returnToPath?: string | null) {
+  if (!returnToPath) {
+    return WAREHOUSE_CREATE_PATH;
+  }
+
+  const params = new URLSearchParams({ returnTo: returnToPath });
+
+  return `${WAREHOUSE_CREATE_PATH}?${params.toString()}`;
+}
+
+export function buildWarehouseEditPath(warehouseId: string) {
+  const params = new URLSearchParams({ edit: warehouseId });
+
+  return `${WAREHOUSE_CREATE_PATH}?${params.toString()}`;
+}
+
+export function getWarehouseEditId(
+  value: string | string[] | null | undefined
+) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const editId = rawValue?.trim();
+
+  return editId ? editId : null;
+}
+
+export function getWarehouseReturnToPath(
+  value: string | string[] | null | undefined
+) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const returnToPath = rawValue?.trim();
+
+  return returnToPath === WAREHOUSE_LIST_PATH ? WAREHOUSE_LIST_PATH : null;
+}
+
+export function shouldShowWarehouseFilters(
+  view: WarehouseFilterView
+) {
+  return view !== "create";
+}
+
+export function getWarehouseFilterContent(
+  view: WarehouseFilterView
+): WarehouseFilterContent {
+  if (view === "analytics") {
+    return {
+      searchPlaceholder: "Name, code, city",
+      submitLabel: "Apply analytics filters"
+    };
+  }
+
+  if (view === "staff") {
+    return {
+      searchPlaceholder: "Warehouse for staff assignment",
+      submitLabel: "Apply staff filters"
+    };
+  }
+
+  return {
+    searchPlaceholder: "Warehouse name, code, city",
+    submitLabel: "Apply table filters"
+  };
+}
+
 export function getWarehouseStatusAction(
   currentStatus: WarehouseStatus | null | undefined,
   nextStatus: WarehouseStatus
@@ -208,6 +280,15 @@ export function getWarehouseStatusAction(
 
 export function formatWarehouseStatus(status: WarehouseStatus) {
   return status === "ACTIVE" ? "Active" : "Inactive";
+}
+
+export function getWarehouseAnalytics(warehouses: AdminWarehouse[]) {
+  return {
+    active: warehouses.filter((warehouse) => warehouse.status === "ACTIVE").length,
+    inactive: warehouses.filter((warehouse) => warehouse.status === "INACTIVE").length,
+    states: new Set(warehouses.map((warehouse) => warehouse.state.trim()).filter(Boolean)).size,
+    visible: warehouses.length
+  };
 }
 
 function coordinateOrNull(value: number | string | null | undefined) {

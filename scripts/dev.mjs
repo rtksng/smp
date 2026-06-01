@@ -1,10 +1,10 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEFAULT_HEALTH_TIMEOUT_MS = 60_000;
+const DEFAULT_HEALTH_TIMEOUT_MS = 120_000;
 const HEALTH_POLL_INTERVAL_MS = 1_000;
 
 const corepack = "corepack";
@@ -18,17 +18,14 @@ export function createDevPlan(env = process.env) {
   );
 
   return {
-    backend: [
-      devProcess("api", "@surgical/api"),
-      devProcess("worker", "@surgical/worker")
-    ],
+    backendBeforeHealth: [devProcess("api", "@surgical/api")],
+    backendAfterHealth: [devProcess("worker", "@surgical/worker")],
     frontend: [
       devProcess("web", "@surgical/web"),
       devProcess("admin", "@surgical/admin")
     ],
     healthTimeoutMs,
-    healthUrl:
-      env.DEV_API_HEALTH_URL || `http://localhost:${apiPort}/api/v1/health`,
+    healthUrl: env.DEV_API_HEALTH_URL || `http://localhost:${apiPort}/api/v1/health`,
     setup: {
       args: [
         "pnpm",
@@ -49,32 +46,49 @@ async function main() {
   const plan = createDevPlan();
   const children = [];
 
-  const stopChildren = () => {
-    for (const child of children.toReversed()) {
-      if (!child.killed) {
-        child.kill();
-      }
-    }
-  };
-
   process.once("SIGINT", () => {
-    stopChildren();
+    stopDevChildren(children);
     process.exit(130);
   });
   process.once("SIGTERM", () => {
-    stopChildren();
+    stopDevChildren(children);
     process.exit(143);
   });
 
-  await runSetup(plan.setup);
+  try {
+    await runSetup(plan.setup);
 
-  const backendChildren = plan.backend.map((definition) =>
-    startLongRunning(definition, children)
-  );
-  await waitForApiHealth(plan.healthUrl, plan.healthTimeoutMs, backendChildren);
+    const backendChildren = plan.backendBeforeHealth.map((definition) =>
+      startLongRunning(definition, children)
+    );
+    await waitForApiHealth(plan.healthUrl, plan.healthTimeoutMs, backendChildren);
 
-  for (const definition of plan.frontend) {
-    startLongRunning(definition, children);
+    for (const definition of [...plan.backendAfterHealth, ...plan.frontend]) {
+      startLongRunning(definition, children);
+    }
+  } catch (error) {
+    stopDevChildren(children);
+    throw error;
+  }
+}
+
+export function stopDevChildren(children) {
+  for (const child of children.toReversed()) {
+    if (child.killed) {
+      continue;
+    }
+
+    if (process.platform === "win32" && child.pid) {
+      const result = spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore"
+      });
+
+      if (!result.error) {
+        continue;
+      }
+    }
+
+    child.kill();
   }
 }
 

@@ -31,11 +31,13 @@ export type ProductFilters = {
   sort: ProductSort;
   sterile?: boolean;
   stock?: ProductStockFilter;
+  subcategory?: string;
 };
 
 type ProductFilterOverrides = {
   brand?: string;
   category?: string;
+  subcategory?: string;
 };
 
 const DEFAULT_PAGE = 1;
@@ -62,7 +64,8 @@ export function parseProductFilters(
     search: readString(searchParams, "q"),
     sort: readSort(searchParams) ?? DEFAULT_SORT,
     sterile: readBoolean(searchParams, "sterile"),
-    stock: readStock(searchParams)
+    stock: readStock(searchParams),
+    subcategory: overrides.subcategory ?? readString(searchParams, "subcategory")
   });
 }
 
@@ -89,7 +92,8 @@ export function productFiltersToProductQuery(filters: ProductFilters): ProductQu
     page: filters.page,
     search: filters.search,
     sort: filters.sort,
-    sterile: filters.sterile === true ? true : undefined
+    sterile: filters.sterile === true ? true : undefined,
+    subcategory: filters.subcategory
   });
 }
 
@@ -101,6 +105,11 @@ export function productFiltersToSearchParams(
 
   appendString(params, "q", filters.search);
   appendString(params, "category", locked.category ? undefined : filters.category);
+  appendString(
+    params,
+    "subcategory",
+    locked.subcategory ? undefined : filters.subcategory
+  );
   appendString(params, "brand", locked.brand ? undefined : filters.brand);
   appendNumber(params, "minPrice", filters.minPrice);
   appendNumber(params, "maxPrice", filters.maxPrice);

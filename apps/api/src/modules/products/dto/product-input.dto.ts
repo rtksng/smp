@@ -210,7 +210,7 @@ export class ProductScalarInputDto extends ProductNestedInputDto {
     example: "Reusable artery forceps for operating rooms."
   })
   @IsString()
-  @MaxLength(5000)
+  @MaxLength(20000)
   description!: string;
 
   @ApiProperty({
@@ -323,6 +323,13 @@ export class ProductScalarInputDto extends ProductNestedInputDto {
   })
   @IsBoolean()
   sterile!: boolean;
+
+  @ApiPropertyOptional({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6"
+  })
+  @IsOptional()
+  @IsString()
+  subcategoryId?: string | null;
 
   @ApiProperty({
     example: 18,

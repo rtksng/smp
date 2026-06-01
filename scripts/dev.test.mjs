@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDevPlan } from "./dev.mjs";
+import { createDevPlan, stopDevChildren } from "./dev.mjs";
 
-test("createDevPlan starts API and worker before web and admin", () => {
+test("createDevPlan gates frontend startup on API health before worker startup", () => {
   const plan = createDevPlan({});
 
   assert.deepEqual(
-    plan.backend.map((process) => process.name),
-    ["api", "worker"]
+    plan.backendBeforeHealth.map((process) => process.name),
+    ["api"]
+  );
+  assert.deepEqual(
+    plan.backendAfterHealth.map((process) => process.name),
+    ["worker"]
   );
   assert.deepEqual(
     plan.frontend.map((process) => process.name),
@@ -25,3 +29,36 @@ test("createDevPlan waits for the configured API health URL before frontends", (
   assert.equal(plan.healthTimeoutMs, 15000);
 });
 
+test("createDevPlan uses a default API health timeout that allows cold watch compilation", () => {
+  const plan = createDevPlan({});
+
+  assert.equal(plan.healthTimeoutMs, 120000);
+});
+
+test("stopDevChildren kills live child processes in reverse startup order", () => {
+  const killed = [];
+  const children = [
+    {
+      killed: false,
+      kill() {
+        killed.push("api");
+      }
+    },
+    {
+      killed: true,
+      kill() {
+        killed.push("worker");
+      }
+    },
+    {
+      killed: false,
+      kill() {
+        killed.push("web");
+      }
+    }
+  ];
+
+  stopDevChildren(children);
+
+  assert.deepEqual(killed, ["web", "api"]);
+});

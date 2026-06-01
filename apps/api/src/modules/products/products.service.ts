@@ -7,6 +7,8 @@ import {
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, ProductStatus } from "../../generated/prisma/client";
+import { FIXED_CATALOG_BRAND_SLUGS } from "../brands/fixed-catalog-brands";
+import { FIXED_ROOT_CATEGORY_SLUGS } from "../categories/fixed-catalog-taxonomy";
 import type { CreateProductDto } from "./dto/create-product.dto";
 import type {
   ProductDocumentInputDto,
@@ -19,6 +21,7 @@ import type {
   ProductSortOption
 } from "./dto/product-query.dto";
 import { ProductSortOption as SortOption } from "./dto/product-query.dto";
+import { sanitizeProductDescriptionHtml } from "./product-description-html";
 import type { UpdateProductDto } from "./dto/update-product.dto";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 
@@ -30,6 +33,7 @@ const PUBLIC_PRODUCT_STATUSES = [
 const PRODUCT_INCLUDE = {
   brand: true,
   category: true,
+  subcategory: true,
   documents: {
     orderBy: [{ type: "asc" as const }, { title: "asc" as const }]
   },
@@ -56,6 +60,10 @@ type DecimalValue =
   | number
   | string
   | { toNumber?: () => number; toString: () => string };
+
+function hasOwn<T extends object>(value: T, key: keyof T) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
 
 @Injectable()
 export class ProductsService {
@@ -106,7 +114,7 @@ export class ProductsService {
 
   async createProduct(input: CreateProductDto, context?: AdminActionContext) {
     await this.assertBrandExists(input.brandId);
-    await this.assertCategoryExists(input.categoryId);
+    await this.assertCategorySelection(input.categoryId, input.subcategoryId ?? null);
     this.assertPriceFields(input);
     this.assertVariantPrices(input.variants ?? []);
 
@@ -117,7 +125,7 @@ export class ProductsService {
             basePrice: input.basePrice,
             brandId: input.brandId,
             categoryId: input.categoryId,
-            description: input.description,
+            description: sanitizeProductDescriptionHtml(input.description),
             disposable: input.disposable,
             documents: this.buildDocumentCreate(input.documents),
             expirySensitive: input.expirySensitive,
@@ -136,6 +144,7 @@ export class ProductsService {
             slug: input.slug,
             status: input.status,
             sterile: input.sterile,
+            subcategoryId: input.subcategoryId ?? null,
             taxRate: input.taxRate,
             unit: input.unit,
             variants: this.buildVariantCreate(input.variants)
@@ -170,8 +179,13 @@ export class ProductsService {
       await this.assertBrandExists(input.brandId);
     }
 
-    if (input.categoryId !== undefined) {
-      await this.assertCategoryExists(input.categoryId);
+    if (input.categoryId !== undefined || hasOwn(input, "subcategoryId")) {
+      await this.assertCategorySelection(
+        input.categoryId ?? existingProduct.categoryId,
+        hasOwn(input, "subcategoryId")
+          ? (input.subcategoryId ?? null)
+          : existingProduct.subcategoryId
+      );
     }
 
     this.assertPriceFields({
@@ -313,6 +327,13 @@ export class ProductsService {
       };
     }
 
+    if (query.subcategory !== undefined) {
+      where.subcategory = {
+        deletedAt: null,
+        OR: [{ id: query.subcategory }, { slug: query.subcategory }]
+      };
+    }
+
     if (query.disposable !== undefined) {
       where.disposable = query.disposable;
     }
@@ -376,6 +397,14 @@ export class ProductsService {
               { slug: { contains: search, mode: "insensitive" } }
             ]
           }
+        },
+        {
+          subcategory: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { slug: { contains: search, mode: "insensitive" } }
+            ]
+          }
         }
       ];
     }
@@ -407,7 +436,10 @@ export class ProductsService {
     const brand = await this.prisma.brand.findFirst({
       where: {
         deletedAt: null,
-        id: brandId
+        id: brandId,
+        slug: {
+          in: [...FIXED_CATALOG_BRAND_SLUGS]
+        }
       }
     });
 
@@ -416,16 +448,55 @@ export class ProductsService {
     }
   }
 
-  private async assertCategoryExists(categoryId: string) {
+  private async assertCategorySelection(
+    categoryId: string,
+    subcategoryId: string | null
+  ) {
     const category = await this.prisma.category.findFirst({
       where: {
         deletedAt: null,
-        id: categoryId
+        id: categoryId,
+        parentId: null,
+        slug: {
+          in: [...FIXED_ROOT_CATEGORY_SLUGS]
+        }
       }
     });
 
     if (!category) {
       throw new NotFoundException("Category was not found.");
+    }
+
+    if (subcategoryId) {
+      const subcategory = await this.prisma.category.findFirst({
+        where: {
+          deletedAt: null,
+          id: subcategoryId,
+          parentId: categoryId
+        }
+      });
+
+      if (!subcategory) {
+        throw new NotFoundException(
+          "Subcategory was not found for the selected category."
+        );
+      }
+
+      return;
+    }
+
+    const subcategoryCount = await this.prisma.category.count({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        parentId: categoryId
+      }
+    });
+
+    if (subcategoryCount > 0) {
+      throw new BadRequestException(
+        "Subcategory is required for the selected category."
+      );
     }
   }
 
@@ -457,7 +528,7 @@ export class ProductsService {
       data.categoryId = input.categoryId;
     }
     if (input.description !== undefined) {
-      data.description = input.description;
+      data.description = sanitizeProductDescriptionHtml(input.description);
     }
     if (input.disposable !== undefined) {
       data.disposable = input.disposable;
@@ -518,6 +589,9 @@ export class ProductsService {
     }
     if (input.sterile !== undefined) {
       data.sterile = input.sterile;
+    }
+    if (hasOwn(input, "subcategoryId")) {
+      data.subcategoryId = input.subcategoryId ?? null;
     }
     if (input.taxRate !== undefined) {
       data.taxRate = input.taxRate;
@@ -631,6 +705,14 @@ export class ProductsService {
         slug: product.category.slug
       },
       categoryId: product.categoryId,
+      subcategory: product.subcategory
+        ? {
+            id: product.subcategory.id,
+            name: product.subcategory.name,
+            slug: product.subcategory.slug
+          }
+        : null,
+      subcategoryId: product.subcategoryId,
       createdAt: product.createdAt,
       description: product.description,
       disposable: product.disposable,
