@@ -429,6 +429,7 @@ function WarehousesContent({
       {view === "analytics" ? (
         <Card className="panel">
           <PageHeader
+            level={2}
             actions={
               <>
                 <Button
@@ -487,6 +488,7 @@ function WarehousesContent({
       {view === "list" ? (
         <Card className="panel">
           <PageHeader
+            level={2}
             actions={
               canManage ? (
                 <Button asChild className="buttonLink iconTextButton">
@@ -547,6 +549,7 @@ function WarehousesContent({
           >
             <Card className="panel">
               <PageHeader
+                level={2}
                 actions={
                   editingWarehouseId ? (
                     <Button className="iconTextButton" onClick={startCreate} type="button" variant="outline">
@@ -599,6 +602,7 @@ function WarehousesContent({
         >
           <Card className="panel">
             <PageHeader
+              level={2}
               eyebrow="Warehouse staff"
               title={selectedWarehouse?.name ?? "Select a warehouse"}
             />
@@ -777,6 +781,7 @@ function WarehouseAnalytics({
 
       <Card className="panel">
         <PageHeader
+          level={2}
           actions={<span>{analytics.states} states</span>}
           eyebrow="Coverage"
           title="Warehouse footprint by state"

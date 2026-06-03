@@ -310,6 +310,7 @@ function CategoriesContent({
       <>
         <Card className="panel">
           <PageHeader
+            level={2}
             actions={
               <Button asChild className="iconTextButton" variant="outline">
                 <Link href={CATEGORY_LIST_PATH}>
@@ -388,6 +389,7 @@ function CategoriesContent({
     <>
       <Card className="panel">
         <PageHeader
+          level={2}
           actions={
             <>
               <Button
@@ -458,7 +460,7 @@ function CategoriesContent({
       </Card>
 
       <Card className="panel">
-        <PageHeader eyebrow="Category list" title="Managed categories" />
+        <PageHeader level={2} eyebrow="Category list" title="Managed categories" />
 
         {categoriesQuery.isLoading ? (
           <LoadingState label="Loading categories..." />

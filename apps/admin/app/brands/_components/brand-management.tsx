@@ -278,6 +278,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
       <>
         <Card className="panel">
           <PageHeader
+            level={2}
             actions={
               <Button asChild className="iconTextButton" variant="outline">
                 <Link href={BRAND_LIST_PATH}>
@@ -349,6 +350,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
     <>
       <Card className="panel">
         <PageHeader
+          level={2}
           actions={
             <>
               <Button
@@ -418,7 +420,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
       </Card>
 
       <Card className="panel">
-        <PageHeader eyebrow="Brand list" title="Managed brands" />
+        <PageHeader level={2} eyebrow="Brand list" title="Managed brands" />
 
         {brandsQuery.isLoading ? (
           <LoadingState label="Loading brands..." />

@@ -369,6 +369,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
     <>
       <Card className="panel">
         <PageHeader
+          level={2}
           actions={
             <Button
               className="iconTextButton"
@@ -421,6 +422,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
       {view === "overview" || view === "movements" ? (
         <Card className="panel">
           <PageHeader
+            level={2}
             eyebrow="Filters"
             title={isMovementsView ? "Find movements" : "Find stock"}
           />
@@ -459,6 +461,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
         >
           <Card className="panel">
             <PageHeader
+              level={2}
               eyebrow="Stock actions"
               title="Receive, adjust, and transfer stock"
             />
@@ -512,6 +515,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
         <>
           <Card className="panel">
             <PageHeader
+              level={2}
               eyebrow="Stock table"
               title={
                 inventoryRequest.type === "batch"
@@ -527,25 +531,27 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 {getErrorMessage(inventoryQuery.error) ?? "Unable to load inventory."}
               </p>
             ) : null}
-            {inventoryRequest.type === "batch" ? (
-              <BatchTable
-                batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
-                products={products}
-                warehouses={warehouses}
-              />
-            ) : (
-              <StockTable
-                lowStockKeys={lowStockKeys}
-                nearExpiryKeys={nearExpiryKeys}
-                products={products}
-                stocks={(inventoryQuery.data?.items ?? []) as InventoryStock[]}
-                warehouses={warehouses}
-              />
-            )}
+            {!inventoryQuery.isLoading && !inventoryQuery.isError ? (
+              inventoryRequest.type === "batch" ? (
+                <BatchTable
+                  batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
+                  products={products}
+                  warehouses={warehouses}
+                />
+              ) : (
+                <StockTable
+                  lowStockKeys={lowStockKeys}
+                  nearExpiryKeys={nearExpiryKeys}
+                  products={products}
+                  stocks={(inventoryQuery.data?.items ?? []) as InventoryStock[]}
+                  warehouses={warehouses}
+                />
+              )
+            ) : null}
           </Card>
 
           <Card className="panel">
-            <PageHeader eyebrow="Near expiry" title="Positive batches expiring soon" />
+            <PageHeader level={2} eyebrow="Near expiry" title="Positive batches expiring soon" />
             {nearExpiryQuery.isLoading ? (
               <LoadingState label="Loading near-expiry batches..." />
             ) : null}
@@ -555,18 +561,20 @@ function InventoryContent({ view }: { view: InventoryView }) {
                   "Unable to load near-expiry batches."}
               </p>
             ) : null}
-            <BatchTable
-              batches={nearExpiryItems}
-              products={products}
-              warehouses={warehouses}
-            />
+            {!nearExpiryQuery.isLoading && !nearExpiryQuery.isError ? (
+              <BatchTable
+                batches={nearExpiryItems}
+                products={products}
+                warehouses={warehouses}
+              />
+            ) : null}
           </Card>
         </>
       ) : null}
 
       {view === "movements" ? (
         <Card className="panel">
-          <PageHeader eyebrow="Movement history" title="Stock movement audit trail" />
+          <PageHeader level={2} eyebrow="Movement history" title="Stock movement audit trail" />
           {movementsQuery.isLoading ? (
             <LoadingState label="Loading movement history..." />
           ) : null}
@@ -576,11 +584,13 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 "Unable to load stock movements."}
             </p>
           ) : null}
-          <MovementTable
-            movements={movements}
-            products={products}
-            warehouses={warehouses}
-          />
+          {!movementsQuery.isLoading && !movementsQuery.isError ? (
+            <MovementTable
+              movements={movements}
+              products={products}
+              warehouses={warehouses}
+            />
+          ) : null}
         </Card>
       ) : null}
 
