@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -18,20 +18,47 @@ const uiFiles = [
   "components/ui/card.tsx",
   "components/ui/checkbox.tsx",
   "components/ui/dialog.tsx",
-  "components/ui/dropdown.tsx",
-  "components/ui/drawer.tsx",
   "components/ui/input.tsx",
   "components/ui/label.tsx",
-  "components/ui/pagination.tsx",
   "components/ui/select.tsx",
-  "components/ui/skeleton.tsx",
-  "components/ui/spinner.tsx",
-  "components/ui/switch.tsx",
   "components/ui/table.tsx",
-  "components/ui/tabs.tsx",
-  "components/ui/textarea.tsx",
-  "components/ui/tooltip.tsx"
+  "components/ui/textarea.tsx"
 ];
+
+function collectAdminSourceFiles() {
+  const sourceRoots = ["app", "components", "lib"];
+  const sourceFiles: string[] = [];
+
+  function visit(relativeDir: string) {
+    for (const entry of readdirSync(join(adminRoot, relativeDir), { withFileTypes: true })) {
+      const relativePath = join(relativeDir, entry.name).replaceAll("\\", "/");
+
+      if (entry.isDirectory()) {
+        if (entry.name === ".next" || entry.name === "node_modules") {
+          continue;
+        }
+
+        visit(relativePath);
+        continue;
+      }
+
+      if (
+        entry.isFile() &&
+        /\.(?:ts|tsx)$/.test(entry.name) &&
+        !/\.d\.ts$/.test(entry.name) &&
+        !/\.(?:test|spec)\.(?:ts|tsx)$/.test(entry.name)
+      ) {
+        sourceFiles.push(relativePath);
+      }
+    }
+  }
+
+  for (const sourceRoot of sourceRoots) {
+    visit(sourceRoot);
+  }
+
+  return sourceFiles;
+}
 
 describe("admin HeroUI modernization", () => {
   it("uses HeroUIProvider in the admin provider stack", () => {
@@ -62,21 +89,7 @@ describe("admin HeroUI modernization", () => {
   });
 
   it("does not import Radix directly anywhere in admin source", () => {
-    const scannedFiles = [
-      ...uiFiles,
-      "components/admin/confirmation-dialog.tsx",
-      "components/admin/file-upload-button.tsx",
-      "components/admin/metric-card.tsx",
-      "components/admin/status-badge.tsx",
-      "app/admin-shell.tsx",
-      "app/login/page.tsx",
-      "app/_components/reports-dashboard.tsx",
-      "app/products/product-management.tsx",
-      "app/settings/page.tsx",
-      "app/delivery/page.tsx"
-    ];
-
-    for (const file of scannedFiles) {
+    for (const file of collectAdminSourceFiles()) {
       const source = readAdmin(file);
 
       expect(source, file).not.toMatch(/@radix-ui|radix-ui/);
