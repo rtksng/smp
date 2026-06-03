@@ -16,8 +16,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
+import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -306,27 +309,27 @@ function CategoriesContent({
     return (
       <>
         <Card className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">{isEditView ? "Edit category" : "New category"}</p>
-              <h2>
-                {isEditView
-                  ? (editingCategory?.name ?? "Edit category")
-                  : "Create category"}
-              </h2>
-              <p className="panelSummary">
-                {isEditView
-                  ? "Update hierarchy, image, slug, sort order, and catalog visibility."
-                  : "Create a catalog category and optionally assign it under a parent."}
-              </p>
-            </div>
-            <Button asChild className="iconTextButton" variant="outline">
-              <Link href={CATEGORY_LIST_PATH}>
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back to list</span>
-              </Link>
-            </Button>
-          </div>
+          <PageHeader
+            actions={
+              <Button asChild className="iconTextButton" variant="outline">
+                <Link href={CATEGORY_LIST_PATH}>
+                  <ArrowLeft aria-hidden size={16} />
+                  <span>Back to list</span>
+                </Link>
+              </Button>
+            }
+            eyebrow={isEditView ? "Edit category" : "New category"}
+            summary={
+              isEditView
+                ? "Update hierarchy, image, slug, sort order, and catalog visibility."
+                : "Create a catalog category and optionally assign it under a parent."
+            }
+            title={
+              isEditView
+                ? (editingCategory?.name ?? "Edit category")
+                : "Create category"
+            }
+          />
 
           {mutationError ? (
             <p className="formError" role="alert">
@@ -334,9 +337,9 @@ function CategoriesContent({
             </p>
           ) : null}
           {categoriesQuery.isLoading ? (
-            <div className="loadingBlock">
-              {isEditView ? "Loading category..." : "Loading category options..."}
-            </div>
+            <LoadingState
+              label={isEditView ? "Loading category..." : "Loading category options..."}
+            />
           ) : null}
           {categoriesQuery.isError ? (
             <p className="formError" role="alert">
@@ -344,19 +347,22 @@ function CategoriesContent({
             </p>
           ) : null}
           {editMissing ? (
-            <div className="emptyPanel smallEmpty">
-              This category was not found or is no longer available.
-            </div>
+            <EmptyState
+              body="This category was not found or is no longer available."
+              title="Category unavailable"
+            />
           ) : null}
           {!canCreate && view === "create" ? (
-            <div className="emptyPanel smallEmpty">
-              Your role can view categories but cannot create them.
-            </div>
+            <EmptyState
+              body="Your role can view categories but cannot create them."
+              title="Create access unavailable"
+            />
           ) : null}
           {!canUpdate && isEditView && editingCategory ? (
-            <div className="emptyPanel smallEmpty">
-              Your role can view categories but cannot edit them.
-            </div>
+            <EmptyState
+              body="Your role can view categories but cannot edit them."
+              title="Edit access unavailable"
+            />
           ) : null}
           {view === "create" || editingCategory ? (
             <CategoryForm
@@ -381,34 +387,32 @@ function CategoriesContent({
   return (
     <>
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Categories</p>
-            <h2>Category hierarchy management</h2>
-            <p className="panelSummary">
-              Review, search, edit, and soft delete catalog categories.
-            </p>
-          </div>
-          <div className="actionRow">
-            <Button
-              className="iconTextButton"
-              onClick={() => void categoriesQuery.refetch()}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </Button>
-            {canCreate ? (
-              <Button asChild className="iconTextButton">
-                <Link href={CATEGORY_CREATE_PATH}>
-                  <Plus aria-hidden size={16} />
-                  <span>New category</span>
-                </Link>
+        <PageHeader
+          actions={
+            <>
+              <Button
+                className="iconTextButton"
+                onClick={() => void categoriesQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
               </Button>
-            ) : null}
-          </div>
-        </div>
+              {canCreate ? (
+                <Button asChild className="iconTextButton">
+                  <Link href={CATEGORY_CREATE_PATH}>
+                    <Plus aria-hidden size={16} />
+                    <span>New category</span>
+                  </Link>
+                </Button>
+              ) : null}
+            </>
+          }
+          eyebrow="Categories"
+          summary="Review, search, edit, and soft delete catalog categories."
+          title="Category hierarchy management"
+        />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError ? (
@@ -454,15 +458,10 @@ function CategoriesContent({
       </Card>
 
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Category list</p>
-            <h2>Managed categories</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Category list" title="Managed categories" />
 
         {categoriesQuery.isLoading ? (
-          <div className="loadingBlock">Loading categories...</div>
+          <LoadingState label="Loading categories..." />
         ) : null}
         {categoriesQuery.isError ? (
           <p className="formError" role="alert">
@@ -650,60 +649,73 @@ function ChildCategoryModal({
     <Dialog open={Boolean(rootCategory)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="categoryChildDialog">
         <DialogHeader>
-          <div>
-            <p className="eyebrow">Child categories</p>
-            <DialogTitle>{rootCategory.name}</DialogTitle>
-            <DialogDescription className="panelSummary">
-              Choose a child category to edit or delete.
-            </DialogDescription>
-          </div>
+          <p className="eyebrow">Child categories</p>
+          <DialogTitle>{rootCategory.name}</DialogTitle>
+          <DialogDescription className="panelSummary">
+            Manage child categories for this root category.
+          </DialogDescription>
         </DialogHeader>
 
         {rootCategory.children.length === 0 ? (
-          <div className="emptyPanel smallEmpty">No child categories available.</div>
+          <EmptyState body="No child categories available." title="No child categories" />
         ) : (
-          <div className="categoryChildModalList">
-            {rootCategory.children.map((subcategory) => (
-              <article className="categoryChildModalRow" key={subcategory.id}>
-                <span>
-                  <strong>{subcategory.name}</strong>
-                  <span className="tableSubtext">{subcategory.slug}</span>
-                </span>
-                <span className="tableActions categoryChildModalActions">
-                  {canUpdate ? (
-                    <Button asChild className="iconTextButton" size="sm" variant="outline">
-                      <Link href={buildCategoryEditPath(subcategory.id)}>
-                        <Pencil aria-hidden size={16} />
-                        <span>Edit</span>
-                      </Link>
-                    </Button>
-                  ) : (
-                    <Button
-                      className="iconTextButton"
-                      disabled
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Pencil aria-hidden size={16} />
-                      <span>Edit</span>
-                    </Button>
-                  )}
-                  <Button
-                    className="iconTextButton"
-                    disabled={!canDelete || isMutating}
-                    onClick={() => onDelete(subcategory)}
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                  >
-                    <Trash2 aria-hidden size={16} />
-                    <span>Delete</span>
-                  </Button>
-                </span>
-              </article>
-            ))}
-          </div>
+          <Table aria-label={`Child categories for ${rootCategory.name}`}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rootCategory.children.map((subcategory) => (
+                <TableRow key={subcategory.id}>
+                  <TableCell>
+                    <strong>{subcategory.name}</strong>
+                  </TableCell>
+                  <TableCell>{subcategory.slug}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={subcategory.isActive ? "active" : "inactive"} />
+                  </TableCell>
+                  <TableCell>
+                    <span className="tableActions categoryChildModalActions">
+                      {canUpdate ? (
+                        <Button asChild className="iconTextButton" size="sm" variant="outline">
+                          <Link href={buildCategoryEditPath(subcategory.id)}>
+                            <Pencil aria-hidden size={16} />
+                            <span>Edit</span>
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button
+                          className="iconTextButton"
+                          disabled
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <Pencil aria-hidden size={16} />
+                          <span>Edit</span>
+                        </Button>
+                      )}
+                      <Button
+                        className="iconTextButton"
+                        disabled={!canDelete || isMutating}
+                        onClick={() => onDelete(subcategory)}
+                        size="sm"
+                        type="button"
+                        variant="destructive"
+                      >
+                        <Trash2 aria-hidden size={16} />
+                        <span>Delete</span>
+                      </Button>
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </DialogContent>
     </Dialog>

@@ -16,7 +16,10 @@ import {
   ConfirmationDialog,
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -365,22 +368,22 @@ function InventoryContent({ view }: { view: InventoryView }) {
   return (
     <>
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Inventory control</p>
-            <h2>{viewContent.heading}</h2>
-            <p className="panelSummary">{viewContent.summary}</p>
-          </div>
-          <Button
-            className="iconTextButton"
-            onClick={() => void refreshInventory()}
-            type="button"
-            variant="outline"
-          >
-            <RefreshCw aria-hidden size={16} />
-            <span>Refresh</span>
-          </Button>
-        </div>
+        <PageHeader
+          actions={
+            <Button
+              className="iconTextButton"
+              onClick={() => void refreshInventory()}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw aria-hidden size={16} />
+              <span>Refresh</span>
+            </Button>
+          }
+          eyebrow="Inventory control"
+          summary={viewContent.summary}
+          title={viewContent.heading}
+        />
         <InventorySubTabs activeView={view} />
 
         {message ? <p className="formSuccess">{message}</p> : null}
@@ -416,13 +419,11 @@ function InventoryContent({ view }: { view: InventoryView }) {
       </Card>
 
       {view === "overview" || view === "movements" ? (
-        <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Filters</p>
-              <h2>{isMovementsView ? "Find movements" : "Find stock"}</h2>
-            </div>
-          </div>
+        <Card className="panel">
+          <PageHeader
+            eyebrow="Filters"
+            title={isMovementsView ? "Find movements" : "Find stock"}
+          />
           <InventoryFilterForm
             filters={draftFilters}
             isLoading={productsQuery.isLoading || warehousesQuery.isLoading}
@@ -443,27 +444,24 @@ function InventoryContent({ view }: { view: InventoryView }) {
               {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
             </p>
           ) : null}
-        </section>
+        </Card>
       ) : null}
 
       {isActionsView ? (
         <PermissionGate
           fallback={
-            <section className="panel">
-              <div className="emptyPanel smallEmpty">
-                Your admin role cannot perform inventory stock actions.
-              </div>
-            </section>
+            <EmptyState
+              body="Your admin role cannot perform inventory stock actions."
+              title="Stock actions unavailable"
+            />
           }
           permission={ADMIN_PERMISSION.InventoryUpdate}
         >
-          <section className="panel">
-            <div className="panelHeader">
-              <div>
-                <p className="eyebrow">Stock actions</p>
-                <h2>Receive, adjust, and transfer stock</h2>
-              </div>
-            </div>
+          <Card className="panel">
+            <PageHeader
+              eyebrow="Stock actions"
+              title="Receive, adjust, and transfer stock"
+            />
             {productsQuery.isError ? (
               <p className="formError" role="alert">
                 {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
@@ -506,25 +504,23 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 warehouses={warehouses}
               />
             </div>
-          </section>
+          </Card>
         </PermissionGate>
       ) : null}
 
       {view === "overview" ? (
         <>
-          <section className="panel">
-            <div className="panelHeader">
-              <div>
-                <p className="eyebrow">Stock table</p>
-                <h2>
-                  {inventoryRequest.type === "batch"
-                    ? "Near-expiry batches"
-                    : "Current aggregate stock"}
-                </h2>
-              </div>
-            </div>
+          <Card className="panel">
+            <PageHeader
+              eyebrow="Stock table"
+              title={
+                inventoryRequest.type === "batch"
+                  ? "Near-expiry batches"
+                  : "Current aggregate stock"
+              }
+            />
             {inventoryQuery.isLoading ? (
-              <div className="loadingBlock">Loading inventory...</div>
+              <LoadingState label="Loading inventory..." />
             ) : null}
             {inventoryQuery.isError ? (
               <p className="formError" role="alert">
@@ -546,17 +542,12 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 warehouses={warehouses}
               />
             )}
-          </section>
+          </Card>
 
-          <section className="panel">
-            <div className="panelHeader">
-              <div>
-                <p className="eyebrow">Near expiry</p>
-                <h2>Positive batches expiring soon</h2>
-              </div>
-            </div>
+          <Card className="panel">
+            <PageHeader eyebrow="Near expiry" title="Positive batches expiring soon" />
             {nearExpiryQuery.isLoading ? (
-              <div className="loadingBlock">Loading near-expiry batches...</div>
+              <LoadingState label="Loading near-expiry batches..." />
             ) : null}
             {nearExpiryQuery.isError ? (
               <p className="formError" role="alert">
@@ -569,20 +560,15 @@ function InventoryContent({ view }: { view: InventoryView }) {
               products={products}
               warehouses={warehouses}
             />
-          </section>
+          </Card>
         </>
       ) : null}
 
       {view === "movements" ? (
-        <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Movement history</p>
-              <h2>Stock movement audit trail</h2>
-            </div>
-          </div>
+        <Card className="panel">
+          <PageHeader eyebrow="Movement history" title="Stock movement audit trail" />
           {movementsQuery.isLoading ? (
-            <div className="loadingBlock">Loading movement history...</div>
+            <LoadingState label="Loading movement history..." />
           ) : null}
           {movementsQuery.isError ? (
             <p className="formError" role="alert">
@@ -595,7 +581,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
             products={products}
             warehouses={warehouses}
           />
-        </section>
+        </Card>
       ) : null}
 
       {isActionsView ? (
@@ -1234,9 +1220,10 @@ function StockTable({
 }) {
   if (stocks.length === 0) {
     return (
-      <div className="emptyPanel smallEmpty">
-        No stock rows match the selected filters.
-      </div>
+      <EmptyState
+        body="No stock rows match the selected filters."
+        title="No stock rows found"
+      />
     );
   }
 
@@ -1293,9 +1280,7 @@ function BatchTable({
 }) {
   if (batches.length === 0) {
     return (
-      <div className="emptyPanel smallEmpty">
-        No batches match the selected filters.
-      </div>
+      <EmptyState body="No batches match the selected filters." title="No batches found" />
     );
   }
 
@@ -1350,9 +1335,10 @@ function MovementTable({
 }) {
   if (movements.length === 0) {
     return (
-      <div className="emptyPanel smallEmpty">
-        No stock movements match the selected filters.
-      </div>
+      <EmptyState
+        body="No stock movements match the selected filters."
+        title="No movements found"
+      />
     );
   }
 

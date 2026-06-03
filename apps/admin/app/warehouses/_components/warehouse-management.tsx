@@ -17,7 +17,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -425,34 +428,32 @@ function WarehousesContent({
     <>
       {view === "analytics" ? (
         <Card className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Warehouse analytics</p>
-              <h2>Warehouse overview</h2>
-              <p className="panelSummary">
-                Track warehouse coverage, status mix, and filtered operating footprint.
-              </p>
-            </div>
-            <div className="actionRow">
-              <Button
-                className="iconTextButton"
-                onClick={() => void warehousesQuery.refetch()}
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw aria-hidden size={16} />
-                <span>Refresh</span>
-              </Button>
-              {canManage ? (
-                <Button asChild className="buttonLink iconTextButton">
-                  <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
-                    <Plus aria-hidden size={16} />
-                    <span>New warehouse</span>
-                  </Link>
+          <PageHeader
+            actions={
+              <>
+                <Button
+                  className="iconTextButton"
+                  onClick={() => void warehousesQuery.refetch()}
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCw aria-hidden size={16} />
+                  <span>Refresh</span>
                 </Button>
-              ) : null}
-            </div>
-          </div>
+                {canManage ? (
+                  <Button asChild className="buttonLink iconTextButton">
+                    <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
+                      <Plus aria-hidden size={16} />
+                      <span>New warehouse</span>
+                    </Link>
+                  </Button>
+                ) : null}
+              </>
+            }
+            eyebrow="Warehouse analytics"
+            summary="Track warehouse coverage, status mix, and filtered operating footprint."
+            title="Warehouse overview"
+          />
 
           {message ? <p className="formSuccess">{message}</p> : null}
           {mutationError ? (
@@ -485,20 +486,20 @@ function WarehousesContent({
 
       {view === "list" ? (
         <Card className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Warehouse list</p>
-              <h2>Filtered warehouse table</h2>
-            </div>
-            {canManage ? (
-              <Button asChild className="buttonLink iconTextButton">
-                <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
-                  <Plus aria-hidden size={16} />
-                  <span>Create warehouse</span>
-                </Link>
-              </Button>
-            ) : null}
-          </div>
+          <PageHeader
+            actions={
+              canManage ? (
+                <Button asChild className="buttonLink iconTextButton">
+                  <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
+                    <Plus aria-hidden size={16} />
+                    <span>Create warehouse</span>
+                  </Link>
+                </Button>
+              ) : null
+            }
+            eyebrow="Warehouse list"
+            title="Filtered warehouse table"
+          />
           {message ? <p className="formSuccess">{message}</p> : null}
           {mutationError ? (
             <p className="formError" role="alert">
@@ -507,7 +508,7 @@ function WarehousesContent({
           ) : null}
 
           {warehousesQuery.isLoading ? (
-            <div className="loadingBlock">Loading warehouses...</div>
+            <LoadingState label="Loading warehouses..." />
           ) : null}
           {warehousesQuery.isError ? (
             <p className="formError" role="alert">
@@ -515,7 +516,10 @@ function WarehousesContent({
             </p>
           ) : null}
           {!warehousesQuery.isLoading && !warehousesQuery.isError && warehouses.length === 0 ? (
-            <div className="emptyPanel smallEmpty">No warehouses match the selected filters.</div>
+            <EmptyState
+              body="No warehouses match the selected filters."
+              title="No warehouses found"
+            />
           ) : null}
           {warehouses.length > 0 ? (
             <WarehouseTable
@@ -536,24 +540,24 @@ function WarehousesContent({
           <PermissionGate
             fallback={
               <Card className="panel">
-                <div className="emptyPanel">Warehouse management requires permission.</div>
+              <div className="emptyPanel">Warehouse management requires permission.</div>
               </Card>
             }
             permission={ADMIN_PERMISSION.WarehouseManage}
           >
             <Card className="panel">
-              <div className="panelHeader">
-                <div>
-                  <p className="eyebrow">{editingWarehouseId ? "Edit warehouse" : "Create warehouse"}</p>
-                  <h2>{editingWarehouseId ? selectedWarehouse?.name ?? "Warehouse" : "New warehouse"}</h2>
-                </div>
-                {editingWarehouseId ? (
-                  <Button className="iconTextButton" onClick={startCreate} type="button" variant="outline">
-                    <X aria-hidden size={16} />
-                    <span>Clear</span>
-                  </Button>
-                ) : null}
-              </div>
+              <PageHeader
+                actions={
+                  editingWarehouseId ? (
+                    <Button className="iconTextButton" onClick={startCreate} type="button" variant="outline">
+                      <X aria-hidden size={16} />
+                      <span>Clear</span>
+                    </Button>
+                  ) : null
+                }
+                eyebrow={editingWarehouseId ? "Edit warehouse" : "Create warehouse"}
+                title={editingWarehouseId ? selectedWarehouse?.name ?? "Warehouse" : "New warehouse"}
+              />
               {message ? <p className="formSuccess">{message}</p> : null}
               {mutationError ? (
                 <p className="formError" role="alert">
@@ -561,7 +565,7 @@ function WarehousesContent({
                 </p>
               ) : null}
               {editingWarehouseId && warehouseDetailQuery.isLoading ? (
-                <div className="loadingBlock">Loading warehouse detail...</div>
+                <LoadingState label="Loading warehouse detail..." />
               ) : null}
               {editingWarehouseId && warehouseDetailQuery.isError ? (
                 <p className="formError" role="alert">
@@ -586,21 +590,18 @@ function WarehousesContent({
       {view === "staff" ? (
         <PermissionGate
           fallback={
-            <Card className="panel">
-              <div className="emptyPanel smallEmpty">
-                Your admin role cannot manage warehouse staff.
-              </div>
-            </Card>
+            <EmptyState
+              body="Your admin role cannot manage warehouse staff."
+              title="Staff management unavailable"
+            />
           }
           permission={ADMIN_PERMISSION.WarehouseStaffManage}
         >
           <Card className="panel">
-            <div className="panelHeader">
-              <div>
-                <p className="eyebrow">Warehouse staff</p>
-                <h2>{selectedWarehouse?.name ?? "Select a warehouse"}</h2>
-              </div>
-            </div>
+            <PageHeader
+              eyebrow="Warehouse staff"
+              title={selectedWarehouse?.name ?? "Select a warehouse"}
+            />
             {message ? <p className="formSuccess">{message}</p> : null}
             {mutationError ? (
               <p className="formError" role="alert">
@@ -609,7 +610,7 @@ function WarehousesContent({
             ) : null}
 
             {warehousesQuery.isLoading ? (
-              <div className="loadingBlock">Loading warehouses...</div>
+              <LoadingState label="Loading warehouses..." />
             ) : null}
             {warehousesQuery.isError ? (
               <p className="formError" role="alert">
@@ -617,7 +618,10 @@ function WarehousesContent({
               </p>
             ) : null}
             {!warehousesQuery.isLoading && !warehousesQuery.isError && warehouses.length === 0 ? (
-              <div className="emptyPanel smallEmpty">No warehouses match the selected filters.</div>
+              <EmptyState
+                body="No warehouses match the selected filters."
+                title="No warehouses found"
+              />
             ) : null}
             {warehouses.length > 0 ? (
               <div className="warehouseStaffPicker">
@@ -677,7 +681,7 @@ function WarehousesContent({
               </form>
 
               {staffQuery.isLoading ? (
-                <div className="loadingBlock">Loading staff assignments...</div>
+                <LoadingState label="Loading staff assignments..." />
               ) : null}
               {staffQuery.isError ? (
                 <p className="formError" role="alert">
@@ -685,7 +689,10 @@ function WarehousesContent({
                 </p>
               ) : null}
               {(staffQuery.data?.length ?? 0) === 0 && !staffQuery.isLoading ? (
-                <div className="emptyPanel smallEmpty">No staff assigned to this warehouse.</div>
+                <EmptyState
+                  body="No staff assigned to this warehouse."
+                  title="No staff assigned"
+                />
               ) : null}
               {(staffQuery.data?.length ?? 0) > 0 ? (
                 <div className="queueTable">
@@ -769,13 +776,11 @@ function WarehouseAnalytics({
       </Card>
 
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Coverage</p>
-            <h2>Warehouse footprint by state</h2>
-          </div>
-          <span>{analytics.states} states</span>
-        </div>
+        <PageHeader
+          actions={<span>{analytics.states} states</span>}
+          eyebrow="Coverage"
+          title="Warehouse footprint by state"
+        />
         {stateRows.length > 0 ? (
           <div className="resourceTable warehouseAnalyticsTable">
             <Table>
@@ -802,7 +807,10 @@ function WarehouseAnalytics({
             </Table>
           </div>
         ) : (
-          <div className="emptyPanel smallEmpty">No warehouses match the selected filters.</div>
+          <EmptyState
+            body="No warehouses match the selected filters."
+            title="No warehouses found"
+          />
         )}
       </Card>
     </>

@@ -16,8 +16,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
+import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -274,25 +277,23 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
     return (
       <>
         <Card className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">{isEditView ? "Edit brand" : "New brand"}</p>
-              <h2>
-                {isEditView ? (editingBrand?.name ?? "Edit brand") : "Create brand"}
-              </h2>
-              <p className="panelSummary">
-                {isEditView
-                  ? "Update brand details, image, slug, and catalog visibility."
-                  : "Create a supplier or manufacturer brand for catalog use."}
-              </p>
-            </div>
-            <Button asChild className="iconTextButton" variant="outline">
-              <Link href={BRAND_LIST_PATH}>
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back to list</span>
-              </Link>
-            </Button>
-          </div>
+          <PageHeader
+            actions={
+              <Button asChild className="iconTextButton" variant="outline">
+                <Link href={BRAND_LIST_PATH}>
+                  <ArrowLeft aria-hidden size={16} />
+                  <span>Back to list</span>
+                </Link>
+              </Button>
+            }
+            eyebrow={isEditView ? "Edit brand" : "New brand"}
+            summary={
+              isEditView
+                ? "Update brand details, image, slug, and catalog visibility."
+                : "Create a supplier or manufacturer brand for catalog use."
+            }
+            title={isEditView ? (editingBrand?.name ?? "Edit brand") : "Create brand"}
+          />
 
           {mutationError ? (
             <p className="formError" role="alert">
@@ -300,7 +301,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
             </p>
           ) : null}
           {isEditView && brandsQuery.isLoading ? (
-            <div className="loadingBlock">Loading brand...</div>
+            <LoadingState label="Loading brand..." />
           ) : null}
           {isEditView && brandsQuery.isError ? (
             <p className="formError" role="alert">
@@ -308,19 +309,22 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
             </p>
           ) : null}
           {editMissing ? (
-            <div className="emptyPanel smallEmpty">
-              This brand was not found or is no longer available.
-            </div>
+            <EmptyState
+              body="This brand was not found or is no longer available."
+              title="Brand unavailable"
+            />
           ) : null}
           {!canCreate && view === "create" ? (
-            <div className="emptyPanel smallEmpty">
-              Your role can view brands but cannot create them.
-            </div>
+            <EmptyState
+              body="Your role can view brands but cannot create them."
+              title="Create access unavailable"
+            />
           ) : null}
           {!canUpdate && isEditView && editingBrand ? (
-            <div className="emptyPanel smallEmpty">
-              Your role can view brands but cannot edit them.
-            </div>
+            <EmptyState
+              body="Your role can view brands but cannot edit them."
+              title="Edit access unavailable"
+            />
           ) : null}
           {view === "create" || editingBrand ? (
             <BrandForm
@@ -344,34 +348,32 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
   return (
     <>
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Brands</p>
-            <h2>Brand directory management</h2>
-            <p className="panelSummary">
-              Review, search, edit, and soft delete supplier or manufacturer brands.
-            </p>
-          </div>
-          <div className="actionRow">
-            <Button
-              className="iconTextButton"
-              onClick={() => void brandsQuery.refetch()}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </Button>
-            {canCreate ? (
-              <Button asChild className="iconTextButton">
-                <Link href={BRAND_CREATE_PATH}>
-                  <Plus aria-hidden size={16} />
-                  <span>New brand</span>
-                </Link>
+        <PageHeader
+          actions={
+            <>
+              <Button
+                className="iconTextButton"
+                onClick={() => void brandsQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
               </Button>
-            ) : null}
-          </div>
-        </div>
+              {canCreate ? (
+                <Button asChild className="iconTextButton">
+                  <Link href={BRAND_CREATE_PATH}>
+                    <Plus aria-hidden size={16} />
+                    <span>New brand</span>
+                  </Link>
+                </Button>
+              ) : null}
+            </>
+          }
+          eyebrow="Brands"
+          summary="Review, search, edit, and soft delete supplier or manufacturer brands."
+          title="Brand directory management"
+        />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError ? (
@@ -416,15 +418,10 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
       </Card>
 
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Brand list</p>
-            <h2>Managed brands</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Brand list" title="Managed brands" />
 
         {brandsQuery.isLoading ? (
-          <div className="loadingBlock">Loading brands...</div>
+          <LoadingState label="Loading brands..." />
         ) : null}
         {brandsQuery.isError ? (
           <p className="formError" role="alert">
