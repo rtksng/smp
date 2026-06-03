@@ -16,6 +16,20 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { PageHeader } from "@/components/admin/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { useAdminSession } from "../../lib/admin-session";
 import {
   buildDashboardReportQuery,
@@ -107,62 +121,62 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h2>{title}</h2>
-            <p className="panelSummary">
-              Warehouse-scoped orders, revenue, inventory alerts, and operating coverage.
+      <Card className="reportControlPanel">
+        <CardHeader>
+          <PageHeader
+            actions={
+              <Button
+                className="iconTextButton"
+                disabled={dashboardQuery.isFetching}
+                onClick={() => void dashboardQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>{dashboardQuery.isFetching ? "Refreshing..." : "Refresh"}</span>
+              </Button>
+            }
+            eyebrow={eyebrow}
+            summary="Warehouse-scoped orders, revenue, inventory alerts, and operating coverage."
+            title={title}
+          />
+        </CardHeader>
+        <CardContent>
+          <ReportFilterForm
+            filters={draftFilters}
+            isWarehouseLoading={warehousesQuery.isLoading}
+            onChange={setDraftFilters}
+            onReset={resetFilters}
+            onSubmit={applyFilters}
+            warehouses={warehouses}
+          />
+          {filterError ? (
+            <p className="formError" role="alert">
+              {filterError}
             </p>
-          </div>
-          <button
-            className="ghostButton iconTextButton"
-            disabled={dashboardQuery.isFetching}
-            onClick={() => void dashboardQuery.refetch()}
-            type="button"
-          >
-            <RefreshCw aria-hidden size={16} />
-            <span>{dashboardQuery.isFetching ? "Refreshing..." : "Refresh"}</span>
-          </button>
-        </div>
-
-        <ReportFilterForm
-          filters={draftFilters}
-          isWarehouseLoading={warehousesQuery.isLoading}
-          onChange={setDraftFilters}
-          onReset={resetFilters}
-          onSubmit={applyFilters}
-          warehouses={warehouses}
-        />
-        {filterError ? (
-          <p className="formError" role="alert">
-            {filterError}
-          </p>
-        ) : null}
-        {warehousesQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-          </p>
-        ) : null}
-      </section>
+          ) : null}
+          {warehousesQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {dashboardQuery.isLoading ? (
-        <section className="panel">
-          <div className="loadingBlock">Loading reports...</div>
-        </section>
+        <LoadingState label="Loading reports..." />
       ) : null}
       {dashboardQuery.isError ? (
-        <section className="panel">
-          <p className="formError" role="alert">
-            {errorMessage}
-          </p>
-        </section>
+        <Card>
+          <CardContent>
+            <p className="formError" role="alert">
+              {errorMessage}
+            </p>
+          </CardContent>
+        </Card>
       ) : null}
       {emptyState ? (
-        <section className="panel">
-          <div className="emptyPanel smallEmpty">{emptyState}</div>
-        </section>
+        <EmptyState body={emptyState} title="No report data" />
       ) : null}
 
       {report ? (
@@ -233,40 +247,45 @@ function ReportFilterForm({
 }) {
   return (
     <form className="reportFilters" onSubmit={onSubmit}>
-      <label>
+      <Label>
         From
-        <input
+        <Input
           onChange={(event) => onChange({ ...filters, dateFrom: event.target.value })}
           type="date"
           value={filters.dateFrom}
         />
-      </label>
-      <label>
+      </Label>
+      <Label>
         To
-        <input
+        <Input
           onChange={(event) => onChange({ ...filters, dateTo: event.target.value })}
           type="date"
           value={filters.dateTo}
         />
-      </label>
-      <label>
+      </Label>
+      <Label>
         Warehouse
-        <select
+        <Select
           disabled={isWarehouseLoading}
-          onChange={(event) => onChange({ ...filters, warehouseId: event.target.value })}
+          onValueChange={(warehouseId) => onChange({ ...filters, warehouseId })}
           value={filters.warehouseId}
         >
-          <option value="">All visible warehouses</option>
-          {warehouses.map((warehouse) => (
-            <option key={warehouse.id} value={warehouse.id}>
-              {warehouse.name} ({warehouse.code})
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
+          <SelectTrigger>
+            <SelectValue placeholder="All visible warehouses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All visible warehouses</SelectItem>
+            {warehouses.map((warehouse) => (
+              <SelectItem key={warehouse.id} value={warehouse.id}>
+                {warehouse.name} ({warehouse.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Label>
+      <Label>
         Expiry window
-        <input
+        <Input
           inputMode="numeric"
           max={365}
           min={1}
@@ -276,15 +295,15 @@ function ReportFilterForm({
           type="number"
           value={filters.nearExpiryDays}
         />
-      </label>
+      </Label>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -351,13 +370,18 @@ function MetricGrid({ cards }: { cards: DashboardCards }) {
   return (
     <section className="metricGrid reportMetricGrid" aria-label="Dashboard cards">
       {metrics.map((metric) => (
-        <article className={`metric reportMetric metric--${metric.tone}`} key={metric.label}>
-          <span className="reportMetricLabel">
-            {metric.icon}
-            <span>{metric.label}</span>
-          </span>
-          <strong className="metricText">{metric.value}</strong>
-        </article>
+        <Card
+          className={`metric reportMetric metric--${metric.tone}`}
+          key={metric.label}
+        >
+          <CardContent>
+            <span className="reportMetricLabel">
+              {metric.icon}
+              <span>{metric.label}</span>
+            </span>
+            <strong className="metricText">{metric.value}</strong>
+          </CardContent>
+        </Card>
       ))}
     </section>
   );
@@ -373,15 +397,13 @@ function ChartPanel({
   wide?: boolean;
 }) {
   return (
-    <section className="panel reportChartPanel" data-wide={wide}>
-      <div className="panelHeader">
-        <div>
-          <p className="eyebrow">Chart</p>
-          <h2>{title}</h2>
-        </div>
-      </div>
-      {children}
-    </section>
+    <Card className="reportChartPanel" data-wide={wide}>
+      <CardHeader>
+        <p className="eyebrow">Chart</p>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 

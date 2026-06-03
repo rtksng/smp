@@ -2,6 +2,19 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { PageHeader } from "@/components/admin/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { AdminShell } from "../admin-shell";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import type { QueryParams } from "../../lib/admin-api";
@@ -63,52 +76,63 @@ export function ResourcePage<TData, TItem>({
   return (
     <AdminShell>
       <ProtectedRoute permission={permission}>
-        <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">{eyebrow}</p>
-              <h2>{title}</h2>
-              {description ? <p className="panelSummary">{description}</p> : null}
-            </div>
-            {endpoint ? (
-              <button
-                className="ghostButton"
+        <PageHeader
+          actions={
+            endpoint ? (
+              <Button
                 onClick={() => void queryResult.refetch()}
                 type="button"
+                variant="outline"
               >
                 Refresh
-              </button>
-            ) : null}
-          </div>
+              </Button>
+            ) : null
+          }
+          eyebrow={eyebrow}
+          summary={description}
+          title={title}
+        />
 
-          {queryResult.isLoading ? (
-            <div className="loadingBlock">Loading {eyebrow.toLowerCase()}...</div>
-          ) : null}
-          {queryResult.isError ? (
-            <div className="formError" role="alert">
-              {errorMessage}
-            </div>
-          ) : null}
+        {queryResult.isLoading ? (
+          <LoadingState label={`Loading ${eyebrow.toLowerCase()}...`} />
+        ) : null}
 
-          {metrics.length ? (
-            <div className="metricGrid resourceMetrics">
-              {metrics.map((metric) => (
-                <article
-                  className={`metric metric--${metric.tone ?? "neutral"}`}
-                  key={metric.label}
-                >
+        {queryResult.isError ? (
+          <Card>
+            <CardContent>
+              <div className="formError" role="alert">
+                {errorMessage}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {metrics.length ? (
+          <section className="metricGrid resourceMetrics">
+            {metrics.map((metric) => (
+              <Card
+                className={`metric metric--${metric.tone ?? "neutral"}`}
+                key={metric.label}
+              >
+                <CardContent>
                   <span>{metric.label}</span>
                   <strong>{metric.value}</strong>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        {columns ? (
-          <section className="panel">
-            <ResourceTable columns={columns} emptyState={emptyState} rows={items} />
+                </CardContent>
+              </Card>
+            ))}
           </section>
+        ) : null}
+
+        {!queryResult.isLoading && columns && items.length === 0 ? (
+          <EmptyState body={emptyState} title="No records found" />
+        ) : null}
+
+        {!queryResult.isLoading && columns && items.length > 0 ? (
+          <Card className="resourceTableCard">
+            <CardContent>
+              <ResourceTable columns={columns} rows={items} />
+            </CardContent>
+          </Card>
         ) : null}
 
         {children}
@@ -119,52 +143,33 @@ export function ResourcePage<TData, TItem>({
 
 function ResourceTable<TItem>({
   columns,
-  emptyState,
   rows
 }: {
   columns: Array<Column<TItem>>;
-  emptyState: string;
   rows: TItem[];
 }) {
-  const gridTemplateColumns = `repeat(${columns.length}, minmax(140px, 1fr))`;
-
   return (
-    <div className="resourceTable" role="table">
-      <div
-        className="resourceTableHeader"
-        role="row"
-        style={{ gridTemplateColumns }}
-      >
-        {columns.map((column) => (
-          <strong key={column.header} role="columnheader">
-            {column.header}
-          </strong>
-        ))}
-      </div>
-      {rows.length === 0 ? (
-        <div
-          className="resourceTableRow"
-          role="row"
-          style={{ gridTemplateColumns }}
-        >
-          <span role="cell">{emptyState}</span>
-        </div>
-      ) : (
-        rows.map((row, rowIndex) => (
-          <div
-            className="resourceTableRow"
-            key={rowIndex}
-            role="row"
-            style={{ gridTemplateColumns }}
-          >
+    <div className="resourceTable">
+      <Table style={{ minWidth: `max(720px, ${columns.length * 140}px)` }}>
+        <TableHeader>
+          <TableRow>
             {columns.map((column) => (
-              <span key={column.header} role="cell">
-                {column.render(row)}
-              </span>
+              <TableHead key={column.header}>{column.header}</TableHead>
             ))}
-          </div>
-        ))
-      )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {columns.map((column) => (
+                <TableCell key={column.header}>
+                  {column.render(row)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

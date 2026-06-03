@@ -462,6 +462,10 @@ h2 {
   padding: 22px;
 }
 
+.metric [data-slot="card-content"] {
+  padding: 0;
+}
+
 .metric span {
   color: var(--muted);
   display: block;
@@ -531,6 +535,18 @@ h2 {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.reportControlPanel {
+  margin-bottom: 22px;
+}
+
+.reportControlPanel [data-slot="card-header"] {
+  padding-bottom: 0;
+}
+
+.reportControlPanel .adminPageHeader {
+  margin-bottom: 0;
 }
 
 .adminEmptyState,
@@ -1002,6 +1018,33 @@ h2 {
   max-width: 100%;
   min-width: 0;
   overflow: auto;
+}
+
+.resourceTableCard {
+  margin-top: 18px;
+}
+
+.resourceTableCard > [data-slot="card-content"] {
+  padding: 0;
+}
+
+.resourceTable [data-slot="table-cell"] strong {
+  color: var(--text);
+  display: block;
+}
+
+.resourceTable [data-slot="table-cell"] em {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  font-style: normal;
+  margin-top: 4px;
+}
+
+.resourceTable [data-slot="table-cell"] svg {
+  color: var(--primary);
+  margin-right: 6px;
+  vertical-align: -2px;
 }
 
 .resourceTableHeader,
