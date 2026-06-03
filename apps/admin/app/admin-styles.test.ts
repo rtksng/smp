@@ -33,13 +33,12 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/@media \(max-width:\s*640px\)[\s\S]*?\.productFilters,[\s\S]*?\.inventoryFilters,[\s\S]*?grid-template-columns:\s*1fr;/s);
   });
 
-  it("does not mute nested button labels inside panel headers", () => {
+  it("keeps button labels and icons visible through the HeroUI wrapper", () => {
     expect(globalsCss).not.toMatch(/\.panelHeader\s+span\s*{/);
     expect(globalsCss).toMatch(/\.panelHeader\s*>\s*span\s*{/);
-    expect(buttonSource).toContain("[&_span]:!text-current");
-    expect(buttonSource).toContain("[&_svg]:!text-current");
-    expect(buttonSource).toContain("!text-primary-foreground");
-    expect(buttonSource).toContain("!text-secondary-foreground");
+    expect(buttonSource).toContain('from "@heroui/button"');
+    expect(buttonSource).toContain("buttonVariants");
+    expect(buttonSource).toContain("heroButtonClassName");
   });
 
   it("keeps the sidebar fixed while the workspace scrolls independently", () => {

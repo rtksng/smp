@@ -14,8 +14,8 @@ function readAdminAppFile(path: string) {
   return readFileSync(join(__dirname, path), "utf8");
 }
 
-describe("scoped admin shadcn migration", () => {
-  it("uses admin-local shadcn primitives in every scoped page", () => {
+describe("scoped admin HeroUI modernization", () => {
+  it("uses admin-local HeroUI compatibility primitives in every scoped page", () => {
     for (const path of scopedFiles) {
       const source = readAdminAppFile(path);
 
@@ -54,5 +54,13 @@ describe("scoped admin shadcn migration", () => {
     expect(scopedSources).toContain("@/components/admin/confirmation-dialog");
     expect(productSource).not.toContain("function ConfirmationDialog(");
     expect(scopedSources).not.toContain('className="dialogBackdrop"');
+  });
+
+  it("does not mention shadcn or Radix in scoped component source", () => {
+    for (const path of scopedFiles) {
+      const source = readAdminAppFile(path);
+
+      expect(source, path).not.toMatch(/shadcn|@radix-ui|radix-ui/i);
+    }
   });
 });
