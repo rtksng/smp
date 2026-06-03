@@ -40,6 +40,12 @@
   --border: #d8e2df;
   --primary: #006d77;
   --warning: #b7791f;
+  --admin-accent-soft: #d8f3dc;
+  --admin-sidebar-active: rgba(255, 255, 255, 0.08);
+  --admin-danger-soft: #fee2e2;
+  --admin-warning-soft: #fef3c7;
+  --admin-success-soft: #dcfce7;
+  --admin-focus-ring: rgba(0, 109, 119, 0.28);
 }
 
 * {
