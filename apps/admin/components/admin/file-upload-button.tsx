@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants, heroButtonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type FileUploadButtonProps = {
@@ -17,6 +17,7 @@ export function FileUploadButton({
     <label
       className={cn(
         buttonVariants({ variant: "secondary" }),
+        heroButtonClassName,
         "relative cursor-pointer",
         className
       )}

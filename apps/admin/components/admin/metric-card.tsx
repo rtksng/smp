@@ -17,7 +17,7 @@ const toneClassName = {
 export function MetricCard({ label, tone = "neutral", value }: MetricCardProps) {
   return (
     <Card className={cn("min-h-[132px] border-t-4", toneClassName[tone])}>
-      <CardContent className="p-5">
+      <CardContent className="p-5 metricCardContent">
         <span className="block text-sm font-bold text-muted-foreground">{label}</span>
         <strong className="mt-5 block text-3xl text-foreground">{value}</strong>
       </CardContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,8 +54,13 @@ export function ConfirmationDialog({
     <Dialog open={Boolean(confirmation)} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{confirmation?.title ?? "Confirm action"}</DialogTitle>
-          <DialogDescription>{confirmation?.body ?? ""}</DialogDescription>
+          <span aria-hidden className="confirmationIcon">
+            <AlertTriangle size={20} />
+          </span>
+          <div>
+            <DialogTitle>{confirmation?.title ?? "Confirm action"}</DialogTitle>
+            <DialogDescription>{confirmation?.body ?? ""}</DialogDescription>
+          </div>
         </DialogHeader>
         {error ? (
           <p className="formError" role="alert">
@@ -62,11 +68,11 @@ export function ConfirmationDialog({
           </p>
         ) : null}
         <DialogFooter>
-          <Button disabled={isPending} onClick={() => void confirm()} type="button" variant="destructive">
-            {isPending ? "Working..." : confirmation?.confirmLabel ?? "Confirm"}
-          </Button>
           <Button disabled={isPending} onClick={onCancel} type="button" variant="outline">
             Cancel
+          </Button>
+          <Button disabled={isPending} onClick={() => void confirm()} type="button" variant="destructive">
+            {isPending ? "Working..." : confirmation?.confirmLabel ?? "Confirm"}
           </Button>
         </DialogFooter>
       </DialogContent>

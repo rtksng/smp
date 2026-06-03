@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { APP_NAMES } from "@surgical/config";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAdminSession } from "../../lib/admin-session";
 
 export default function AdminLoginPage() {
@@ -60,7 +62,7 @@ function AdminLoginForm() {
         <form className="formStack" onSubmit={handleSubmit}>
           <label>
             Email
-            <input
+            <Input
               autoComplete="email"
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -70,7 +72,7 @@ function AdminLoginForm() {
           </label>
           <label>
             Password
-            <input
+            <Input
               autoComplete="current-password"
               minLength={8}
               onChange={(event) => setPassword(event.target.value)}
@@ -80,9 +82,9 @@ function AdminLoginForm() {
             />
           </label>
           {error ? <p className="formError">{error}</p> : null}
-          <button className="primaryButton" disabled={isSubmitting} type="submit">
+          <Button disabled={isSubmitting} type="submit">
             {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
+          </Button>
         </form>
       </section>
     </main>

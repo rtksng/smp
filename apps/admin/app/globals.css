@@ -189,6 +189,43 @@ button {
   color: #ffffff;
 }
 
+.sidebarNavLink {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.74);
+  display: flex !important;
+  font-size: 14px;
+  font-weight: 750;
+  gap: 10px;
+  min-height: 40px;
+  min-width: 0;
+  padding: 12px;
+  text-transform: capitalize;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.sidebarNavLink:hover,
+.sidebarNavLink[aria-current="page"] {
+  background: var(--admin-sidebar-active);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.sidebarNavLink svg {
+  flex: 0 0 auto;
+}
+
+.sidebarNavLink span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebarSubnav {
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   display: grid;
@@ -201,6 +238,16 @@ button {
   font-size: 13px;
   min-height: 34px;
   padding: 9px 10px;
+}
+
+.sidebarSubnavLink {
+  color: rgba(255, 255, 255, 0.66) !important;
+  gap: 9px;
+}
+
+.sidebarSubnavLink[aria-current="page"],
+.sidebarSubnavLink:hover {
+  color: #ffffff !important;
 }
 
 .workspace {
@@ -304,14 +351,16 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.ghostButton.sidebarLogoutButton {
+.ghostButton.sidebarLogoutButton,
+.sidebarLogoutButton {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   width: 100%;
 }
 
-.ghostButton.sidebarLogoutButton:hover {
+.ghostButton.sidebarLogoutButton:hover,
+.sidebarLogoutButton:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
@@ -465,6 +514,98 @@ h2 {
   color: var(--muted);
   font-size: 14px;
   font-weight: 750;
+}
+
+.adminPageHeader {
+  align-items: end;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  min-width: 0;
+}
+
+.adminPageActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.adminEmptyState,
+.adminLoadingState {
+  margin-top: 18px;
+}
+
+.adminEmptyState [data-slot="card-content"],
+.adminLoadingState [data-slot="card-content"] {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  min-height: 160px;
+  padding: 28px;
+  text-align: center;
+}
+
+.adminEmptyState strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.adminEmptyState p,
+.adminLoadingState span {
+  color: var(--muted);
+  margin: 0;
+}
+
+.confirmationIcon {
+  align-items: center;
+  background: var(--admin-warning-soft);
+  border-radius: 8px;
+  color: var(--warning);
+  display: inline-flex;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.mobileNavBar {
+  align-items: center;
+  background: var(--sidebar);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  display: none;
+  justify-content: space-between;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+.mobileNavToggle {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+}
+
+.mobileNavDrawer {
+  background: linear-gradient(180deg, #172721 0%, var(--sidebar) 46%, #101a17 100%);
+  color: #ffffff;
+}
+
+.mobileNavDrawer .sidebarNavScroller {
+  margin-right: 0;
+  padding-right: 0;
+}
+
+.mobileNavDrawer nav {
+  display: grid;
+  gap: 8px;
+}
+
+.mobileNavDrawer .sidebarFooter {
+  margin-top: auto;
 }
 
 .workflow {
@@ -2230,10 +2371,15 @@ h2 {
 }
 
 @media (max-width: 980px) {
+  .mobileNavBar {
+    display: flex;
+  }
+
   .sidebar {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     border-right: 0;
     box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    display: none;
     height: auto;
     max-height: min(100dvh, 560px);
     position: sticky;
@@ -2246,6 +2392,15 @@ h2 {
 
   .workspace {
     margin-left: 0;
+  }
+
+  .adminPageHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .adminPageActions {
+    justify-content: flex-start;
   }
 
   .sidebar nav {
@@ -2292,7 +2447,8 @@ h2 {
 
 @media (max-width: 640px) {
   .workspace,
-  .sidebar {
+  .sidebar,
+  .mobileNavBar {
     padding: 20px;
   }
 

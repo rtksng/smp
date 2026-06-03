@@ -32,7 +32,7 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       className={cn(
-        "capitalize",
+        "statusBadge capitalize",
         statusToneClassName[normalized] ?? "bg-muted text-muted-foreground"
       )}
     >
