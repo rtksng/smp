@@ -1,5 +1,6 @@
 "use client";
 
+import { HeroUIProvider } from "@heroui/system";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -21,7 +22,9 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AdminSessionProvider>{children}</AdminSessionProvider>
+      <HeroUIProvider>
+        <AdminSessionProvider>{children}</AdminSessionProvider>
+      </HeroUIProvider>
     </QueryClientProvider>
   );
 }
