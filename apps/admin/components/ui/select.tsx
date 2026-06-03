@@ -30,7 +30,7 @@ type SelectEntry =
       className?: string;
       key: string;
       kind: "label";
-      title?: string;
+      title?: ReactNode;
     }
   | {
       className?: string;
@@ -99,7 +99,7 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
         className: props.className,
         key: `label-${data.entries.length}`,
         kind: "label",
-        title: getTextContent(props.children)
+        title: props.children
       });
       return;
     }
@@ -115,44 +115,91 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
   });
 }
 
-function getTextContent(node: ReactNode): string | undefined {
-  if (typeof node === "string" || typeof node === "number") {
-    return String(node);
-  }
-
-  if (Array.isArray(node)) {
-    const text = node.map(getTextContent).filter(Boolean).join(" ");
-
-    return text || undefined;
-  }
-
-  return undefined;
-}
-
 function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
   const renderedEntries: ReactElement[] = [];
+  const groupedEntries: Array<{
+    className?: string;
+    items: Extract<SelectEntry, { kind: "item" }>[];
+    key: string;
+    showDivider: boolean;
+    title?: ReactNode;
+  }> = [];
   let pendingSection:
     | {
         className?: string;
         items: Extract<SelectEntry, { kind: "item" }>[];
         key: string;
-        title?: string;
+        showDivider: boolean;
+        title?: ReactNode;
       }
     | null = null;
+
+  function ensureSection() {
+    if (!pendingSection) {
+      pendingSection = {
+        items: [],
+        key: `section-${groupedEntries.length}`,
+        showDivider: false
+      };
+    }
+
+    return pendingSection;
+  }
 
   function flushSection() {
     if (!pendingSection) {
       return;
     }
 
+    if (pendingSection.items.length > 0 || pendingSection.title) {
+      groupedEntries.push(pendingSection);
+    }
+
+    pendingSection = null;
+  }
+
+  for (const entry of entries) {
+    if (entry.kind === "label") {
+      flushSection();
+      pendingSection = {
+        className: entry.className,
+        items: [],
+        key: entry.key,
+        showDivider: false,
+        title: entry.title
+      };
+      continue;
+    }
+
+    if (entry.kind === "separator") {
+      const section = ensureSection();
+
+      section.className = cn(section.className, entry.className);
+      section.showDivider = true;
+      flushSection();
+      continue;
+    }
+
+    ensureSection().items.push(entry);
+  }
+
+  flushSection();
+
+  const lastSection = groupedEntries.at(-1);
+
+  if (lastSection) {
+    lastSection.showDivider = false;
+  }
+
+  for (const section of groupedEntries) {
     renderedEntries.push(
       <HeroSelectSection
-        key={pendingSection.key}
-        className={cn("py-1", pendingSection.className)}
-        showDivider
-        title={pendingSection.title}
+        key={section.key}
+        className={cn("py-1", section.className)}
+        showDivider={section.showDivider}
+        title={section.title as never}
       >
-        {pendingSection.items.map((item) => (
+        {section.items.map((item) => (
           <HeroSelectItem
             key={item.value}
             className={cn(
@@ -167,52 +214,7 @@ function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
         ))}
       </HeroSelectSection>
     );
-    pendingSection = null;
   }
-
-  for (const entry of entries) {
-    if (entry.kind === "label") {
-      flushSection();
-      pendingSection = {
-        className: entry.className,
-        items: [],
-        key: entry.key,
-        title: entry.title
-      };
-      continue;
-    }
-
-    if (entry.kind === "separator") {
-      flushSection();
-      pendingSection = {
-        className: entry.className,
-        items: [],
-        key: entry.key
-      };
-      continue;
-    }
-
-    if (pendingSection) {
-      pendingSection.items.push(entry);
-      continue;
-    }
-
-    renderedEntries.push(
-      <HeroSelectItem
-        key={entry.value}
-        className={cn(
-          "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
-          entry.className
-        )}
-        data-slot="select-item"
-        isDisabled={entry.disabled}
-      >
-        {entry.children}
-      </HeroSelectItem>
-    );
-  }
-
-  flushSection();
 
   return renderedEntries;
 }
