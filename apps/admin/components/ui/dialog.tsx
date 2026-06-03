@@ -7,12 +7,14 @@ import {
   isValidElement,
   useContext,
   type ComponentProps,
+  type MouseEvent,
   type ReactElement,
   type ReactNode
 } from "react";
 import {
   Modal as HeroModal,
-  ModalContent as HeroModalContent
+  ModalContent as HeroModalContent,
+  type ModalContentProps as HeroModalContentProps
 } from "@heroui/modal";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,24 +41,40 @@ export function Dialog({ children, open, onOpenChange }: DialogProps) {
 }
 
 export function DialogTrigger({
-  children
-}: {
-  children?: ReactNode;
-}) {
+  children,
+  className,
+  onClick,
+  ...props
+}: ComponentProps<"button"> & { children?: ReactNode }) {
   const { onOpenChange } = useContext(DialogContext);
 
   if (!isValidElement(children)) {
     return null;
   }
 
-  const child = children as ReactElement<{ onClick?: () => void }>;
+  const child = children as ReactElement<{
+    className?: string;
+    onClick?: (event: MouseEvent<HTMLElement>) => void;
+  }>;
 
   return cloneElement(child, {
-    onClick: () => {
-      child.props.onClick?.();
-      onOpenChange?.(true);
+    ...props,
+    className: cn(className, child.props.className),
+    onClick: (event: MouseEvent<HTMLElement>) => {
+      child.props.onClick?.(event);
+
+      if (!event.defaultPrevented) {
+        onClick?.(event as MouseEvent<HTMLButtonElement>);
+      }
+
+      if (!event.defaultPrevented) {
+        onOpenChange?.(true);
+      }
     }
-  });
+  } as Partial<{
+    className: string;
+    onClick: (event: MouseEvent<HTMLElement>) => void;
+  }>);
 }
 
 export function DialogClose({
@@ -68,14 +86,17 @@ export function DialogClose({
 
   return (
     <button
+      {...props}
       className={className}
       data-slot="dialog-close"
       onClick={(event) => {
         props.onClick?.(event);
-        onOpenChange?.(false);
+
+        if (!event.defaultPrevented) {
+          onOpenChange?.(false);
+        }
       }}
-      type="button"
-      {...props}
+      type={props.type ?? "button"}
     >
       {children}
     </button>
@@ -96,6 +117,10 @@ export function DialogContent({
   ...props
 }: ComponentProps<"div">) {
   const { open = false, onOpenChange } = useContext(DialogContext);
+  const contentProps = props as Omit<
+    HeroModalContentProps,
+    "children" | "className"
+  >;
 
   return (
     <HeroModal
@@ -114,7 +139,10 @@ export function DialogContent({
       radius="sm"
       scrollBehavior="inside"
     >
-      <HeroModalContent data-slot="dialog-content-panel">
+      <HeroModalContent
+        {...contentProps}
+        data-slot="dialog-content-panel"
+      >
         {children}
         <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
           <X aria-hidden className="size-4" />

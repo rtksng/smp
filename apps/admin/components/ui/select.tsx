@@ -4,7 +4,6 @@ import {
   Children,
   isValidElement,
   type ComponentProps,
-  type ReactElement,
   type ReactNode
 } from "react";
 import {
@@ -14,15 +13,29 @@ import {
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type SelectItemData = {
-  children?: ReactNode;
-  className?: string;
-  disabled?: boolean;
-  value: string;
-};
+type SelectEntry =
+  | {
+      children?: ReactNode;
+      className?: string;
+      disabled?: boolean;
+      key: string;
+      kind: "item";
+      value: string;
+    }
+  | {
+      children?: ReactNode;
+      className?: string;
+      key: string;
+      kind: "label";
+    }
+  | {
+      className?: string;
+      key: string;
+      kind: "separator";
+    };
 
 type SelectContextData = {
-  items: SelectItemData[];
+  entries: SelectEntry[];
   placeholder?: string;
   triggerClassName?: string;
 };
@@ -65,18 +78,41 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
     if (child.type === SelectItem) {
       const props = child.props as SelectItemProps;
 
-      data.items.push({
+      data.entries.push({
+        key: props.value,
+        kind: "item",
         children: props.children,
         className: props.className,
         disabled: props.disabled,
         value: props.value
+      });
+      return;
+    }
+
+    if (child.type === SelectLabel) {
+      const props = child.props as ComponentProps<"div">;
+      data.entries.push({
+        children: props.children,
+        className: props.className,
+        key: `label-${data.entries.length}`,
+        kind: "label"
+      });
+      return;
+    }
+
+    if (child.type === SelectSeparator) {
+      const props = child.props as ComponentProps<"div">;
+      data.entries.push({
+        className: props.className,
+        key: `separator-${data.entries.length}`,
+        kind: "separator"
       });
     }
   });
 }
 
 export function Select({ children, disabled, onValueChange, value }: SelectProps) {
-  const data: SelectContextData = { items: [] };
+  const data: SelectContextData = { entries: [] };
 
   collectSelectData(children, data);
 
@@ -111,19 +147,50 @@ export function Select({ children, disabled, onValueChange, value }: SelectProps
       selectorIcon={<ChevronDown aria-hidden className="size-4 opacity-70" />}
       variant="bordered"
     >
-      {data.items.map((item) => (
-        <HeroSelectItem
-          key={item.value}
-          className={cn(
-            "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
-            item.className
-          )}
-          data-slot="select-item"
-          isDisabled={item.disabled}
-        >
-          {item.children}
-        </HeroSelectItem>
-      ))}
+      {data.entries.map((entry) => {
+        if (entry.kind === "label") {
+          return (
+            <HeroSelectItem
+              key={entry.key}
+              className={cn(
+                "cursor-default px-2 py-1.5 text-xs font-bold text-muted-foreground data-[disabled=true]:opacity-100",
+                entry.className
+              )}
+              data-slot="select-label"
+              isDisabled
+            >
+              {entry.children}
+            </HeroSelectItem>
+          );
+        }
+
+        if (entry.kind === "separator") {
+          return (
+            <HeroSelectItem
+              key={entry.key}
+              className={cn("pointer-events-none my-1 h-px bg-border p-0", entry.className)}
+              data-slot="select-separator"
+              isDisabled
+            >
+              {" "}
+            </HeroSelectItem>
+          );
+        }
+
+        return (
+          <HeroSelectItem
+            key={entry.value}
+            className={cn(
+              "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
+              entry.className
+            )}
+            data-slot="select-item"
+            isDisabled={entry.disabled}
+          >
+            {entry.children}
+          </HeroSelectItem>
+        );
+      })}
     </HeroSelect>
   );
 }

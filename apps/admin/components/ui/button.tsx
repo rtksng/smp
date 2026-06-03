@@ -2,6 +2,7 @@ import {
   cloneElement,
   isValidElement,
   type ComponentPropsWithoutRef,
+  type MouseEvent,
   type ReactElement
 } from "react";
 import {
@@ -51,6 +52,7 @@ export function Button({
   children,
   className,
   disabled,
+  onClick,
   size,
   type = "button",
   value,
@@ -63,19 +65,56 @@ export function Button({
   );
 
   if (asChild && isValidElement(children)) {
-    const child = children as ReactElement<{ className?: string }>;
-
-    return cloneElement(child, {
+    const child = children as ReactElement<{
+      className?: string;
+      onClick?: (event: MouseEvent<HTMLElement>) => void;
+      tabIndex?: number;
+    }>;
+    const isNativeButtonChild = child.type === "button";
+    const childProps = {
       ...props,
       className: cn(mergedClassName, child.props.className),
+      onClick: (event: MouseEvent<HTMLElement>) => {
+        if (disabled) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        onClick?.(event as MouseEvent<HTMLButtonElement>);
+
+        if (!event.defaultPrevented) {
+          child.props.onClick?.(event);
+        }
+      },
       "aria-disabled": disabled || undefined,
-      "data-slot": "button"
-    } as Partial<{ className?: string }>);
+      "data-disabled": disabled ? "" : undefined,
+      "data-slot": "button",
+      tabIndex: disabled ? -1 : child.props.tabIndex
+    } as Partial<{
+      "aria-disabled": boolean;
+      "data-disabled": string;
+      "data-slot": string;
+      className: string;
+      disabled: boolean;
+      onClick: (event: MouseEvent<HTMLElement>) => void;
+      tabIndex: number;
+      type: ComponentPropsWithoutRef<"button">["type"];
+      value: ComponentPropsWithoutRef<"button">["value"];
+    }>;
+
+    if (isNativeButtonChild) {
+      childProps.disabled = disabled;
+      childProps.type = type;
+      childProps.value = value;
+    }
+
+    return cloneElement(child, childProps);
   }
 
   const heroProps = props as Omit<
     HeroButtonProps,
-    "children" | "className" | "isDisabled" | "radius" | "type" | "value"
+    "children" | "className" | "isDisabled" | "onClick" | "radius" | "type" | "value"
   >;
 
   return (
@@ -84,6 +123,9 @@ export function Button({
       className={mergedClassName}
       data-slot="button"
       isDisabled={disabled}
+      onClick={(event) => {
+        onClick?.(event as unknown as MouseEvent<HTMLButtonElement>);
+      }}
       radius="sm"
       type={type}
       value={Array.isArray(value) ? value.join(",") : value?.toString()}
