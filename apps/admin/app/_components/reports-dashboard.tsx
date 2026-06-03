@@ -266,6 +266,7 @@ function ReportFilterForm({
       <Label>
         Warehouse
         <Select
+          aria-label="Warehouse"
           disabled={isWarehouseLoading}
           onValueChange={(warehouseId) => onChange({ ...filters, warehouseId })}
           value={filters.warehouseId}
@@ -400,7 +401,9 @@ function ChartPanel({
     <Card className="reportChartPanel" data-wide={wide}>
       <CardHeader>
         <p className="eyebrow">Chart</p>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          <h2>{title}</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>

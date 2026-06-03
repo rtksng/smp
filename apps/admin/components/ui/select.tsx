@@ -45,6 +45,8 @@ type SelectContextData = {
 };
 
 type SelectProps = {
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
   children?: ReactNode;
   disabled?: boolean;
   onValueChange?: (value: string) => void;
@@ -219,7 +221,14 @@ function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
   return renderedEntries;
 }
 
-export function Select({ children, disabled, onValueChange, value }: SelectProps) {
+export function Select({
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
+  children,
+  disabled,
+  onValueChange,
+  value
+}: SelectProps) {
   const data: SelectContextData = { entries: [] };
 
   collectSelectData(children, data);
@@ -227,7 +236,8 @@ export function Select({ children, disabled, onValueChange, value }: SelectProps
 
   return (
     <HeroSelect
-      aria-label={data.placeholder ?? "Select option"}
+      aria-label={ariaLabel ?? data.placeholder ?? "Select option"}
+      aria-labelledby={ariaLabelledBy}
       classNames={{
         trigger: cn(
           "flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors shadow-none",
