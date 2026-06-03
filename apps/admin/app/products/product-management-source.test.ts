@@ -47,7 +47,7 @@ describe("product management route flow", () => {
     expect(productManagementSource).not.toContain("document.execCommand");
   });
 
-  it("uses shared admin shadcn primitives for product operations", () => {
+  it("uses shared admin HeroUI compatibility primitives for product operations", () => {
     expect(productManagementSource).toContain("@/components/ui/button");
     expect(productManagementSource).toContain("@/components/ui/card");
     expect(productManagementSource).toContain("@/components/ui/input");

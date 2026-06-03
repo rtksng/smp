@@ -72,8 +72,12 @@ import {
   ConfirmationDialog,
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
+import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -373,27 +377,27 @@ function ProductManagementContent({
     return (
       <>
         <Card className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">{isEditView ? "Edit product" : "New product"}</p>
-              <h2>
-                {isEditView
-                  ? (editingProduct?.name ?? "Edit product")
-                  : "Create product"}
-                </h2>
-              <p className="panelSummary">
-                {isEditView
-                  ? "Update catalog details, pricing, assets, variants, and lifecycle status."
-                  : "Create a catalog product with pricing, assets, variants, and documents."}
-              </p>
-            </div>
-            <Button asChild className="iconTextButton" variant="outline">
-              <Link href={PRODUCT_LIST_PATH}>
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back to list</span>
-              </Link>
-            </Button>
-          </div>
+          <PageHeader
+            actions={
+              <Button asChild className="iconTextButton" variant="outline">
+                <Link href={PRODUCT_LIST_PATH}>
+                  <ArrowLeft aria-hidden size={16} />
+                  <span>Back to list</span>
+                </Link>
+              </Button>
+            }
+            eyebrow={isEditView ? "Edit product" : "New product"}
+            summary={
+              isEditView
+                ? "Update catalog details, pricing, assets, variants, and lifecycle status."
+                : "Create a catalog product with pricing, assets, variants, and documents."
+            }
+            title={
+              isEditView
+                ? (editingProduct?.name ?? "Edit product")
+                : "Create product"
+            }
+          />
 
           {mutationError ? (
             <p className="formError" role="alert">
@@ -401,7 +405,7 @@ function ProductManagementContent({
             </p>
           ) : null}
           {isEditView && productQuery.isLoading ? (
-            <div className="loadingBlock">Loading product...</div>
+            <LoadingState label="Loading product..." />
           ) : null}
           {isEditView && productQuery.isError ? (
             <p className="formError" role="alert">
@@ -409,19 +413,22 @@ function ProductManagementContent({
             </p>
           ) : null}
           {editMissing ? (
-            <div className="emptyPanel">
-              This product was not found or is no longer available.
-            </div>
+            <EmptyState
+              body="This product was not found or is no longer available."
+              title="Product unavailable"
+            />
           ) : null}
           {!canCreate && view === "create" ? (
-            <div className="emptyPanel">
-              Your role can view products but cannot create them.
-            </div>
+            <EmptyState
+              body="Your role can view products but cannot create them."
+              title="Create access unavailable"
+            />
           ) : null}
           {!canUpdate && isEditView && editingProduct ? (
-            <div className="emptyPanel">
-              Your role can view products but cannot edit them.
-            </div>
+            <EmptyState
+              body="Your role can view products but cannot edit them."
+              title="Edit access unavailable"
+            />
           ) : null}
           {view === "create" || editingProduct ? (
             <ProductForm
@@ -443,34 +450,32 @@ function ProductManagementContent({
   return (
     <>
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Products</p>
-            <h2>Product catalog management</h2>
-            <p className="panelSummary">
-              Search, filter, create, edit, upload assets, and manage product lifecycle.
-            </p>
-          </div>
-          <div className="actionRow">
-            <Button
-              className="iconTextButton"
-              onClick={() => void productsQuery.refetch()}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </Button>
-            {canCreate ? (
-              <Button asChild className="iconTextButton">
-                <Link href={PRODUCT_CREATE_PATH}>
-                  <Plus aria-hidden size={16} />
-                  <span>New product</span>
-                </Link>
+        <PageHeader
+          actions={
+            <>
+              <Button
+                className="iconTextButton"
+                onClick={() => void productsQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
               </Button>
-            ) : null}
-          </div>
-        </div>
+              {canCreate ? (
+                <Button asChild className="iconTextButton">
+                  <Link href={PRODUCT_CREATE_PATH}>
+                    <Plus aria-hidden size={16} />
+                    <span>New product</span>
+                  </Link>
+                </Button>
+              ) : null}
+            </>
+          }
+          eyebrow="Products"
+          summary="Search, filter, create, edit, upload assets, and manage product lifecycle."
+          title="Product catalog management"
+        />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError ? (
@@ -499,12 +504,7 @@ function ProductManagementContent({
       </Card>
 
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Catalog filters</p>
-            <h2>Find products</h2>
-          </div>
-        </div>
+        <PageHeader level={2} eyebrow="Catalog filters" title="Find products" />
         <ProductFilterForm
           brands={brands}
           categories={categoryTree}
@@ -517,20 +517,21 @@ function ProductManagementContent({
       </Card>
 
       <Card className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Product list</p>
-            <h2>Catalog table</h2>
-          </div>
-          {pagination ? (
-            <span>
-              Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
-            </span>
-          ) : null}
-        </div>
+        <PageHeader
+          actions={
+            pagination ? (
+              <span>
+                Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
+              </span>
+            ) : null
+          }
+          level={2}
+          eyebrow="Product list"
+          title="Catalog table"
+        />
 
         {productsQuery.isLoading ? (
-          <div className="loadingBlock">Loading products...</div>
+          <LoadingState label="Loading products..." />
         ) : null}
         {productsQuery.isError ? (
           <p className="formError" role="alert">
@@ -550,27 +551,11 @@ function ProductManagementContent({
         ) : null}
 
         {pagination && pagination.totalPages > 1 ? (
-          <div className="paginationControls">
-            <Button
-              disabled={!pagination.hasPreviousPage}
-              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <span>
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <Button
-              disabled={!pagination.hasNextPage}
-              onClick={() => setPage((currentPage) => currentPage + 1)}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
-          </div>
+          <PaginationControls
+            onChange={setPage}
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+          />
         ) : null}
       </Card>
 
