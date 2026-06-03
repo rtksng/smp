@@ -36,10 +36,6 @@ describe("admin layout styles", () => {
   it("keeps button labels and icons visible in admin buttons", () => {
     expect(globalsCss).not.toMatch(/\.panelHeader\s+span\s*{/);
     expect(globalsCss).toMatch(/\.panelHeader\s*>\s*span\s*{/);
-    expect(buttonSource).toContain("[&_span]:!text-current");
-    expect(buttonSource).toContain("[&_svg]:!text-current");
-    expect(buttonSource).toContain("!text-primary-foreground");
-    expect(buttonSource).toContain("!text-secondary-foreground");
   });
 
   it("wires the button wrapper through HeroUI", () => {

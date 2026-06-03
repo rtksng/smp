@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -18,11 +18,19 @@ const uiFiles = [
   "components/ui/card.tsx",
   "components/ui/checkbox.tsx",
   "components/ui/dialog.tsx",
+  "components/ui/dropdown.tsx",
+  "components/ui/drawer.tsx",
   "components/ui/input.tsx",
   "components/ui/label.tsx",
+  "components/ui/pagination.tsx",
   "components/ui/select.tsx",
+  "components/ui/skeleton.tsx",
+  "components/ui/spinner.tsx",
+  "components/ui/switch.tsx",
   "components/ui/table.tsx",
-  "components/ui/textarea.tsx"
+  "components/ui/tabs.tsx",
+  "components/ui/textarea.tsx",
+  "components/ui/tooltip.tsx"
 ];
 
 function collectAdminSourceFiles() {
@@ -80,11 +88,23 @@ describe("admin HeroUI modernization", () => {
 
   it("keeps repeated admin primitives behind HeroUI-backed wrappers", () => {
     for (const file of uiFiles) {
+      const wrapperPath = join(adminRoot, file);
+      const wrapperExists = existsSync(wrapperPath);
+
+      expect.soft(
+        wrapperExists,
+        `${file} should exist as a planned HeroUI-backed admin wrapper`
+      ).toBe(true);
+
+      if (!wrapperExists) {
+        continue;
+      }
+
       const source = readAdmin(file);
 
-      expect(source, file).toMatch(/from "@heroui\//);
-      expect(source, file).not.toMatch(/from "@radix-ui\//);
-      expect(source, file).not.toMatch(/from "radix-ui"/);
+      expect.soft(source, file).toMatch(/from "@heroui\//);
+      expect.soft(source, file).not.toMatch(/from "@radix-ui\//);
+      expect.soft(source, file).not.toMatch(/from "radix-ui"/);
     }
   });
 
