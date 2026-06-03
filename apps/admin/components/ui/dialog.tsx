@@ -1,54 +1,127 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
+import {
+  cloneElement,
+  createContext,
+  Fragment,
+  isValidElement,
+  useContext,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode
+} from "react";
+import {
+  Modal as HeroModal,
+  ModalContent as HeroModalContent
+} from "@heroui/modal";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogClose = DialogPrimitive.Close;
-export const DialogPortal = DialogPrimitive.Portal;
+type DialogContextValue = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
 
-export function DialogOverlay({
+const DialogContext = createContext<DialogContextValue>({});
+
+export type DialogProps = {
+  children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+export function Dialog({ children, open, onOpenChange }: DialogProps) {
+  return (
+    <DialogContext.Provider value={{ open, onOpenChange }}>
+      {children}
+    </DialogContext.Provider>
+  );
+}
+
+export function DialogTrigger({
+  children
+}: {
+  children?: ReactNode;
+}) {
+  const { onOpenChange } = useContext(DialogContext);
+
+  if (!isValidElement(children)) {
+    return null;
+  }
+
+  const child = children as ReactElement<{ onClick?: () => void }>;
+
+  return cloneElement(child, {
+    onClick: () => {
+      child.props.onClick?.();
+      onOpenChange?.(true);
+    }
+  });
+}
+
+export function DialogClose({
+  children,
   className,
   ...props
-}: ComponentProps<typeof DialogPrimitive.Overlay>) {
+}: ComponentProps<"button">) {
+  const { onOpenChange } = useContext(DialogContext);
+
   return (
-    <DialogPrimitive.Overlay
-      className={cn(
-        "fixed inset-0 z-40 bg-black/45 data-[state=closed]:animate-out data-[state=open]:animate-in",
-        className
-      )}
-      data-slot="dialog-overlay"
+    <button
+      className={className}
+      data-slot="dialog-close"
+      onClick={(event) => {
+        props.onClick?.(event);
+        onOpenChange?.(false);
+      }}
+      type="button"
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
+}
+
+export function DialogPortal({ children }: { children?: ReactNode }) {
+  return <Fragment>{children}</Fragment>;
+}
+
+export function DialogOverlay({ className, ...props }: ComponentProps<"div">) {
+  return <div className={className} data-slot="dialog-overlay" {...props} />;
 }
 
 export function DialogContent({
   children,
   className,
   ...props
-}: ComponentProps<typeof DialogPrimitive.Content>) {
+}: ComponentProps<"div">) {
+  const { open = false, onOpenChange } = useContext(DialogContext);
+
   return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-32px)] max-w-[520px] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-2xl outline-none",
+    <HeroModal
+      classNames={{
+        backdrop: "z-40 bg-black/45",
+        base: cn(
+          "z-50 grid w-[calc(100%-32px)] max-w-[520px] gap-4 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-2xl outline-none",
           className
-        )}
-        data-slot="dialog-content"
-        {...props}
-      >
+        ),
+        closeButton: "hidden"
+      }}
+      data-slot="dialog-content"
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      placement="center"
+      radius="sm"
+      scrollBehavior="inside"
+    >
+      <HeroModalContent data-slot="dialog-content-panel">
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+        <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
           <X aria-hidden className="size-4" />
           <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </DialogPortal>
+        </DialogClose>
+      </HeroModalContent>
+    </HeroModal>
   );
 }
 
@@ -72,12 +145,9 @@ export function DialogFooter({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export function DialogTitle({
-  className,
-  ...props
-}: ComponentProps<typeof DialogPrimitive.Title>) {
+export function DialogTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
-    <DialogPrimitive.Title
+    <h2
       className={cn("text-xl font-bold text-foreground", className)}
       data-slot="dialog-title"
       {...props}
@@ -88,9 +158,9 @@ export function DialogTitle({
 export function DialogDescription({
   className,
   ...props
-}: ComponentProps<typeof DialogPrimitive.Description>) {
+}: ComponentProps<"p">) {
   return (
-    <DialogPrimitive.Description
+    <p
       className={cn("text-sm text-muted-foreground", className)}
       data-slot="dialog-description"
       {...props}

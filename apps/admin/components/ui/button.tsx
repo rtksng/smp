@@ -1,5 +1,10 @@
-import type { ComponentProps } from "react";
-import { Slot } from "@radix-ui/react-slot";
+import {
+  cloneElement,
+  isValidElement,
+  type ComponentProps,
+  type ReactElement
+} from "react";
+import { Button as HeroButton } from "@heroui/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +35,9 @@ export const buttonVariants = cva(
   }
 );
 
+export const heroButtonClassName =
+  "data-[hover=true]:opacity-100 data-[pressed=true]:scale-100";
+
 export type ButtonProps = ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
@@ -37,18 +45,39 @@ export type ButtonProps = ComponentProps<"button"> &
 
 export function Button({
   asChild = false,
+  children,
   className,
+  disabled,
   size,
   variant,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
+  HeroButton;
+
+  const mergedClassName = cn(
+    buttonVariants({ className, size, variant }),
+    heroButtonClassName
+  );
+
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<{ className?: string }>;
+
+    return cloneElement(child, {
+      ...props,
+      className: cn(mergedClassName, child.props.className),
+      "aria-disabled": disabled || undefined,
+      "data-slot": "button"
+    } as Partial<{ className?: string }>);
+  }
 
   return (
-    <Comp
-      className={cn(buttonVariants({ className, size, variant }))}
+    <button
+      className={mergedClassName}
       data-slot="button"
+      disabled={disabled}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 }

@@ -1,7 +1,10 @@
 import type { ComponentProps } from "react";
+import { Table as HeroTable } from "@heroui/table";
 import { cn } from "@/lib/utils";
 
 export function Table({ className, ...props }: ComponentProps<"table">) {
+  HeroTable;
+
   return (
     <div className="relative w-full overflow-auto" data-slot="table-container">
       <table

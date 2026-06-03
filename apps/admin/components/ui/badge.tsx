@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { Chip as HeroChip } from "@heroui/chip";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,8 @@ export type BadgeProps = ComponentProps<"span"> &
   VariantProps<typeof badgeVariants>;
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
+  HeroChip;
+
   return (
     <span
       className={cn(badgeVariants({ className, variant }))}

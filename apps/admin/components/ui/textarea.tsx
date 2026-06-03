@@ -1,7 +1,10 @@
 import type { ComponentProps } from "react";
+import { Textarea as HeroTextarea } from "@heroui/input";
 import { cn } from "@/lib/utils";
 
 export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  HeroTextarea;
+
   return (
     <textarea
       className={cn(

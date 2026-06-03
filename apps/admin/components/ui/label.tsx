@@ -1,15 +1,12 @@
-"use client";
-
 import type { ComponentProps } from "react";
-import * as LabelPrimitive from "@radix-ui/react-label";
+import { input } from "@heroui/theme";
 import { cn } from "@/lib/utils";
 
-export function Label({
-  className,
-  ...props
-}: ComponentProps<typeof LabelPrimitive.Root>) {
+export function Label({ className, ...props }: ComponentProps<"label">) {
+  input();
+
   return (
-    <LabelPrimitive.Root
+    <label
       className={cn(
         "grid gap-2 text-sm font-extrabold text-muted-foreground",
         className

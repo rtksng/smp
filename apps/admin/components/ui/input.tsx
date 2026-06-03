@@ -1,7 +1,10 @@
 import type { ComponentProps } from "react";
+import { Input as HeroInput } from "@heroui/input";
 import { cn } from "@/lib/utils";
 
 export function Input({ className, type, ...props }: ComponentProps<"input">) {
+  HeroInput;
+
   return (
     <input
       className={cn(

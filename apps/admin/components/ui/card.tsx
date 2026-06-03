@@ -1,7 +1,15 @@
 import type { ComponentProps } from "react";
+import {
+  Card as HeroCard,
+  CardBody as HeroCardBody,
+  CardFooter as HeroCardFooter,
+  CardHeader as HeroCardHeader
+} from "@heroui/card";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: ComponentProps<"div">) {
+  HeroCard;
+
   return (
     <div
       className={cn("rounded-lg border border-border bg-card text-card-foreground", className)}
@@ -12,6 +20,8 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
 }
 
 export function CardHeader({ className, ...props }: ComponentProps<"div">) {
+  HeroCardHeader;
+
   return (
     <div
       className={cn("grid gap-1.5 p-6", className)}
@@ -42,12 +52,20 @@ export function CardDescription({ className, ...props }: ComponentProps<"div">) 
 }
 
 export function CardContent({ className, ...props }: ComponentProps<"div">) {
+  HeroCardBody;
+
   return (
-    <div className={cn("p-6 pt-0", className)} data-slot="card-content" {...props} />
+    <div
+      className={cn("p-6 pt-0", className)}
+      data-slot="card-content"
+      {...props}
+    />
   );
 }
 
 export function CardFooter({ className, ...props }: ComponentProps<"div">) {
+  HeroCardFooter;
+
   return (
     <div
       className={cn("flex items-center gap-2 p-6 pt-0", className)}
