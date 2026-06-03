@@ -38,9 +38,8 @@ import {
   Link as LinkIcon,
   List,
   ListOrdered,
-  Pencil,
+  MoreVertical,
   Plus,
-  Power,
   RefreshCw,
   Search,
   Trash2,
@@ -83,6 +82,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger
+} from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -817,62 +822,61 @@ function ProductTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="tableActions">
-                    {canUpdate ? (
-                      <Button asChild className="iconTextButton" variant="outline">
-                        <Link href={buildProductEditPath(product.id)}>
-                          <Pencil aria-hidden size={16} />
-                          <span>Edit</span>
-                        </Link>
-                      </Button>
-                    ) : (
+                  <Dropdown>
+                    <DropdownTrigger>
                       <Button
-                        className="iconTextButton"
-                        disabled
+                        aria-label={`Actions for ${product.name}`}
+                        size="icon"
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                       >
-                        <Pencil aria-hidden size={16} />
-                        <span>Edit</span>
+                        <MoreVertical aria-hidden size={16} />
                       </Button>
-                    )}
-                    {canUpdate && product.status !== "ACTIVE" ? (
-                      <Button
-                        className="iconTextButton"
-                        disabled={isMutating}
-                        onClick={() => onActivate(product)}
-                        type="button"
-                        variant="secondary"
-                      >
-                        <CheckCircle2 aria-hidden size={16} />
-                        <span>Activate</span>
-                      </Button>
-                    ) : null}
-                    {canUpdate && product.status === "ACTIVE" ? (
-                      <Button
-                        className="iconTextButton"
-                        disabled={isMutating}
-                        onClick={() => onDeactivate(product)}
-                        type="button"
-                        variant="outline"
-                      >
-                        <Power aria-hidden size={16} />
-                        <span>Deactivate</span>
-                      </Button>
-                    ) : null}
-                    {canDelete ? (
-                      <Button
-                        className="iconTextButton"
-                        disabled={isMutating}
-                        onClick={() => onDelete(product)}
-                        type="button"
-                        variant="destructive"
-                      >
-                        <Trash2 aria-hidden size={16} />
-                        <span>Delete</span>
-                      </Button>
-                    ) : null}
-                  </span>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label={`Actions for ${product.name}`}>
+                      {canUpdate ? (
+                        <DropdownItem key="edit" textValue="Edit product">
+                          <Link href={buildProductEditPath(product.id)}>Edit</Link>
+                        </DropdownItem>
+                      ) : (
+                        <DropdownItem key="edit-disabled" isDisabled textValue="Edit product">
+                          Edit
+                        </DropdownItem>
+                      )}
+                      {canUpdate && product.status !== "ACTIVE" ? (
+                        <DropdownItem
+                          key="activate"
+                          isDisabled={isMutating}
+                          onPress={() => onActivate(product)}
+                          textValue="Activate product"
+                        >
+                          Activate
+                        </DropdownItem>
+                      ) : null}
+                      {canUpdate && product.status === "ACTIVE" ? (
+                        <DropdownItem
+                          key="deactivate"
+                          isDisabled={isMutating}
+                          onPress={() => onDeactivate(product)}
+                          textValue="Deactivate product"
+                        >
+                          Deactivate
+                        </DropdownItem>
+                      ) : null}
+                      {canDelete ? (
+                        <DropdownItem
+                          key="delete"
+                          className="text-danger"
+                          color="danger"
+                          isDisabled={isMutating}
+                          onPress={() => onDelete(product)}
+                          textValue="Delete product"
+                        >
+                          Delete
+                        </DropdownItem>
+                      ) : null}
+                    </DropdownMenu>
+                  </Dropdown>
                 </TableCell>
               </TableRow>
             ))
