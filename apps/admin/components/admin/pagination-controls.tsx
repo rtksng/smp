@@ -2,21 +2,25 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 
 type PaginationControlsProps = {
+  onChange: (page: number) => void;
   page: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
 };
 
 export function PaginationControls({
-  onPageChange,
+  onChange,
   page,
   totalPages
 }: PaginationControlsProps) {
+  if (totalPages <= 1) {
+    return null;
+  }
+
   return (
     <div className="paginationControls">
       <Button
         disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
+        onClick={() => onChange(page - 1)}
         type="button"
         variant="outline"
       >
@@ -24,12 +28,12 @@ export function PaginationControls({
       </Button>
       <Pagination
         page={page}
-        total={Math.max(totalPages, 1)}
-        onChange={onPageChange}
+        total={totalPages}
+        onChange={onChange}
       />
       <Button
         disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
+        onClick={() => onChange(page + 1)}
         type="button"
         variant="outline"
       >

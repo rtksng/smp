@@ -11,7 +11,7 @@ type LoadingStateProps = {
 export function LoadingState({ className, label = "Loading..." }: LoadingStateProps) {
   return (
     <Card className={cn("adminLoadingState", className)}>
-      <CardContent>
+      <CardContent aria-live="polite" role="status">
         <Spinner size="sm" />
         <span>{label}</span>
       </CardContent>
