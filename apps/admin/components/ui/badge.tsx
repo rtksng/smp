@@ -1,5 +1,5 @@
-import type { ComponentProps } from "react";
-import { Chip as HeroChip } from "@heroui/chip";
+import type { ComponentPropsWithoutRef } from "react";
+import { Chip as HeroChip, type ChipProps as HeroChipProps } from "@heroui/chip";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -20,17 +20,24 @@ const badgeVariants = cva(
   }
 );
 
-export type BadgeProps = ComponentProps<"span"> &
+export type BadgeProps = Omit<ComponentPropsWithoutRef<"span">, "color"> &
   VariantProps<typeof badgeVariants>;
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
-  HeroChip;
+  const heroProps = props as Omit<
+    HeroChipProps,
+    "as" | "className" | "color" | "radius" | "size" | "variant"
+  >;
 
   return (
-    <span
+    <HeroChip
+      {...heroProps}
+      as="span"
       className={cn(badgeVariants({ className, variant }))}
       data-slot="badge"
-      {...props}
+      radius="full"
+      size="sm"
+      variant="flat"
     />
   );
 }

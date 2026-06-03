@@ -1,27 +1,32 @@
-import type { ComponentProps } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import {
   Card as HeroCard,
   CardBody as HeroCardBody,
-  CardFooter as HeroCardFooter,
-  CardHeader as HeroCardHeader
+  type CardProps as HeroCardProps
 } from "@heroui/card";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: ComponentProps<"div">) {
-  HeroCard;
+type DivProps = ComponentPropsWithoutRef<"div">;
+
+export function Card({ className, ...props }: DivProps) {
+  const heroProps = props as Omit<
+    HeroCardProps,
+    "as" | "className" | "radius" | "shadow"
+  >;
 
   return (
-    <div
+    <HeroCard
+      {...heroProps}
+      as="div"
       className={cn("rounded-lg border border-border bg-card text-card-foreground", className)}
       data-slot="card"
-      {...props}
+      radius="sm"
+      shadow="none"
     />
   );
 }
 
-export function CardHeader({ className, ...props }: ComponentProps<"div">) {
-  HeroCardHeader;
-
+export function CardHeader({ className, ...props }: DivProps) {
   return (
     <div
       className={cn("grid gap-1.5 p-6", className)}
@@ -31,7 +36,7 @@ export function CardHeader({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export function CardTitle({ className, ...props }: ComponentProps<"div">) {
+export function CardTitle({ className, ...props }: DivProps) {
   return (
     <div
       className={cn("text-2xl font-bold leading-none text-foreground", className)}
@@ -41,7 +46,7 @@ export function CardTitle({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export function CardDescription({ className, ...props }: ComponentProps<"div">) {
+export function CardDescription({ className, ...props }: DivProps) {
   return (
     <div
       className={cn("text-sm text-muted-foreground", className)}
@@ -51,21 +56,19 @@ export function CardDescription({ className, ...props }: ComponentProps<"div">) 
   );
 }
 
-export function CardContent({ className, ...props }: ComponentProps<"div">) {
-  HeroCardBody;
+export function CardContent({ className, ...props }: DivProps) {
+  const heroProps = props as Omit<ComponentPropsWithoutRef<typeof HeroCardBody>, "className">;
 
   return (
-    <div
+    <HeroCardBody
+      {...heroProps}
       className={cn("p-6 pt-0", className)}
       data-slot="card-content"
-      {...props}
     />
   );
 }
 
-export function CardFooter({ className, ...props }: ComponentProps<"div">) {
-  HeroCardFooter;
-
+export function CardFooter({ className, ...props }: DivProps) {
   return (
     <div
       className={cn("flex items-center gap-2 p-6 pt-0", className)}

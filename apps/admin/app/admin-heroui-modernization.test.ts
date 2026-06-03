@@ -108,6 +108,23 @@ describe("admin HeroUI modernization", () => {
     }
   });
 
+  it("does not use no-op HeroUI import sentinels in admin primitive wrappers", () => {
+    for (const file of uiFiles) {
+      const wrapperPath = join(adminRoot, file);
+
+      if (!existsSync(wrapperPath)) {
+        continue;
+      }
+
+      const source = readAdmin(file);
+
+      expect(source, file).not.toMatch(/^\s*Hero[A-Z]\w*;\s*$/m);
+      expect(source, file).not.toMatch(
+        /^\s*(?:badge|button|card|checkbox|chip|drawer|dropdown|input|modal|pagination|select|skeleton|spinner|switch|table|tabs|textarea|tooltip)\(\);\s*$/m
+      );
+    }
+  });
+
   it("does not import Radix directly anywhere in admin source", () => {
     for (const file of collectAdminSourceFiles()) {
       const source = readAdmin(file);

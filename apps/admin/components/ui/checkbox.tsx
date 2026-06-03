@@ -1,7 +1,10 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { Checkbox as HeroCheckbox } from "@heroui/checkbox";
+import {
+  Checkbox as HeroCheckbox,
+  type CheckboxProps as HeroCheckboxProps
+} from "@heroui/checkbox";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,27 +20,41 @@ export function Checkbox({
   onCheckedChange,
   ...props
 }: CheckboxProps) {
-  HeroCheckbox;
+  const heroProps = props as Omit<
+    HeroCheckboxProps,
+    | "checked"
+    | "className"
+    | "classNames"
+    | "defaultSelected"
+    | "icon"
+    | "isDisabled"
+    | "isSelected"
+    | "onValueChange"
+    | "radius"
+  >;
 
   return (
-    <span className="relative inline-flex size-4 items-center justify-center">
-      <input
-        checked={checked}
-        className={cn(
-          "peer size-4 shrink-0 appearance-none rounded border border-input bg-card text-primary-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60 checked:border-primary checked:bg-primary",
+    <HeroCheckbox
+      {...heroProps}
+      classNames={{
+        base: "m-0 p-0",
+        hiddenInput: "peer",
+        icon: "text-current",
+        wrapper: cn(
+          "size-4 shrink-0 rounded border border-input bg-card text-primary-foreground outline-none transition-colors",
+          "group-data-[selected=true]:border-primary group-data-[selected=true]:bg-primary",
+          "group-data-[focus-visible=true]:ring-2 group-data-[focus-visible=true]:ring-ring/20",
+          "group-data-[disabled=true]:cursor-not-allowed group-data-[disabled=true]:opacity-60",
           className
-        )}
-        data-slot="checkbox"
-        defaultChecked={defaultChecked}
-        disabled={disabled}
-        onChange={(event) => onCheckedChange?.(event.currentTarget.checked)}
-        type="checkbox"
-        {...props}
-      />
-      <Check
-        aria-hidden
-        className="pointer-events-none absolute size-3 text-primary-foreground opacity-0 peer-checked:opacity-100"
-      />
-    </span>
+        )
+      }}
+      data-slot="checkbox"
+      defaultSelected={defaultChecked}
+      icon={<Check aria-hidden className="size-3" />}
+      isDisabled={disabled}
+      isSelected={checked}
+      onValueChange={onCheckedChange}
+      radius="sm"
+    />
   );
 }

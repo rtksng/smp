@@ -1,10 +1,13 @@
 import {
   cloneElement,
   isValidElement,
-  type ComponentProps,
+  type ComponentPropsWithoutRef,
   type ReactElement
 } from "react";
-import { Button as HeroButton } from "@heroui/button";
+import {
+  Button as HeroButton,
+  type ButtonProps as HeroButtonProps
+} from "@heroui/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +41,7 @@ export const buttonVariants = cva(
 export const heroButtonClassName =
   "data-[hover=true]:opacity-100 data-[pressed=true]:scale-100";
 
-export type ButtonProps = ComponentProps<"button"> &
+export type ButtonProps = ComponentPropsWithoutRef<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   };
@@ -49,11 +52,11 @@ export function Button({
   className,
   disabled,
   size,
+  type = "button",
+  value,
   variant,
   ...props
 }: ButtonProps) {
-  HeroButton;
-
   const mergedClassName = cn(
     buttonVariants({ className, size, variant }),
     heroButtonClassName
@@ -70,14 +73,22 @@ export function Button({
     } as Partial<{ className?: string }>);
   }
 
+  const heroProps = props as Omit<
+    HeroButtonProps,
+    "children" | "className" | "isDisabled" | "radius" | "type" | "value"
+  >;
+
   return (
-    <button
+    <HeroButton
+      {...heroProps}
       className={mergedClassName}
       data-slot="button"
-      disabled={disabled}
-      {...props}
+      isDisabled={disabled}
+      radius="sm"
+      type={type}
+      value={Array.isArray(value) ? value.join(",") : value?.toString()}
     >
       {children}
-    </button>
+    </HeroButton>
   );
 }

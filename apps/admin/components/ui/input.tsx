@@ -1,19 +1,30 @@
 import type { ComponentProps } from "react";
-import { Input as HeroInput } from "@heroui/input";
+import { Input as HeroInput, type InputProps as HeroInputProps } from "@heroui/input";
 import { cn } from "@/lib/utils";
 
-export function Input({ className, type, ...props }: ComponentProps<"input">) {
-  HeroInput;
+export function Input({ className, type, value, ...props }: ComponentProps<"input">) {
+  const heroProps = props as Omit<
+    HeroInputProps,
+    "className" | "classNames" | "radius" | "type" | "value" | "variant"
+  >;
 
   return (
-    <input
-      className={cn(
-        "flex min-h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-60",
-        className
-      )}
+    <HeroInput
+      {...heroProps}
+      classNames={{
+        input: "text-foreground placeholder:text-muted-foreground",
+        inputWrapper: cn(
+          "flex min-h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors shadow-none",
+          "focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20",
+          "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60",
+          className
+        )
+      }}
       data-slot="input"
+      radius="sm"
       type={type}
-      {...props}
+      value={Array.isArray(value) ? value.join(",") : value?.toString()}
+      variant="bordered"
     />
   );
 }
