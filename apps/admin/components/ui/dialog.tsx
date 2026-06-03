@@ -6,6 +6,7 @@ import {
   Fragment,
   isValidElement,
   useContext,
+  useId,
   type ComponentProps,
   type MouseEvent,
   type ReactElement,
@@ -24,7 +25,13 @@ type DialogContextValue = {
   onOpenChange?: (open: boolean) => void;
 };
 
+type DialogContentContextValue = {
+  descriptionId: string;
+  titleId: string;
+};
+
 const DialogContext = createContext<DialogContextValue>({});
+const DialogContentContext = createContext<DialogContentContextValue | null>(null);
 
 export type DialogProps = {
   children?: ReactNode;
@@ -117,10 +124,15 @@ export function DialogContent({
   ...props
 }: ComponentProps<"div">) {
   const { open = false, onOpenChange } = useContext(DialogContext);
+  const generatedId = useId();
+  const titleId = `${generatedId}-title`;
+  const descriptionId = `${generatedId}-description`;
   const contentProps = props as Omit<
     HeroModalContentProps,
     "children" | "className"
   >;
+  const labelledBy = props["aria-labelledby"] ?? titleId;
+  const describedBy = props["aria-describedby"] ?? descriptionId;
 
   return (
     <HeroModal
@@ -141,13 +153,17 @@ export function DialogContent({
     >
       <HeroModalContent
         {...contentProps}
+        aria-describedby={describedBy}
+        aria-labelledby={labelledBy}
         data-slot="dialog-content-panel"
       >
-        {children}
-        <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
-          <X aria-hidden className="size-4" />
-          <span className="sr-only">Close</span>
-        </DialogClose>
+        <DialogContentContext.Provider value={{ descriptionId, titleId }}>
+          {children}
+          <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X aria-hidden className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+        </DialogContentContext.Provider>
       </HeroModalContent>
     </HeroModal>
   );
@@ -173,11 +189,14 @@ export function DialogFooter({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export function DialogTitle({ className, ...props }: ComponentProps<"h2">) {
+export function DialogTitle({ className, id, ...props }: ComponentProps<"h2">) {
+  const contentContext = useContext(DialogContentContext);
+
   return (
     <h2
       className={cn("text-xl font-bold text-foreground", className)}
       data-slot="dialog-title"
+      id={id ?? contentContext?.titleId}
       {...props}
     />
   );
@@ -185,12 +204,16 @@ export function DialogTitle({ className, ...props }: ComponentProps<"h2">) {
 
 export function DialogDescription({
   className,
+  id,
   ...props
 }: ComponentProps<"p">) {
+  const contentContext = useContext(DialogContentContext);
+
   return (
     <p
       className={cn("text-sm text-muted-foreground", className)}
       data-slot="dialog-description"
+      id={id ?? contentContext?.descriptionId}
       {...props}
     />
   );

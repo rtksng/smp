@@ -4,11 +4,14 @@ import {
   Children,
   isValidElement,
   type ComponentProps,
+  type ReactElement,
   type ReactNode
 } from "react";
 import {
   Select as HeroSelect,
-  SelectItem as HeroSelectItem
+  type SelectProps as HeroSelectProps,
+  SelectItem as HeroSelectItem,
+  SelectSection as HeroSelectSection
 } from "@heroui/select";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,7 @@ type SelectEntry =
       className?: string;
       key: string;
       kind: "label";
+      title?: string;
     }
   | {
       className?: string;
@@ -92,10 +96,10 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
     if (child.type === SelectLabel) {
       const props = child.props as ComponentProps<"div">;
       data.entries.push({
-        children: props.children,
         className: props.className,
         key: `label-${data.entries.length}`,
-        kind: "label"
+        kind: "label",
+        title: getTextContent(props.children)
       });
       return;
     }
@@ -111,10 +115,113 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
   });
 }
 
+function getTextContent(node: ReactNode): string | undefined {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    const text = node.map(getTextContent).filter(Boolean).join(" ");
+
+    return text || undefined;
+  }
+
+  return undefined;
+}
+
+function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
+  const renderedEntries: ReactElement[] = [];
+  let pendingSection:
+    | {
+        className?: string;
+        items: Extract<SelectEntry, { kind: "item" }>[];
+        key: string;
+        title?: string;
+      }
+    | null = null;
+
+  function flushSection() {
+    if (!pendingSection) {
+      return;
+    }
+
+    renderedEntries.push(
+      <HeroSelectSection
+        key={pendingSection.key}
+        className={cn("py-1", pendingSection.className)}
+        showDivider
+        title={pendingSection.title}
+      >
+        {pendingSection.items.map((item) => (
+          <HeroSelectItem
+            key={item.value}
+            className={cn(
+              "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
+              item.className
+            )}
+            data-slot="select-item"
+            isDisabled={item.disabled}
+          >
+            {item.children}
+          </HeroSelectItem>
+        ))}
+      </HeroSelectSection>
+    );
+    pendingSection = null;
+  }
+
+  for (const entry of entries) {
+    if (entry.kind === "label") {
+      flushSection();
+      pendingSection = {
+        className: entry.className,
+        items: [],
+        key: entry.key,
+        title: entry.title
+      };
+      continue;
+    }
+
+    if (entry.kind === "separator") {
+      flushSection();
+      pendingSection = {
+        className: entry.className,
+        items: [],
+        key: entry.key
+      };
+      continue;
+    }
+
+    if (pendingSection) {
+      pendingSection.items.push(entry);
+      continue;
+    }
+
+    renderedEntries.push(
+      <HeroSelectItem
+        key={entry.value}
+        className={cn(
+          "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
+          entry.className
+        )}
+        data-slot="select-item"
+        isDisabled={entry.disabled}
+      >
+        {entry.children}
+      </HeroSelectItem>
+    );
+  }
+
+  flushSection();
+
+  return renderedEntries;
+}
+
 export function Select({ children, disabled, onValueChange, value }: SelectProps) {
   const data: SelectContextData = { entries: [] };
 
   collectSelectData(children, data);
+  const selectChildren = renderSelectEntries(data.entries) as unknown as HeroSelectProps["children"];
 
   return (
     <HeroSelect
@@ -147,50 +254,7 @@ export function Select({ children, disabled, onValueChange, value }: SelectProps
       selectorIcon={<ChevronDown aria-hidden className="size-4 opacity-70" />}
       variant="bordered"
     >
-      {data.entries.map((entry) => {
-        if (entry.kind === "label") {
-          return (
-            <HeroSelectItem
-              key={entry.key}
-              className={cn(
-                "cursor-default px-2 py-1.5 text-xs font-bold text-muted-foreground data-[disabled=true]:opacity-100",
-                entry.className
-              )}
-              data-slot="select-label"
-              isDisabled
-            >
-              {entry.children}
-            </HeroSelectItem>
-          );
-        }
-
-        if (entry.kind === "separator") {
-          return (
-            <HeroSelectItem
-              key={entry.key}
-              className={cn("pointer-events-none my-1 h-px bg-border p-0", entry.className)}
-              data-slot="select-separator"
-              isDisabled
-            >
-              {" "}
-            </HeroSelectItem>
-          );
-        }
-
-        return (
-          <HeroSelectItem
-            key={entry.value}
-            className={cn(
-              "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
-              entry.className
-            )}
-            data-slot="select-item"
-            isDisabled={entry.disabled}
-          >
-            {entry.children}
-          </HeroSelectItem>
-        );
-      })}
+      {selectChildren}
     </HeroSelect>
   );
 }
