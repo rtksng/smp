@@ -104,7 +104,6 @@ function CustomersContent() {
               </Button>
             }
             eyebrow="Customers"
-            level={2}
             summary="Search customer accounts by identity, contact, business, or GSTIN."
             title="Customer records"
           />
@@ -199,6 +198,7 @@ function CustomerFilterForm({
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any</SelectItem>
           <SelectItem value="true">Active</SelectItem>
           <SelectItem value="false">Inactive</SelectItem>
         </SelectContent>

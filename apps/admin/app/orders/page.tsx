@@ -139,7 +139,6 @@ function OrdersContent() {
               </Button>
             }
             eyebrow="Orders"
-            level={2}
             summary="Review warehouse-scoped customer orders, payments, invoices, and delivery readiness."
             title="Customer order management"
           />
@@ -237,6 +236,7 @@ function OrderFilterForm({
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any status</SelectItem>
           {ORDER_STATUSES.map((status) => (
             <SelectItem key={status} value={status}>
               {formatOrderLabel(status)}
@@ -258,6 +258,7 @@ function OrderFilterForm({
           <SelectValue placeholder="Any payment" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any payment</SelectItem>
           {PAYMENT_STATUSES.map((status) => (
             <SelectItem key={status} value={status}>
               {formatOrderLabel(status)}
@@ -312,6 +313,7 @@ function OrderFilterForm({
           <SelectValue placeholder="All visible warehouses" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">All visible warehouses</SelectItem>
           {warehouses.map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>
               {warehouse.name} ({warehouse.code})

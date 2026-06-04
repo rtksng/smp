@@ -280,7 +280,6 @@ function OrderDetailContent() {
               </div>
             }
             eyebrow="Order detail"
-            level={2}
             summary="Customer, fulfillment, payment, invoice, and timeline details for this order."
             title={order?.orderNumber ?? "Loading order"}
           />

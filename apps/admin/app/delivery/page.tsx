@@ -342,7 +342,6 @@ function DeliveryContent() {
               </Button>
             }
             eyebrow="Delivery operations"
-            level={2}
             summary="Approve delivery partners, review documents, assign orders, and track assignment progress from the admin panel."
             title="Admin delivery management"
           />
@@ -517,6 +516,7 @@ function PartnerFilterForm({
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any status</SelectItem>
           {DELIVERY_PARTNER_STATUSES.map((status) => (
             <SelectItem key={status} value={status}>
               {formatDeliveryLabel(status)}
@@ -570,6 +570,7 @@ function AssignmentFilterForm({
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any status</SelectItem>
           {DELIVERY_ASSIGNMENT_STATUSES.map((status) => (
             <SelectItem key={status} value={status}>
               {formatDeliveryLabel(status)}
@@ -592,6 +593,7 @@ function AssignmentFilterForm({
           <SelectValue placeholder="All visible warehouses" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">All visible warehouses</SelectItem>
           {warehouses.map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>
               {warehouse.name} ({warehouse.code})
@@ -613,6 +615,7 @@ function AssignmentFilterForm({
           <SelectValue placeholder="All partners" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">All partners</SelectItem>
           {partners.map((partner) => (
             <SelectItem key={partner.id} value={partner.id}>
               {partner.fullName} ({partner.mobileNumber})

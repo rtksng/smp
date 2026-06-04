@@ -34,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -287,7 +286,6 @@ function SettingsContent() {
               </div>
             }
             eyebrow="Settings"
-            level={2}
             summary="Manage admin users, role assignments, and permission visibility from one surface."
             title="Admin access control"
           />
@@ -452,6 +450,7 @@ function AdminUserFilterForm({
           <SelectValue placeholder="Any role" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any</SelectItem>
           {roles.map((role) => (
             <SelectItem key={role.id} value={role.code}>
               {role.name}
@@ -473,6 +472,7 @@ function AdminUserFilterForm({
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="">Any</SelectItem>
           {ADMIN_USER_STATUSES.map((status) => (
             <SelectItem key={status} value={status}>
               {formatAdminStatus(status)}
@@ -638,19 +638,26 @@ function AdminUserForm({
           </Select>
           {errors.roleId ? <span className="fieldError">{errors.roleId}</span> : null}
         </label>
-        <label className="adminSwitchField">
+        <label>
           Status
-          <Switch
-            checked={values.status === "ACTIVE"}
-            onCheckedChange={(checked) =>
-              onValueChange(
-                "status",
-                (checked ? "ACTIVE" : "INACTIVE") as AdminUserFormValues["status"]
-              )
+          <Select
+            aria-label="Status"
+            onValueChange={(value) =>
+              onValueChange("status", value as AdminUserFormValues["status"])
             }
+            value={values.status}
           >
-            {formatAdminStatus(values.status)}
-          </Switch>
+            <SelectTrigger>
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {ADMIN_USER_STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {formatAdminStatus(status)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.status ? <span className="fieldError">{errors.status}</span> : null}
         </label>
         <TextField
