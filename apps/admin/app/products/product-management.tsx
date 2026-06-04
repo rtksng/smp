@@ -835,8 +835,13 @@ function ProductTable({
                     </DropdownTrigger>
                     <DropdownMenu aria-label={`Actions for ${product.name}`}>
                       {canUpdate ? (
-                        <DropdownItem key="edit" textValue="Edit product">
-                          <Link href={buildProductEditPath(product.id)}>Edit</Link>
+                        <DropdownItem
+                          key="edit"
+                          as={Link}
+                          href={buildProductEditPath(product.id)}
+                          textValue="Edit product"
+                        >
+                          Edit
                         </DropdownItem>
                       ) : (
                         <DropdownItem key="edit-disabled" isDisabled textValue="Edit product">
