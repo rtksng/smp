@@ -17,7 +17,7 @@ import { AdminShell } from "../admin-shell";
 import {
   ConfirmationDialog,
   type ConfirmationState
-} from "../_components/confirmation-dialog";
+} from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";

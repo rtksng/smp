@@ -9,6 +9,20 @@ const scopedFiles = [
   "inventory/inventory-management.tsx",
   "warehouses/_components/warehouse-management.tsx"
 ];
+const legacyDesignSystemName = "shad" + "cn";
+const legacyUiPackage = "radix" + "-ui";
+const legacyUiNamespace = `@${legacyUiPackage}/`;
+const legacyButtonClasses = [
+  "primary" + "Button",
+  "secondary" + "Button",
+  "ghost" + "Button",
+  "danger" + "Button",
+  "dialog" + "Backdrop",
+  "confirmation" + "Dialog"
+].join("|");
+const legacyButtonAndModalClassPattern = new RegExp(
+  `className="(?:${legacyButtonClasses})(?:\\s|")`
+);
 
 function readAdminAppFile(path: string) {
   return readFileSync(join(__dirname, path), "utf8");
@@ -29,13 +43,11 @@ describe("scoped admin HeroUI modernization", () => {
     for (const path of scopedFiles) {
       const source = readAdminAppFile(path);
 
-      expect(source, path).not.toMatch(
-        /className="(?:primaryButton|secondaryButton|ghostButton|dangerButton|dialogBackdrop|confirmationDialog)(?:\s|")/
-      );
+      expect(source, path).not.toMatch(legacyButtonAndModalClassPattern);
     }
   });
 
-  it("uses shared shadcn table primitives for scoped data tables", () => {
+  it("uses shared HeroUI table compatibility primitives for scoped data tables", () => {
     for (const path of scopedFiles) {
       const source = readAdminAppFile(path);
 
@@ -53,14 +65,16 @@ describe("scoped admin HeroUI modernization", () => {
 
     expect(scopedSources).toContain("@/components/admin/confirmation-dialog");
     expect(productSource).not.toContain("function ConfirmationDialog(");
-    expect(scopedSources).not.toContain('className="dialogBackdrop"');
+    expect(scopedSources).not.toContain('className="' + "dialog" + "Backdrop" + '"');
   });
 
-  it("does not mention shadcn or Radix in scoped component source", () => {
+  it("does not mention legacy UI systems in scoped component source", () => {
     for (const path of scopedFiles) {
       const source = readAdminAppFile(path);
 
-      expect(source, path).not.toMatch(/shadcn|@radix-ui|radix-ui/i);
+      expect(source.toLowerCase(), path).not.toContain(legacyDesignSystemName);
+      expect(source, path).not.toContain(legacyUiNamespace);
+      expect(source, path).not.toContain(legacyUiPackage);
     }
   });
 });

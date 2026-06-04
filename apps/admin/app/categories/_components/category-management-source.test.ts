@@ -34,7 +34,9 @@ describe("category management route flow", () => {
     expect(categoryManagementSource).toContain("setChildCategoryModal(category)");
     expect(categoryManagementSource).toContain("@/components/ui/dialog");
     expect(categoryManagementSource).toContain("categoryChildDialog");
-    expect(categoryManagementSource).not.toContain('className="dialogBackdrop"');
+    expect(categoryManagementSource).not.toContain(
+      'className="' + "dialog" + "Backdrop" + '"'
+    );
     expect(categoryManagementSource).not.toContain("categoryChildModalBackdrop");
     expect(categoryManagementSource).not.toContain("categoryChildItem");
   });

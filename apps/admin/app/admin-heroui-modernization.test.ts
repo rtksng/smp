@@ -7,6 +7,8 @@ const appDir = __dirname;
 const packageJson = JSON.parse(
   readFileSync(join(adminRoot, "package.json"), "utf8")
 ) as { dependencies?: Record<string, string> };
+const legacyUiPackage = "radix" + "-ui";
+const legacyUiNamespace = `@${legacyUiPackage}/`;
 
 function readAdmin(path: string) {
   return readFileSync(join(adminRoot, path), "utf8");
@@ -81,8 +83,8 @@ describe("admin HeroUI modernization", () => {
   it("has no direct Radix dependencies in the admin package", () => {
     const dependencies = Object.keys(packageJson.dependencies ?? {});
 
-    expect(dependencies.filter((name) => name.startsWith("@radix-ui/"))).toEqual([]);
-    expect(dependencies).not.toContain("radix-ui");
+    expect(dependencies.filter((name) => name.startsWith(legacyUiNamespace))).toEqual([]);
+    expect(dependencies).not.toContain(legacyUiPackage);
     expect(dependencies).not.toContain("@heroui/react");
   });
 
@@ -103,8 +105,8 @@ describe("admin HeroUI modernization", () => {
       const source = readAdmin(file);
 
       expect.soft(source, file).toMatch(/from "@heroui\//);
-      expect.soft(source, file).not.toMatch(/from "@radix-ui\//);
-      expect.soft(source, file).not.toMatch(/from "radix-ui"/);
+      expect.soft(source, file).not.toContain(`from "${legacyUiNamespace}`);
+      expect.soft(source, file).not.toContain(`from "${legacyUiPackage}"`);
     }
   });
 
@@ -129,7 +131,8 @@ describe("admin HeroUI modernization", () => {
     for (const file of collectAdminSourceFiles()) {
       const source = readAdmin(file);
 
-      expect(source, file).not.toMatch(/@radix-ui|radix-ui/);
+      expect(source, file).not.toContain(legacyUiNamespace);
+      expect(source, file).not.toContain(legacyUiPackage);
     }
   });
 });

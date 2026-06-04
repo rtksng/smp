@@ -351,7 +351,6 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.ghostButton.sidebarLogoutButton,
 .sidebarLogoutButton {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -359,21 +358,8 @@ h2 {
   width: 100%;
 }
 
-.ghostButton.sidebarLogoutButton:hover,
 .sidebarLogoutButton:hover {
   background: rgba(255, 255, 255, 0.16);
-}
-
-.ghostButton,
-.primaryButton,
-.secondaryButton,
-.dangerButton {
-  border: 0;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 850;
-  min-height: 40px;
-  padding: 10px 14px;
 }
 
 .buttonLink {
@@ -407,39 +393,11 @@ h2 {
   color: #ffffff;
 }
 
-.ghostButton {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
 .iconTextButton {
   align-items: center;
   display: inline-flex;
   gap: 8px;
   justify-content: center;
-}
-
-.primaryButton {
-  background: var(--primary);
-  color: #ffffff;
-}
-
-.secondaryButton {
-  background: #233d4d;
-  color: #ffffff;
-}
-
-.dangerButton {
-  background: #9b2226;
-  color: #ffffff;
-}
-
-.ghostButton:disabled,
-.primaryButton:disabled,
-.secondaryButton:disabled,
-.dangerButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
 }
 
 .metricGrid {
@@ -1897,34 +1855,6 @@ h2 {
 
 .smallEmpty {
   min-height: 76px;
-}
-
-.dialogBackdrop {
-  align-items: center;
-  background: rgba(17, 24, 39, 0.48);
-  display: grid;
-  inset: 0;
-  padding: 20px;
-  place-items: center;
-  position: fixed;
-  z-index: 40;
-}
-
-.confirmationDialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
-  display: grid;
-  gap: 14px;
-  max-width: 460px;
-  padding: 24px;
-  width: min(100%, 460px);
-}
-
-.confirmationDialog p {
-  color: var(--muted);
-  margin: 0;
 }
 
 .dataTableHeader,

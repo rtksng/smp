@@ -14,7 +14,7 @@ import { AdminShell } from "../admin-shell";
 import {
   ConfirmationDialog,
   type ConfirmationState
-} from "../_components/confirmation-dialog";
+} from "@/components/admin/confirmation-dialog";
 import {
   PermissionGate,
   ProtectedRoute,
