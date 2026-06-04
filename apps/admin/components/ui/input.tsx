@@ -12,13 +12,15 @@ export function Input({ className, type, value, ...props }: ComponentProps<"inpu
     <HeroInput
       {...heroProps}
       classNames={{
+        base: "w-full min-w-0",
         input: "text-foreground placeholder:text-muted-foreground",
         inputWrapper: cn(
           "flex min-h-10 w-full min-w-0 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors shadow-none",
           "focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20",
           "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60",
           className
-        )
+        ),
+        mainWrapper: "w-full min-w-0"
       }}
       data-slot="input"
       radius="sm"

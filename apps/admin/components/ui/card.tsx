@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { CSSProperties, ComponentPropsWithoutRef } from "react";
 import {
   Card as HeroCard,
   CardBody as HeroCardBody,
@@ -8,11 +8,16 @@ import { cn } from "@/lib/utils";
 
 type DivProps = ComponentPropsWithoutRef<"div">;
 
-export function Card({ className, ...props }: DivProps) {
+export function Card({ className, style, ...props }: DivProps) {
   const heroProps = props as Omit<
     HeroCardProps,
-    "as" | "className" | "radius" | "shadow"
+    "as" | "className" | "radius" | "shadow" | "style"
   >;
+  const cardStyle: CSSProperties = {
+    ...style,
+    display: style?.display ?? "flex",
+    flexDirection: style?.flexDirection ?? "column"
+  };
 
   return (
     <HeroCard
@@ -22,6 +27,7 @@ export function Card({ className, ...props }: DivProps) {
       data-slot="card"
       radius="sm"
       shadow="none"
+      style={cardStyle}
     />
   );
 }

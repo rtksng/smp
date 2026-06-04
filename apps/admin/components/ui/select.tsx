@@ -205,7 +205,7 @@ function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
           <HeroSelectItem
             key={item.value}
             className={cn(
-              "rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
+              "adminSelectItem rounded-md text-sm text-foreground data-[hover=true]:bg-muted",
               item.className
             )}
             data-slot="select-item"
@@ -239,6 +239,10 @@ export function Select({
       aria-label={ariaLabel ?? data.placeholder ?? "Select option"}
       aria-labelledby={ariaLabelledBy}
       classNames={{
+        base: "w-full min-w-0",
+        listbox: "adminSelectListbox",
+        mainWrapper: "w-full min-w-0",
+        popoverContent: "adminSelectPopover z-[70]",
         trigger: cn(
           "flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors shadow-none",
           "data-[focus=true]:border-ring data-[focus=true]:ring-2 data-[focus=true]:ring-ring/20",

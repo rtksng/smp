@@ -83,6 +83,76 @@ button {
   cursor: pointer;
 }
 
+[data-slot="card"] {
+  flex-direction: column;
+}
+
+[data-slot="input"],
+[data-slot="textarea"] {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-slot="input-wrapper"]:focus-within,
+[data-slot="select"][data-focus="true"],
+[data-slot="select"][data-open="true"] {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px var(--admin-focus-ring) !important;
+  outline: none !important;
+}
+
+.adminSelectPopover {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16) !important;
+  color: var(--text) !important;
+  overflow: hidden !important;
+  z-index: 70 !important;
+}
+
+.adminSelectListbox {
+  background: var(--surface) !important;
+  max-height: min(360px, calc(100vh - 120px));
+  overflow-y: auto;
+  width: 100%;
+}
+
+.adminSelectListbox [role="presentation"],
+.adminSelectItem {
+  min-width: 0;
+  width: 100%;
+}
+
+.adminSelectItem {
+  background: transparent;
+  height: auto !important;
+  min-height: 32px;
+  color: var(--text) !important;
+  max-width: 100%;
+  padding: 8px 10px;
+}
+
+.adminSelectItem[data-hover="true"],
+.adminSelectItem[data-focus="true"],
+.adminSelectItem[data-selected="true"] {
+  background: var(--surface-muted) !important;
+}
+
+.adminSelectItem > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adminSelectItem > span:last-child {
+  flex: 0 0 12px;
+  height: 12px !important;
+  width: 12px !important;
+}
+
 .shell {
   min-height: 100vh;
   width: 100%;
@@ -670,23 +740,6 @@ h2 {
   gap: 8px;
 }
 
-.formStack input,
-.formStack select,
-.formStack textarea {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  min-height: 42px;
-  padding: 10px 12px;
-  width: 100%;
-}
-
-.formStack textarea {
-  min-height: 88px;
-  resize: vertical;
-}
-
 .formError {
   background: #fff1f2;
   border: 1px solid #fecdd3;
@@ -819,11 +872,9 @@ h2 {
   margin-bottom: 16px;
 }
 
-.inlineForm input {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  min-height: 42px;
-  padding: 10px 12px;
+.inlineForm [data-slot="input"] {
+  min-width: 0;
+  width: 100%;
 }
 
 .warehouseStaffPicker {
@@ -842,11 +893,9 @@ h2 {
   gap: 6px;
 }
 
-.warehouseStaffPicker select {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  min-height: 42px;
-  padding: 10px 12px;
+.warehouseStaffPicker [data-slot="select"] {
+  min-width: 0;
+  width: 100%;
 }
 
 .warehouseStaffPicker p {
@@ -1139,38 +1188,38 @@ h2 {
   min-width: 0;
 }
 
-.productFilters input,
-.productFilters select,
-.warehouseFilters input,
-.warehouseFilters select,
-.customerFilters input,
-.customerFilters select,
-.settingsFilters input,
-.settingsFilters select,
-.inventoryFilters input,
-.inventoryFilters select,
-.ordersFilters input,
-.ordersFilters select,
-.deliveryFilters input,
-.deliveryFilters select,
-.reportFilters input,
-.reportFilters select,
-.productForm input,
-.productForm select,
-.productForm textarea {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
+.formStack [data-slot="input"],
+.formStack [data-slot="textarea"],
+.formStack [data-slot="select"],
+.productFilters [data-slot="input"],
+.productFilters [data-slot="textarea"],
+.productFilters [data-slot="select"],
+.warehouseFilters [data-slot="input"],
+.warehouseFilters [data-slot="textarea"],
+.warehouseFilters [data-slot="select"],
+.customerFilters [data-slot="input"],
+.customerFilters [data-slot="textarea"],
+.customerFilters [data-slot="select"],
+.settingsFilters [data-slot="input"],
+.settingsFilters [data-slot="textarea"],
+.settingsFilters [data-slot="select"],
+.inventoryFilters [data-slot="input"],
+.inventoryFilters [data-slot="textarea"],
+.inventoryFilters [data-slot="select"],
+.ordersFilters [data-slot="input"],
+.ordersFilters [data-slot="textarea"],
+.ordersFilters [data-slot="select"],
+.deliveryFilters [data-slot="input"],
+.deliveryFilters [data-slot="textarea"],
+.deliveryFilters [data-slot="select"],
+.reportFilters [data-slot="input"],
+.reportFilters [data-slot="textarea"],
+.reportFilters [data-slot="select"],
+.productForm [data-slot="input"],
+.productForm [data-slot="textarea"],
+.productForm [data-slot="select"] {
   min-width: 0;
-  min-height: 42px;
-  padding: 10px 12px;
   width: 100%;
-}
-
-.productForm textarea {
-  min-height: 94px;
-  resize: vertical;
 }
 
 .richTextField {
@@ -1211,8 +1260,9 @@ h2 {
   padding: 9px;
 }
 
-.richTextToolbar select {
-  min-height: 38px;
+.richTextToolbar [data-slot="select"] {
+  flex: 0 1 180px;
+  min-width: 160px;
   width: auto;
 }
 
@@ -1330,9 +1380,12 @@ h2 {
   z-index: 1;
 }
 
-.searchInput input {
+.searchInput [data-slot="input"] {
   grid-column: 1 / -1;
   grid-row: 1;
+}
+
+.searchInput [data-slot="input-wrapper"] {
   padding-left: 38px;
 }
 
@@ -1347,6 +1400,7 @@ h2 {
 
 .productFilterActions {
   align-self: end;
+  justify-content: flex-start;
   min-width: 0;
 }
 
@@ -1734,11 +1788,8 @@ h2 {
   padding: 10px 12px;
 }
 
-.checkField input {
-  height: 16px;
-  min-height: 16px;
-  padding: 0;
-  width: 16px;
+.checkField [data-slot="checkbox"] {
+  flex: 0 0 auto;
 }
 
 .rowCheck {
