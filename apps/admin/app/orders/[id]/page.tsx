@@ -566,6 +566,7 @@ function OrderDetailContent() {
                             <SelectValue placeholder="Use order warehouse" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="">Use order warehouse</SelectItem>
                             {warehouses.map((warehouse) => (
                               <SelectItem key={warehouse.id} value={warehouse.id}>
                                 {warehouse.name} ({warehouse.code})
