@@ -95,6 +95,7 @@ function OrderDetailContent() {
   const [statusNote, setStatusNote] = useState("");
   const [nextStatus, setNextStatus] = useState<OrderStatus | "">("");
   const [cancelReason, setCancelReason] = useState("");
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [assignValues, setAssignValues] = useState<AssignDeliveryValues>({
     deliveryPartnerId: "",
     note: "",
@@ -237,8 +238,14 @@ function OrderDetailContent() {
       (item) => item.id === assignValues.deliveryPartnerId
     );
 
+    if (!partner) {
+      setAssignmentError("Select a delivery partner before assigning delivery.");
+      return;
+    }
+
+    setAssignmentError(null);
     setConfirmation({
-      body: `Assign ${order.orderNumber} to ${partner?.fullName ?? "the selected delivery partner"}?`,
+      body: `Assign ${order.orderNumber} to ${partner.fullName}?`,
       confirmLabel: "Assign delivery",
       onConfirm: async () => {
         await assignMutation.mutateAsync(assignValues);
@@ -529,12 +536,13 @@ function OrderDetailContent() {
                         <Select
                           aria-label="Delivery partner"
                           disabled={!canReadDelivery || partnersQuery.isLoading}
-                          onValueChange={(value) =>
+                          onValueChange={(value) => {
+                            setAssignmentError(null);
                             setAssignValues({
                               ...assignValues,
                               deliveryPartnerId: value
-                            })
-                          }
+                            });
+                          }}
                           value={assignValues.deliveryPartnerId}
                         >
                           <SelectTrigger>
@@ -549,6 +557,11 @@ function OrderDetailContent() {
                           </SelectContent>
                         </Select>
                       </label>
+                      {assignmentError ? (
+                        <p className="formError" role="alert">
+                          {assignmentError}
+                        </p>
+                      ) : null}
                       <label>
                         Pickup warehouse
                         <Select
@@ -589,7 +602,13 @@ function OrderDetailContent() {
                       </label>
                       <Button
                         className="iconTextButton"
-                        disabled={isMutating || !canReadDelivery}
+                        disabled={
+                          isMutating ||
+                          !canReadDelivery ||
+                          partnersQuery.isLoading ||
+                          partnersQuery.isError ||
+                          !assignValues.deliveryPartnerId
+                        }
                         type="submit"
                         variant="secondary"
                       >

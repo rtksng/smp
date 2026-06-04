@@ -325,7 +325,9 @@ function SettingsContent() {
           {adminUsersQuery.isLoading ? (
             <LoadingState label="Loading admin users..." />
           ) : null}
-          {!adminUsersQuery.isLoading && adminUsers.length === 0 ? (
+          {!adminUsersQuery.isLoading &&
+          !adminUsersQuery.isError &&
+          adminUsers.length === 0 ? (
             <EmptyState
               body="No admin users match the current filters."
               title="No admin users found"
@@ -387,7 +389,7 @@ function SettingsContent() {
         {rolesQuery.isLoading ? (
           <LoadingState label="Loading roles..." />
         ) : null}
-        {roles.length === 0 && !rolesQuery.isLoading ? (
+        {roles.length === 0 && !rolesQuery.isLoading && !rolesQuery.isError ? (
           <EmptyState body="No roles are configured." title="No roles found" />
         ) : null}
         {roles.length > 0 ? <RoleList roles={roles} /> : null}
@@ -399,7 +401,9 @@ function SettingsContent() {
         {permissionsQuery.isLoading ? (
           <LoadingState label="Loading permissions..." />
         ) : null}
-        {permissions.length === 0 && !permissionsQuery.isLoading ? (
+        {permissions.length === 0 &&
+        !permissionsQuery.isLoading &&
+        !permissionsQuery.isError ? (
           <EmptyState
             body="No permissions are configured."
             title="No permissions found"

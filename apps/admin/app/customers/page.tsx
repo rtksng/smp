@@ -143,7 +143,7 @@ function CustomersContent() {
           {customersQuery.isLoading ? (
             <LoadingState label="Loading customers..." />
           ) : null}
-          {!customersQuery.isLoading && customers.length === 0 ? (
+          {!customersQuery.isLoading && !customersQuery.isError && customers.length === 0 ? (
             <EmptyState
               body="No customers match the current filters."
               title="No customers found"

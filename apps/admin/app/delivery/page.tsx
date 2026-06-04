@@ -86,6 +86,7 @@ function DeliveryContent() {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
   const [partnerPage, setPartnerPage] = useState(1);
   const [assignmentPage, setAssignmentPage] = useState(1);
@@ -309,9 +310,11 @@ function DeliveryContent() {
     );
 
     if (!order || !partner) {
+      setAssignmentError("Select an order and active delivery partner before assigning delivery.");
       return;
     }
 
+    setAssignmentError(null);
     setConfirmation({
       body: `Assign ${order.orderNumber} to ${partner.fullName}?`,
       confirmLabel: "Assign delivery",
@@ -472,8 +475,16 @@ function DeliveryContent() {
             activePartners={activePartners}
             assignableOrders={assignableOrders}
             isPending={assignMutation.isPending}
+            error={assignmentError}
             onChange={setAssignmentForm}
+            onValidationReset={() => setAssignmentError(null)}
             onSubmit={requestAssignment}
+            showEmptyStates={
+              !ordersQuery.isLoading &&
+              !ordersQuery.isError &&
+              !partnersQuery.isLoading &&
+              !partnersQuery.isError
+            }
             values={assignmentForm}
             warehouses={warehouses}
           />
@@ -905,31 +916,45 @@ function AssignmentTimeline({
 function AssignmentForm({
   activePartners,
   assignableOrders,
+  error,
   isPending,
   onChange,
+  onValidationReset,
   onSubmit,
+  showEmptyStates,
   values,
   warehouses
 }: {
   activePartners: AdminDeliveryPartner[];
   assignableOrders: AdminOrder[];
+  error: string | null;
   isPending: boolean;
   onChange: (values: AssignDeliveryValues) => void;
+  onValidationReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  showEmptyStates: boolean;
   values: AssignDeliveryValues;
   warehouses: WarehouseListResponse["items"];
 }) {
+  const canSubmit =
+    !isPending &&
+    assignableOrders.length > 0 &&
+    activePartners.length > 0 &&
+    Boolean(values.orderId) &&
+    Boolean(values.deliveryPartnerId);
+
   return (
     <form className="formStack" onSubmit={onSubmit}>
       <div className="formGrid">
         <Select
           aria-label="Order"
-          onValueChange={(value) =>
+          onValueChange={(value) => {
+            onValidationReset();
             onChange({
               ...values,
               orderId: value
-            })
-          }
+            });
+          }}
           value={values.orderId}
         >
           <SelectTrigger>
@@ -945,12 +970,13 @@ function AssignmentForm({
         </Select>
         <Select
           aria-label="Delivery partner"
-          onValueChange={(value) =>
+          onValueChange={(value) => {
+            onValidationReset();
             onChange({
               ...values,
               deliveryPartnerId: value
-            })
-          }
+            });
+          }}
           value={values.deliveryPartnerId}
         >
           <SelectTrigger>
@@ -1000,13 +1026,18 @@ function AssignmentForm({
           />
         </label>
       </div>
-      {assignableOrders.length === 0 ? (
+      {error ? (
+        <p className="formError" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {showEmptyStates && assignableOrders.length === 0 ? (
         <EmptyState
           body="No confirmed or packed orders are currently assignable."
           title="No assignable orders"
         />
       ) : null}
-      {activePartners.length === 0 ? (
+      {showEmptyStates && activePartners.length === 0 ? (
         <EmptyState
           body="No active delivery partners are available for assignment."
           title="No active partners"
@@ -1014,7 +1045,7 @@ function AssignmentForm({
       ) : null}
       <Button
         className="iconTextButton"
-        disabled={isPending || activePartners.length === 0 || assignableOrders.length === 0}
+        disabled={!canSubmit}
         type="submit"
       >
         <Truck aria-hidden size={16} />
