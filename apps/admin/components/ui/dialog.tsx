@@ -118,11 +118,20 @@ export function DialogOverlay({ className, ...props }: ComponentProps<"div">) {
   return <div className={className} data-slot="dialog-overlay" {...props} />;
 }
 
+type DialogContentProps = ComponentProps<"div"> & {
+  hideCloseButton?: boolean;
+  isDismissable?: boolean;
+  isKeyboardDismissDisabled?: boolean;
+};
+
 export function DialogContent({
   children,
   className,
+  hideCloseButton = false,
+  isDismissable,
+  isKeyboardDismissDisabled,
   ...props
-}: ComponentProps<"div">) {
+}: DialogContentProps) {
   const { open = false, onOpenChange } = useContext(DialogContext);
   const generatedId = useId();
   const titleId = `${generatedId}-title`;
@@ -145,6 +154,9 @@ export function DialogContent({
         closeButton: "hidden"
       }}
       data-slot="dialog-content"
+      hideCloseButton
+      isDismissable={isDismissable}
+      isKeyboardDismissDisabled={isKeyboardDismissDisabled}
       isOpen={open}
       onOpenChange={onOpenChange}
       placement="center"
@@ -159,10 +171,12 @@ export function DialogContent({
       >
         <DialogContentContext.Provider value={{ descriptionId, titleId }}>
           {children}
-          <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <X aria-hidden className="size-4" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
+          {hideCloseButton ? null : (
+            <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X aria-hidden className="size-4" />
+              <span className="sr-only">Close</span>
+            </DialogClose>
+          )}
         </DialogContentContext.Provider>
       </HeroModalContent>
     </HeroModal>

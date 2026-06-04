@@ -37,7 +37,7 @@ export function ConfirmationDialog({
   }, [confirmation]);
 
   async function confirm() {
-    if (!confirmation) {
+    if (!confirmation || isPending) {
       return;
     }
 
@@ -51,8 +51,19 @@ export function ConfirmationDialog({
   }
 
   return (
-    <Dialog open={Boolean(confirmation)} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent>
+    <Dialog
+      open={Boolean(confirmation)}
+      onOpenChange={(open) => {
+        if (!open && !isPending) {
+          onCancel();
+        }
+      }}
+    >
+      <DialogContent
+        hideCloseButton
+        isDismissable={false}
+        isKeyboardDismissDisabled
+      >
         <DialogHeader>
           <span aria-hidden className="confirmationIcon">
             <AlertTriangle size={20} />
@@ -68,7 +79,16 @@ export function ConfirmationDialog({
           </p>
         ) : null}
         <DialogFooter>
-          <Button disabled={isPending} onClick={onCancel} type="button" variant="outline">
+          <Button
+            disabled={isPending}
+            onClick={() => {
+              if (!isPending) {
+                onCancel();
+              }
+            }}
+            type="button"
+            variant="outline"
+          >
             Cancel
           </Button>
           <Button disabled={isPending} onClick={() => void confirm()} type="button" variant="destructive">
