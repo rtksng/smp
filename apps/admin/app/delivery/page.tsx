@@ -20,6 +20,24 @@ import {
   ProtectedRoute,
   useAdminSession
 } from "../../lib/admin-session";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import {
+  PaginationControls as SharedPaginationControls
+} from "@/components/admin/pagination-controls";
+import { StatusBadge as AdminStatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import {
   buildAssignDeliveryPayload,
   canAssignDelivery,
@@ -309,24 +327,25 @@ function DeliveryContent() {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Delivery operations</p>
-            <h2>Admin delivery management</h2>
-            <p className="panelSummary">
-              Approve delivery partners, review documents, assign orders, and track assignment progress from the admin panel.
-            </p>
-          </div>
-          <button
-            className="ghostButton iconTextButton"
-            onClick={() => void refreshDeliveryData()}
-            type="button"
-          >
-            <RefreshCw aria-hidden size={16} />
-            <span>Refresh</span>
-          </button>
-        </div>
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader
+            actions={
+              <Button
+                className="iconTextButton"
+                onClick={() => void refreshDeliveryData()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            }
+            eyebrow="Delivery operations"
+            level={2}
+            summary="Approve delivery partners, review documents, assign orders, and track assignment progress from the admin panel."
+            title="Admin delivery management"
+          />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError ? (
@@ -336,38 +355,20 @@ function DeliveryContent() {
         ) : null}
 
         <div className="metricGrid resourceMetrics">
-          <article className="metric metric--primary">
-            <span>Partners</span>
-            <strong>{partnersQuery.data?.pagination?.total ?? partners.length}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>Active visible</span>
-            <strong>{partners.filter((partner) => partner.status === "ACTIVE").length}</strong>
-          </article>
-          <article className="metric metric--warning">
-            <span>Pending visible</span>
-            <strong>
-              {
-                partners.filter(
-                  (partner) => partner.status === "PENDING_VERIFICATION"
-                ).length
-              }
-            </strong>
-          </article>
-          <article className="metric metric--primary">
-            <span>Online visible</span>
-            <strong>{partners.filter((partner) => partner.isOnline).length}</strong>
-          </article>
+          <MetricCard label="Partners" tone="primary" value={partnersQuery.data?.pagination?.total ?? partners.length} />
+          <MetricCard label="Active visible" value={partners.filter((partner) => partner.status === "ACTIVE").length} />
+          <MetricCard
+            label="Pending visible"
+            tone="warning"
+            value={partners.filter((partner) => partner.status === "PENDING_VERIFICATION").length}
+          />
+          <MetricCard label="Online visible" tone="primary" value={partners.filter((partner) => partner.isOnline).length} />
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Partners</p>
-            <h2>Delivery partner approvals</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Partners" level={2} title="Delivery partner approvals" />
         <PartnerFilterForm
           filters={partnerDraftFilters}
           onChange={setPartnerDraftFilters}
@@ -377,7 +378,7 @@ function DeliveryContent() {
         <div className="deliveryManagementGrid">
           <div>
             {partnersQuery.isLoading ? (
-              <div className="loadingBlock">Loading delivery partners...</div>
+              <LoadingState label="Loading delivery partners..." />
             ) : null}
             {partnersQuery.isError ? (
               <p className="formError" role="alert">
@@ -394,12 +395,13 @@ function DeliveryContent() {
                 selectedPartnerId={selectedPartnerId}
               />
             ) : null}
-            <PaginationControls
-              isFetching={partnersQuery.isFetching}
-              onNext={() => setPartnerPage((current) => current + 1)}
-              onPrevious={() => setPartnerPage((current) => Math.max(1, current - 1))}
-              pagination={partnersQuery.data?.pagination}
-            />
+            {partnersQuery.data?.pagination ? (
+              <SharedPaginationControls
+                onChange={setPartnerPage}
+                page={partnersQuery.data.pagination.page}
+                totalPages={Math.max(partnersQuery.data.pagination.totalPages, 1)}
+              />
+            ) : null}
           </div>
           <PartnerDetail
             isLoading={partnerDetailQuery.isLoading}
@@ -410,12 +412,7 @@ function DeliveryContent() {
       </section>
 
       <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Assignments</p>
-            <h2>Delivery assignments table</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Assignments" level={2} title="Delivery assignments table" />
         <AssignmentFilterForm
           filters={assignmentDraftFilters}
           isWarehouseLoading={warehousesQuery.isLoading}
@@ -431,7 +428,7 @@ function DeliveryContent() {
           </p>
         ) : null}
         {assignmentsQuery.isLoading ? (
-          <div className="loadingBlock">Loading delivery assignments...</div>
+          <LoadingState label="Loading delivery assignments..." />
         ) : null}
         {assignmentsQuery.isError ? (
           <p className="formError" role="alert">
@@ -442,22 +439,18 @@ function DeliveryContent() {
         {!assignmentsQuery.isLoading && !assignmentsQuery.isError ? (
           <AssignmentsTable assignments={assignments} />
         ) : null}
-        <PaginationControls
-          isFetching={assignmentsQuery.isFetching}
-          onNext={() => setAssignmentPage((current) => current + 1)}
-          onPrevious={() => setAssignmentPage((current) => Math.max(1, current - 1))}
-          pagination={assignmentsQuery.data?.pagination}
-        />
+        {assignmentsQuery.data?.pagination ? (
+          <SharedPaginationControls
+            onChange={setAssignmentPage}
+            page={assignmentsQuery.data.pagination.page}
+            totalPages={Math.max(assignmentsQuery.data.pagination.totalPages, 1)}
+          />
+        ) : null}
       </section>
 
       <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
         <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Assignment</p>
-              <h2>Assign order to delivery partner</h2>
-            </div>
-          </div>
+          <PageHeader eyebrow="Assignment" level={2} title="Assign order to delivery partner" />
           {!hasPermission(ADMIN_PERMISSION.OrdersRead) ? (
             <p className="formError" role="alert">
               Order lookup requires orders read permission.
@@ -469,7 +462,7 @@ function DeliveryContent() {
             </p>
           ) : null}
           {ordersQuery.isLoading ? (
-            <div className="loadingBlock">Loading assignable orders...</div>
+            <LoadingState label="Loading assignable orders..." />
           ) : null}
           {ordersQuery.isError ? (
             <p className="formError" role="alert">
@@ -511,32 +504,34 @@ function PartnerFilterForm({
 }) {
   return (
     <form className="deliveryFilters" onSubmit={onSubmit}>
-      <label>
-        Partner status
-        <select
-          onChange={(event) =>
-            onChange({
-              status: event.target.value as DeliveryPartnerFilters["status"]
-            })
-          }
-          value={filters.status}
-        >
-          <option value="">Any status</option>
+      <Select
+        aria-label="Partner status"
+        onValueChange={(value) =>
+          onChange({
+            status: value as DeliveryPartnerFilters["status"]
+          })
+        }
+        value={filters.status}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any status" />
+        </SelectTrigger>
+        <SelectContent>
           {DELIVERY_PARTNER_STATUSES.map((status) => (
-            <option key={status} value={status}>
+            <SelectItem key={status} value={status}>
               {formatDeliveryLabel(status)}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -561,72 +556,78 @@ function AssignmentFilterForm({
 }) {
   return (
     <form className="deliveryFilters deliveryAssignmentFilters" onSubmit={onSubmit}>
-      <label>
-        Assignment status
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              status: event.target.value as DeliveryAssignmentFilters["status"]
-            })
-          }
-          value={filters.status}
-        >
-          <option value="">Any status</option>
+      <Select
+        aria-label="Assignment status"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            status: value as DeliveryAssignmentFilters["status"]
+          })
+        }
+        value={filters.status}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any status" />
+        </SelectTrigger>
+        <SelectContent>
           {DELIVERY_ASSIGNMENT_STATUSES.map((status) => (
-            <option key={status} value={status}>
+            <SelectItem key={status} value={status}>
               {formatDeliveryLabel(status)}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
-      <label>
-        Warehouse
-        <select
-          disabled={isWarehouseLoading}
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              warehouseId: event.target.value
-            })
-          }
-          value={filters.warehouseId}
-        >
-          <option value="">All visible warehouses</option>
+        </SelectContent>
+      </Select>
+      <Select
+        aria-label="Warehouse"
+        disabled={isWarehouseLoading}
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            warehouseId: value
+          })
+        }
+        value={filters.warehouseId}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="All visible warehouses" />
+        </SelectTrigger>
+        <SelectContent>
           {warehouses.map((warehouse) => (
-            <option key={warehouse.id} value={warehouse.id}>
+            <SelectItem key={warehouse.id} value={warehouse.id}>
               {warehouse.name} ({warehouse.code})
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
-      <label>
-        Delivery partner
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              deliveryPartnerId: event.target.value
-            })
-          }
-          value={filters.deliveryPartnerId}
-        >
-          <option value="">All partners</option>
+        </SelectContent>
+      </Select>
+      <Select
+        aria-label="Delivery partner"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            deliveryPartnerId: value
+          })
+        }
+        value={filters.deliveryPartnerId}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="All partners" />
+        </SelectTrigger>
+        <SelectContent>
           {partners.map((partner) => (
-            <option key={partner.id} value={partner.id}>
+            <SelectItem key={partner.id} value={partner.id}>
               {partner.fullName} ({partner.mobileNumber})
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -646,7 +647,12 @@ function PartnerList({
   selectedPartnerId: string | null;
 }) {
   if (partners.length === 0) {
-    return <div className="emptyPanel smallEmpty">No delivery partners match the selected filters.</div>;
+    return (
+      <EmptyState
+        body="No delivery partners match the selected filters."
+        title="No delivery partners found"
+      />
+    );
   }
 
   return (
@@ -665,14 +671,15 @@ function PartnerList({
           key={partner.id}
           role="row"
         >
-          <button
+          <Button
             className="plainTableButton"
             onClick={() => onSelect(partner.id)}
             type="button"
+            variant="ghost"
           >
             <strong>{partner.fullName}</strong>
             <em>{partner.mobileNumber}</em>
-          </button>
+          </Button>
           <span role="cell">
             <StatusBadge status={partner.status} />
           </span>
@@ -682,24 +689,28 @@ function PartnerList({
           <span role="cell">{partner.documents.length} files</span>
           <span className="tableActions" role="cell">
             <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
-              <button
-                className="ghostButton iconTextButton"
+              <Button
+                className="iconTextButton"
                 disabled={isMutating || partner.status === "ACTIVE"}
                 onClick={() => onAction("approve", partner)}
+                size="sm"
                 type="button"
+                variant="outline"
               >
                 <CheckCircle2 aria-hidden size={16} />
                 <span>Approve</span>
-              </button>
-              <button
-                className="dangerButton iconTextButton"
+              </Button>
+              <Button
+                className="iconTextButton"
                 disabled={isMutating || partner.status === "INACTIVE"}
                 onClick={() => onAction("reject", partner)}
+                size="sm"
                 type="button"
+                variant="destructive"
               >
                 <XCircle aria-hidden size={16} />
                 <span>Reject</span>
-              </button>
+              </Button>
             </PermissionGate>
           </span>
         </div>
@@ -718,7 +729,7 @@ function PartnerDetail({
   queryError: unknown;
 }) {
   if (isLoading) {
-    return <div className="loadingBlock">Loading partner detail...</div>;
+    return <LoadingState label="Loading partner detail..." />;
   }
 
   if (queryError) {
@@ -730,7 +741,12 @@ function PartnerDetail({
   }
 
   if (!partner) {
-    return <div className="emptyPanel smallEmpty">Select a delivery partner to view detail.</div>;
+    return (
+      <EmptyState
+        body="Select a delivery partner to view detail."
+        title="No partner selected"
+      />
+    );
   }
 
   return (
@@ -758,7 +774,7 @@ function PartnerDetail({
           <FileText aria-hidden color="var(--primary)" size={20} />
         </div>
         {partner.documents.length === 0 ? (
-          <div className="emptyPanel smallEmpty">No documents uploaded.</div>
+          <EmptyState body="No documents uploaded." title="No documents found" />
         ) : (
           partner.documents.map((document) => (
             <div className="deliveryDocumentRow" key={document.id}>
@@ -767,15 +783,12 @@ function PartnerDetail({
                 <em>{formatDeliveryLabel(document.type)}</em>
               </span>
               <span>{document.verifiedAt ? "Verified" : "Unverified"}</span>
-              <a
-                className="ghostButton iconTextButton"
-                href={document.fileUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <FileText aria-hidden size={16} />
-                <span>View</span>
-              </a>
+              <Button asChild className="iconTextButton" size="sm" variant="outline">
+                <a href={document.fileUrl} rel="noreferrer" target="_blank">
+                  <FileText aria-hidden size={16} />
+                  <span>View</span>
+                </a>
+              </Button>
             </div>
           ))
         )}
@@ -790,7 +803,12 @@ function AssignmentsTable({
   assignments: AdminDeliveryAssignment[];
 }) {
   if (assignments.length === 0) {
-    return <div className="emptyPanel smallEmpty">No delivery assignments match the selected filters.</div>;
+    return (
+      <EmptyState
+        body="No delivery assignments match the selected filters."
+        title="No delivery assignments found"
+      />
+    );
   }
 
   return (
@@ -834,15 +852,16 @@ function AssignmentsTable({
           </span>
           <span role="cell">
             {assignment.proofOfDeliveryUrl ? (
-              <a
-                className="ghostButton iconTextButton"
-                href={assignment.proofOfDeliveryUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <FileText aria-hidden size={16} />
-                <span>Proof</span>
-              </a>
+              <Button asChild className="iconTextButton" size="sm" variant="outline">
+                <a
+                  href={assignment.proofOfDeliveryUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <FileText aria-hidden size={16} />
+                  <span>Proof</span>
+                </a>
+              </Button>
             ) : (
               assignment.failureReason ?? "-"
             )}
@@ -900,68 +919,72 @@ function AssignmentForm({
   return (
     <form className="formStack" onSubmit={onSubmit}>
       <div className="formGrid">
-        <label>
-          Order
-          <select
-            onChange={(event) =>
-              onChange({
-                ...values,
-                orderId: event.target.value
-              })
-            }
-            required
-            value={values.orderId}
-          >
-            <option value="">Select order</option>
+        <Select
+          aria-label="Order"
+          onValueChange={(value) =>
+            onChange({
+              ...values,
+              orderId: value
+            })
+          }
+          value={values.orderId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select order" />
+          </SelectTrigger>
+          <SelectContent>
             {assignableOrders.map((order) => (
-              <option key={order.id} value={order.id}>
+              <SelectItem key={order.id} value={order.id}>
                 {order.orderNumber} ({formatDeliveryLabel(order.status)})
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Delivery partner
-          <select
-            onChange={(event) =>
-              onChange({
-                ...values,
-                deliveryPartnerId: event.target.value
-              })
-            }
-            required
-            value={values.deliveryPartnerId}
-          >
-            <option value="">Select partner</option>
+          </SelectContent>
+        </Select>
+        <Select
+          aria-label="Delivery partner"
+          onValueChange={(value) =>
+            onChange({
+              ...values,
+              deliveryPartnerId: value
+            })
+          }
+          value={values.deliveryPartnerId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select partner" />
+          </SelectTrigger>
+          <SelectContent>
             {activePartners.map((partner) => (
-              <option key={partner.id} value={partner.id}>
+              <SelectItem key={partner.id} value={partner.id}>
                 {partner.fullName} ({partner.mobileNumber})
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label>
-          Pickup warehouse
-          <select
-            onChange={(event) =>
-              onChange({
-                ...values,
-                pickupWarehouseId: event.target.value
-              })
-            }
-            value={values.pickupWarehouseId}
-          >
-            <option value="">Use order warehouse</option>
+          </SelectContent>
+        </Select>
+        <Select
+          aria-label="Pickup warehouse"
+          onValueChange={(value) =>
+            onChange({
+              ...values,
+              pickupWarehouseId: value
+            })
+          }
+          value={values.pickupWarehouseId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Use order warehouse" />
+          </SelectTrigger>
+          <SelectContent>
             {warehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>
+              <SelectItem key={warehouse.id} value={warehouse.id}>
                 {warehouse.name} ({warehouse.code})
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </label>
+          </SelectContent>
+        </Select>
         <label>
           Note
-          <input
+          <Input
             onChange={(event) =>
               onChange({
                 ...values,
@@ -974,69 +997,31 @@ function AssignmentForm({
         </label>
       </div>
       {assignableOrders.length === 0 ? (
-        <div className="emptyPanel smallEmpty">No confirmed or packed orders are currently assignable.</div>
+        <EmptyState
+          body="No confirmed or packed orders are currently assignable."
+          title="No assignable orders"
+        />
       ) : null}
       {activePartners.length === 0 ? (
-        <div className="emptyPanel smallEmpty">No active delivery partners are available for assignment.</div>
+        <EmptyState
+          body="No active delivery partners are available for assignment."
+          title="No active partners"
+        />
       ) : null}
-      <button
-        className="primaryButton iconTextButton"
+      <Button
+        className="iconTextButton"
         disabled={isPending || activePartners.length === 0 || assignableOrders.length === 0}
         type="submit"
       >
         <Truck aria-hidden size={16} />
         <span>{isPending ? "Assigning..." : "Assign delivery"}</span>
-      </button>
+      </Button>
     </form>
   );
 }
 
-function PaginationControls({
-  isFetching,
-  onNext,
-  onPrevious,
-  pagination
-}: {
-  isFetching: boolean;
-  onNext: () => void;
-  onPrevious: () => void;
-  pagination: PaginatedResponse<unknown>["pagination"] | undefined;
-}) {
-  if (!pagination) {
-    return null;
-  }
-
-  return (
-    <div className="paginationControls">
-      <button
-        className="ghostButton"
-        disabled={!pagination.hasPreviousPage || isFetching}
-        onClick={onPrevious}
-        type="button"
-      >
-        Previous
-      </button>
-      <span>
-        Page {pagination.page} of {Math.max(1, pagination.totalPages)}
-      </span>
-      <button
-        className="ghostButton"
-        disabled={!pagination.hasNextPage || isFetching}
-        onClick={onNext}
-        type="button"
-      >
-        Next
-      </button>
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`statusBadge statusBadge--${status.toLowerCase()}`}>
-      {formatDeliveryLabel(status)}
-    </span>
-  );
+  return <AdminStatusBadge status={status} />;
 }
 
 function AvailabilityBadge({ isOnline }: { isOnline: boolean }) {

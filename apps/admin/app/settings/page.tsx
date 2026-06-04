@@ -18,6 +18,31 @@ import {
   ConfirmationDialog,
   type ConfirmationState
 } from "../_components/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
@@ -241,35 +266,31 @@ function SettingsContent() {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Settings</p>
-            <h2>Admin access control</h2>
-            <p className="panelSummary">
-              Manage admin users, role assignments, and permission visibility from one
-              surface.
-            </p>
-          </div>
-          <div className="actionRow">
-            <button
-              className="ghostButton iconTextButton"
-              onClick={() => void refreshSettings()}
-              type="button"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </button>
-            <button
-              className="primaryButton iconTextButton"
-              onClick={startCreate}
-              type="button"
-            >
-              <Plus aria-hidden size={16} />
-              <span>New admin</span>
-            </button>
-          </div>
-        </div>
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader
+            actions={
+              <div className="actionRow">
+                <Button
+                  className="iconTextButton"
+                  onClick={() => void refreshSettings()}
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCw aria-hidden size={16} />
+                  <span>Refresh</span>
+                </Button>
+                <Button className="iconTextButton" onClick={startCreate} type="button">
+                  <Plus aria-hidden size={16} />
+                  <span>New admin</span>
+                </Button>
+              </div>
+            }
+            eyebrow="Settings"
+            level={2}
+            summary="Manage admin users, role assignments, and permission visibility from one surface."
+            title="Admin access control"
+          />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError || loadError ? (
@@ -279,36 +300,17 @@ function SettingsContent() {
         ) : null}
 
         <div className="metricGrid resourceMetrics">
-          <article className="metric metric--primary">
-            <span>Admin users</span>
-            <strong>{pagination?.total ?? adminUsers.length}</strong>
-          </article>
-          <article className="metric metric--primary">
-            <span>Active visible</span>
-            <strong>{activeUserCount}</strong>
-          </article>
-          <article className="metric metric--warning">
-            <span>Suspended visible</span>
-            <strong>{suspendedUserCount}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>Roles</span>
-            <strong>{roles.length}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>Permissions</span>
-            <strong>{permissions.length}</strong>
-          </article>
+          <MetricCard label="Admin users" tone="primary" value={pagination?.total ?? adminUsers.length} />
+          <MetricCard label="Active visible" tone="primary" value={activeUserCount} />
+          <MetricCard label="Suspended visible" tone="warning" value={suspendedUserCount} />
+          <MetricCard label="Roles" value={roles.length} />
+          <MetricCard label="Permissions" value={permissions.length} />
         </div>
-      </section>
+        </CardContent>
+      </Card>
 
       <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Filters</p>
-            <h2>Find admin users</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Filters" level={2} title="Find admin users" />
         <AdminUserFilterForm
           filters={draftFilters}
           onChange={setDraftFilters}
@@ -320,20 +322,16 @@ function SettingsContent() {
 
       <div className="settingsManagementGrid">
         <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">Admin users</p>
-              <h2>Accounts and access</h2>
-            </div>
-          </div>
+          <PageHeader eyebrow="Admin users" level={2} title="Accounts and access" />
 
           {adminUsersQuery.isLoading ? (
-            <div className="loadingBlock">Loading admin users...</div>
+            <LoadingState label="Loading admin users..." />
           ) : null}
           {!adminUsersQuery.isLoading && adminUsers.length === 0 ? (
-            <div className="emptyPanel smallEmpty">
-              No admin users match the current filters.
-            </div>
+            <EmptyState
+              body="No admin users match the current filters."
+              title="No admin users found"
+            />
           ) : null}
           {adminUsers.length > 0 ? (
             <AdminUsersTable
@@ -346,32 +344,32 @@ function SettingsContent() {
           ) : null}
           {pagination ? (
             <PaginationControls
-              hasNextPage={pagination.hasNextPage}
-              hasPreviousPage={pagination.hasPreviousPage}
-              label={`Page ${pagination.page} of ${Math.max(pagination.totalPages, 1)}`}
-              onNext={() => setPage((current) => current + 1)}
-              onPrevious={() => setPage((current) => Math.max(current - 1, 1))}
+              onChange={setPage}
+              page={pagination.page}
+              totalPages={Math.max(pagination.totalPages, 1)}
             />
           ) : null}
         </section>
 
         <section className="panel">
-          <div className="panelHeader">
-            <div>
-              <p className="eyebrow">{editingUser ? "Edit admin" : "Create admin"}</p>
-              <h2>{editingUser ? getAdminUserName(editingUser) : "New admin user"}</h2>
-            </div>
-            {editingUser ? (
-              <button
-                className="ghostButton iconTextButton"
-                onClick={startCreate}
-                type="button"
-              >
-                <X aria-hidden size={16} />
-                <span>Clear</span>
-              </button>
-            ) : null}
-          </div>
+          <PageHeader
+            actions={
+              editingUser ? (
+                <Button
+                  className="iconTextButton"
+                  onClick={startCreate}
+                  type="button"
+                  variant="outline"
+                >
+                  <X aria-hidden size={16} />
+                  <span>Clear</span>
+                </Button>
+              ) : null
+            }
+            eyebrow={editingUser ? "Edit admin" : "Create admin"}
+            level={2}
+            title={editingUser ? getAdminUserName(editingUser) : "New admin user"}
+          />
 
           <AdminUserForm
             errors={fieldErrors}
@@ -386,35 +384,28 @@ function SettingsContent() {
       </div>
 
       <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Roles</p>
-            <h2>Permission sets</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Roles" level={2} title="Permission sets" />
 
         {rolesQuery.isLoading ? (
-          <div className="loadingBlock">Loading roles...</div>
+          <LoadingState label="Loading roles..." />
         ) : null}
         {roles.length === 0 && !rolesQuery.isLoading ? (
-          <div className="emptyPanel smallEmpty">No roles are configured.</div>
+          <EmptyState body="No roles are configured." title="No roles found" />
         ) : null}
         {roles.length > 0 ? <RoleList roles={roles} /> : null}
       </section>
 
       <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Permissions</p>
-            <h2>Permission catalog</h2>
-          </div>
-        </div>
+        <PageHeader eyebrow="Permissions" level={2} title="Permission catalog" />
 
         {permissionsQuery.isLoading ? (
-          <div className="loadingBlock">Loading permissions...</div>
+          <LoadingState label="Loading permissions..." />
         ) : null}
         {permissions.length === 0 && !permissionsQuery.isLoading ? (
-          <div className="emptyPanel smallEmpty">No permissions are configured.</div>
+          <EmptyState
+            body="No permissions are configured."
+            title="No permissions found"
+          />
         ) : null}
         {permissions.length > 0 ? <PermissionList permissions={permissions} /> : null}
       </section>
@@ -446,56 +437,57 @@ function AdminUserFilterForm({
     <form className="productFilters settingsFilters" onSubmit={onSubmit}>
       <label>
         Search
-        <span className="searchInput">
-          <Search aria-hidden size={16} />
-          <input
-            onChange={(event) => onChange({ ...filters, search: event.target.value })}
-            placeholder="Name, email, mobile"
-            value={filters.search}
-          />
-        </span>
+        <Input
+          onChange={(event) => onChange({ ...filters, search: event.target.value })}
+          placeholder="Name, email, mobile"
+          value={filters.search}
+        />
       </label>
-      <label>
-        Role
-        <select
-          onChange={(event) => onChange({ ...filters, roleCode: event.target.value })}
-          value={filters.roleCode}
-        >
-          <option value="">Any</option>
+      <Select
+        aria-label="Role"
+        onValueChange={(value) => onChange({ ...filters, roleCode: value })}
+        value={filters.roleCode}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any role" />
+        </SelectTrigger>
+        <SelectContent>
           {roles.map((role) => (
-            <option key={role.id} value={role.code}>
+            <SelectItem key={role.id} value={role.code}>
               {role.name}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
-      <label>
-        Status
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              status: event.target.value as AdminUserFilters["status"]
-            })
-          }
-          value={filters.status}
-        >
-          <option value="">Any</option>
+        </SelectContent>
+      </Select>
+      <Select
+        aria-label="Status"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            status: value as AdminUserFilters["status"]
+          })
+        }
+        value={filters.status}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any status" />
+        </SelectTrigger>
+        <SelectContent>
           {ADMIN_USER_STATUSES.map((status) => (
-            <option key={status} value={status}>
+            <SelectItem key={status} value={status}>
               {formatAdminStatus(status)}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -514,61 +506,63 @@ function AdminUsersTable({
   onEdit: (user: AdminUser) => void;
   users: AdminUser[];
 }) {
-  const gridTemplateColumns =
-    "minmax(220px, 1.2fr) minmax(220px, 1.2fr) minmax(170px, 0.8fr) 120px minmax(140px, 0.7fr) 190px";
-
   return (
-    <div className="resourceTable" role="table">
-      <div className="resourceTableHeader" role="row" style={{ gridTemplateColumns }}>
-        <strong role="columnheader">Admin</strong>
-        <strong role="columnheader">Email</strong>
-        <strong role="columnheader">Role</strong>
-        <strong role="columnheader">Status</strong>
-        <strong role="columnheader">Last login</strong>
-        <strong role="columnheader">Actions</strong>
-      </div>
+    <div className="resourceTable">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Admin</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Last login</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
       {users.map((user) => (
-        <div
-          className="resourceTableRow"
-          key={user.id}
-          role="row"
-          style={{ gridTemplateColumns }}
-        >
-          <span role="cell">
+        <TableRow key={user.id}>
+          <TableCell>
             <strong>{getAdminUserName(user)}</strong>
             <em>{user.mobileNumber ?? "No mobile number"}</em>
-          </span>
-          <span role="cell">{user.email}</span>
-          <span role="cell">{user.role.name}</span>
-          <span role="cell">
-            <span className={`statusBadge statusBadge--${user.status.toLowerCase()}`}>
-              {formatAdminStatus(user.status)}
-            </span>
-          </span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>{user.email}</TableCell>
+          <TableCell>{user.role.name}</TableCell>
+          <TableCell>
+            <StatusBadge status={user.status} />
+          </TableCell>
+          <TableCell>
             {user.lastLoginAt ? formatDate(user.lastLoginAt) : "-"}
-          </span>
-          <span className="tableActions" role="cell">
-            <button
-              className="ghostButton iconTextButton"
+          </TableCell>
+          <TableCell>
+            <div className="tableActions">
+            <Button
+              className="iconTextButton"
               onClick={() => onEdit(user)}
+              size="sm"
               type="button"
+              variant="outline"
             >
               <Pencil aria-hidden size={16} />
               <span>Edit</span>
-            </button>
-            <button
-              className="dangerButton iconTextButton"
+            </Button>
+            <Button
+              className="iconTextButton"
               disabled={isDeleting || user.id === currentAdminId}
               onClick={() => onDelete(user)}
+              size="sm"
               type="button"
+              variant="destructive"
             >
               <Trash2 aria-hidden size={16} />
               <span>Delete</span>
-            </button>
-          </span>
-        </div>
+            </Button>
+            </div>
+          </TableCell>
+        </TableRow>
       ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -626,36 +620,37 @@ function AdminUserForm({
         />
         <label>
           Role
-          <select
-            onChange={(event) => onValueChange("roleId", event.target.value)}
+          <Select
+            aria-label="Role"
+            onValueChange={(value) => onValueChange("roleId", value)}
             value={values.roleId}
           >
-            <option value="">Select role</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.roleId ? <span className="fieldError">{errors.roleId}</span> : null}
         </label>
-        <label>
+        <label className="adminSwitchField">
           Status
-          <select
-            onChange={(event) =>
+          <Switch
+            checked={values.status === "ACTIVE"}
+            onCheckedChange={(checked) =>
               onValueChange(
                 "status",
-                event.target.value as AdminUserFormValues["status"]
+                (checked ? "ACTIVE" : "INACTIVE") as AdminUserFormValues["status"]
               )
             }
-            value={values.status}
           >
-            {ADMIN_USER_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {formatAdminStatus(status)}
-              </option>
-            ))}
-          </select>
+            {formatAdminStatus(values.status)}
+          </Switch>
           {errors.status ? <span className="fieldError">{errors.status}</span> : null}
         </label>
         <TextField
@@ -668,14 +663,14 @@ function AdminUserForm({
         />
       </div>
       <div className="actionRow">
-        <button
-          className="primaryButton iconTextButton"
+        <Button
+          className="iconTextButton"
           disabled={isSaving || roles.length === 0}
           type="submit"
         >
           <CheckCircle2 aria-hidden size={16} />
           <span>{isSaving ? "Saving..." : "Save admin user"}</span>
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -685,7 +680,7 @@ function RoleList({ roles }: { roles: AdminRole[] }) {
   return (
     <div className="roleGrid">
       {roles.map((role) => (
-        <article className="roleCard" key={role.id}>
+        <Card className="roleCard" key={role.id}>
           <div className="roleCardHeader">
             <div>
               <strong>{role.name}</strong>
@@ -701,7 +696,7 @@ function RoleList({ roles }: { roles: AdminRole[] }) {
               <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
             ))}
           </div>
-        </article>
+        </Card>
       ))}
     </div>
   );
@@ -709,73 +704,28 @@ function RoleList({ roles }: { roles: AdminRole[] }) {
 
 function PermissionList({ permissions }: { permissions: AdminPermission[] }) {
   return (
-    <div className="resourceTable" role="table">
-      <div
-        className="resourceTableHeader"
-        role="row"
-        style={{
-          gridTemplateColumns:
-            "minmax(200px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.2fr)"
-        }}
-      >
-        <strong role="columnheader">Code</strong>
-        <strong role="columnheader">Name</strong>
-        <strong role="columnheader">Description</strong>
-      </div>
+    <div className="resourceTable">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Code</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>Description</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
       {permissions.map((permission) => (
-        <div
-          className="resourceTableRow"
-          key={permission.id}
-          role="row"
-          style={{
-            gridTemplateColumns:
-              "minmax(200px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.2fr)"
-          }}
-        >
-          <span role="cell">
+        <TableRow key={permission.id}>
+          <TableCell>
             <KeyRound aria-hidden size={14} />
             {permission.code}
-          </span>
-          <span role="cell">{permission.name}</span>
-          <span role="cell">{permission.description ?? "-"}</span>
-        </div>
+          </TableCell>
+          <TableCell>{permission.name}</TableCell>
+          <TableCell>{permission.description ?? "-"}</TableCell>
+        </TableRow>
       ))}
-    </div>
-  );
-}
-
-function PaginationControls({
-  hasNextPage,
-  hasPreviousPage,
-  label,
-  onNext,
-  onPrevious
-}: {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  label: string;
-  onNext: () => void;
-  onPrevious: () => void;
-}) {
-  return (
-    <div className="paginationBar">
-      <button
-        className="ghostButton"
-        disabled={!hasPreviousPage}
-        onClick={onPrevious}
-        type="button"
-      >
-        Previous
-      </button>
-      <span>{label}</span>
-      <button
-        className="ghostButton"
-        disabled={!hasNextPage}
-        onClick={onNext}
-        type="button"
-      >
-        Next
-      </button>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -800,7 +750,7 @@ function TextField({
   return (
     <label>
       {label}
-      <input
+      <Input
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         required={required}

@@ -17,6 +17,29 @@ import {
   ConfirmationDialog,
   type ConfirmationState
 } from "../../_components/confirmation-dialog";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   PermissionGate,
   ProtectedRoute,
@@ -234,30 +257,33 @@ function OrderDetailContent() {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Order detail</p>
-            <h2>{order?.orderNumber ?? "Loading order"}</h2>
-            <p className="panelSummary">
-              Customer, fulfillment, payment, invoice, and timeline details for this order.
-            </p>
-          </div>
-          <div className="actionRow">
-            <Link className="ghostButton iconTextButton" href="/orders">
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader
+            actions={
+              <div className="actionRow">
+                <Button asChild className="iconTextButton" variant="outline">
+                  <Link href="/orders">
               <ArrowLeft aria-hidden size={16} />
               <span>Back</span>
             </Link>
-            <button
-              className="ghostButton iconTextButton"
-              onClick={() => void orderQuery.refetch()}
-              type="button"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
+                </Button>
+                <Button
+                  className="iconTextButton"
+                  onClick={() => void orderQuery.refetch()}
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCw aria-hidden size={16} />
+                  <span>Refresh</span>
+                </Button>
+              </div>
+            }
+            eyebrow="Order detail"
+            level={2}
+            summary="Customer, fulfillment, payment, invoice, and timeline details for this order."
+            title={order?.orderNumber ?? "Loading order"}
+          />
 
         {message ? <p className="formSuccess">{message}</p> : null}
         {mutationError ? (
@@ -265,7 +291,7 @@ function OrderDetailContent() {
             {mutationError}
           </p>
         ) : null}
-        {orderQuery.isLoading ? <div className="loadingBlock">Loading order...</div> : null}
+        {orderQuery.isLoading ? <LoadingState label="Loading order..." /> : null}
         {orderQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(orderQuery.error) ?? "Unable to load order."}
@@ -274,27 +300,18 @@ function OrderDetailContent() {
 
         {order ? (
           <div className="metricGrid resourceMetrics">
-            <article className="metric metric--primary">
-              <span>Status</span>
-              <strong className="metricText">{formatOrderLabel(order.status)}</strong>
-            </article>
-            <article className="metric metric--neutral">
-              <span>Payment</span>
-              <strong className="metricText">{formatOrderLabel(order.paymentStatus)}</strong>
-            </article>
-            <article className="metric metric--warning">
-              <span>Warehouse</span>
-              <strong className="metricText">
-                {order.warehouse?.code ?? order.warehouseId ?? "Unassigned"}
-              </strong>
-            </article>
-            <article className="metric metric--primary">
-              <span>Total</span>
-              <strong className="metricText">{formatCurrency(order.totals.grandTotal)}</strong>
-            </article>
+            <MetricCard label="Status" tone="primary" value={formatOrderLabel(order.status)} />
+            <MetricCard label="Payment" value={formatOrderLabel(order.paymentStatus)} />
+            <MetricCard
+              label="Warehouse"
+              tone="warning"
+              value={order.warehouse?.code ?? order.warehouseId ?? "Unassigned"}
+            />
+            <MetricCard label="Total" tone="primary" value={formatCurrency(order.totals.grandTotal)} />
           </div>
         ) : null}
-      </section>
+        </CardContent>
+      </Card>
 
       {order ? (
         <>
@@ -421,34 +438,40 @@ function OrderDetailContent() {
                     <>
                       <label>
                         Next status
-                        <select
-                          onChange={(event) =>
-                            setNextStatus(event.target.value as OrderStatus)
-                          }
-                          required
+                        <Select
+                          aria-label="Next status"
+                          onValueChange={(value) => setNextStatus(value as OrderStatus)}
                           value={nextStatus}
                         >
-                          {nextStatuses.map((status) => (
-                            <option key={status} value={status}>
-                              {formatOrderLabel(status)}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {nextStatuses.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {formatOrderLabel(status)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </label>
                       <label>
                         Note
-                        <textarea
+                        <Textarea
                           onChange={(event) => setStatusNote(event.target.value)}
                           value={statusNote}
                         />
                       </label>
-                      <button className="primaryButton iconTextButton" disabled={isMutating} type="submit">
+                      <Button className="iconTextButton" disabled={isMutating} type="submit">
                         <CheckCircle2 aria-hidden size={16} />
                         <span>{statusMutation.isPending ? "Updating..." : "Update status"}</span>
-                      </button>
+                      </Button>
                     </>
                   ) : (
-                    <div className="emptyPanel smallEmpty">No further status transition is available.</div>
+                    <EmptyState
+                      body="No further status transition is available."
+                      title="No next status"
+                    />
                   )}
                 </form>
               </PermissionGate>
@@ -460,18 +483,26 @@ function OrderDetailContent() {
                     <>
                       <label>
                         Reason
-                        <textarea
+                        <Textarea
                           onChange={(event) => setCancelReason(event.target.value)}
                           value={cancelReason}
                         />
                       </label>
-                      <button className="dangerButton iconTextButton" disabled={isMutating} type="submit">
+                      <Button
+                        className="iconTextButton"
+                        disabled={isMutating}
+                        type="submit"
+                        variant="destructive"
+                      >
                         <Ban aria-hidden size={16} />
                         <span>{cancelMutation.isPending ? "Cancelling..." : "Cancel order"}</span>
-                      </button>
+                      </Button>
                     </>
                   ) : (
-                    <div className="emptyPanel smallEmpty">This order cannot be cancelled in its current status.</div>
+                    <EmptyState
+                      body="This order cannot be cancelled in its current status."
+                      title="Cancellation unavailable"
+                    />
                   )}
                 </form>
               </PermissionGate>
@@ -487,7 +518,7 @@ function OrderDetailContent() {
                         </p>
                       ) : null}
                       {partnersQuery.isLoading ? (
-                        <div className="loadingBlock">Loading delivery partners...</div>
+                        <LoadingState label="Loading delivery partners..." />
                       ) : null}
                       {partnersQuery.isError ? (
                         <p className="formError" role="alert">
@@ -496,48 +527,57 @@ function OrderDetailContent() {
                       ) : null}
                       <label>
                         Delivery partner
-                        <select
+                        <Select
+                          aria-label="Delivery partner"
                           disabled={!canReadDelivery || partnersQuery.isLoading}
-                          onChange={(event) =>
+                          onValueChange={(value) =>
                             setAssignValues({
                               ...assignValues,
-                              deliveryPartnerId: event.target.value
+                              deliveryPartnerId: value
                             })
                           }
-                          required
                           value={assignValues.deliveryPartnerId}
                         >
-                          <option value="">Select partner</option>
-                          {activePartners.map((partner) => (
-                            <option key={partner.id} value={partner.id}>
-                              {partner.fullName} ({partner.mobileNumber})
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select partner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {activePartners.map((partner) => (
+                              <SelectItem key={partner.id} value={partner.id}>
+                                {partner.fullName} ({partner.mobileNumber})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </label>
                       <label>
                         Pickup warehouse
-                        <select
+                        <Select
+                          aria-label="Pickup warehouse"
                           disabled={warehousesQuery.isLoading}
-                          onChange={(event) =>
+                          onValueChange={(value) =>
                             setAssignValues({
                               ...assignValues,
-                              pickupWarehouseId: event.target.value
+                              pickupWarehouseId: value
                             })
                           }
                           value={assignValues.pickupWarehouseId}
                         >
-                          <option value="">Use order warehouse</option>
-                          {warehouses.map((warehouse) => (
-                            <option key={warehouse.id} value={warehouse.id}>
-                              {warehouse.name} ({warehouse.code})
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Use order warehouse" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {warehouses.map((warehouse) => (
+                              <SelectItem key={warehouse.id} value={warehouse.id}>
+                                {warehouse.name} ({warehouse.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </label>
                       <label>
                         Note
-                        <textarea
+                        <Textarea
                           onChange={(event) =>
                             setAssignValues({
                               ...assignValues,
@@ -547,17 +587,21 @@ function OrderDetailContent() {
                           value={assignValues.note}
                         />
                       </label>
-                      <button
-                        className="secondaryButton iconTextButton"
+                      <Button
+                        className="iconTextButton"
                         disabled={isMutating || !canReadDelivery}
                         type="submit"
+                        variant="secondary"
                       >
                         <Truck aria-hidden size={16} />
                         <span>{assignMutation.isPending ? "Assigning..." : "Assign delivery"}</span>
-                      </button>
+                      </Button>
                     </>
                   ) : (
-                    <div className="emptyPanel smallEmpty">Delivery assignment is available only for confirmed or packed orders.</div>
+                    <EmptyState
+                      body="Delivery assignment is available only for confirmed or packed orders."
+                      title="Assignment unavailable"
+                    />
                   )}
                 </form>
               </PermissionGate>
@@ -603,36 +647,42 @@ function AddressDetail({
 
 function OrderItemsTable({ order }: { order: AdminOrder }) {
   if (order.items.length === 0) {
-    return <div className="emptyPanel smallEmpty">No order items found.</div>;
+    return <EmptyState body="No order items found." title="No items found" />;
   }
 
   return (
-    <div className="orderItemsTable" role="table">
-      <div className="orderItemsTableHeader" role="row">
-        <strong role="columnheader">Item</strong>
-        <strong role="columnheader">SKU</strong>
-        <strong role="columnheader">Qty</strong>
-        <strong role="columnheader">Unit</strong>
-        <strong role="columnheader">Tax</strong>
-        <strong role="columnheader">Total</strong>
-        <strong role="columnheader">Warehouse</strong>
-      </div>
+    <div className="resourceTable orderItemsTable">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Item</TableHead>
+            <TableHead>SKU</TableHead>
+            <TableHead>Qty</TableHead>
+            <TableHead>Unit</TableHead>
+            <TableHead>Tax</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead>Warehouse</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
       {order.items.map((item) => (
-        <div className="orderItemsTableRow" key={item.id} role="row">
-          <span role="cell">
+        <TableRow key={item.id}>
+          <TableCell>
             <strong>{item.name}</strong>
             <em>{item.productId}</em>
-          </span>
-          <span role="cell">{item.sku}</span>
-          <span role="cell">{item.quantity}</span>
-          <span role="cell">{formatCurrency(item.unitPrice)}</span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>{item.sku}</TableCell>
+          <TableCell>{item.quantity}</TableCell>
+          <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+          <TableCell>
             {formatCurrency(item.taxAmount)} ({item.taxRate}%)
-          </span>
-          <span role="cell">{formatCurrency(item.total)}</span>
-          <span role="cell">{item.warehouseId ?? "-"}</span>
-        </div>
+          </TableCell>
+          <TableCell>{formatCurrency(item.total)}</TableCell>
+          <TableCell>{item.warehouseId ?? "-"}</TableCell>
+        </TableRow>
       ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

@@ -4,12 +4,35 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AdminShell } from "../admin-shell";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
   buildCustomerQuery,
   createEmptyCustomerFilters,
-  customerStatusLabel,
   formatCustomerDate,
   type AdminCustomer,
   type CustomerFilters,
@@ -66,97 +89,77 @@ function CustomersContent() {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Customers</p>
-            <h2>Customer records</h2>
-            <p className="panelSummary">
-              Search customer accounts by identity, contact, business, or GSTIN.
-            </p>
-          </div>
-          <button
-            className="ghostButton iconTextButton"
-            onClick={() => void customersQuery.refetch()}
-            type="button"
-          >
-            <RefreshCw aria-hidden size={16} />
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        {customersQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(customersQuery.error) ?? "Unable to load customers."}
-          </p>
-        ) : null}
-
-        <div className="metricGrid resourceMetrics">
-          <article className="metric metric--primary">
-            <span>Total customers</span>
-            <strong>{pagination?.total ?? 0}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>Visible</span>
-            <strong>{customers.length}</strong>
-          </article>
-          <article className="metric metric--primary">
-            <span>Active visible</span>
-            <strong>{activeVisibleCount}</strong>
-          </article>
-          <article className="metric metric--warning">
-            <span>Inactive visible</span>
-            <strong>{inactiveVisibleCount}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>GSTIN visible</span>
-            <strong>{gstVisibleCount}</strong>
-          </article>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Filters</p>
-            <h2>Find customers</h2>
-          </div>
-        </div>
-        <CustomerFilterForm
-          filters={draftFilters}
-          onChange={setDraftFilters}
-          onReset={resetFilters}
-          onSubmit={applyFilters}
-        />
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Customer list</p>
-            <h2>Accounts and order activity</h2>
-          </div>
-        </div>
-
-        {customersQuery.isLoading ? (
-          <div className="loadingBlock">Loading customers...</div>
-        ) : null}
-        {!customersQuery.isLoading && customers.length === 0 ? (
-          <div className="emptyPanel smallEmpty">
-            No customers match the current filters.
-          </div>
-        ) : null}
-        {customers.length > 0 ? <CustomerTable customers={customers} /> : null}
-        {pagination ? (
-          <PaginationControls
-            hasNextPage={pagination.hasNextPage}
-            hasPreviousPage={pagination.hasPreviousPage}
-            label={`Page ${pagination.page} of ${Math.max(pagination.totalPages, 1)}`}
-            onNext={() => setPage((current) => current + 1)}
-            onPrevious={() => setPage((current) => Math.max(current - 1, 1))}
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader
+            actions={
+              <Button
+                className="iconTextButton"
+                onClick={() => void customersQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            }
+            eyebrow="Customers"
+            level={2}
+            summary="Search customer accounts by identity, contact, business, or GSTIN."
+            title="Customer records"
           />
-        ) : null}
-      </section>
+
+          {customersQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(customersQuery.error) ?? "Unable to load customers."}
+            </p>
+          ) : null}
+
+          <div className="metricGrid resourceMetrics">
+            <MetricCard label="Total customers" tone="primary" value={pagination?.total ?? 0} />
+            <MetricCard label="Visible" value={customers.length} />
+            <MetricCard label="Active visible" tone="primary" value={activeVisibleCount} />
+            <MetricCard label="Inactive visible" tone="warning" value={inactiveVisibleCount} />
+            <MetricCard label="GSTIN visible" value={gstVisibleCount} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader eyebrow="Filters" level={2} title="Find customers" />
+          <CustomerFilterForm
+            filters={draftFilters}
+            onChange={setDraftFilters}
+            onReset={resetFilters}
+            onSubmit={applyFilters}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader eyebrow="Customer list" level={2} title="Accounts and order activity" />
+
+          {customersQuery.isLoading ? (
+            <LoadingState label="Loading customers..." />
+          ) : null}
+          {!customersQuery.isLoading && customers.length === 0 ? (
+            <EmptyState
+              body="No customers match the current filters."
+              title="No customers found"
+            />
+          ) : null}
+          {customers.length > 0 ? <CustomerTable customers={customers} /> : null}
+          {pagination ? (
+            <PaginationControls
+              onChange={setPage}
+              page={pagination.page}
+              totalPages={Math.max(pagination.totalPages, 1)}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -176,123 +179,80 @@ function CustomerFilterForm({
     <form className="productFilters customerFilters" onSubmit={onSubmit}>
       <label>
         Search
-        <span className="searchInput">
-          <Search aria-hidden size={16} />
-          <input
-            onChange={(event) => onChange({ ...filters, search: event.target.value })}
-            placeholder="Name, mobile, email, business, GSTIN"
-            value={filters.search}
-          />
-        </span>
+        <Input
+          onChange={(event) => onChange({ ...filters, search: event.target.value })}
+          placeholder="Name, mobile, email, business, GSTIN"
+          value={filters.search}
+        />
       </label>
-      <label>
-        Status
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              isActive: event.target.value as CustomerFilters["isActive"]
-            })
-          }
-          value={filters.isActive}
-        >
-          <option value="">Any</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
-      </label>
+      <Select
+        aria-label="Status"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            isActive: value as CustomerFilters["isActive"]
+          })
+        }
+        value={filters.isActive}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="true">Active</SelectItem>
+          <SelectItem value="false">Inactive</SelectItem>
+        </SelectContent>
+      </Select>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
 function CustomerTable({ customers }: { customers: AdminCustomer[] }) {
-  const gridTemplateColumns =
-    "minmax(220px, 1.3fr) minmax(150px, 0.8fr) minmax(210px, 1fr) minmax(190px, 1fr) 110px 120px 130px";
-
   return (
-    <div className="resourceTable" role="table">
-      <div className="resourceTableHeader" role="row" style={{ gridTemplateColumns }}>
-        <strong role="columnheader">Customer</strong>
-        <strong role="columnheader">Mobile</strong>
-        <strong role="columnheader">Email</strong>
-        <strong role="columnheader">Business</strong>
-        <strong role="columnheader">Orders</strong>
-        <strong role="columnheader">Status</strong>
-        <strong role="columnheader">Created</strong>
-      </div>
+    <div className="resourceTable">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Customer</TableHead>
+            <TableHead>Mobile</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Business</TableHead>
+            <TableHead>Orders</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Created</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
       {customers.map((customer) => (
-        <div
-          className="resourceTableRow"
-          key={customer.id}
-          role="row"
-          style={{ gridTemplateColumns }}
-        >
-          <span role="cell">
+        <TableRow key={customer.id}>
+          <TableCell>
             <strong>{customer.name}</strong>
             <em>{customer.addressCount} addresses</em>
-          </span>
-          <span role="cell">{customer.mobileNumber}</span>
-          <span role="cell">{customer.email ?? "-"}</span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>{customer.mobileNumber}</TableCell>
+          <TableCell>{customer.email ?? "-"}</TableCell>
+          <TableCell>
             <strong>{customer.businessName ?? "-"}</strong>
             <em>{customer.gstNumber ?? "No GSTIN"}</em>
-          </span>
-          <span role="cell">{customer.orderCount}</span>
-          <span role="cell">
-            <span
-              className={`statusBadge statusBadge--${customer.isActive ? "active" : "inactive"}`}
-            >
-              {customerStatusLabel(customer.isActive)}
-            </span>
-          </span>
-          <span role="cell">{formatCustomerDate(customer.createdAt)}</span>
-        </div>
+          </TableCell>
+          <TableCell>{customer.orderCount}</TableCell>
+          <TableCell>
+            <StatusBadge status={customer.isActive ? "ACTIVE" : "INACTIVE"} />
+          </TableCell>
+          <TableCell>{formatCustomerDate(customer.createdAt)}</TableCell>
+        </TableRow>
       ))}
-    </div>
-  );
-}
-
-function PaginationControls({
-  hasNextPage,
-  hasPreviousPage,
-  label,
-  onNext,
-  onPrevious
-}: {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  label: string;
-  onNext: () => void;
-  onPrevious: () => void;
-}) {
-  return (
-    <div className="paginationBar">
-      <button
-        className="ghostButton"
-        disabled={!hasPreviousPage}
-        onClick={onPrevious}
-        type="button"
-      >
-        Previous
-      </button>
-      <span>{label}</span>
-      <button
-        className="ghostButton"
-        disabled={!hasNextPage}
-        onClick={onNext}
-        type="button"
-      >
-        Next
-      </button>
+        </TableBody>
+      </Table>
     </div>
   );
 }

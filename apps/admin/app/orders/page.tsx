@@ -5,6 +5,30 @@ import { Eye, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdminShell } from "../admin-shell";
+import { EmptyState } from "@/components/admin/empty-state";
+import { LoadingState } from "@/components/admin/loading-state";
+import { MetricCard } from "@/components/admin/metric-card";
+import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import type { WarehouseListResponse } from "../../lib/warehouse-management";
@@ -100,114 +124,84 @@ function OrdersContent() {
 
   return (
     <>
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Orders</p>
-            <h2>Customer order management</h2>
-            <p className="panelSummary">
-              Review warehouse-scoped customer orders, payments, invoices, and delivery readiness.
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader
+            actions={
+              <Button
+                className="iconTextButton"
+                onClick={() => void ordersQuery.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            }
+            eyebrow="Orders"
+            level={2}
+            summary="Review warehouse-scoped customer orders, payments, invoices, and delivery readiness."
+            title="Customer order management"
+          />
+
+          <div className="metricGrid resourceMetrics">
+            <MetricCard label="Total matches" tone="primary" value={pagination?.total ?? orders.length} />
+            <MetricCard label="Visible" value={orders.length} />
+            <MetricCard label="Open" tone="warning" value={openOrders} />
+            <MetricCard
+              label="Paid visible"
+              tone="primary"
+              value={orders.filter((order) => order.paymentStatus === "PAID").length}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader eyebrow="Filters" level={2} title="Find orders" />
+          <OrderFilterForm
+            filters={draftFilters}
+            isWarehouseLoading={warehousesQuery.isLoading}
+            onChange={setDraftFilters}
+            onReset={resetFilters}
+            onSubmit={applyFilters}
+            warehouses={warehouses}
+          />
+          {filterError ? (
+            <p className="formError" role="alert">
+              {filterError}
             </p>
-          </div>
-          <button
-            className="ghostButton iconTextButton"
-            onClick={() => void ordersQuery.refetch()}
-            type="button"
-          >
-            <RefreshCw aria-hidden size={16} />
-            <span>Refresh</span>
-          </button>
-        </div>
+          ) : null}
+          {warehousesQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
 
-        <div className="metricGrid resourceMetrics">
-          <article className="metric metric--primary">
-            <span>Total matches</span>
-            <strong>{pagination?.total ?? orders.length}</strong>
-          </article>
-          <article className="metric metric--neutral">
-            <span>Visible</span>
-            <strong>{orders.length}</strong>
-          </article>
-          <article className="metric metric--warning">
-            <span>Open</span>
-            <strong>{openOrders}</strong>
-          </article>
-          <article className="metric metric--primary">
-            <span>Paid visible</span>
-            <strong>{orders.filter((order) => order.paymentStatus === "PAID").length}</strong>
-          </article>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Filters</p>
-            <h2>Find orders</h2>
-          </div>
-        </div>
-        <OrderFilterForm
-          filters={draftFilters}
-          isWarehouseLoading={warehousesQuery.isLoading}
-          onChange={setDraftFilters}
-          onReset={resetFilters}
-          onSubmit={applyFilters}
-          warehouses={warehouses}
-        />
-        {filterError ? (
-          <p className="formError" role="alert">
-            {filterError}
-          </p>
-        ) : null}
-        {warehousesQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <div>
-            <p className="eyebrow">Order table</p>
-            <h2>Warehouse-scoped results</h2>
-          </div>
-        </div>
-        {ordersQuery.isLoading ? (
-          <div className="loadingBlock">Loading orders...</div>
-        ) : null}
-        {ordersQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
-          </p>
-        ) : null}
-        {!ordersQuery.isLoading && !ordersQuery.isError ? (
-          <OrdersTable orders={orders} />
-        ) : null}
-        {pagination ? (
-          <div className="paginationControls">
-            <button
-              className="ghostButton"
-              disabled={!pagination.hasPreviousPage || ordersQuery.isFetching}
-              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-              type="button"
-            >
-              Previous
-            </button>
-            <span>
-              Page {pagination.page} of {Math.max(1, pagination.totalPages)}
-            </span>
-            <button
-              className="ghostButton"
-              disabled={!pagination.hasNextPage || ordersQuery.isFetching}
-              onClick={() => setPage((currentPage) => currentPage + 1)}
-              type="button"
-            >
-              Next
-            </button>
-          </div>
-        ) : null}
-      </section>
+      <Card>
+        <CardContent className="p-6">
+          <PageHeader eyebrow="Order table" level={2} title="Warehouse-scoped results" />
+          {ordersQuery.isLoading ? <LoadingState label="Loading orders..." /> : null}
+          {ordersQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
+            </p>
+          ) : null}
+          {!ordersQuery.isLoading && !ordersQuery.isError ? (
+            <OrdersTable orders={orders} />
+          ) : null}
+          {pagination ? (
+            <PaginationControls
+              onChange={setPage}
+              page={pagination.page}
+              totalPages={Math.max(pagination.totalPages, 1)}
+            />
+          ) : null}
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -229,47 +223,51 @@ function OrderFilterForm({
 }) {
   return (
     <form className="ordersFilters" onSubmit={onSubmit}>
-      <label>
-        Order status
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              status: event.target.value as OrderFilters["status"]
-            })
-          }
-          value={filters.status}
-        >
-          <option value="">Any status</option>
+      <Select
+        aria-label="Order status"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            status: value as OrderFilters["status"]
+          })
+        }
+        value={filters.status}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any status" />
+        </SelectTrigger>
+        <SelectContent>
           {ORDER_STATUSES.map((status) => (
-            <option key={status} value={status}>
+            <SelectItem key={status} value={status}>
               {formatOrderLabel(status)}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
-      <label>
-        Payment status
-        <select
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              paymentStatus: event.target.value as OrderFilters["paymentStatus"]
-            })
-          }
-          value={filters.paymentStatus}
-        >
-          <option value="">Any payment</option>
+        </SelectContent>
+      </Select>
+      <Select
+        aria-label="Payment status"
+        onValueChange={(value) =>
+          onChange({
+            ...filters,
+            paymentStatus: value as OrderFilters["paymentStatus"]
+          })
+        }
+        value={filters.paymentStatus}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Any payment" />
+        </SelectTrigger>
+        <SelectContent>
           {PAYMENT_STATUSES.map((status) => (
-            <option key={status} value={status}>
+            <SelectItem key={status} value={status}>
               {formatOrderLabel(status)}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
       <label>
         From
-        <input
+        <Input
           onChange={(event) => onChange({ ...filters, dateFrom: event.target.value })}
           type="date"
           value={filters.dateFrom}
@@ -277,7 +275,7 @@ function OrderFilterForm({
       </label>
       <label>
         To
-        <input
+        <Input
           onChange={(event) => onChange({ ...filters, dateTo: event.target.value })}
           type="date"
           value={filters.dateTo}
@@ -285,7 +283,7 @@ function OrderFilterForm({
       </label>
       <label>
         Customer mobile
-        <input
+        <Input
           inputMode="tel"
           onChange={(event) =>
             onChange({ ...filters, customerMobile: event.target.value })
@@ -296,40 +294,39 @@ function OrderFilterForm({
       </label>
       <label>
         Order number
-        <span className="searchInput">
-          <Search aria-hidden size={16} />
-          <input
-            onChange={(event) =>
-              onChange({ ...filters, orderNumber: event.target.value.toUpperCase() })
-            }
-            placeholder="ORD-20260525"
-            value={filters.orderNumber}
-          />
-        </span>
+        <Input
+          onChange={(event) =>
+            onChange({ ...filters, orderNumber: event.target.value.toUpperCase() })
+          }
+          placeholder="ORD-20260525"
+          value={filters.orderNumber}
+        />
       </label>
-      <label>
-        Warehouse
-        <select
-          disabled={isWarehouseLoading}
-          onChange={(event) => onChange({ ...filters, warehouseId: event.target.value })}
-          value={filters.warehouseId}
-        >
-          <option value="">All visible warehouses</option>
+      <Select
+        aria-label="Warehouse"
+        disabled={isWarehouseLoading}
+        onValueChange={(value) => onChange({ ...filters, warehouseId: value })}
+        value={filters.warehouseId}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="All visible warehouses" />
+        </SelectTrigger>
+        <SelectContent>
           {warehouses.map((warehouse) => (
-            <option key={warehouse.id} value={warehouse.id}>
+            <SelectItem key={warehouse.id} value={warehouse.id}>
               {warehouse.name} ({warehouse.code})
-            </option>
+            </SelectItem>
           ))}
-        </select>
-      </label>
+        </SelectContent>
+      </Select>
       <div className="productFilterActions">
-        <button className="primaryButton iconTextButton" type="submit">
+        <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
-        </button>
-        <button className="ghostButton" onClick={onReset} type="button">
+        </Button>
+        <Button onClick={onReset} type="button" variant="outline">
           Reset
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -337,59 +334,64 @@ function OrderFilterForm({
 
 function OrdersTable({ orders }: { orders: AdminOrder[] }) {
   if (orders.length === 0) {
-    return <div className="emptyPanel smallEmpty">No orders match the selected filters.</div>;
+    return (
+      <EmptyState
+        body="No orders match the selected filters."
+        title="No orders found"
+      />
+    );
   }
 
   return (
-    <div className="ordersTable" role="table">
-      <div className="ordersTableHeader" role="row">
-        <strong role="columnheader">Order</strong>
-        <strong role="columnheader">Customer</strong>
-        <strong role="columnheader">Status</strong>
-        <strong role="columnheader">Payment</strong>
-        <strong role="columnheader">Date</strong>
-        <strong role="columnheader">Warehouse</strong>
-        <strong role="columnheader">Total</strong>
-        <strong role="columnheader">Action</strong>
-      </div>
+    <div className="resourceTable ordersTable">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Order</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Payment</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Warehouse</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead>Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
       {orders.map((order) => (
-        <div className="ordersTableRow" key={order.id} role="row">
-          <span role="cell">
+        <TableRow key={order.id}>
+          <TableCell>
             <strong>{order.orderNumber}</strong>
             <em>{order.id}</em>
-          </span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>
             <strong>
               {order.customer.firstName} {order.customer.lastName ?? ""}
             </strong>
             <em>{order.customer.mobileNumber}</em>
-          </span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>
             <StatusBadge status={order.status} />
-          </span>
-          <span role="cell">
+          </TableCell>
+          <TableCell>
             <StatusBadge status={order.paymentStatus} />
-          </span>
-          <span role="cell">{formatDateTime(order.placedAt ?? order.createdAt)}</span>
-          <span role="cell">{order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}</span>
-          <span role="cell">{formatCurrency(order.totals.grandTotal)}</span>
-          <span role="cell">
-            <Link className="ghostButton iconTextButton" href={`/orders/${order.id}`}>
+          </TableCell>
+          <TableCell>{formatDateTime(order.placedAt ?? order.createdAt)}</TableCell>
+          <TableCell>{order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}</TableCell>
+          <TableCell>{formatCurrency(order.totals.grandTotal)}</TableCell>
+          <TableCell>
+            <Button asChild className="iconTextButton" size="sm" variant="outline">
+              <Link href={`/orders/${order.id}`}>
               <Eye aria-hidden size={16} />
               <span>View</span>
             </Link>
-          </span>
-        </div>
+            </Button>
+          </TableCell>
+        </TableRow>
       ))}
+        </TableBody>
+      </Table>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`statusBadge statusBadge--${status.toLowerCase()}`}>
-      {formatOrderLabel(status)}
-    </span>
   );
 }
 
