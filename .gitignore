@@ -4,7 +4,14 @@ dist/
 .turbo/
 coverage/
 *.tsbuildinfo
+
+# Keep runtime environment files local. Example templates stay tracked.
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .env.local
 .env.*.local
 *.log
