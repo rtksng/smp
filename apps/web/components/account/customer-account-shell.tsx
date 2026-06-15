@@ -1,7 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { LogOut, MapPin, Package, UserRound } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  Package,
+  UserRound
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,6 +19,7 @@ import { Container } from "../ui/container";
 import { ProtectedCustomerRoute } from "../auth/protected-customer-route";
 
 const accountLinks = [
+  { href: "/account", icon: LayoutDashboard, label: "Overview" },
   { href: "/account/profile", icon: UserRound, label: "Profile" },
   { href: "/account/addresses", icon: MapPin, label: "Addresses" },
   { href: "/account/orders", icon: Package, label: "Orders" }
@@ -50,33 +57,26 @@ export function CustomerAccountShell({
   return (
     <>
       <Header />
-      <main className="bg-[#f5f8f7]">
-        <Container className="py-8">
+      <main className="bg-[#f4f9ff]">
+        <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
-            <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-              <aside className="grid gap-4 self-start rounded-lg border border-[#d8e2df] bg-white p-4 sm:p-5 lg:sticky lg:top-24">
+            <div className="grid gap-5 lg:grid-cols-[244px_minmax(0,1fr)] lg:gap-6">
+              <aside className="grid gap-4 self-start rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5 lg:sticky lg:top-24">
                 <div>
-                  <p className="text-xs font-extrabold uppercase text-[#9b6a1e]">
+                  <p className="text-xs font-bold uppercase text-[#0b5cab]">
                     Customer account
                   </p>
-                  <p className="mt-2 text-lg font-extrabold text-[#17211f]">
+                  <p className="mt-2 text-base font-bold text-[#12314f]">
                     {session?.customer.firstName ?? "Customer"}
                   </p>
-                  <p className="mt-1 text-sm font-bold text-[#687773]">
+                  <p className="mt-1 break-words text-xs font-bold text-[#52677f]">
                     {session?.customer.mobileNumber}
                   </p>
                 </div>
                 <nav
-                  className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-1"
                   aria-label="Account navigation"
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1"
                 >
-                  <Link
-                    className={accountLinkClass("/account", activePath)}
-                    href="/account"
-                  >
-                    <UserRound aria-hidden="true" className="h-4 w-4" />
-                    Overview
-                  </Link>
                   {accountLinks.map((link) => {
                     const Icon = link.icon;
 
@@ -103,15 +103,12 @@ export function CustomerAccountShell({
                 </Button>
               </aside>
 
-              <section className="grid gap-5 rounded-lg border border-[#d8e2df] bg-white p-5 sm:p-6">
-                <div>
-                  <p className="text-xs font-extrabold uppercase text-[#9b6a1e]">
-                    Private area
-                  </p>
-                  <h1 className="mt-2 text-3xl font-extrabold leading-tight text-[#17211f]">
+              <section className="grid min-w-0 gap-5">
+                <div className="border-b border-[#d6e7f8] pb-4">
+                  <h1 className="text-2xl font-bold leading-tight text-[#12314f] sm:text-3xl">
                     {title}
                   </h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#687773]">
+                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52677f]">
                     {description}
                   </p>
                 </div>
@@ -132,16 +129,16 @@ export function AccountInfoGrid({
   items: Array<{ label: string; value: string }>;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <div
-          className="rounded-lg border border-[#d8e2df] bg-[#f8fbfa] p-4"
+          className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5"
           key={item.label}
         >
-          <p className="text-xs font-extrabold uppercase text-[#687773]">
+          <p className="text-xs font-bold uppercase text-[#52677f]">
             {item.label}
           </p>
-          <p className="mt-2 text-sm font-extrabold text-[#17211f]">
+          <p className="mt-2 break-words text-sm font-bold text-[#12314f]">
             {item.value}
           </p>
         </div>
@@ -160,9 +157,9 @@ export function PrivateEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-[#cfdcda] bg-[#f8fbfa] p-6 text-center">
-      <h2 className="text-lg font-extrabold text-[#17211f]">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#687773]">
+    <div className="rounded-lg border border-dashed border-[#d6e7f8] bg-white p-6 text-center shadow-sm shadow-[#0b5cab]/5">
+      <h2 className="text-base font-bold text-[#12314f]">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#52677f]">
         {description}
       </p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
@@ -170,13 +167,81 @@ export function PrivateEmptyState({
   );
 }
 
+export function AccountSection({
+  children,
+  className = ""
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={[
+        "rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5",
+        className
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {children}
+    </section>
+  );
+}
+
+export function AccountSectionHeader({
+  action,
+  description,
+  title
+}: {
+  action?: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h2 className="text-base font-bold leading-snug text-[#12314f]">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1 text-sm font-semibold leading-5 text-[#52677f]">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+export function AccountStatusBadge({
+  children,
+  tone = "neutral"
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "success";
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-bold",
+        tone === "success"
+          ? "bg-[#edf7f4] text-[#0f6b50]"
+          : "bg-[#edf6ff] text-[#12314f]"
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
+
 function accountLinkClass(href: string, activePath: string | undefined) {
   const isActive = activePath === href;
 
   return [
-    "inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-center text-sm font-extrabold transition sm:shrink lg:justify-start lg:text-left",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 text-center text-sm font-bold transition lg:justify-start lg:text-left",
     isActive
-      ? "bg-[#006d77] text-white"
-      : "bg-[#eef3f1] text-[#31413d] hover:bg-[#e7f3f2]"
+      ? "border-[#0b5cab] bg-[#0b5cab] text-white shadow-sm shadow-[#0b5cab]/20"
+      : "border-[#d6e7f8] bg-[#f4f9ff] text-[#12314f] hover:border-[#0b5cab] hover:bg-[#edf6ff] hover:text-[#0b5cab]"
   ].join(" ");
 }

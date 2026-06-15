@@ -68,7 +68,7 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
     <th
       className={cn(
         tableSlots.th(),
-        "h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-extrabold text-foreground",
+        "h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-bold text-foreground",
         className
       )}
       data-slot="table-head"

@@ -2,11 +2,9 @@
 
 :root {
   --font-sans:
-    Aptos, Inter, "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui,
-    -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display:
-    Inter, Aptos, "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui,
-    sans-serif;
+    var(--font-open-sans), "Open Sans", Inter, Aptos, "Segoe UI Variable", "Segoe UI",
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-montserrat), Montserrat, "Open Sans", Arial, sans-serif;
 }
 
 * {
@@ -18,8 +16,8 @@ html {
 }
 
 body {
-  background: #f5f8f7;
-  color: #17211f;
+  background: #f4f9ff;
+  color: #12314f;
   font-family: var(--font-sans);
   font-feature-settings: "kern";
   -webkit-font-smoothing: antialiased;
@@ -30,8 +28,11 @@ body {
 }
 
 a {
-  color: inherit;
   text-decoration: none;
+}
+
+a:not([class]) {
+  color: inherit;
 }
 
 button,
@@ -49,9 +50,13 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-display);
+  font-family: var(--font-display) !important;
   letter-spacing: 0;
   text-wrap: balance;
+}
+
+.font-heading {
+  font-family: var(--font-display) !important;
 }
 
 p {
@@ -59,8 +64,8 @@ p {
 }
 
 ::selection {
-  background: #c8eeea;
-  color: #17211f;
+  background: #cfe4f8;
+  color: #12314f;
 }
 
 .productDescriptionRichText h1,
@@ -69,7 +74,7 @@ p {
 .productDescriptionRichText h4,
 .productDescriptionRichText h5,
 .productDescriptionRichText h6 {
-  color: #17211f;
+  color: #12314f;
   font-weight: 900;
   line-height: 1.25;
   margin: 1rem 0 0.5rem;
@@ -106,7 +111,7 @@ p {
 }
 
 .productDescriptionRichText a {
-  color: #006d77;
+  color: #0b5cab;
   font-weight: 800;
   text-decoration: underline;
 }

@@ -14,7 +14,7 @@ export function PaymentFailedPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f5f8f7]">
+      <main className="bg-[#f4f9ff]">
         <Container className="py-8">
           <ErrorState
             action={

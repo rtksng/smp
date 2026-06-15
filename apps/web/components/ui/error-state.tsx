@@ -35,7 +35,7 @@ export function ErrorState({
           <AlertTriangle aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-lg font-extrabold leading-snug">{title}</h2>
+          <h2 className="text-lg font-bold leading-snug">{title}</h2>
           <p className="mt-2 break-words text-sm font-bold leading-6">{message}</p>
           {action ? <div className="mt-5 flex flex-wrap gap-3">{action}</div> : null}
         </div>

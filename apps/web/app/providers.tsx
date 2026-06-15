@@ -1,5 +1,6 @@
 "use client";
 
+import { HeroUIProvider } from "@heroui/system";
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -12,8 +13,10 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
-      <CustomerLoginModal />
+      <HeroUIProvider>
+        {children}
+        <CustomerLoginModal />
+      </HeroUIProvider>
     </QueryClientProvider>
   );
 }

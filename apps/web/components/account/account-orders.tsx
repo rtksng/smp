@@ -2,11 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  ClipboardCheck,
   Download,
-  Package,
-  RefreshCcw,
-  RotateCcw,
-  Truck
+  MapPin,
+  RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -22,12 +21,17 @@ import {
   listCustomerOrders,
   type Order
 } from "../../lib/api/orders";
-import { mobileCardListClassName } from "../../lib/responsive/responsive-classes";
 import { Button } from "../ui/button";
-import { EmptyState } from "../ui/empty-state";
 import { ErrorState, RetryButton } from "../ui/error-state";
 import { Skeleton, TableSkeleton } from "../ui/skeleton";
-import { CustomerAccountShell } from "./customer-account-shell";
+import {
+  AccountInfoGrid,
+  AccountSection,
+  AccountSectionHeader,
+  AccountStatusBadge,
+  CustomerAccountShell,
+  PrivateEmptyState
+} from "./customer-account-shell";
 
 const priceFormatter = new Intl.NumberFormat("en-IN", {
   currency: "INR",
@@ -47,6 +51,7 @@ export function AccountOrders() {
     queryKey: customerQueryKeys.orders(1, 20)
   });
   const orders = ordersQuery.data?.items ?? [];
+  const latestOrder = orders[0];
 
   return (
     <CustomerAccountShell
@@ -67,15 +72,50 @@ export function AccountOrders() {
         />
       ) : null}
 
+      {ordersQuery.isSuccess ? (
+        <AccountInfoGrid
+          items={[
+            {
+              label: "Total orders",
+              value: String(ordersQuery.data.pagination.total)
+            },
+            {
+              label: "Latest",
+              value: latestOrder
+                ? formatDate(latestOrder.placedAt ?? latestOrder.createdAt)
+                : "-"
+            },
+            {
+              label: "Latest status",
+              value: latestOrder ? formatOrderStatus(latestOrder.status) : "-"
+            },
+            {
+              label: "Latest total",
+              value: latestOrder
+                ? priceFormatter.format(latestOrder.totals.grandTotal)
+                : "-"
+            }
+          ]}
+        />
+      ) : null}
+
       {ordersQuery.isSuccess && orders.length === 0 ? (
-        <EmptyState
+        <PrivateEmptyState
           action={<Button href="/products">Shop products</Button>}
           description="Your customer orders will appear here after checkout."
           title="No orders yet"
         />
       ) : null}
 
-      {orders.length > 0 ? <OrderList orders={orders} /> : null}
+      {orders.length > 0 ? (
+        <AccountSection>
+          <AccountSectionHeader
+            description="Review each order, status, payment state, and invoice availability."
+            title="Order history"
+          />
+          <OrderList orders={orders} />
+        </AccountSection>
+      ) : null}
     </CustomerAccountShell>
   );
 }
@@ -98,7 +138,7 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
       setIsDownloadingInvoice(true);
       setInvoiceError(null);
       await downloadOrderInvoiceHtml(order);
-      } catch (error) {
+    } catch (error) {
       setInvoiceError(
         getFriendlyApiErrorMessage(error, "Unable to download invoice.")
       );
@@ -127,7 +167,10 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
           message={
             isNotFoundApiError(orderQuery.error)
               ? "We could not find this order in your account."
-              : getFriendlyApiErrorMessage(orderQuery.error, "Unable to load order.")
+              : getFriendlyApiErrorMessage(
+                  orderQuery.error,
+                  "Unable to load order."
+                )
           }
           title={
             isNotFoundApiError(orderQuery.error)
@@ -138,26 +181,23 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
       ) : null}
 
       {order ? (
-        <div className="grid gap-5">
-          <div className="flex flex-col gap-3 rounded-lg border border-[#d8e2df] bg-[#f8fbfa] p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-extrabold text-[#17211f]">
-                {order.orderNumber}
-              </p>
-              <p className="mt-1 text-sm font-bold text-[#687773]">
-                Placed {formatDate(order.placedAt ?? order.createdAt)}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge label={formatOrderStatus(order.status)} />
-              <StatusBadge
-                label={formatPaymentStatus(order.paymentStatus)}
-                tone="payment"
-              />
-            </div>
-          </div>
+        <>
+          <AccountInfoGrid
+            items={[
+              { label: "Order number", value: order.orderNumber },
+              {
+                label: "Date",
+                value: formatDate(order.placedAt ?? order.createdAt)
+              },
+              { label: "Status", value: formatOrderStatus(order.status) },
+              {
+                label: "Total",
+                value: priceFormatter.format(order.totals.grandTotal)
+              }
+            ]}
+          />
 
-          <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="grid gap-5">
               <OrderItems order={order} />
               <DeliveryAddress order={order} />
@@ -165,34 +205,40 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
             </div>
             <aside className="grid h-fit gap-5">
               <PaymentDetails order={order} />
-              <div className="grid gap-3 rounded-lg border border-[#d8e2df] bg-white p-5">
-                {canDownloadOrderInvoice(order) ? (
-                  <Button
-                    disabled={isDownloadingInvoice}
-                    onClick={handleDownloadInvoice}
-                  >
-                    <Download aria-hidden="true" className="h-4 w-4" />
-                    {isDownloadingInvoice
-                      ? "Downloading..."
-                      : "Download invoice"}
+              <AccountSection>
+                <AccountSectionHeader
+                  description="Invoice and quick actions for this order."
+                  title="Actions"
+                />
+                <div className="mt-4 grid gap-3">
+                  {canDownloadOrderInvoice(order) ? (
+                    <Button
+                      disabled={isDownloadingInvoice}
+                      onClick={handleDownloadInvoice}
+                    >
+                      <Download aria-hidden="true" className="h-4 w-4" />
+                      {isDownloadingInvoice
+                        ? "Downloading..."
+                        : "Download invoice"}
+                    </Button>
+                  ) : null}
+                  <Button disabled variant="outline">
+                    <RotateCcw aria-hidden="true" className="h-4 w-4" />
+                    Reorder coming soon
                   </Button>
-                ) : null}
-                <Button disabled variant="outline">
-                  <RotateCcw aria-hidden="true" className="h-4 w-4" />
-                  Reorder coming soon
-                </Button>
-                <Button href="/account/orders" variant="ghost">
-                  Back to orders
-                </Button>
-                {invoiceError ? (
-                  <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
-                    {invoiceError}
-                  </p>
-                ) : null}
-              </div>
+                  <Button href="/account/orders" variant="ghost">
+                    Back to orders
+                  </Button>
+                  {invoiceError ? (
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                      {invoiceError}
+                    </p>
+                  ) : null}
+                </div>
+              </AccountSection>
             </aside>
           </div>
-        </div>
+        </>
       ) : null}
     </CustomerAccountShell>
   );
@@ -201,34 +247,33 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
 function OrderList({ orders }: { orders: Order[] }) {
   return (
     <>
-      <div className={mobileCardListClassName}>
+      <div className="mt-4 grid gap-3 md:hidden">
         {orders.map((order) => (
           <article
-            className="grid gap-4 rounded-lg border border-[#d8e2df] bg-white p-4"
+            className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5"
             key={order.id}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  className="break-words font-extrabold text-[#006d77] hover:text-[#084c61]"
+                  className="break-words text-sm font-bold text-[#0b5cab] hover:text-[#094f94]"
                   href={`/account/orders/${order.id}`}
                 >
                   {order.orderNumber}
                 </Link>
-                <p className="mt-1 text-sm font-bold text-[#687773]">
+                <p className="mt-1 text-xs font-bold text-[#52677f]">
                   {formatDate(order.placedAt ?? order.createdAt)}
                 </p>
               </div>
-              <strong className="shrink-0 text-right text-sm text-[#17211f]">
+              <strong className="shrink-0 text-right text-sm text-[#12314f]">
                 {priceFormatter.format(order.totals.grandTotal)}
               </strong>
             </div>
             <div className="flex flex-wrap gap-2">
-              <StatusBadge label={formatOrderStatus(order.status)} />
-              <StatusBadge
-                label={formatPaymentStatus(order.paymentStatus)}
-                tone="payment"
-              />
+              <OrderStatusBadge status={order.status} />
+              <AccountStatusBadge>
+                {formatPaymentStatus(order.paymentStatus)}
+              </AccountStatusBadge>
             </div>
             <Button
               className="w-full"
@@ -241,42 +286,41 @@ function OrderList({ orders }: { orders: Order[] }) {
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-lg border border-[#d8e2df] md:block">
+      <div className="mt-4 hidden overflow-x-auto rounded-lg border border-[#d6e7f8] shadow-sm shadow-[#0b5cab]/5 md:block">
         <table className="w-full min-w-[760px] border-collapse bg-white text-left">
-          <thead className="bg-[#f8fbfa] text-xs uppercase text-[#687773]">
+          <thead className="bg-[#f4f9ff] text-xs uppercase text-[#52677f]">
             <tr>
-              <th className="px-4 py-3 font-extrabold">Order</th>
-              <th className="px-4 py-3 font-extrabold">Date</th>
-              <th className="px-4 py-3 font-extrabold">Status</th>
-              <th className="px-4 py-3 font-extrabold">Payment</th>
-              <th className="px-4 py-3 text-right font-extrabold">Total</th>
-              <th className="px-4 py-3 font-extrabold">Action</th>
+              <th className="px-4 py-3 font-bold">Order</th>
+              <th className="px-4 py-3 font-bold">Date</th>
+              <th className="px-4 py-3 font-bold">Status</th>
+              <th className="px-4 py-3 font-bold">Payment</th>
+              <th className="px-4 py-3 text-right font-bold">Total</th>
+              <th className="px-4 py-3 font-bold">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#d8e2df]">
+          <tbody className="divide-y divide-[#d6e7f8]">
             {orders.map((order) => (
               <tr key={order.id}>
                 <td className="px-4 py-4">
                   <Link
-                    className="font-extrabold text-[#006d77] hover:text-[#084c61]"
+                    className="font-bold text-[#0b5cab] hover:text-[#094f94]"
                     href={`/account/orders/${order.id}`}
                   >
                     {order.orderNumber}
                   </Link>
                 </td>
-                <td className="px-4 py-4 text-sm font-bold text-[#687773]">
+                <td className="px-4 py-4 text-sm font-semibold text-[#52677f]">
                   {formatDate(order.placedAt ?? order.createdAt)}
                 </td>
                 <td className="px-4 py-4">
-                  <StatusBadge label={formatOrderStatus(order.status)} />
+                  <OrderStatusBadge status={order.status} />
                 </td>
                 <td className="px-4 py-4">
-                  <StatusBadge
-                    label={formatPaymentStatus(order.paymentStatus)}
-                    tone="payment"
-                  />
+                  <AccountStatusBadge>
+                    {formatPaymentStatus(order.paymentStatus)}
+                  </AccountStatusBadge>
                 </td>
-                <td className="px-4 py-4 text-right text-sm font-extrabold text-[#17211f]">
+                <td className="px-4 py-4 text-right text-sm font-bold text-[#12314f]">
                   {priceFormatter.format(order.totals.grandTotal)}
                 </td>
                 <td className="px-4 py-4">
@@ -295,43 +339,36 @@ function OrderList({ orders }: { orders: Order[] }) {
 
 function OrderItems({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border border-[#d8e2df] bg-white p-5">
-      <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
-          <Package aria-hidden="true" className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="text-lg font-extrabold text-[#17211f]">Items</h2>
-          <p className="text-sm font-bold text-[#687773]">
-            Products included in this order.
-          </p>
-        </div>
-      </div>
+    <AccountSection>
+      <AccountSectionHeader
+        description={`${formatItemCount(order)} included in this order.`}
+        title="Items"
+      />
 
-      <div className="mt-5 grid gap-3">
+      <div className="mt-4 divide-y divide-[#d6e7f8]">
         {order.items.map((item) => (
           <div
-            className="grid gap-3 rounded-lg bg-[#f8fbfa] p-4 md:grid-cols-[1fr_auto]"
+            className="grid gap-2 py-4 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_auto]"
             key={item.id}
           >
             <div>
-              <p className="font-extrabold text-[#17211f]">{item.name}</p>
-              <p className="mt-1 text-sm font-bold text-[#687773]">
+              <p className="text-sm font-bold text-[#12314f]">{item.name}</p>
+              <p className="mt-1 text-xs font-bold text-[#52677f]">
                 SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
               </p>
             </div>
             <div className="text-left md:text-right">
-              <p className="text-sm font-bold text-[#687773]">
+              <p className="text-xs font-bold text-[#52677f]">
                 {priceFormatter.format(item.unitPrice)} each
               </p>
-              <p className="mt-1 font-extrabold text-[#17211f]">
+              <p className="mt-1 text-base font-bold text-[#12314f]">
                 {priceFormatter.format(item.total)}
               </p>
             </div>
           </div>
         ))}
       </div>
-    </section>
+    </AccountSection>
   );
 }
 
@@ -339,47 +376,50 @@ function DeliveryAddress({ order }: { order: Order }) {
   const address = order.shippingAddress;
 
   return (
-    <section className="rounded-lg border border-[#d8e2df] bg-white p-5">
-      <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
-          <Truck aria-hidden="true" className="h-5 w-5" />
-        </span>
-        <div>
-          <h2 className="text-lg font-extrabold text-[#17211f]">
-            Delivery address
-          </h2>
-          <p className="text-sm font-bold text-[#687773]">
-            Destination saved when the order was placed.
-          </p>
-        </div>
-      </div>
+    <AccountSection>
+      <AccountSectionHeader
+        description="Destination saved when the order was placed."
+        title="Delivery address"
+      />
 
       {address ? (
-        <div className="mt-5 rounded-lg bg-[#f8fbfa] p-4 text-sm font-bold leading-6 text-[#687773]">
-          <p className="font-extrabold text-[#17211f]">{address.fullName}</p>
-          <p className="mt-1">
-            {address.line1}
-            {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
-            {address.state} {address.pincode}, {address.country}
-          </p>
-          <p className="mt-1">{address.mobileNumber}</p>
+        <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
+              <MapPin aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold text-[#12314f]">
+                {address.fullName}
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#52677f]">
+                {address.line1}
+                {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
+                {address.state} {address.pincode}, {address.country}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#52677f]">
+                {address.mobileNumber}
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
-        <p className="mt-5 rounded-lg bg-[#fff5f5] p-4 text-sm font-bold text-[#7a271a]">
+        <p className="mt-4 rounded-lg bg-[#fff5f5] p-4 text-sm font-bold text-[#7a271a]">
           Delivery address is not available for this order.
         </p>
       )}
-    </section>
+    </AccountSection>
   );
 }
 
 function PaymentDetails({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border border-[#d8e2df] bg-white p-5">
-      <h2 className="text-lg font-extrabold text-[#17211f]">
-        Payment details
-      </h2>
-      <div className="mt-4 grid gap-2 text-sm text-[#31413d]">
+    <AccountSection>
+      <AccountSectionHeader
+        description="Method, payment state, and final payable total."
+        title="Payment details"
+      />
+      <dl className="mt-4 grid gap-2 text-sm text-[#12314f]">
         <InfoRow
           label="Method"
           value={formatPaymentMethod(order.paymentMethod)}
@@ -388,19 +428,22 @@ function PaymentDetails({ order }: { order: Order }) {
           label="Payment status"
           value={formatPaymentStatus(order.paymentStatus)}
         />
-        <InfoRow label="Subtotal" value={priceFormatter.format(order.totals.subtotal)} />
-        <InfoRow label="Discount" value={priceFormatter.format(order.totals.discount)} />
+        <InfoRow
+          label="Subtotal"
+          value={priceFormatter.format(order.totals.subtotal)}
+        />
+        <InfoRow label="Discount" value={formatDiscount(order.totals.discount)} />
         <InfoRow
           label="Delivery charge"
           value={priceFormatter.format(order.totals.deliveryCharge)}
         />
         <InfoRow label="Tax/GST" value={priceFormatter.format(order.totals.tax)} />
-        <div className="mt-2 flex items-center justify-between border-t border-[#d8e2df] pt-4 text-base font-extrabold text-[#17211f]">
-          <span>Total</span>
-          <span>{priceFormatter.format(order.totals.grandTotal)}</span>
+        <div className="mt-2 flex items-center justify-between border-t border-[#d6e7f8] pt-4 text-base font-bold text-[#12314f]">
+          <dt>Total</dt>
+          <dd>{priceFormatter.format(order.totals.grandTotal)}</dd>
         </div>
-      </div>
-    </section>
+      </dl>
+    </AccountSection>
   );
 }
 
@@ -419,25 +462,26 @@ function StatusTimeline({ order }: { order: Order }) {
         ];
 
   return (
-    <section className="rounded-lg border border-[#d8e2df] bg-white p-5">
-      <h2 className="text-lg font-extrabold text-[#17211f]">
-        Status timeline
-      </h2>
-      <div className="mt-5 grid gap-4">
+    <AccountSection>
+      <AccountSectionHeader
+        description="Latest status updates captured for this order."
+        title="Status timeline"
+      />
+      <div className="mt-4 grid gap-4">
         {entries.map((entry) => (
           <div className="flex gap-3" key={entry.id}>
-            <span className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#dff3ef] text-[#0f6b50]">
-              <RefreshCcw aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
+              <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <div>
-              <p className="font-extrabold text-[#17211f]">
+              <p className="text-sm font-bold text-[#12314f]">
                 {formatOrderStatus(entry.status)}
               </p>
-              <p className="mt-1 text-sm font-bold text-[#687773]">
+              <p className="mt-1 text-xs font-bold text-[#52677f]">
                 {formatDate(entry.createdAt)}
               </p>
               {entry.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#687773]">
+                <p className="mt-1 text-sm leading-6 text-[#52677f]">
                   {entry.note}
                 </p>
               ) : null}
@@ -445,49 +489,51 @@ function StatusTimeline({ order }: { order: Order }) {
           </div>
         ))}
       </div>
-    </section>
+    </AccountSection>
   );
 }
 
-function StatusBadge({
-  label,
-  tone = "status"
-}: {
-  label: string;
-  tone?: "payment" | "status";
-}) {
+function OrderStatusBadge({ status }: { status: Order["status"] }) {
   return (
-    <span
-      className={[
-        "inline-flex min-h-8 items-center rounded-full px-3 text-xs font-extrabold",
-        tone === "payment"
-          ? "bg-[#eef3f1] text-[#31413d]"
-          : "bg-[#dff3ef] text-[#0f6b50]"
-      ].join(" ")}
-    >
-      {label}
-    </span>
+    <AccountStatusBadge tone={status === "CANCELLED" ? "neutral" : "success"}>
+      {formatOrderStatus(status)}
+    </AccountStatusBadge>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span>{label}</span>
-      <strong className="text-right text-[#17211f]">{value}</strong>
+      <dt className="text-[#52677f]">{label}</dt>
+      <dd className="text-right font-bold text-[#12314f]">{value}</dd>
     </div>
   );
 }
 
 function OrdersListSkeleton() {
-  return <TableSkeleton columns={5} rows={4} />;
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton className="h-20" key={index} />
+        ))}
+      </div>
+      <AccountSection>
+        <TableSkeleton columns={5} rows={4} />
+      </AccountSection>
+    </div>
+  );
 }
 
 function OrderDetailSkeleton() {
   return (
     <div className="grid gap-5">
-      <Skeleton className="h-24 w-full" />
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton className="h-20" key={index} />
+        ))}
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid gap-5">
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-36 w-full" />
@@ -509,16 +555,30 @@ function formatDate(value: string) {
   return dateFormatter.format(date);
 }
 
+function formatItemCount(order: Order) {
+  const count = order.items.length;
+
+  return `${count} ${count === 1 ? "product" : "products"}`;
+}
+
+function formatDiscount(value: number) {
+  if (value <= 0) {
+    return priceFormatter.format(0);
+  }
+
+  return `-${priceFormatter.format(value)}`;
+}
+
 function formatOrderStatus(status: Order["status"]) {
-  return status
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return formatConstantLabel(status);
 }
 
 function formatPaymentStatus(status: Order["paymentStatus"]) {
-  return formatOrderStatus(status as Order["status"]);
+  if (status === "PENDING") {
+    return "Payment pending";
+  }
+
+  return formatConstantLabel(status);
 }
 
 function formatPaymentMethod(method: Order["paymentMethod"]) {
@@ -526,5 +586,13 @@ function formatPaymentMethod(method: Order["paymentMethod"]) {
     return "Not selected";
   }
 
-  return method === "COD" ? "Cash on delivery" : "Online";
+  return method === "COD" ? "Cash on delivery" : "Online payment";
+}
+
+function formatConstantLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

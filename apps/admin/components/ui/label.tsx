@@ -5,7 +5,7 @@ export function Label({ className, ...props }: ComponentProps<"label">) {
   return (
     <label
       className={cn(
-        "grid min-w-0 gap-2 text-sm font-extrabold leading-tight text-muted-foreground",
+        "grid min-w-0 gap-2 text-sm font-bold leading-tight text-muted-foreground",
         className
       )}
       data-slot="label"

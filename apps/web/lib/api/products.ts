@@ -23,6 +23,14 @@ export const productQuerySchema = z.object({
 
 export type ProductQuery = z.infer<typeof productQuerySchema>;
 
+export const productRecommendationQuerySchema = z.object({
+  limit: z.number().int().min(1).max(12).optional()
+});
+
+export type ProductRecommendationQuery = z.infer<
+  typeof productRecommendationQuerySchema
+>;
+
 export function getProducts(query: ProductQuery = {}) {
   const parsedQuery = productQuerySchema.parse(query);
 
@@ -33,4 +41,34 @@ export function getProducts(query: ProductQuery = {}) {
 
 export function getProduct(slug: string) {
   return requestApi(`/products/${encodeURIComponent(slug)}`, productSchema);
+}
+
+export function getRelatedProducts(
+  slug: string,
+  query: ProductRecommendationQuery = {}
+) {
+  const parsedQuery = productRecommendationQuerySchema.parse(query);
+
+  return requestApi(
+    `/products/${encodeURIComponent(slug)}/related`,
+    productListSchema,
+    {
+      query: parsedQuery
+    }
+  );
+}
+
+export function getSimilarProducts(
+  slug: string,
+  query: ProductRecommendationQuery = {}
+) {
+  const parsedQuery = productRecommendationQuerySchema.parse(query);
+
+  return requestApi(
+    `/products/${encodeURIComponent(slug)}/similar`,
+    productListSchema,
+    {
+      query: parsedQuery
+    }
+  );
 }

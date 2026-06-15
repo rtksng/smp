@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
   UnauthorizedException
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
@@ -46,7 +47,12 @@ type PaymentWithOrder = Prisma.PaymentGetPayload<{
 type PaymentClient =
   | Pick<
       Prisma.TransactionClient,
-      "order" | "orderStatusHistory" | "payment" | "paymentWebhook" | "refund"
+      | "cartItem"
+      | "order"
+      | "orderStatusHistory"
+      | "payment"
+      | "paymentWebhook"
+      | "refund"
     >
   | PrismaService;
 type RazorpayWebhookPayload = Record<string, unknown>;
@@ -64,7 +70,21 @@ export class PaymentsService {
     @Optional() private readonly queueService?: ApiQueueService
   ) {}
 
+  getPaymentGatewayStatus() {
+    const onlinePaymentEnabled = this.razorpayClient.isConfigured();
+
+    return {
+      message: onlinePaymentEnabled
+        ? "Online payment is available."
+        : "Payment gateway is not configured yet.",
+      onlinePaymentEnabled,
+      provider: RAZORPAY_PROVIDER
+    };
+  }
+
   async createRazorpayOrder(customerId: string, input: CreateRazorpayOrderDto) {
+    this.assertPaymentGatewayConfigured();
+
     const order = await this.findCustomerOrder(this.prisma, customerId, input.orderId);
     const payment = this.findOnlinePayment(order);
     this.assertPaymentCanStart(order, payment);
@@ -165,6 +185,7 @@ export class PaymentsService {
         });
       }
 
+      await this.clearCustomerCartItems(tx, customerId);
       invoiceOrderId = order.id;
 
       return {
@@ -344,6 +365,25 @@ export class PaymentsService {
     return order;
   }
 
+  private assertPaymentGatewayConfigured() {
+    if (!this.razorpayClient.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+  }
+
+  private async clearCustomerCartItems(client: PaymentClient, customerId: string) {
+    await client.cartItem.deleteMany({
+      where: {
+        cart: {
+          deletedAt: null,
+          userId: customerId
+        }
+      }
+    });
+  }
+
   private findOnlinePayment(order: OrderWithPayments) {
     const payment = order.payments.find(
       (entry) => entry.method === PaymentMethod.ONLINE
@@ -497,6 +537,7 @@ export class PaymentsService {
         });
       }
 
+      await this.clearCustomerCartItems(tx, payment.order.userId);
       return true;
     }
 

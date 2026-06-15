@@ -179,3 +179,17 @@ export class AdminProductListQueryDto extends ProductListQueryDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 }
+
+export class ProductRecommendationQueryDto {
+  @ApiPropertyOptional({
+    default: 4,
+    maximum: 12,
+    minimum: 1
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(12)
+  limit?: number;
+}

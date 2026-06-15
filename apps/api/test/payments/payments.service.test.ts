@@ -6,6 +6,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException
 } from "@nestjs/common";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -86,6 +87,7 @@ function createPaymentsPrismaMock(input?: {
     ...input?.order
   };
   const calls: Record<string, unknown[]> = {
+    cartItemDeleteMany: [],
     orderFindFirst: [],
     orderStatusHistoryCreate: [],
     orderUpdate: [],
@@ -109,6 +111,12 @@ function createPaymentsPrismaMock(input?: {
     },
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>
       callback(prisma),
+    cartItem: {
+      deleteMany: async (args: unknown) => {
+        calls.cartItemDeleteMany.push(args);
+        return { count: 1 };
+      }
+    },
     order: {
       findFirst: async (args: unknown) => {
         calls.orderFindFirst.push(args);
@@ -242,6 +250,8 @@ function createRazorpayClientMock() {
         status: "created"
       };
     },
+    getKeyId: () => "rzp_test_key",
+    isConfigured: () => true,
     verifyPaymentSignature: (
       razorpayOrderId: string,
       razorpayPaymentId: string,
@@ -288,6 +298,44 @@ test("createRazorpayOrder rejects orders that do not belong to the authenticated
         orderId: "order-1"
       }),
     NotFoundException
+  );
+  assert.equal(razorpayClient.calls.createOrder.length, 0);
+});
+
+test("getPaymentGatewayStatus reports Razorpay unavailable when keys are not configured", () => {
+  const razorpayClient = {
+    ...createRazorpayClientMock(),
+    isConfigured: () => false
+  };
+  const service = new PaymentsService(
+    createPaymentsPrismaMock() as unknown as PrismaService,
+    razorpayClient as unknown as RazorpayClient
+  );
+
+  assert.deepEqual(service.getPaymentGatewayStatus(), {
+    message: "Payment gateway is not configured yet.",
+    onlinePaymentEnabled: false,
+    provider: "razorpay"
+  });
+});
+
+test("createRazorpayOrder stops before gateway calls when Razorpay is unavailable", async () => {
+  const prisma = createPaymentsPrismaMock();
+  const razorpayClient = {
+    ...createRazorpayClientMock(),
+    isConfigured: () => false
+  };
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpayClient as unknown as RazorpayClient
+  );
+
+  await assert.rejects(
+    () =>
+      service.createRazorpayOrder("customer-1", {
+        orderId: "order-1"
+      }),
+    ServiceUnavailableException
   );
   assert.equal(razorpayClient.calls.createOrder.length, 0);
 });
@@ -341,6 +389,7 @@ test("verifyRazorpayPayment verifies the signature and confirms a created order"
   assert.equal(prisma.records.payment.providerPaymentId, "pay_razorpay_1");
   assert.equal(prisma.records.order.paymentStatus, "PAID");
   assert.equal(prisma.records.order.status, "CONFIRMED");
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
 });
 
 test("verifyRazorpayPayment enqueues invoice generation after payment confirmation", async () => {
@@ -555,4 +604,5 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
   );
   assert.equal(prisma.calls.paymentWebhookCreate.length, 1);
   assert.equal(prisma.records.payment.status, "PAID");
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
 });

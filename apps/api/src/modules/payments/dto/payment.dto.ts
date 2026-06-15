@@ -75,6 +75,19 @@ export class RazorpayVerifyResponseDto {
   paymentStatus!: PaymentStatus;
 }
 
+export class PaymentGatewayStatusResponseDto {
+  @ApiProperty({
+    example: "Payment gateway is not configured yet."
+  })
+  message!: string;
+
+  @ApiProperty({ example: false })
+  onlinePaymentEnabled!: boolean;
+
+  @ApiProperty({ example: "razorpay" })
+  provider!: string;
+}
+
 export class RazorpayWebhookResponseDto {
   @ApiProperty({ example: true })
   queued!: boolean;

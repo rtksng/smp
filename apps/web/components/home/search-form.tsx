@@ -53,7 +53,11 @@ export function SearchForm({
   return (
     <div className="grid gap-3">
       <form
-        className={compact ? "grid gap-2 sm:grid-cols-[1fr_auto]" : "grid gap-3 sm:grid-cols-[1fr_auto]"}
+        className={
+          compact
+            ? "grid gap-2 sm:grid-cols-[1fr_auto]"
+            : "grid gap-3 sm:grid-cols-[1fr_auto]"
+        }
         onSubmit={handleSubmit}
       >
         <Input
@@ -75,11 +79,10 @@ export function SearchForm({
         </Button>
       </form>
       {suggestions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#31413d]">
-          <span className="text-[#687773]">Quick search</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#12314f]">
           {suggestions.map((suggestion) => (
             <a
-              className="rounded-full border border-[#d8e2df] bg-white px-3 py-1.5 text-[#084c61] transition hover:border-[#006d77] hover:bg-[#e7f3f2]"
+              className="rounded-full border border-[#d6e7f8] bg-white px-3 py-1.5 text-[#0b5cab] transition hover:border-[#0b5cab] hover:bg-[#edf6ff]"
               href={`/products?${new URLSearchParams({ q: suggestion }).toString()}`}
               key={suggestion}
             >

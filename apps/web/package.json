@@ -10,10 +10,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@heroui/select": "2.4.33",
+    "@heroui/system": "2.4.28",
+    "@heroui/theme": "2.4.26",
     "@surgical/config": "workspace:*",
     "@surgical/types": "workspace:*",
     "@surgical/ui": "workspace:*",
     "@tanstack/react-query": "^5.100.14",
+    "framer-motion": "12.40.0",
     "lucide-react": "^1.16.0",
     "next": "^16.2.6",
     "react": "^19.2.6",

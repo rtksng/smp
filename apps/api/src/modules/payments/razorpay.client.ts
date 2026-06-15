@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { BadGatewayException, Injectable } from "@nestjs/common";
+import {
+  BadGatewayException,
+  Injectable,
+  ServiceUnavailableException
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export type RazorpayCreateOrderInput = {
@@ -33,7 +37,22 @@ export class RazorpayClient {
     return this.keyId;
   }
 
+  isConfigured() {
+    return (
+      isConfiguredValue(this.keyId) &&
+      this.keyId.startsWith("rzp_") &&
+      isConfiguredValue(this.keySecret) &&
+      isConfiguredValue(this.webhookSecret)
+    );
+  }
+
   async createOrder(input: RazorpayCreateOrderInput) {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+
     const response = await fetch("https://api.razorpay.com/v1/orders", {
       body: JSON.stringify({
         amount: input.amount,
@@ -117,4 +136,14 @@ function safeCompareHex(left: string, right: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isConfiguredValue(value: string) {
+  const trimmed = value.trim();
+
+  return (
+    trimmed.length > 0 &&
+    !trimmed.toLowerCase().startsWith("replace-with") &&
+    !trimmed.toLowerCase().includes("xxxxxxxx")
+  );
 }

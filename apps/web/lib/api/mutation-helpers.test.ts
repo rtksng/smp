@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { customerQueryKeys } from "./query-keys";
 import {
   createAddCartItemMutation,
   createCreateAddressMutation,
+  createUpdateCartItemMutation,
   createUpdateProfileMutation,
   syncCartCache
 } from "./mutation-helpers";
@@ -46,6 +47,44 @@ describe("customer API mutation helpers", () => {
     expect(setCartSummary).toHaveBeenCalledWith(cart);
     expect(setQueryData).toHaveBeenCalledWith(customerQueryKeys.cart(), cart);
     expect(onSuccess).toHaveBeenCalledWith(cart);
+  });
+
+  it("optimistically recalculates cart totals for quantity changes", async () => {
+    const queryClient = new QueryClient();
+    const setCartSummary = vi.fn();
+    const cart = cartWithItem();
+
+    queryClient.setQueryData(customerQueryKeys.cart(), cart);
+
+    const options = createUpdateCartItemMutation({
+      queryClient,
+      setCartSummary
+    });
+
+    await options.onMutate?.({ itemId: "cart_item_1", quantity: 3 });
+
+    expect(queryClient.getQueryData<Cart>(customerQueryKeys.cart())).toMatchObject({
+      items: [
+        {
+          id: "cart_item_1",
+          quantity: 3,
+          subtotal: 420,
+          tax: 75.6,
+          total: 495.6
+        }
+      ],
+      totalQuantity: 3,
+      totals: {
+        grandTotal: 495.6,
+        subtotal: 420,
+        tax: 75.6
+      }
+    });
+    expect(setCartSummary).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        totalQuantity: 3
+      })
+    );
   });
 
   it("builds profile mutation options that update the shared profile cache", () => {
@@ -135,6 +174,57 @@ function emptyCart(): Cart {
       grandTotal: 0,
       subtotal: 0,
       tax: 0
+    },
+    updatedAt: "2026-05-25T10:00:00.000Z"
+  };
+}
+
+function cartWithItem(): Cart {
+  return {
+    id: "cart_1",
+    itemCount: 1,
+    items: [
+      {
+        availableQuantity: 10,
+        brand: {
+          id: "brand_1",
+          name: "SurgiPro",
+          slug: "surgipro"
+        },
+        category: {
+          id: "category_1",
+          name: "Surgical Instruments",
+          slug: "surgical-instruments"
+        },
+        createdAt: "2026-05-25T10:00:00.000Z",
+        id: "cart_item_1",
+        imageUrl: "https://cdn.example.com/forceps.jpg",
+        isAvailable: true,
+        name: "Curved Artery Forceps",
+        productId: "product_1",
+        productStatus: "ACTIVE",
+        quantity: 2,
+        sku: "FORCEPS-001",
+        slug: "curved-artery-forceps",
+        subcategory: null,
+        subtotal: 280,
+        tax: 50.4,
+        taxRate: 18,
+        total: 330.4,
+        unitPrice: 140,
+        updatedAt: "2026-05-25T10:00:00.000Z",
+        variantId: null,
+        variantName: null,
+        variantStatus: null
+      }
+    ],
+    totalQuantity: 2,
+    totals: {
+      deliveryCharge: 0,
+      discount: 0,
+      grandTotal: 330.4,
+      subtotal: 280,
+      tax: 50.4
     },
     updatedAt: "2026-05-25T10:00:00.000Z"
   };

@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import {
   addCartItem,
+  buyNowCartItem,
   clearCart,
   removeCartItem,
   updateCartItem,
@@ -38,6 +39,8 @@ import { customerQueryKeys } from "./query-keys";
 
 type CartSummarySetter = (summary: Pick<Cart, "itemCount" | "totalQuantity">) => void;
 type SuccessHandler<TData> = (data: TData) => void | Promise<void>;
+type UpdateCartItemVariables = { itemId: string; quantity: number };
+type CartMutationContext = { previousCart?: Cart };
 
 export function syncCartCache(
   queryClient: QueryClient,
@@ -66,6 +69,24 @@ export function createAddCartItemMutation({
   };
 }
 
+export function createBuyNowCartItemMutation({
+  onSuccess,
+  queryClient,
+  setCartSummary
+}: {
+  onSuccess?: SuccessHandler<Cart>;
+  queryClient: QueryClient;
+  setCartSummary: CartSummarySetter;
+}) {
+  return {
+    mutationFn: buyNowCartItem,
+    onSuccess: async (cart: Cart, _variables?: AddCartItemInput) => {
+      syncCartCache(queryClient, setCartSummary, cart);
+      await onSuccess?.(cart);
+    }
+  };
+}
+
 export function createUpdateCartItemMutation({
   onSuccess,
   queryClient,
@@ -76,16 +97,84 @@ export function createUpdateCartItemMutation({
   setCartSummary: CartSummarySetter;
 }) {
   return {
-    mutationFn: ({ itemId, quantity }: { itemId: string; quantity: number }) =>
+    mutationFn: ({ itemId, quantity }: UpdateCartItemVariables) =>
       updateCartItem(itemId, quantity),
+    onError: (
+      _error: unknown,
+      _variables: UpdateCartItemVariables,
+      context?: CartMutationContext
+    ) => {
+      if (context?.previousCart) {
+        syncCartCache(queryClient, setCartSummary, context.previousCart);
+      }
+    },
+    onMutate: async (variables: UpdateCartItemVariables) => {
+      await queryClient.cancelQueries({ queryKey: customerQueryKeys.cart() });
+
+      const previousCart = queryClient.getQueryData<Cart>(customerQueryKeys.cart());
+
+      if (previousCart) {
+        syncCartCache(
+          queryClient,
+          setCartSummary,
+          updateCartItemQuantity(previousCart, variables)
+        );
+      }
+
+      return { previousCart };
+    },
     onSuccess: async (
       cart: Cart,
-      _variables?: { itemId: string; quantity: number }
+      _variables?: UpdateCartItemVariables
     ) => {
       syncCartCache(queryClient, setCartSummary, cart);
       await onSuccess?.(cart);
     }
   };
+}
+
+function updateCartItemQuantity(
+  cart: Cart,
+  { itemId, quantity }: UpdateCartItemVariables
+): Cart {
+  const items = cart.items.map((item) => {
+    if (item.id !== itemId) {
+      return item;
+    }
+
+    const subtotal = roundMoney(item.unitPrice * quantity);
+    const tax = roundMoney(subtotal * (item.taxRate / 100));
+
+    return {
+      ...item,
+      isAvailable: item.availableQuantity >= quantity,
+      quantity,
+      subtotal,
+      tax,
+      total: roundMoney(subtotal + tax)
+    };
+  });
+  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.subtotal, 0));
+  const tax = roundMoney(items.reduce((sum, item) => sum + item.tax, 0));
+  const grandTotal = roundMoney(
+    subtotal + tax + cart.totals.deliveryCharge - cart.totals.discount
+  );
+
+  return {
+    ...cart,
+    items,
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    totals: {
+      ...cart.totals,
+      grandTotal,
+      subtotal,
+      tax
+    }
+  };
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export function createRemoveCartItemMutation({

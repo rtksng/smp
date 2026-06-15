@@ -69,6 +69,26 @@ export class CartController {
     return this.cartService.addItem(getCustomerId(request), body);
   }
 
+  @Post("buy-now")
+  @ApiOperation({
+    summary: "Replace the cart with one product for immediate checkout."
+  })
+  @ApiCreatedResponse({
+    description: "Cart prepared for immediate checkout.",
+    type: CartResponseDto
+  })
+  @ApiBadRequestResponse({
+    description: "Product, variant, or requested quantity is not available."
+  })
+  @ApiNotFoundResponse({ description: "Product or variant was not found." })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  buyNow(
+    @Body() body: AddCartItemDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.cartService.replaceWithItem(getCustomerId(request), body);
+  }
+
   @Patch("items/:id")
   @ApiOperation({ summary: "Update one cart item quantity." })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })

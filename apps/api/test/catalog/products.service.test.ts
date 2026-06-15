@@ -218,9 +218,15 @@ type ProductPrismaMock = PrismaService & {
     categoryFindFirst: unknown[];
     productCount: unknown[];
     productCreate: unknown[];
+    productDocumentCreateMany: unknown[];
+    productDocumentDeleteMany: unknown[];
     productFindFirst: unknown[];
     productFindMany: unknown[];
+    productImageCreateMany: unknown[];
+    productImageDeleteMany: unknown[];
     productUpdate: unknown[];
+    productVariantCreateMany: unknown[];
+    productVariantDeleteMany: unknown[];
     transaction: unknown[];
   };
 };
@@ -240,9 +246,15 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
     categoryFindFirst: [],
     productCount: [],
     productCreate: [],
+    productDocumentCreateMany: [],
+    productDocumentDeleteMany: [],
     productFindFirst: [],
     productFindMany: [],
+    productImageCreateMany: [],
+    productImageDeleteMany: [],
     productUpdate: [],
+    productVariantCreateMany: [],
+    productVariantDeleteMany: [],
     transaction: []
   };
 
@@ -276,6 +288,34 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
         }
 
         return null;
+      }
+    },
+    productDocument: {
+      createMany: async (args: { data: Array<Omit<ProductDocumentFixture, "id">> }) => {
+        calls.productDocumentCreateMany.push(args);
+        for (const item of args.data) {
+          const record = records.find((product) => product.id === item.productId);
+
+          if (record) {
+            record.documents.push({
+              ...item,
+              id: `document-${record.documents.length + 1}`
+            });
+          }
+        }
+
+        return { count: args.data.length };
+      },
+      deleteMany: async (args: { where: { productId: string } }) => {
+        calls.productDocumentDeleteMany.push(args);
+        const record = records.find((product) => product.id === args.where.productId);
+        const count = record?.documents.length ?? 0;
+
+        if (record) {
+          record.documents = [];
+        }
+
+        return { count };
       }
     },
     product: {
@@ -350,6 +390,65 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
           updatedAt: now
         };
       }
+    },
+    productImage: {
+      createMany: async (args: { data: Array<Omit<ProductImageFixture, "id">> }) => {
+        calls.productImageCreateMany.push(args);
+        for (const item of args.data) {
+          const record = records.find((product) => product.id === item.productId);
+
+          if (record) {
+            record.images.push({
+              ...item,
+              id: `image-${record.images.length + 1}`
+            });
+          }
+        }
+
+        return { count: args.data.length };
+      },
+      deleteMany: async (args: { where: { productId: string } }) => {
+        calls.productImageDeleteMany.push(args);
+        const record = records.find((product) => product.id === args.where.productId);
+        const count = record?.images.length ?? 0;
+
+        if (record) {
+          record.images = [];
+        }
+
+        return { count };
+      }
+    },
+    productVariant: {
+      createMany: async (args: { data: Array<Omit<ProductVariantFixture, "deletedAt" | "id">> }) => {
+        calls.productVariantCreateMany.push(args);
+        for (const item of args.data) {
+          const record = records.find((product) => product.id === item.productId);
+
+          if (record) {
+            record.variants.push({
+              ...item,
+              deletedAt: null,
+              id: `variant-${record.variants.length + 1}`,
+              mrp: String(item.mrp),
+              sellingPrice: String(item.sellingPrice)
+            });
+          }
+        }
+
+        return { count: args.data.length };
+      },
+      deleteMany: async (args: { where: { productId: string } }) => {
+        calls.productVariantDeleteMany.push(args);
+        const record = records.find((product) => product.id === args.where.productId);
+        const count = record?.variants.length ?? 0;
+
+        if (record) {
+          record.variants = [];
+        }
+
+        return { count };
+      }
     }
   };
 
@@ -406,6 +505,12 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
         select: {
           availableQuantity: true,
           reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
         }
       },
       variants: {
@@ -464,6 +569,10 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
         some: {
           availableQuantity: {
             gt: 0
+          },
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
           }
         }
       },
@@ -517,6 +626,12 @@ test("getPublicProductBySlug accepts public product ids from detail links", asyn
         select: {
           availableQuantity: true,
           reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
         }
       },
       variants: {
@@ -549,6 +664,249 @@ test("getPublicProductBySlug rejects inactive public products", async () => {
     () => service.getPublicProductBySlug("inactive-product"),
     NotFoundException
   );
+});
+test("getSimilarProductsBySlug returns same-subcategory products before broader category matches", async () => {
+  const current = productFixture({
+    id: "current-product",
+    slug: "current-product"
+  });
+  const sameSubcategory = productFixture({
+    id: "same-subcategory",
+    name: "Same Subcategory Forceps",
+    sku: "SAME-SUB-001",
+    slug: "same-subcategory-forceps"
+  });
+  const siblingSubcategory: RelatedFixture = {
+    deletedAt: null,
+    id: "subcategory-2",
+    isActive: true,
+    name: "Restoratives",
+    parentId: activeCategory.id,
+    slug: "restoratives"
+  };
+  const sameCategory = productFixture({
+    id: "same-category",
+    name: "Same Category Instrument",
+    sku: "SAME-CAT-001",
+    slug: "same-category-instrument",
+    subcategory: siblingSubcategory,
+    subcategoryId: siblingSubcategory.id
+  });
+  const otherCategory = productFixture({
+    category: {
+      deletedAt: null,
+      id: "category-2",
+      isActive: true,
+      name: "Equipment",
+      parentId: null,
+      slug: "equipment"
+    },
+    categoryId: "category-2",
+    id: "other-category",
+    name: "Other Category Product",
+    sku: "OTHER-CAT-001",
+    slug: "other-category-product",
+    subcategory: null,
+    subcategoryId: null
+  });
+  const prisma = createProductPrismaMock([
+    current,
+    sameCategory,
+    otherCategory,
+    sameSubcategory
+  ]);
+  const service = new ProductsService(prisma);
+
+  const result = await service.getSimilarProductsBySlug("current-product", {
+    limit: 2
+  });
+
+  assert.deepEqual(
+    result.items.map((item) => item.slug),
+    ["same-subcategory-forceps", "same-category-instrument"]
+  );
+  assert.equal(result.pagination.total, 2);
+  assert.deepEqual(prisma.calls.productFindMany[0], {
+    include: {
+      brand: true,
+      category: true,
+      subcategory: true,
+      documents: {
+        orderBy: [{ type: "asc" }, { title: "asc" }]
+      },
+      images: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      },
+      inventoryStocks: {
+        select: {
+          availableQuantity: true,
+          reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
+        }
+      },
+      variants: {
+        orderBy: [{ name: "asc" }],
+        where: {
+          deletedAt: null
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: 12,
+    where: {
+      deletedAt: null,
+      id: {
+        not: "current-product"
+      },
+      OR: [
+        { subcategoryId: activeSubcategory.id },
+        { categoryId: activeCategory.id }
+      ],
+      status: {
+        in: ["ACTIVE", "OUT_OF_STOCK"]
+      }
+    }
+  });
+});
+
+test("getRelatedProductsBySlug ranks tag and attribute matches ahead of loose brand matches", async () => {
+  const current = productFixture({
+    id: "current-product",
+    material: "Stainless steel",
+    medicalSpecialty: "General Surgery",
+    packSize: "Box of 10",
+    searchTags: ["forceps", "artery", "clamp"],
+    slug: "current-product",
+    sterile: true,
+    unit: "box"
+  });
+  const tagMatch = productFixture({
+    brand: {
+      deletedAt: null,
+      id: "brand-2",
+      isActive: true,
+      name: "Healthium",
+      slug: "healthium"
+    },
+    brandId: "brand-2",
+    id: "tag-match",
+    name: "Tagged Artery Clamp",
+    searchTags: ["artery", "clamp", "hemostat"],
+    sku: "TAG-MATCH-001",
+    slug: "tagged-artery-clamp"
+  });
+  const brandMatch = productFixture({
+    id: "brand-match",
+    name: "Brand Matched Instrument",
+    searchTags: ["instrument"],
+    sku: "BRAND-MATCH-001",
+    slug: "brand-matched-instrument"
+  });
+  const unrelated = productFixture({
+    brand: {
+      deletedAt: null,
+      id: "brand-3",
+      isActive: true,
+      name: "Contec",
+      slug: "contec"
+    },
+    brandId: "brand-3",
+    category: {
+      deletedAt: null,
+      id: "category-3",
+      isActive: true,
+      name: "Diagnostics",
+      parentId: null,
+      slug: "diagnostics"
+    },
+    categoryId: "category-3",
+    id: "unrelated",
+    medicalSpecialty: "Vitals Monitoring",
+    name: "Unrelated Monitor",
+    searchTags: ["monitor"],
+    sku: "UNRELATED-001",
+    slug: "unrelated-monitor",
+    sterile: false,
+    subcategory: null,
+    subcategoryId: null
+  });
+  const prisma = createProductPrismaMock([
+    current,
+    brandMatch,
+    unrelated,
+    tagMatch
+  ]);
+  const service = new ProductsService(prisma);
+
+  const result = await service.getRelatedProductsBySlug("current-product", {
+    limit: 2
+  });
+
+  assert.deepEqual(
+    result.items.map((item) => item.slug),
+    ["tagged-artery-clamp", "brand-matched-instrument"]
+  );
+  assert.equal(result.pagination.total, 2);
+  assert.deepEqual(prisma.calls.productFindMany[0], {
+    include: {
+      brand: true,
+      category: true,
+      subcategory: true,
+      documents: {
+        orderBy: [{ type: "asc" }, { title: "asc" }]
+      },
+      images: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+      },
+      inventoryStocks: {
+        select: {
+          availableQuantity: true,
+          reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
+        }
+      },
+      variants: {
+        orderBy: [{ name: "asc" }],
+        where: {
+          deletedAt: null
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: 12,
+    where: {
+      deletedAt: null,
+      id: {
+        not: "current-product"
+      },
+      OR: [
+        { searchTags: { hasSome: ["forceps", "artery", "clamp"] } },
+        { medicalSpecialty: "General Surgery" },
+        { brandId: activeBrand.id },
+        { categoryId: activeCategory.id },
+        { subcategoryId: activeSubcategory.id },
+        { material: "Stainless steel" },
+        { packSize: "Box of 10" },
+        { unit: "box" },
+        { sterile: true },
+        { disposable: false },
+        { expirySensitive: false }
+      ],
+      status: {
+        in: ["ACTIVE", "OUT_OF_STOCK"]
+      }
+    }
+  });
 });
 
 test("createProduct validates brand and category and persists nested catalogue data", async () => {
@@ -734,6 +1092,12 @@ test("createProduct validates brand and category and persists nested catalogue d
         select: {
           availableQuantity: true,
           reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
         }
       },
       variants: {
@@ -781,24 +1145,61 @@ test("updateProduct replaces only nested collections that are provided", async (
           url: "https://cdn.example.com/products/forceps/updated.jpg"
         }
       ],
-      name: "Updated Forceps"
+      name: "Updated Forceps",
+      variants: [
+        {
+          attributes: {
+            size: "8 inch"
+          },
+          mrp: 190,
+          name: "8 inch",
+          sellingPrice: 150,
+          sku: "FORCEPS-001-8IN",
+          status: "ACTIVE"
+        }
+      ]
     },
     adminContext
   );
 
+  assert.deepEqual(prisma.calls.productImageDeleteMany[0], {
+    where: {
+      productId: product.id
+    }
+  });
+  assert.deepEqual(prisma.calls.productImageCreateMany[0], {
+    data: [
+      {
+        altText: "Updated forceps image",
+        isPrimary: true,
+        productId: product.id,
+        sortOrder: 0,
+        url: "https://cdn.example.com/products/forceps/updated.jpg"
+      }
+    ]
+  });
+  assert.deepEqual(prisma.calls.productVariantDeleteMany[0], {
+    where: {
+      productId: product.id
+    }
+  });
+  assert.deepEqual(prisma.calls.productVariantCreateMany[0], {
+    data: [
+      {
+        attributes: {
+          size: "8 inch"
+        },
+        mrp: 190,
+        name: "8 inch",
+        productId: product.id,
+        sellingPrice: 150,
+        sku: "FORCEPS-001-8IN",
+        status: "ACTIVE"
+      }
+    ]
+  });
   assert.deepEqual(prisma.calls.productUpdate[0], {
     data: {
-      images: {
-        create: [
-          {
-            altText: "Updated forceps image",
-            isPrimary: true,
-            sortOrder: 0,
-            url: "https://cdn.example.com/products/forceps/updated.jpg"
-          }
-        ],
-        deleteMany: {}
-      },
       name: "Updated Forceps"
     },
     include: {
@@ -815,6 +1216,12 @@ test("updateProduct replaces only nested collections that are provided", async (
         select: {
           availableQuantity: true,
           reservedQuantity: true
+        },
+        where: {
+          warehouse: {
+            deletedAt: null,
+            status: "ACTIVE"
+          }
         }
       },
       variants: {

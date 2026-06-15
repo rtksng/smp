@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { productBrandSchema, productCategorySchema } from "./schemas";
 import { requestCustomerApi } from "./customer-client";
 
 const productStatusSchema = z.enum([
@@ -18,6 +19,8 @@ export const cartTotalsSchema = z.object({
 
 export const cartItemSchema = z.object({
   availableQuantity: z.number(),
+  brand: productBrandSchema,
+  category: productCategorySchema,
   createdAt: z.string(),
   id: z.string(),
   imageUrl: z.string().nullable(),
@@ -28,6 +31,7 @@ export const cartItemSchema = z.object({
   quantity: z.number(),
   sku: z.string(),
   slug: z.string(),
+  subcategory: productCategorySchema.nullable(),
   subtotal: z.number(),
   tax: z.number(),
   taxRate: z.number(),
@@ -67,6 +71,15 @@ export function addCartItem(input: AddCartItemInput) {
   const parsedInput = addCartItemInputSchema.parse(input);
 
   return requestCustomerApi("/cart/items", cartSchema, {
+    body: JSON.stringify(parsedInput),
+    method: "POST"
+  });
+}
+
+export function buyNowCartItem(input: AddCartItemInput) {
+  const parsedInput = addCartItemInputSchema.parse(input);
+
+  return requestCustomerApi("/cart/buy-now", cartSchema, {
     body: JSON.stringify(parsedInput),
     method: "POST"
   });

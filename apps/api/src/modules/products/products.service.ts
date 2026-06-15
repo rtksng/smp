@@ -6,7 +6,11 @@ import {
 } from "@nestjs/common";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma, ProductStatus } from "../../generated/prisma/client";
+import {
+  Prisma,
+  ProductStatus,
+  WarehouseStatus
+} from "../../generated/prisma/client";
 import { FIXED_CATALOG_BRAND_SLUGS } from "../brands/fixed-catalog-brands";
 import { FIXED_ROOT_CATEGORY_SLUGS } from "../categories/fixed-catalog-taxonomy";
 import type { CreateProductDto } from "./dto/create-product.dto";
@@ -29,6 +33,8 @@ const PUBLIC_PRODUCT_STATUSES = [
   ProductStatus.ACTIVE,
   ProductStatus.OUT_OF_STOCK
 ] as const;
+const DEFAULT_RECOMMENDATION_LIMIT = 4;
+const MAX_RECOMMENDATION_LIMIT = 12;
 
 const PRODUCT_INCLUDE = {
   brand: true,
@@ -44,6 +50,12 @@ const PRODUCT_INCLUDE = {
     select: {
       availableQuantity: true,
       reservedQuantity: true
+    },
+    where: {
+      warehouse: {
+        deletedAt: null,
+        status: WarehouseStatus.ACTIVE
+      }
     }
   },
   variants: {
@@ -94,6 +106,111 @@ export class ProductsService {
     }
 
     return this.serializeProduct(product);
+  }
+
+  async getSimilarProductsBySlug(
+    slug: string,
+    query: { limit?: number } = {}
+  ) {
+    const product = await this.findPublicProductBySlugOrId(slug);
+    const limit = recommendationLimit(query.limit);
+    const candidates = await this.prisma.product.findMany({
+      include: PRODUCT_INCLUDE,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: limit * 6,
+      where: {
+        deletedAt: null,
+        id: {
+          not: product.id
+        },
+        OR: [
+          ...(product.subcategoryId ? [{ subcategoryId: product.subcategoryId }] : []),
+          { categoryId: product.categoryId }
+        ],
+        status: {
+          in: [...PUBLIC_PRODUCT_STATUSES]
+        }
+      }
+    });
+
+    const items = candidates
+      .filter((candidate) => candidate.id !== product.id)
+      .filter(
+        (candidate) =>
+          candidate.subcategoryId === product.subcategoryId ||
+          candidate.categoryId === product.categoryId
+      )
+      .sort((left, right) => {
+        const scoreDelta =
+          scoreSimilarProduct(right, product) - scoreSimilarProduct(left, product);
+
+        if (scoreDelta !== 0) {
+          return scoreDelta;
+        }
+
+        return left.name.localeCompare(right.name);
+      })
+      .slice(0, limit);
+
+    return this.serializeRecommendationList(items, limit);
+  }
+
+  async getRelatedProductsBySlug(
+    slug: string,
+    query: { limit?: number } = {}
+  ) {
+    const product = await this.findPublicProductBySlugOrId(slug);
+    const limit = recommendationLimit(query.limit);
+    const searchTags = product.searchTags.slice(0, 12);
+    const recommendationMatchers: Prisma.ProductWhereInput[] = [
+      ...(searchTags.length > 0 ? [{ searchTags: { hasSome: searchTags } }] : []),
+      ...(product.medicalSpecialty ? [{ medicalSpecialty: product.medicalSpecialty }] : []),
+      { brandId: product.brandId },
+      { categoryId: product.categoryId },
+      ...(product.subcategoryId ? [{ subcategoryId: product.subcategoryId }] : []),
+      ...(product.material ? [{ material: product.material }] : []),
+      ...(product.packSize ? [{ packSize: product.packSize }] : []),
+      { unit: product.unit },
+      { sterile: product.sterile },
+      { disposable: product.disposable },
+      { expirySensitive: product.expirySensitive }
+    ];
+    const candidates = await this.prisma.product.findMany({
+      include: PRODUCT_INCLUDE,
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: limit * 6,
+      where: {
+        deletedAt: null,
+        id: {
+          not: product.id
+        },
+        OR: recommendationMatchers,
+        status: {
+          in: [...PUBLIC_PRODUCT_STATUSES]
+        }
+      }
+    });
+
+    const items = candidates
+      .filter((candidate) => candidate.id !== product.id)
+      .map((candidate) => ({
+        product: candidate,
+        score: scoreRelatedProduct(candidate, product)
+      }))
+      .filter((candidate) => candidate.score > 0)
+      .sort((left, right) => {
+        const scoreDelta = right.score - left.score;
+
+        if (scoreDelta !== 0) {
+          return scoreDelta;
+        }
+
+        return left.product.name.localeCompare(right.product.name);
+      })
+      .slice(0, limit)
+      .map((candidate) => candidate.product);
+
+    return this.serializeRecommendationList(items, limit);
   }
 
   async getAdminProductById(id: string) {
@@ -199,6 +316,8 @@ export class ProductsService {
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
+        await this.replaceNestedCollections(tx, id, input);
+
         const updatedProduct = await tx.product.update({
           data,
           include: PRODUCT_INCLUDE,
@@ -348,6 +467,10 @@ export class ProductsService {
             some: {
               availableQuantity: {
                 gt: 0
+              },
+              warehouse: {
+                deletedAt: null,
+                status: WarehouseStatus.ACTIVE
               }
             }
           }
@@ -355,6 +478,10 @@ export class ProductsService {
             none: {
               availableQuantity: {
                 gt: 0
+              },
+              warehouse: {
+                deletedAt: null,
+                status: WarehouseStatus.ACTIVE
               }
             }
           };
@@ -515,6 +642,25 @@ export class ProductsService {
     return product;
   }
 
+  private async findPublicProductBySlugOrId(slug: string) {
+    const product = await this.prisma.product.findFirst({
+      include: PRODUCT_INCLUDE,
+      where: {
+        deletedAt: null,
+        OR: [{ slug }, { id: slug }],
+        status: {
+          in: [...PUBLIC_PRODUCT_STATUSES]
+        }
+      }
+    });
+
+    if (!product || !this.isPublicStatus(product.status)) {
+      throw new NotFoundException("Product was not found.");
+    }
+
+    return product;
+  }
+
   private buildProductUpdateData(input: UpdateProductDto) {
     const data: Prisma.ProductUncheckedUpdateInput = {};
 
@@ -533,20 +679,8 @@ export class ProductsService {
     if (input.disposable !== undefined) {
       data.disposable = input.disposable;
     }
-    if (input.documents !== undefined) {
-      data.documents = {
-        create: this.mapDocuments(input.documents),
-        deleteMany: {}
-      };
-    }
     if (input.expirySensitive !== undefined) {
       data.expirySensitive = input.expirySensitive;
-    }
-    if (input.images !== undefined) {
-      data.images = {
-        create: this.mapImages(input.images),
-        deleteMany: {}
-      };
     }
     if (input.material !== undefined) {
       data.material = input.material ?? null;
@@ -599,14 +733,70 @@ export class ProductsService {
     if (input.unit !== undefined) {
       data.unit = input.unit;
     }
-    if (input.variants !== undefined) {
-      data.variants = {
-        create: this.mapVariants(input.variants),
-        deleteMany: {}
-      };
+    return data;
+  }
+
+  private async replaceNestedCollections(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    input: UpdateProductDto
+  ) {
+    if (input.documents !== undefined) {
+      await tx.productDocument.deleteMany({
+        where: {
+          productId
+        }
+      });
+
+      const documents = this.mapDocuments(input.documents).map((document) => ({
+        ...document,
+        productId
+      }));
+
+      if (documents.length > 0) {
+        await tx.productDocument.createMany({
+          data: documents
+        });
+      }
     }
 
-    return data;
+    if (input.images !== undefined) {
+      await tx.productImage.deleteMany({
+        where: {
+          productId
+        }
+      });
+
+      const images = this.mapImages(input.images).map((image) => ({
+        ...image,
+        productId
+      }));
+
+      if (images.length > 0) {
+        await tx.productImage.createMany({
+          data: images
+        });
+      }
+    }
+
+    if (input.variants !== undefined) {
+      await tx.productVariant.deleteMany({
+        where: {
+          productId
+        }
+      });
+
+      const variants = this.mapVariants(input.variants).map((variant) => ({
+        ...variant,
+        productId
+      }));
+
+      if (variants.length > 0) {
+        await tx.productVariant.createMany({
+          data: variants
+        });
+      }
+    }
   }
 
   private buildImageCreate(images: ProductImageInputDto[] | undefined) {
@@ -762,6 +952,20 @@ export class ProductsService {
     };
   }
 
+  private serializeRecommendationList(products: ProductRecord[], limit: number) {
+    return {
+      items: products.map((product) => this.serializeProduct(product)),
+      pagination: {
+        hasNextPage: false,
+        hasPreviousPage: false,
+        limit,
+        page: 1,
+        total: products.length,
+        totalPages: products.length > 0 ? 1 : 0
+      }
+    };
+  }
+
   private productHasAvailableStock(product: ProductRecord) {
     return (
       product.status !== ProductStatus.OUT_OF_STOCK &&
@@ -819,6 +1023,78 @@ function normalizeSearchTags(searchTags: string[]) {
   }
 
   return [...normalizedTags];
+}
+
+function recommendationLimit(limit: number | undefined) {
+  return Math.min(
+    Math.max(limit ?? DEFAULT_RECOMMENDATION_LIMIT, 1),
+    MAX_RECOMMENDATION_LIMIT
+  );
+}
+
+function scoreSimilarProduct(candidate: ProductRecord, source: ProductRecord) {
+  let score = 0;
+
+  if (candidate.subcategoryId && candidate.subcategoryId === source.subcategoryId) {
+    score += 6;
+  }
+  if (candidate.categoryId === source.categoryId) {
+    score += 3;
+  }
+  if (
+    candidate.medicalSpecialty &&
+    source.medicalSpecialty &&
+    candidate.medicalSpecialty === source.medicalSpecialty
+  ) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function scoreRelatedProduct(candidate: ProductRecord, source: ProductRecord) {
+  const sourceTags = new Set(source.searchTags.map(normalizeSearchTag));
+  const tagOverlap = candidate.searchTags
+    .map(normalizeSearchTag)
+    .filter((tag) => sourceTags.has(tag)).length;
+  let score = tagOverlap * 10;
+
+  if (
+    candidate.medicalSpecialty &&
+    source.medicalSpecialty &&
+    candidate.medicalSpecialty === source.medicalSpecialty
+  ) {
+    score += 5;
+  }
+  if (candidate.subcategoryId && candidate.subcategoryId === source.subcategoryId) {
+    score += 4;
+  }
+  if (candidate.brandId === source.brandId) {
+    score += 3;
+  }
+  if (candidate.categoryId === source.categoryId) {
+    score += 2;
+  }
+  if (candidate.material && source.material && candidate.material === source.material) {
+    score += 2;
+  }
+  if (candidate.packSize && source.packSize && candidate.packSize === source.packSize) {
+    score += 1;
+  }
+  if (candidate.unit === source.unit) {
+    score += 1;
+  }
+  if (candidate.sterile === source.sterile) {
+    score += 1;
+  }
+  if (candidate.disposable === source.disposable) {
+    score += 1;
+  }
+  if (candidate.expirySensitive === source.expirySensitive) {
+    score += 1;
+  }
+
+  return score;
 }
 
 function normalizeSearchTag(searchTag: string) {

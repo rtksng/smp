@@ -17,7 +17,7 @@ describe("responsive class contracts", () => {
     expect(mobileBottomSheetPanelClassName).toContain("fixed");
     expect(mobileBottomSheetPanelClassName).toContain("bottom-0");
     expect(mobileBottomSheetPanelClassName).toContain("max-h-[85dvh]");
-    expect(mobileBottomSheetPanelClassName).toContain("overflow-y-auto");
+    expect(mobileBottomSheetPanelClassName).toContain("overflow-hidden");
   });
 
   it("defines mobile card list styling for table replacements", () => {

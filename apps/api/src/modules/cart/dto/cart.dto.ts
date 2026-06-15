@@ -60,9 +60,26 @@ export class CartTotalsResponseDto {
   tax!: number;
 }
 
+export class CartProductReferenceResponseDto {
+  @ApiProperty({ example: "category-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Surgical Instruments" })
+  name!: string;
+
+  @ApiProperty({ example: "surgical-instruments" })
+  slug!: string;
+}
+
 export class CartItemResponseDto {
   @ApiProperty({ example: 5 })
   availableQuantity!: number;
+
+  @ApiProperty({ type: CartProductReferenceResponseDto })
+  brand!: CartProductReferenceResponseDto;
+
+  @ApiProperty({ type: CartProductReferenceResponseDto })
+  category!: CartProductReferenceResponseDto;
 
   @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
   createdAt!: Date;
@@ -90,6 +107,9 @@ export class CartItemResponseDto {
 
   @ApiProperty({ example: "curved-artery-forceps" })
   slug!: string;
+
+  @ApiProperty({ nullable: true, type: CartProductReferenceResponseDto })
+  subcategory!: CartProductReferenceResponseDto | null;
 
   @ApiProperty({ example: "FORCEPS-001-6IN" })
   sku!: string;

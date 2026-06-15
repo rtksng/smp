@@ -5,7 +5,11 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma, ProductStatus } from "../../generated/prisma/client";
+import {
+  Prisma,
+  ProductStatus,
+  WarehouseStatus
+} from "../../generated/prisma/client";
 import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
 
 const CART_INCLUDE = {
@@ -13,13 +17,16 @@ const CART_INCLUDE = {
     include: {
       product: {
         include: {
+          brand: true,
+          category: true,
           images: {
             orderBy: [
               { isPrimary: "desc" as const },
               { sortOrder: "asc" as const },
               { createdAt: "asc" as const }
             ]
-          }
+          },
+          subcategory: true
         }
       },
       variant: true
@@ -84,6 +91,32 @@ export class CartService {
           }
         });
       }
+
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+    });
+  }
+
+  async replaceWithItem(customerId: string, input: AddCartItemDto) {
+    await this.assertActiveCustomer(customerId);
+    const variantId = input.variantId ?? null;
+
+    return this.prisma.$transaction(async (tx) => {
+      const cart = await this.getOrCreateCart(customerId, tx);
+
+      await this.assertSellableStock(tx, input.productId, variantId, input.quantity);
+      await tx.cartItem.deleteMany({
+        where: {
+          cartId: cart.id
+        }
+      });
+      await tx.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId: input.productId,
+          quantity: input.quantity,
+          variantId
+        }
+      });
 
       return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
     });
@@ -321,6 +354,8 @@ export class CartService {
 
     return {
       availableQuantity,
+      brand: toProductReference(item.product.brand),
+      category: toProductReference(item.product.category),
       createdAt: item.createdAt,
       id: item.id,
       imageUrl: productImage?.url ?? null,
@@ -335,6 +370,9 @@ export class CartService {
       quantity: item.quantity,
       sku: item.variant?.sku ?? item.product.sku,
       slug: item.product.slug,
+      subcategory: item.product.subcategory
+        ? toProductReference(item.product.subcategory)
+        : null,
       subtotal,
       tax,
       taxRate,
@@ -358,7 +396,11 @@ export class CartService {
       },
       where: {
         productId,
-        variantId
+        variantId,
+        warehouse: {
+          deletedAt: null,
+          status: WarehouseStatus.ACTIVE
+        }
       }
     });
 
@@ -368,6 +410,14 @@ export class CartService {
 
 function getPrimaryImage(images: CartItemRecord["product"]["images"]) {
   return images.find((image) => image.isPrimary) ?? images[0] ?? null;
+}
+
+function toProductReference(record: { id: string; name: string; slug: string }) {
+  return {
+    id: record.id,
+    name: record.name,
+    slug: record.slug
+  };
 }
 
 function decimalToNumber(value: DecimalValue) {

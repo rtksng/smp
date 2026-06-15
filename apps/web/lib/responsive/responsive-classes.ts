@@ -8,6 +8,6 @@ export const mobileBottomSheetOverlayClassName =
   "fixed inset-0 z-50 bg-[#17211f]/45 lg:hidden";
 
 export const mobileBottomSheetPanelClassName =
-  "fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-lg bg-white p-4 shadow-2xl lg:hidden";
+  "fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-lg bg-white p-4 shadow-2xl lg:hidden";
 
 export const mobileCardListClassName = "grid gap-3 md:hidden";

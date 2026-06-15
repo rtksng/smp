@@ -129,6 +129,7 @@ type FulfillmentLine = {
 };
 
 type SelectedWarehouseStock = {
+  availableQuantity: number;
   stockId: string;
   warehouseId: string;
 };
@@ -137,6 +138,7 @@ type StockAllocation = {
   line: FulfillmentLine;
   quantity: number;
   stockBatchId: string;
+  warehouseId: string;
 };
 
 @Injectable()
@@ -162,12 +164,8 @@ export class OrdersService {
           : await this.findOwnedAddress(tx, customerId, billingAddressId);
       const cart = await this.findCheckoutCart(tx, customerId);
       const lines = cart.items.map((item) => this.buildFulfillmentLine(item));
-      const selectedStock = await this.selectWarehouseForLines(tx, lines);
-      const allocations = await this.reserveInventory(
-        tx,
-        lines,
-        selectedStock
-      );
+      const allocations = await this.reserveInventory(tx, lines);
+      const primaryWarehouseId = allocations[0]?.warehouseId ?? null;
       const totals = calculateTotals(
         allocations.map((allocation) =>
           buildAllocationTotals(allocation.line, allocation.quantity)
@@ -187,7 +185,7 @@ export class OrdersService {
           subtotal: totals.subtotal,
           taxTotal: totals.tax,
           userId: customerId,
-          warehouseId: selectedStock.warehouseId
+          warehouseId: primaryWarehouseId
         }
       });
 
@@ -210,7 +208,7 @@ export class OrdersService {
             total: allocationTotals.total,
             unitPrice: allocation.line.unitPrice,
             variantId: allocation.line.variantId,
-            warehouseId: selectedStock.warehouseId
+            warehouseId: allocation.warehouseId
           }
         });
         await tx.stockMovement.create({
@@ -225,7 +223,7 @@ export class OrdersService {
             stockBatchId: allocation.stockBatchId,
             type: StockMovementType.OUT,
             variantId: allocation.line.variantId,
-            warehouseId: selectedStock.warehouseId
+            warehouseId: allocation.warehouseId
           }
         });
       }
@@ -244,11 +242,14 @@ export class OrdersService {
           status: OrderStatus.CREATED
         }
       });
-      await tx.cartItem.deleteMany({
-        where: {
-          cartId: cart.id
-        }
-      });
+
+      if (input.paymentMethod === PaymentMethod.COD) {
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: cart.id
+          }
+        });
+      }
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
@@ -526,149 +527,168 @@ export class OrdersService {
     };
   }
 
-  private async selectWarehouseForLines(
-    tx: Prisma.TransactionClient,
-    lines: FulfillmentLine[]
-  ) {
-    const warehouses = await tx.warehouse.findMany({
-      orderBy: [{ code: "asc" }, { id: "asc" }],
-      select: {
-        id: true
-      },
-      where: {
-        deletedAt: null,
-        status: WarehouseStatus.ACTIVE
-      }
-    });
-
-    for (const warehouse of warehouses) {
-      const selected = new Map<string, SelectedWarehouseStock>();
-      let allLinesAvailable = true;
-
-      for (const line of lines) {
-        const stock = await tx.inventoryStock.findFirst({
-          where: {
-            availableQuantity: {
-              gte: line.quantity
-            },
-            productId: line.productId,
-            variantId: line.variantId,
-            warehouseId: warehouse.id
-          }
-        });
-
-        if (!stock) {
-          allLinesAvailable = false;
-          break;
-        }
-
-        selected.set(line.key, {
-          stockId: stock.id,
-          warehouseId: warehouse.id
-        });
-      }
-
-      if (allLinesAvailable) {
-        return {
-          stockByLineKey: selected,
-          warehouseId: warehouse.id
-        };
-      }
-    }
-
-    throw new BadRequestException("No warehouse has enough stock for this cart.");
-  }
-
   private async reserveInventory(
     tx: Prisma.TransactionClient,
-    lines: FulfillmentLine[],
-    selectedStock: {
-      stockByLineKey: Map<string, SelectedWarehouseStock>;
-      warehouseId: string;
-    }
+    lines: FulfillmentLine[]
   ) {
     const allocations: StockAllocation[] = [];
 
     for (const line of lines) {
-      const stock = selectedStock.stockByLineKey.get(line.key);
+      const stocks = await this.findAvailableStocksForLine(tx, line);
+      let remainingLineQuantity = line.quantity;
+      let reservedLineQuantity = 0;
 
-      if (!stock) {
-        throw new BadRequestException("Selected warehouse stock is incomplete.");
-      }
-
-      const stockUpdate = await tx.inventoryStock.updateMany({
-        data: {
-          availableQuantity: {
-            decrement: line.quantity
-          },
-          reservedQuantity: {
-            increment: line.quantity
-          }
-        },
-        where: {
-          availableQuantity: {
-            gte: line.quantity
-          },
-          id: stock.stockId
-        }
-      });
-
-      if (stockUpdate.count !== 1) {
-        throw new BadRequestException("Requested stock is no longer available.");
-      }
-
-      const batches = await tx.stockBatch.findMany({
-        where: {
-          productId: line.productId,
-          quantity: {
-            gt: 0
-          },
-          variantId: line.variantId,
-          warehouseId: selectedStock.warehouseId
-        }
-      });
-      let remaining = line.quantity;
-
-      for (const batch of sortBatchesForAllocation(batches)) {
-        if (remaining === 0) {
+      for (const stock of stocks) {
+        if (remainingLineQuantity === 0) {
           break;
         }
 
-        const allocationQuantity = Math.min(batch.quantity, remaining);
+        const reserveQuantity = Math.min(
+          stock.availableQuantity,
+          remainingLineQuantity
+        );
 
-        if (allocationQuantity <= 0) {
+        if (reserveQuantity <= 0) {
           continue;
         }
 
-        const batchUpdate = await tx.stockBatch.updateMany({
+        const stockUpdate = await tx.inventoryStock.updateMany({
           data: {
-            quantity: {
-              decrement: allocationQuantity
+            availableQuantity: {
+              decrement: reserveQuantity
+            },
+            reservedQuantity: {
+              increment: reserveQuantity
             }
           },
           where: {
-            id: batch.id,
-            quantity: {
-              gte: allocationQuantity
-            }
+            availableQuantity: {
+              gte: reserveQuantity
+            },
+            id: stock.stockId
           }
         });
 
-        if (batchUpdate.count !== 1) {
-          throw new BadRequestException("Selected stock batch is no longer available.");
+        if (stockUpdate.count !== 1) {
+          throw new BadRequestException(
+            "Requested stock is no longer available. Please review your cart."
+          );
         }
 
-        allocations.push({
-          line,
-          quantity: allocationQuantity,
-          stockBatchId: batch.id
-        });
-        remaining -= allocationQuantity;
+        allocations.push(
+          ...(await this.reserveBatchesForStock(
+            tx,
+            line,
+            stock.warehouseId,
+            reserveQuantity
+          ))
+        );
+        reservedLineQuantity += reserveQuantity;
+        remainingLineQuantity -= reserveQuantity;
       }
 
-      if (remaining > 0) {
-        throw new BadRequestException("No stock batch has enough quantity for this cart.");
+      if (remainingLineQuantity > 0) {
+        throw new BadRequestException(
+          stockUnavailableMessage(line, reservedLineQuantity)
+        );
       }
+    }
+
+    return allocations;
+  }
+
+  private async findAvailableStocksForLine(
+    tx: Prisma.TransactionClient,
+    line: FulfillmentLine
+  ): Promise<SelectedWarehouseStock[]> {
+    const stocks = await tx.inventoryStock.findMany({
+      orderBy: [{ warehouseId: "asc" }, { id: "asc" }],
+      select: {
+        availableQuantity: true,
+        id: true,
+        warehouseId: true
+      },
+      where: {
+        availableQuantity: {
+          gt: 0
+        },
+        productId: line.productId,
+        variantId: line.variantId,
+        warehouse: {
+          deletedAt: null,
+          status: WarehouseStatus.ACTIVE
+        }
+      }
+    });
+
+    return stocks.map((stock) => ({
+      availableQuantity: stock.availableQuantity,
+      stockId: stock.id,
+      warehouseId: stock.warehouseId
+    }));
+  }
+
+  private async reserveBatchesForStock(
+    tx: Prisma.TransactionClient,
+    line: FulfillmentLine,
+    warehouseId: string,
+    quantity: number
+  ) {
+    const allocations: StockAllocation[] = [];
+    const batches = await tx.stockBatch.findMany({
+      where: {
+        productId: line.productId,
+        quantity: {
+          gt: 0
+        },
+        variantId: line.variantId,
+        warehouseId
+      }
+    });
+    let remaining = quantity;
+
+    for (const batch of sortBatchesForAllocation(batches)) {
+      if (remaining === 0) {
+        break;
+      }
+
+      const allocationQuantity = Math.min(batch.quantity, remaining);
+
+      if (allocationQuantity <= 0) {
+        continue;
+      }
+
+      const batchUpdate = await tx.stockBatch.updateMany({
+        data: {
+          quantity: {
+            decrement: allocationQuantity
+          }
+        },
+        where: {
+          id: batch.id,
+          quantity: {
+            gte: allocationQuantity
+          }
+        }
+      });
+
+      if (batchUpdate.count !== 1) {
+        throw new BadRequestException("Selected stock batch is no longer available.");
+      }
+
+      allocations.push({
+        line,
+        quantity: allocationQuantity,
+        stockBatchId: batch.id,
+        warehouseId
+      });
+      remaining -= allocationQuantity;
+    }
+
+    if (remaining > 0) {
+      throw new BadRequestException(
+        `Inventory batch data is not synchronized for ${line.name}. Please try again later.`
+      );
     }
 
     return allocations;
@@ -1031,6 +1051,14 @@ function calculateTotals(
     subtotal,
     tax
   };
+}
+
+function stockUnavailableMessage(line: FulfillmentLine, availableQuantity: number) {
+  if (availableQuantity > 0) {
+    return `Only ${availableQuantity} unit(s) are available for ${line.name}. Please update your cart quantity.`;
+  }
+
+  return `${line.name} is out of stock. Please remove it from your cart.`;
 }
 
 function decimalToNumber(value: DecimalValue) {

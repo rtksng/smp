@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   Post,
   RawBody,
@@ -27,6 +28,7 @@ import type { AuthenticatedRequest } from "../auth/guards/authenticated-request"
 import { CustomerJwtGuard } from "../auth/guards/customer-jwt.guard";
 import {
   CreateRazorpayOrderDto,
+  PaymentGatewayStatusResponseDto,
   RazorpayCreateOrderResponseDto,
   RazorpayVerifyResponseDto,
   RazorpayWebhookResponseDto,
@@ -38,6 +40,19 @@ import { PaymentsService } from "./payments.service";
 @Controller("payments")
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Get("gateway-status")
+  @UseGuards(CustomerJwtGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get customer checkout payment gateway availability." })
+  @ApiOkResponse({
+    description: "Payment gateway availability returned.",
+    type: PaymentGatewayStatusResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  getPaymentGatewayStatus() {
+    return this.paymentsService.getPaymentGatewayStatus();
+  }
 
   @Post("razorpay/create-order")
   @UseGuards(CustomerJwtGuard)

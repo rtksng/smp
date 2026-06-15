@@ -1,10 +1,16 @@
 "use client";
 
+import {
+  Select as HeroSelect,
+  SelectItem as HeroSelectItem,
+  SelectSection as HeroSelectSection,
+  type SelectProps as HeroSelectProps
+} from "@heroui/select";
 import { useQuery } from "@tanstack/react-query";
-import { Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import type { Key, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getBrand } from "../../lib/api/brands";
 import { getBrands } from "../../lib/api/brands";
 import { getCategories } from "../../lib/api/categories";
@@ -36,7 +42,6 @@ import { Container } from "../ui/container";
 import { EmptyState } from "../ui/empty-state";
 import { ErrorState, RetryButton } from "../ui/error-state";
 import { ProductCard } from "../ui/product-card";
-import { SectionHeader } from "../ui/section-header";
 import { ProductGridSkeleton } from "./product-skeletons";
 
 type ProductListingPageProps = {
@@ -46,6 +51,18 @@ type ProductListingPageProps = {
 };
 
 const LISTING_STALE_TIME_MS = 30_000;
+const FILTER_SELECT_ALL_VALUE = "__all__";
+
+type FilterSelectOption = {
+  disabled?: boolean;
+  label: string;
+  value: string;
+};
+
+type FilterSelectSection = {
+  label: string;
+  options: FilterSelectOption[];
+};
 
 export function ProductListingPage({
   context,
@@ -53,7 +70,6 @@ export function ProductListingPage({
   initialFilters
 }: ProductListingPageProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const lockedFilters = useMemo(
@@ -64,7 +80,8 @@ export function ProductListingPage({
     [context]
   );
   const filters = useMemo(
-    () => parseProductFilters(new URLSearchParams(searchParams.toString()), lockedFilters),
+    () =>
+      parseProductFilters(new URLSearchParams(searchParams.toString()), lockedFilters),
     [lockedFilters, searchParams]
   );
   const isInitialFilterState = useMemo(() => {
@@ -116,8 +133,17 @@ export function ProductListingPage({
     queryKey: ["brand", context.type === "brand" ? context.slug : ""],
     staleTime: LISTING_STALE_TIME_MS
   });
-  const pageHeading = buildHeading(context, categoryQuery.data?.name, brandQuery.data?.name);
+  const pageHeading = buildHeading(
+    context,
+    categoryQuery.data?.name,
+    brandQuery.data?.name
+  );
   const pageDescription = buildDescription(context, filters.search);
+  const availableHref = productFiltersToHref(
+    pathname,
+    { ...filters, availability: "available", page: 1 },
+    lockedFilters
+  );
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -132,41 +158,38 @@ export function ProductListingPage({
     };
   }, [filtersOpen]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleFiltersChange(nextFilters: ProductFilters) {
+    const href = productFiltersToHref(pathname, nextFilters, lockedFilters);
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
 
-    const formData = new FormData(event.currentTarget);
-    const nextFilters = filtersFromForm(formData, filters, lockedFilters);
-
-    setFiltersOpen(false);
-    router.push(productFiltersToHref(pathname, nextFilters, lockedFilters));
+    window.history.pushState(null, "", href);
+    window.requestAnimationFrame(() => {
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) {
+        window.scrollTo(scrollX, scrollY);
+      }
+    });
   }
 
   return (
     <>
       <Header />
-      <main className="bg-[#f5f8f7]">
-        <section className="border-b border-[#d8e2df] bg-white py-10">
-          <Container>
-            <SectionHeader
-              description={pageDescription}
-              eyebrow="Product browsing"
-              title={pageHeading}
-              action={
-                <Button href="/products" variant="outline">
-                  All products
-                </Button>
-              }
-            />
-            <div className="grid gap-3 md:grid-cols-3">
-              {["SKU-aware search", "GST and stock visible", "Bulk-ready filtering"].map((item) => (
-                <div
-                  className="rounded-lg border border-[#d8e2df] bg-[#f8fbfa] px-4 py-3 text-sm font-extrabold text-[#31413d]"
-                  key={item}
-                >
-                  {item}
-                </div>
-              ))}
+      <main className="bg-[#f4f9ff]">
+        <section className="border-b border-[#d6e7f8] bg-[#f4f9ff] py-5 sm:py-6">
+          <Container className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              <h1 className="text-2xl font-bold leading-tight text-[#12314f] sm:text-3xl">
+                {pageHeading}
+              </h1>
+              <p className="mt-2 text-sm font-semibold leading-5 text-[#52677f]">
+                {pageDescription}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button href={availableHref}>In-stock only</Button>
+              <Button href={pathname} variant="outline">
+                Reset filters
+              </Button>
             </div>
             {categoryQuery.isError ? (
               <ErrorState
@@ -199,7 +222,7 @@ export function ProductListingPage({
           </Container>
         </section>
 
-        <Container className="grid gap-6 py-6 lg:grid-cols-[300px_1fr] lg:gap-8 lg:py-8">
+        <Container className="grid gap-5 py-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6 lg:py-6">
           <div className="lg:hidden">
             <Button
               className="w-full"
@@ -211,7 +234,11 @@ export function ProductListingPage({
             </Button>
           </div>
 
-          <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+          <aside
+            aria-label="Product filters"
+            className="hidden lg:sticky lg:top-20 lg:block lg:self-start"
+            data-testid="desktop-product-filters"
+          >
             <FiltersForm
               brandName={brandQuery.data?.name}
               brands={brandsQuery.data}
@@ -219,64 +246,74 @@ export function ProductListingPage({
               categoryName={categoryQuery.data?.name}
               filters={filters}
               lockedFilters={lockedFilters}
-              onSubmit={handleSubmit}
+              onFiltersChange={handleFiltersChange}
               pathname={pathname}
             />
           </aside>
 
-          <section>
-            <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#d8e2df] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <section
+            className="min-h-0"
+            data-testid="product-results-panel"
+          >
+            <div className="mb-4 grid shrink-0 gap-2 border-b border-[#d6e7f8] bg-white pb-3">
               <div>
-                <p className="text-sm font-extrabold text-[#17211f]">
+                <p className="text-base font-bold text-[#12314f]">
                   {productsQuery.data
-                    ? `${productsQuery.data.pagination.total} matching purchase options`
+                    ? `${productsQuery.data.pagination.total} results`
                     : "Loading products"}
                 </p>
-                <p className="mt-1 text-xs font-bold text-[#687773]">
-                  Use filters for department, brand, stock, sterile, disposable, and price.
+                <p className="mt-1 text-xs font-semibold text-[#52677f]">
+                  Filter by department, brand, stock, price, and clinical use.
                 </p>
               </div>
-              <Button href="/products" variant="outline">
-                Reset all filters
-              </Button>
+              <ActiveFilterSummary
+                filters={filters}
+                lockedFilters={lockedFilters}
+                pathname={pathname}
+              />
             </div>
 
-            {productsQuery.isLoading ? <ProductGridSkeleton /> : null}
+            <div
+              className="min-h-0"
+              data-testid="product-results-scroll"
+            >
+              {productsQuery.isLoading ? <ProductGridSkeleton /> : null}
 
-            {productsQuery.isError ? (
-              <ErrorState
-                action={<RetryButton onRetry={() => productsQuery.refetch()} />}
-                message={getFriendlyApiErrorMessage(
-                  productsQuery.error,
-                  "Unable to load products."
-                )}
-                title="Unable to load products"
-              />
-            ) : null}
-
-            {productsQuery.isSuccess && productsQuery.data.items.length === 0 ? (
-              <EmptyState
-                action={<Button href="/products">Clear filters</Button>}
-                description="Try removing filters or searching a different product, SKU, brand, or specialty."
-                title="No products found"
-              />
-            ) : null}
-
-            {productsQuery.isSuccess && productsQuery.data.items.length > 0 ? (
-              <>
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  {productsQuery.data.items.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-                <Pagination
-                  filters={filters}
-                  lockedFilters={lockedFilters}
-                  pathname={pathname}
-                  totalPages={productsQuery.data.pagination.totalPages}
+              {productsQuery.isError ? (
+                <ErrorState
+                  action={<RetryButton onRetry={() => productsQuery.refetch()} />}
+                  message={getFriendlyApiErrorMessage(
+                    productsQuery.error,
+                    "Unable to load products."
+                  )}
+                  title="Unable to load products"
                 />
-              </>
-            ) : null}
+              ) : null}
+
+              {productsQuery.isSuccess && productsQuery.data.items.length === 0 ? (
+                <EmptyState
+                  action={<Button href="/products">Clear filters</Button>}
+                  description="Try removing filters or searching a different product, SKU, brand, or specialty."
+                  title="No products found"
+                />
+              ) : null}
+
+              {productsQuery.isSuccess && productsQuery.data.items.length > 0 ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {productsQuery.data.items.map((product) => (
+                      <ProductCard compact key={product.id} product={product} />
+                    ))}
+                  </div>
+                  <Pagination
+                    filters={filters}
+                    lockedFilters={lockedFilters}
+                    pathname={pathname}
+                    totalPages={productsQuery.data.pagination.totalPages}
+                  />
+                </>
+              ) : null}
+            </div>
           </section>
         </Container>
         {filtersOpen ? (
@@ -293,29 +330,30 @@ export function ProductListingPage({
               className={mobileBottomSheetPanelClassName}
               role="dialog"
             >
-              <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#d8e2df] pb-4">
-                <h2 className="flex items-center gap-2 text-lg font-extrabold text-[#17211f]">
+              <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#d6e7f8] pb-3">
+                <h2 className="flex items-center gap-2 text-base font-bold text-[#17211f]">
                   <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
                   Filters and sort
                 </h2>
                 <button
                   aria-label="Close filters"
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-[#d8e2df] bg-white text-[#17211f]"
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-[#d6e7f8] bg-white text-[#17211f] shadow-sm shadow-[#0b5cab]/5"
                   onClick={() => setFiltersOpen(false)}
                   type="button"
                 >
                   <X aria-hidden="true" className="h-5 w-5" />
                 </button>
               </div>
-            <FiltersForm
+              <FiltersForm
                 brandName={brandQuery.data?.name}
                 brands={brandsQuery.data}
                 categories={categoriesQuery.data}
                 categoryName={categoryQuery.data?.name}
-                className="grid gap-5"
+                className="grid min-h-0 flex-1 gap-3 overflow-visible"
+                fieldsClassName="grid gap-3 overflow-visible pb-1 pr-1"
                 filters={filters}
                 lockedFilters={lockedFilters}
-                onSubmit={handleSubmit}
+                onFiltersChange={handleFiltersChange}
                 pathname={pathname}
                 showTitle={false}
               />
@@ -333,10 +371,11 @@ function FiltersForm({
   brands,
   categories,
   categoryName,
-  className = "grid gap-5 rounded-lg border border-[#d8e2df] bg-white p-5",
+  className = "grid gap-3 overflow-visible rounded-lg border border-[#d6e7f8] bg-white p-3 shadow-sm shadow-[#0b5cab]/5",
+  fieldsClassName = "grid gap-3 overflow-visible pb-1 pr-1",
   filters,
   lockedFilters,
-  onSubmit,
+  onFiltersChange,
   pathname,
   showTitle = true
 }: {
@@ -345,188 +384,276 @@ function FiltersForm({
   categories?: Category[];
   categoryName?: string;
   className?: string;
+  fieldsClassName?: string;
   filters: ProductFilters;
   lockedFilters: { brand?: string; category?: string };
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onFiltersChange: (filters: ProductFilters) => void;
   pathname: string;
   showTitle?: boolean;
 }) {
+  const activeCategory = lockedFilters.category ?? filters.category ?? "";
+  const [selectedCategory, setSelectedCategory] = useState(activeCategory);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(
+    filters.subcategory ?? ""
+  );
   const subcategoryGroups = getSubcategoryGroups(
     categories,
-    lockedFilters.category ?? filters.category
+    selectedCategory || undefined
   );
+
+  useEffect(() => {
+    setSelectedCategory(activeCategory);
+    setSelectedSubcategory(filters.subcategory ?? "");
+  }, [activeCategory, filters.subcategory]);
+
+  function updateFilters(nextPatch: Partial<ProductFilters>) {
+    const nextFilters: ProductFilters = {
+      ...filters,
+      ...nextPatch,
+      page: 1
+    };
+
+    if (lockedFilters.brand) {
+      nextFilters.brand = lockedFilters.brand;
+    }
+
+    if (lockedFilters.category) {
+      nextFilters.category = lockedFilters.category;
+    }
+
+    onFiltersChange(nextFilters);
+  }
 
   return (
     <form
+      aria-label="Product filters"
       className={className}
-      key={productFiltersToHref(pathname, filters, lockedFilters)}
-      onSubmit={onSubmit}
     >
       {showTitle ? (
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-lg font-extrabold text-[#17211f]">
-            <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
-            Procurement filters
-          </h2>
+        <div className="shrink-0 pb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold text-[#17211f]">
+              <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
+              Filters
+            </h2>
+            <p className="mt-1 text-xs font-semibold leading-4 text-[#687773]">
+              Narrow catalog results.
+            </p>
+          </div>
           <ClearFiltersLink pathname={pathname} />
         </div>
       ) : (
-        <div className="flex justify-end">
+        <div className="flex shrink-0 justify-end pb-3">
           <ClearFiltersLink pathname={pathname} />
         </div>
       )}
 
-      <Field label="Search query">
-        <input
-          className={inputClassName}
-          defaultValue={filters.search ?? ""}
-          name="q"
-          placeholder="Product, SKU, brand, specialty"
-        />
-      </Field>
-
-      {lockedFilters.category ? (
-        <LockedField label="Category" value={categoryName ?? lockedFilters.category} />
-      ) : (
-        <Field label="Category">
-          <select
-            className={inputClassName}
-            defaultValue={filters.category ?? ""}
-            name="category"
-          >
-            <option value="">All categories</option>
-            {categories?.map((category) => (
-              <option key={category.id} value={category.slug}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-
-      <Field label="Subcategory">
-        <select
-          className={inputClassName}
-          defaultValue={filters.subcategory ?? ""}
-          disabled={subcategoryGroups.length === 0}
-          name="subcategory"
-        >
-          <option value="">All subcategories</option>
-          {subcategoryGroups.map((group) => (
-            <optgroup key={group.category.slug} label={group.category.name}>
-              {group.subcategories.map((subcategory) => (
-                <option key={subcategory.id} value={subcategory.slug}>
-                  {subcategory.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </Field>
-
-      {lockedFilters.brand ? (
-        <LockedField label="Brand" value={brandName ?? lockedFilters.brand} />
-      ) : (
-        <Field label="Brand">
-          <select
-            className={inputClassName}
-            defaultValue={filters.brand ?? ""}
-            name="brand"
-          >
-            <option value="">All brands</option>
-            {brands?.map((brand) => (
-              <option key={brand.id} value={brand.slug}>
-                {brand.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Min price">
+      <div className={fieldsClassName} data-testid="filter-fields-scroll">
+        <Field label="Search query">
           <input
             className={inputClassName}
-            defaultValue={filters.minPrice ?? ""}
-            min={0}
-            name="minPrice"
-            placeholder="0"
-            type="number"
+            defaultValue={filters.search ?? ""}
+            name="q"
+            onChange={(event) =>
+              updateFilters({ search: readFilterText(event.target.value) })
+            }
+            placeholder="Product, SKU, brand, specialty"
           />
         </Field>
-        <Field label="Max price">
+
+        {lockedFilters.category ? (
+          <LockedField label="Category" value={categoryName ?? lockedFilters.category} />
+        ) : (
+          <Field label="Category">
+            <HeroFilterSelect
+              label="Category"
+              name="category"
+              onChange={(value) => {
+                setSelectedCategory(value);
+                setSelectedSubcategory("");
+                updateFilters({
+                  category: readFilterText(value),
+                  subcategory: undefined
+                });
+              }}
+              options={[
+                {
+                  label: "All categories",
+                  value: ""
+                },
+                ...(categories?.map((category) => ({
+                  label: category.name,
+                  value: category.slug
+                })) ?? [])
+              ]}
+              placeholder="All categories"
+              value={selectedCategory}
+            />
+          </Field>
+        )}
+
+        <Field label="Subcategory">
+          <HeroFilterSelect
+            disabled={subcategoryGroups.length === 0}
+            label="Subcategory"
+            name="subcategory"
+            onChange={(value) => {
+              setSelectedSubcategory(value);
+              updateFilters({ subcategory: readFilterText(value) });
+            }}
+            options={[
+              {
+                label: "All subcategories",
+                value: ""
+              }
+            ]}
+            placeholder="All subcategories"
+            sections={subcategoryGroups.map((group) => ({
+              label: group.category.name,
+              options: group.subcategories.map((subcategory) => ({
+                label: subcategory.name,
+                value: subcategory.slug
+              }))
+            }))}
+            value={selectedSubcategory}
+          />
+        </Field>
+
+        {lockedFilters.brand ? (
+          <LockedField label="Brand" value={brandName ?? lockedFilters.brand} />
+        ) : (
+          <Field label="Brand">
+            <HeroFilterSelect
+              label="Brand"
+              name="brand"
+              onChange={(value) => updateFilters({ brand: readFilterText(value) })}
+              options={[
+                {
+                  label: "All brands",
+                  value: ""
+                },
+                ...(brands?.map((brand) => ({
+                  label: brand.name,
+                  value: brand.slug
+                })) ?? [])
+              ]}
+              placeholder="All brands"
+              value={filters.brand ?? ""}
+            />
+          </Field>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Min price">
+            <input
+              className={inputClassName}
+              defaultValue={filters.minPrice ?? ""}
+              min={0}
+              name="minPrice"
+              onChange={(event) =>
+                updateFilters({ minPrice: readFilterNumber(event.target.value) })
+              }
+              placeholder="0"
+              type="number"
+            />
+          </Field>
+          <Field label="Max price">
+            <input
+              className={inputClassName}
+              defaultValue={filters.maxPrice ?? ""}
+              min={0}
+              name="maxPrice"
+              onChange={(event) =>
+                updateFilters({ maxPrice: readFilterNumber(event.target.value) })
+              }
+              placeholder="5000"
+              type="number"
+            />
+          </Field>
+        </div>
+
+        <Field label="Stock status">
+          <HeroFilterSelect
+            label="Stock status"
+            name="stock"
+            onChange={(value) =>
+              updateFilters({ stock: readFilterStock(value) })
+            }
+            options={STOCK_OPTIONS.map((option) => ({
+              label: option.label,
+              value: option.value
+            }))}
+            placeholder="All stock"
+            value={filters.stock ?? ""}
+          />
+        </Field>
+
+        <Field label="Clinical specialty">
           <input
             className={inputClassName}
-            defaultValue={filters.maxPrice ?? ""}
-            min={0}
-            name="maxPrice"
-            placeholder="5000"
-            type="number"
+            defaultValue={filters.medicalSpecialty ?? ""}
+            name="medicalSpecialty"
+            onChange={(event) =>
+              updateFilters({
+                medicalSpecialty: readFilterText(event.target.value)
+              })
+            }
+            placeholder="General Surgery, ICU, OT"
+          />
+        </Field>
+
+        <div className="grid gap-1.5">
+          <Checkbox
+            defaultChecked={filters.availability === "available"}
+            label="Only available products"
+            name="availability"
+            onChange={(checked) =>
+              updateFilters({ availability: checked ? "available" : undefined })
+            }
+            value="available"
+          />
+          <Checkbox
+            defaultChecked={filters.expirySensitive === true}
+            label="Expiry sensitive"
+            name="expirySensitive"
+            onChange={(checked) =>
+              updateFilters({ expirySensitive: checked ? true : undefined })
+            }
+          />
+          <Checkbox
+            defaultChecked={filters.sterile === true}
+            label="Sterile"
+            name="sterile"
+            onChange={(checked) =>
+              updateFilters({ sterile: checked ? true : undefined })
+            }
+          />
+          <Checkbox
+            defaultChecked={filters.disposable === true}
+            label="Disposable"
+            name="disposable"
+            onChange={(checked) =>
+              updateFilters({ disposable: checked ? true : undefined })
+            }
+          />
+        </div>
+
+        <Field label="Sort">
+          <HeroFilterSelect
+            label="Sort"
+            name="sort"
+            onChange={(value) =>
+              updateFilters({ sort: readFilterSort(value) ?? "latest" })
+            }
+            options={SORT_OPTIONS.map((option) => ({
+              label: option.label,
+              value: option.value
+            }))}
+            placeholder="Sort products"
+            value={filters.sort}
           />
         </Field>
       </div>
-
-      <Field label="Stock status">
-        <select
-          className={inputClassName}
-          defaultValue={filters.stock ?? ""}
-          name="stock"
-        >
-          {STOCK_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="Clinical specialty">
-        <input
-          className={inputClassName}
-          defaultValue={filters.medicalSpecialty ?? ""}
-          name="medicalSpecialty"
-          placeholder="General Surgery, ICU, OT"
-        />
-      </Field>
-
-      <div className="grid gap-3">
-        <Checkbox
-          defaultChecked={filters.availability === "available"}
-          label="Only available products"
-          name="availability"
-          value="available"
-        />
-        <Checkbox
-          defaultChecked={filters.expirySensitive === true}
-          label="Expiry sensitive"
-          name="expirySensitive"
-        />
-        <Checkbox
-          defaultChecked={filters.sterile === true}
-          label="Sterile"
-          name="sterile"
-        />
-        <Checkbox
-          defaultChecked={filters.disposable === true}
-          label="Disposable"
-          name="disposable"
-        />
-      </div>
-
-      <Field label="Sort">
-        <select className={inputClassName} defaultValue={filters.sort} name="sort">
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Button className="w-full" type="submit">
-        <Filter aria-hidden="true" className="h-4 w-4" />
-        Apply filters
-      </Button>
     </form>
   );
 }
@@ -534,7 +661,7 @@ function FiltersForm({
 function ClearFiltersLink({ pathname }: { pathname: string }) {
   return (
     <a
-      className="inline-flex min-h-12 items-center gap-1 text-sm font-extrabold text-[#006d77]"
+      className="inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[#006d77]"
       href={pathname}
     >
       <RotateCcw aria-hidden="true" className="h-4 w-4" />
@@ -563,9 +690,9 @@ function SubcategoryNav({
       <div className="flex flex-wrap gap-2">
         <a
           className={[
-            "rounded-full border px-3 py-2 text-sm font-extrabold transition",
+            "rounded-full border px-3 py-2 text-sm font-bold transition",
             filters.subcategory
-              ? "border-[#d8e2df] bg-white text-[#31413d]"
+              ? "border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
               : "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
           ].join(" ")}
           href={productFiltersToHref(
@@ -579,10 +706,10 @@ function SubcategoryNav({
         {category.children.map((subcategory) => (
           <a
             className={[
-              "rounded-full border px-3 py-2 text-sm font-extrabold transition",
+              "rounded-full border px-3 py-2 text-sm font-bold transition",
               filters.subcategory === subcategory.slug
                 ? "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
-                : "border-[#d8e2df] bg-white text-[#31413d]"
+                : "border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
             ].join(" ")}
             href={productFiltersToHref(
               pathname,
@@ -599,9 +726,9 @@ function SubcategoryNav({
   );
 }
 
-function Field({ children, label }: { children: React.ReactNode; label: string }) {
+function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <label className="grid gap-2 text-sm font-extrabold text-[#31413d]">
+    <label className="grid gap-1.5 text-xs font-bold text-[#31413d]">
       <span>{label}</span>
       {children}
     </label>
@@ -610,9 +737,9 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
 
 function LockedField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-2 text-sm font-extrabold text-[#31413d]">
+    <div className="grid gap-1.5 text-xs font-bold text-[#31413d]">
       <span>{label}</span>
-      <span className="rounded-lg border border-[#d8e2df] bg-[#eef3f1] px-3 py-2 text-[#084c61]">
+      <span className="rounded-lg border border-[#d6e7f8] bg-[#eef3f1] px-3 py-2 text-sm text-[#084c61] shadow-sm shadow-[#0b5cab]/5">
         {value}
       </span>
     </div>
@@ -623,24 +750,62 @@ function Checkbox({
   defaultChecked,
   label,
   name,
+  onChange,
   value = "true"
 }: {
   defaultChecked: boolean;
   label: string;
   name: string;
+  onChange?: (checked: boolean) => void;
   value?: string;
 }) {
   return (
-    <label className="flex min-h-12 items-center gap-3 text-sm font-bold text-[#31413d]">
+    <label className="flex min-h-8 items-center gap-2 text-xs font-bold text-[#31413d]">
       <input
-        className="h-5 w-5 rounded border-[#cfdcda] accent-[#006d77]"
+        className="h-4 w-4 rounded border-[#cfdcda] accent-[#006d77]"
         defaultChecked={defaultChecked}
         name={name}
+        onChange={(event) => onChange?.(event.target.checked)}
         type="checkbox"
         value={value}
       />
       <span>{label}</span>
     </label>
+  );
+}
+
+function ActiveFilterSummary({
+  filters,
+  lockedFilters,
+  pathname
+}: {
+  filters: ProductFilters;
+  lockedFilters: { brand?: string; category?: string };
+  pathname: string;
+}) {
+  const chips = getActiveFilterChips(filters, lockedFilters);
+
+  if (chips.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-bold uppercase text-[#9b6a1e]">
+        Active filters
+      </span>
+      {chips.map((chip) => (
+        <span
+          className="rounded-full border border-[#d6e7f8] bg-[#f8fbfa] px-3 py-1.5 text-xs font-bold text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
+          key={chip}
+        >
+          {chip}
+        </span>
+      ))}
+      <a className="text-xs font-bold text-[#006d77]" href={pathname}>
+        Clear
+      </a>
+    </div>
   );
 }
 
@@ -663,18 +828,29 @@ function Pagination({
   const nextPage = Math.min(totalPages, filters.page + 1);
 
   return (
-    <nav className="mt-8 flex flex-wrap items-center justify-between gap-3" aria-label="Product pagination">
+    <nav
+      className="mt-8 flex flex-wrap items-center justify-between gap-3"
+      aria-label="Product pagination"
+    >
       <Button
-        href={productFiltersToHref(pathname, { ...filters, page: previousPage }, lockedFilters)}
+        href={productFiltersToHref(
+          pathname,
+          { ...filters, page: previousPage },
+          lockedFilters
+        )}
         variant="outline"
       >
         Previous
       </Button>
-      <span className="text-sm font-extrabold text-[#31413d]">
+      <span className="text-sm font-bold text-[#31413d]">
         Page {filters.page} of {totalPages}
       </span>
       <Button
-        href={productFiltersToHref(pathname, { ...filters, page: nextPage }, lockedFilters)}
+        href={productFiltersToHref(
+          pathname,
+          { ...filters, page: nextPage },
+          lockedFilters
+        )}
         variant="outline"
       >
         Next
@@ -683,59 +859,35 @@ function Pagination({
   );
 }
 
-function filtersFromForm(
-  formData: FormData,
-  currentFilters: ProductFilters,
-  lockedFilters: { brand?: string; category?: string }
-): ProductFilters {
-  return {
-    availability:
-      readFormString(formData, "availability") === "available" ? "available" : undefined,
-    brand: lockedFilters.brand ?? readFormString(formData, "brand"),
-    category: lockedFilters.category ?? readFormString(formData, "category"),
-    disposable: readFormBoolean(formData, "disposable"),
-    expirySensitive: readFormBoolean(formData, "expirySensitive"),
-    maxPrice: readFormNumber(formData, "maxPrice"),
-    medicalSpecialty: readFormString(formData, "medicalSpecialty"),
-    minPrice: readFormNumber(formData, "minPrice"),
-    page: 1,
-    search: readFormString(formData, "q"),
-    sort: readFormSort(formData) ?? currentFilters.sort,
-    sterile: readFormBoolean(formData, "sterile"),
-    stock: readFormStock(formData),
-    subcategory: readFormString(formData, "subcategory")
-  };
+function readFilterText(value: string) {
+  const trimmedValue = value.trim();
+
+  return trimmedValue && trimmedValue !== FILTER_SELECT_ALL_VALUE
+    ? trimmedValue
+    : undefined;
 }
 
-function readFormString(formData: FormData, key: string) {
-  const value = formData.get(key);
-
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function readFormNumber(formData: FormData, key: string) {
-  const value = readFormString(formData, key);
-  const numberValue = value === undefined ? Number.NaN : Number(value);
+function readFilterNumber(value: string) {
+  const textValue = readFilterText(value);
+  const numberValue = textValue === undefined ? Number.NaN : Number(textValue);
 
   return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : undefined;
 }
 
-function readFormBoolean(formData: FormData, key: string) {
-  return formData.get(key) === "true" ? true : undefined;
-}
+function readFilterSort(value: string) {
+  const nextValue = readFilterText(value);
 
-function readFormSort(formData: FormData) {
-  const value = readFormString(formData, "sort");
-
-  return SORT_OPTIONS.some((option) => option.value === value)
-    ? (value as ProductFilters["sort"])
+  return SORT_OPTIONS.some((option) => option.value === nextValue)
+    ? (nextValue as ProductFilters["sort"])
     : undefined;
 }
 
-function readFormStock(formData: FormData) {
-  const value = readFormString(formData, "stock");
+function readFilterStock(value: string) {
+  const nextValue = readFilterText(value);
 
-  return value === "in_stock" || value === "out_of_stock" ? value : undefined;
+  return nextValue === "in_stock" || nextValue === "out_of_stock"
+    ? nextValue
+    : undefined;
 }
 
 function getSubcategoryGroups(
@@ -768,24 +920,209 @@ function buildHeading(
     return brandName ? `${brandName} products` : "Brand products";
   }
 
-  return "All surgical and medical products";
+  return "All products";
 }
 
 function buildDescription(context: ProductListingContext, search: string | undefined) {
   if (search) {
-    return `Showing catalog results for "${search}" with filters and sorting preserved in the page URL.`;
+    return `Results for "${search}" with filters saved in the URL.`;
   }
 
   if (context.type === "category") {
-    return "Browse products in this category with price, stock, specialty, and clinical-use filters.";
+    return "Browse this department with price, stock, specialty, and brand filters.";
   }
 
   if (context.type === "brand") {
-    return "Browse products from this brand with price, stock, specialty, and clinical-use filters.";
+    return "Browse this brand with price, stock, specialty, and department filters.";
   }
 
-  return "Browse the customer catalog with procurement filters, sorting, pagination, and shareable searches.";
+  return "Find surgical and medical supplies with simple filters and clear pricing.";
+}
+
+function getActiveFilterChips(
+  filters: ProductFilters,
+  lockedFilters: { brand?: string; category?: string }
+) {
+  return [
+    filters.search ? `Search: ${filters.search}` : undefined,
+    !lockedFilters.category && filters.category
+      ? `Category: ${filters.category}`
+      : undefined,
+    filters.subcategory ? `Subcategory: ${filters.subcategory}` : undefined,
+    !lockedFilters.brand && filters.brand ? `Brand: ${filters.brand}` : undefined,
+    filters.minPrice !== undefined ? `Min Rs ${filters.minPrice}` : undefined,
+    filters.maxPrice !== undefined ? `Max Rs ${filters.maxPrice}` : undefined,
+    filters.stock === "in_stock" ? "In stock" : undefined,
+    filters.stock === "out_of_stock" ? "Out of stock" : undefined,
+    filters.availability === "available" ? "Available only" : undefined,
+    filters.sterile ? "Sterile" : undefined,
+    filters.disposable ? "Disposable" : undefined,
+    filters.expirySensitive ? "Expiry sensitive" : undefined,
+    filters.medicalSpecialty ? `Specialty: ${filters.medicalSpecialty}` : undefined,
+    filters.sort !== "latest"
+      ? `Sort: ${SORT_OPTIONS.find((option) => option.value === filters.sort)?.label ?? filters.sort}`
+      : undefined
+  ].filter(Boolean) as string[];
 }
 
 const inputClassName =
-  "min-h-11 w-full rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20";
+  "min-h-10 w-full rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20";
+
+const heroSelectClassNames = {
+  base: "w-full min-w-0",
+  listbox: "p-1",
+  popoverContent: "z-[80] rounded-lg border border-[#cfdcda] bg-white shadow-lg",
+  selectorIcon: "pointer-events-none end-3 h-4 w-4 text-[#006d77] opacity-100",
+  trigger:
+    "min-h-10 rounded-lg border border-[#cfdcda] bg-white px-3 pr-10 text-sm font-semibold text-[#17211f] shadow-none data-[focus=true]:border-[#006d77] data-[focus=true]:ring-2 data-[focus=true]:ring-[#006d77]/20",
+  value: "text-sm text-[#17211f] group-data-[has-value=false]:text-[#687773]"
+};
+
+function HeroFilterSelect({
+  disabled = false,
+  label,
+  name,
+  onChange,
+  options,
+  placeholder,
+  sections = [],
+  value
+}: {
+  disabled?: boolean;
+  label: string;
+  name: string;
+  onChange?: (value: string) => void;
+  options: FilterSelectOption[];
+  placeholder: string;
+  sections?: FilterSelectSection[];
+  value: string;
+}) {
+  const [selectedKey, setSelectedKey] = useState(valueToSelectKey(value));
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMenuInteractive, setIsMenuInteractive] = useState(false);
+  const menuInteractiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const selectClassNames = useMemo(
+    () => ({
+      ...heroSelectClassNames,
+      listbox: [
+        heroSelectClassNames.listbox,
+        isOpen && !isMenuInteractive ? "pointer-events-none" : undefined
+      ]
+        .filter(Boolean)
+        .join(" ")
+    }),
+    [isMenuInteractive, isOpen]
+  );
+  const selectChildren = [
+    ...options.map(renderFilterSelectOption),
+    ...sections.map((section) => (
+      <HeroSelectSection key={section.label} title={section.label}>
+        {section.options.map(renderFilterSelectOption)}
+      </HeroSelectSection>
+    ))
+  ] as unknown as HeroSelectProps["children"];
+
+  useEffect(() => {
+    setSelectedKey(valueToSelectKey(value));
+  }, [value]);
+
+  useEffect(() => {
+    return () => {
+      if (menuInteractiveTimerRef.current) {
+        clearTimeout(menuInteractiveTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleOpenChange(open: boolean) {
+    setIsOpen(open);
+
+    if (menuInteractiveTimerRef.current) {
+      clearTimeout(menuInteractiveTimerRef.current);
+      menuInteractiveTimerRef.current = null;
+    }
+
+    if (!open) {
+      setIsMenuInteractive(false);
+      return;
+    }
+
+    setIsMenuInteractive(false);
+    menuInteractiveTimerRef.current = setTimeout(() => {
+      setIsMenuInteractive(true);
+      menuInteractiveTimerRef.current = null;
+    }, 180);
+  }
+
+  return (
+    <HeroSelect
+      aria-label={label}
+      classNames={selectClassNames}
+      isDisabled={disabled}
+      isOpen={isOpen}
+      itemHeight={34}
+      maxListboxHeight={240}
+      name={name}
+      onOpenChange={handleOpenChange}
+      onSelectionChange={(keys) => {
+        if (keys === "all") {
+          return;
+        }
+
+        const [nextKey] = Array.from(keys as Set<Key>);
+
+        if (nextKey !== undefined) {
+          const normalizedKey = String(nextKey);
+
+          setSelectedKey(normalizedKey);
+          onChange?.(selectKeyToValue(normalizedKey));
+        }
+      }}
+      placeholder={placeholder}
+      popoverProps={{
+        offset: 6,
+        placement: "bottom-start",
+        shouldFlip: false,
+        shouldBlockScroll: false
+      }}
+      radius="sm"
+      selectedKeys={new Set([selectedKey])}
+      selectorIcon={
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 text-[#006d77] opacity-100"
+          data-testid={`${name}-filter-select-arrow`}
+        />
+      }
+      size="sm"
+      variant="bordered"
+    >
+      {selectChildren}
+    </HeroSelect>
+  );
+}
+
+function renderFilterSelectOption(option: FilterSelectOption) {
+  const optionKey = valueToSelectKey(option.value);
+
+  return (
+    <HeroSelectItem
+      key={optionKey}
+      className="rounded-md text-sm text-[#17211f] data-[hover=true]:bg-[#e7f3f2]"
+      isDisabled={option.disabled}
+      textValue={option.label}
+    >
+      {option.label}
+    </HeroSelectItem>
+  );
+}
+
+function valueToSelectKey(value: string) {
+  return value || FILTER_SELECT_ALL_VALUE;
+}
+
+function selectKeyToValue(key: string) {
+  return key === FILTER_SELECT_ALL_VALUE ? "" : key;
+}

@@ -17,6 +17,8 @@ type UserFixture = {
 };
 
 type ProductFixture = {
+  brand: ProductReferenceFixture;
+  category: ProductReferenceFixture;
   deletedAt: Date | null;
   id: string;
   images: ProductImageFixture[];
@@ -25,7 +27,14 @@ type ProductFixture = {
   sku: string;
   slug: string;
   status: ProductStatusFixture;
+  subcategory: ProductReferenceFixture | null;
   taxRate: string;
+};
+
+type ProductReferenceFixture = {
+  id: string;
+  name: string;
+  slug: string;
 };
 
 type ProductImageFixture = {
@@ -99,6 +108,16 @@ function userFixture(input: Partial<UserFixture> = {}): UserFixture {
 
 function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
   return {
+    brand: {
+      id: "brand-1",
+      name: "SurgiPro",
+      slug: "surgipro"
+    },
+    category: {
+      id: "category-1",
+      name: "Surgical Instruments",
+      slug: "surgical-instruments"
+    },
     deletedAt: null,
     id: "product-1",
     images: [
@@ -115,6 +134,11 @@ function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
     sku: "FORCEPS-001",
     slug: "curved-artery-forceps",
     status: "ACTIVE",
+    subcategory: {
+      id: "subcategory-1",
+      name: "Forceps",
+      slug: "forceps"
+    },
     taxRate: "18.00",
     ...input
   };
@@ -399,6 +423,9 @@ test("getCart returns persisted cart items with variant pricing, stock, and tota
   assert.equal(cart.itemCount, 1);
   assert.equal(cart.totalQuantity, 2);
   assert.equal(cart.items[0]?.sku, "FORCEPS-001-6IN");
+  assert.equal(cart.items[0]?.brand.name, "SurgiPro");
+  assert.equal(cart.items[0]?.category.name, "Surgical Instruments");
+  assert.equal(cart.items[0]?.subcategory?.name, "Forceps");
   assert.equal(cart.items[0]?.unitPrice, 140);
   assert.equal(cart.items[0]?.availableQuantity, 5);
   assert.equal(cart.items[0]?.isAvailable, true);
@@ -452,6 +479,67 @@ test("addItem rejects quantities above available stock without reserving stock",
     BadRequestException
   );
   assert.equal(prisma.calls.cartItemUpdate.length, 0);
+  assert.equal(prisma.calls.cartItemCreate.length, 0);
+});
+
+test("replaceWithItem prepares a single-item cart for buy now checkout", async () => {
+  const prisma = createCartPrismaMock({
+    items: [
+      cartItemFixture({ id: "existing-cart-item", productId: "product-2" }),
+      cartItemFixture({ id: "existing-cart-item-2", productId: "product-3" })
+    ],
+    products: [
+      productFixture(),
+      productFixture({ id: "product-2", sku: "OLD-001" }),
+      productFixture({ id: "product-3", sku: "OLD-002" })
+    ],
+    stocks: [stockFixture({ availableQuantity: 6, variantId: "variant-1" })],
+    variants: [variantFixture()]
+  });
+  const service = new CartService(prisma);
+
+  const cart = await service.replaceWithItem("customer-1", {
+    productId: "product-1",
+    quantity: 3,
+    variantId: "variant-1"
+  });
+
+  assert.deepEqual(prisma.calls.cartItemDeleteMany[0], {
+    where: {
+      cartId: "cart-1"
+    }
+  });
+  assert.deepEqual(prisma.calls.cartItemCreate[0], {
+    data: {
+      cartId: "cart-1",
+      productId: "product-1",
+      quantity: 3,
+      variantId: "variant-1"
+    }
+  });
+  assert.equal(cart.itemCount, 1);
+  assert.equal(cart.totalQuantity, 3);
+  assert.equal(cart.items[0]?.productId, "product-1");
+});
+
+test("replaceWithItem validates stock before clearing the existing cart", async () => {
+  const prisma = createCartPrismaMock({
+    items: [cartItemFixture({ productId: "product-2" })],
+    products: [productFixture(), productFixture({ id: "product-2" })],
+    stocks: [stockFixture({ availableQuantity: 1 })]
+  });
+  const service = new CartService(prisma);
+
+  await assert.rejects(
+    () =>
+      service.replaceWithItem("customer-1", {
+        productId: "product-1",
+        quantity: 3,
+        variantId: null
+      }),
+    BadRequestException
+  );
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
   assert.equal(prisma.calls.cartItemCreate.length, 0);
 });
 

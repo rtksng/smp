@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addCartItem,
+  buyNowCartItem,
   clearCart,
   getCart,
   updateCartItem
@@ -9,6 +10,7 @@ import { createCustomerAddress, listCustomerAddresses } from "./customer-profile
 import { createOrder } from "./orders";
 import {
   createRazorpayOrder,
+  getPaymentGatewayStatus,
   verifyRazorpayPayment
 } from "./payments";
 
@@ -32,6 +34,16 @@ describe("checkout flow API helpers", () => {
         items: [
           {
             availableQuantity: 4,
+            brand: {
+              id: "brand_1",
+              name: "SurgiPro",
+              slug: "surgipro"
+            },
+            category: {
+              id: "category_1",
+              name: "Surgical Instruments",
+              slug: "surgical-instruments"
+            },
             createdAt: "2026-05-25T10:00:00.000Z",
             id: "cart_item_1",
             imageUrl: "https://cdn.example.com/forceps.jpg",
@@ -42,6 +54,11 @@ describe("checkout flow API helpers", () => {
             quantity: 2,
             sku: "FORCEPS-001",
             slug: "curved-artery-forceps",
+            subcategory: {
+              id: "subcategory_1",
+              name: "Forceps",
+              slug: "forceps"
+            },
             subtotal: 280,
             tax: 50.4,
             taxRate: 18,
@@ -80,21 +97,27 @@ describe("checkout flow API helpers", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse(emptyCart()))
       .mockResolvedValueOnce(jsonResponse(emptyCart()))
+      .mockResolvedValueOnce(jsonResponse(emptyCart()))
       .mockResolvedValueOnce(jsonResponse(emptyCart()));
 
     await addCartItem({ productId: "product_1", quantity: 2, variantId: null });
     await updateCartItem("cart_item_1", 3);
+    await buyNowCartItem({ productId: "product_2", quantity: 1, variantId: null });
     await clearCart();
 
     expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
       ["https://api.example.com/api/v1/cart/items", "POST"],
       ["https://api.example.com/api/v1/cart/items/cart_item_1", "PATCH"],
+      ["https://api.example.com/api/v1/cart/buy-now", "POST"],
       ["https://api.example.com/api/v1/cart", "DELETE"]
     ]);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
       JSON.stringify({ productId: "product_1", quantity: 2, variantId: null })
     );
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(JSON.stringify({ quantity: 3 }));
+    expect(fetchMock.mock.calls[2]?.[1]?.body).toBe(
+      JSON.stringify({ productId: "product_2", quantity: 1, variantId: null })
+    );
   });
 
   it("lists and creates customer checkout addresses", async () => {
@@ -217,6 +240,25 @@ describe("checkout flow API helpers", () => {
     expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
       ["https://api.example.com/api/v1/payments/razorpay/create-order", "POST"],
       ["https://api.example.com/api/v1/payments/razorpay/verify", "POST"]
+    ]);
+  });
+
+  it("fetches payment gateway availability before online checkout", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({
+        message: "Payment gateway is not configured yet.",
+        onlinePaymentEnabled: false,
+        provider: "razorpay"
+      })
+    );
+
+    await expect(getPaymentGatewayStatus()).resolves.toEqual({
+      message: "Payment gateway is not configured yet.",
+      onlinePaymentEnabled: false,
+      provider: "razorpay"
+    });
+    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
+      ["https://api.example.com/api/v1/payments/gateway-status", undefined]
     ]);
   });
 });

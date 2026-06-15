@@ -14,7 +14,7 @@ type RouteLoadingStateProps = {
 
 export function RouteLoadingState({ label = "Loading page" }: RouteLoadingStateProps) {
   return (
-    <main className="bg-[#f5f8f7]">
+    <main className="bg-[#f4f9ff]">
       <Container className="py-8">
         <PageLoader label={label} />
       </Container>
@@ -28,7 +28,7 @@ export function RouteErrorState({
   title = "Unable to load this page"
 }: RouteErrorStateProps) {
   return (
-    <main className="bg-[#f5f8f7]">
+    <main className="bg-[#f4f9ff]">
       <Container className="grid min-h-[60vh] place-items-center py-8">
         <ErrorState
           action={onReset ? <RetryButton onRetry={onReset} /> : null}

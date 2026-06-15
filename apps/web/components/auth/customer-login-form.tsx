@@ -136,11 +136,11 @@ export function CustomerLoginForm({
           <ShieldCheck aria-hidden="true" className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-xs font-extrabold uppercase text-[#9b6a1e]">
+          <p className="text-xs font-bold uppercase text-[#9b6a1e]">
             Secure customer login
           </p>
           <h1
-            className="mt-2 text-2xl font-extrabold leading-tight text-[#17211f]"
+            className="mt-2 text-2xl font-bold leading-tight text-[#17211f]"
             id={headingId}
           >
             Sign in with mobile OTP
@@ -176,11 +176,11 @@ export function CustomerLoginForm({
         </form>
       ) : (
         <form className="grid gap-4" onSubmit={handleVerifyOtp}>
-          <div className="rounded-lg border border-[#d8e2df] bg-[#f8fbfa] px-4 py-3">
-            <p className="text-xs font-extrabold uppercase text-[#687773]">
+          <div className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#0b5cab]/5">
+            <p className="text-xs font-bold uppercase text-[#687773]">
               OTP sent to
             </p>
-            <p className="mt-1 text-sm font-extrabold text-[#17211f]">
+            <p className="mt-1 text-sm font-bold text-[#17211f]">
               {sentMobileNumber}
             </p>
           </div>
@@ -205,7 +205,7 @@ export function CustomerLoginForm({
           </Button>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
-              className="inline-flex items-center gap-2 text-sm font-extrabold text-[#006d77]"
+              className="inline-flex items-center gap-2 text-sm font-bold text-[#006d77]"
               onClick={() => {
                 setError(null);
                 setOtp("");
@@ -217,7 +217,7 @@ export function CustomerLoginForm({
               Change number
             </button>
             <button
-              className="inline-flex items-center gap-2 text-sm font-extrabold text-[#006d77] disabled:cursor-not-allowed disabled:text-[#8da19c]"
+              className="inline-flex items-center gap-2 text-sm font-bold text-[#006d77] disabled:cursor-not-allowed disabled:text-[#8da19c]"
               disabled={cooldownSeconds > 0 || isSubmitting}
               onClick={handleResendOtp}
               type="button"

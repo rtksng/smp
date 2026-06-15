@@ -85,11 +85,13 @@ class FakeOrderQueue {
 
 function createOrdersPrismaMock(input?: {
   batchQuantity?: number;
+  splitWarehouseStock?: boolean;
   stockAvailable?: number;
 }) {
   const calls: Record<string, unknown[]> = {
     cartFindFirst: [],
     cartItemDeleteMany: [],
+    inventoryStockFindMany: [],
     inventoryStockFindFirst: [],
     inventoryStockUpdateMany: [],
     orderCount: [],
@@ -128,27 +130,166 @@ function createOrdersPrismaMock(input?: {
   const orders: Array<Record<string, unknown>> = [];
   const stockAvailable = input?.stockAvailable ?? 10;
   const batchQuantity = input?.batchQuantity ?? 10;
+  const splitWarehouseStock = input?.splitWarehouseStock ?? false;
+  const warehouses = splitWarehouseStock
+    ? [
+        {
+          address: "Warehouse Road",
+          city: "Delhi",
+          code: "DEL-01",
+          contactNumber: "9876543210",
+          contactPerson: "Warehouse Lead",
+          id: "warehouse-1",
+          name: "Delhi warehouse",
+          pincode: "110001",
+          state: "Delhi",
+          status: "ACTIVE"
+        },
+        {
+          address: "Warehouse Avenue",
+          city: "Mumbai",
+          code: "MUM-01",
+          contactNumber: "9876543211",
+          contactPerson: "Warehouse Lead",
+          id: "warehouse-2",
+          name: "Mumbai warehouse",
+          pincode: "400001",
+          state: "Maharashtra",
+          status: "ACTIVE"
+        }
+      ]
+    : [
+        {
+          address: "Warehouse Road",
+          city: "Delhi",
+          code: "DEL-01",
+          contactNumber: "9876543210",
+          contactPerson: "Warehouse Lead",
+          id: "warehouse-1",
+          name: "Delhi warehouse",
+          pincode: "110001",
+          state: "Delhi",
+          status: "ACTIVE"
+        }
+      ];
+  const cartItems = splitWarehouseStock
+    ? [
+        {
+          id: "cart-item-1",
+          productId: "product-1",
+          quantity: 2,
+          variantId: null,
+          product: {
+            deletedAt: null,
+            id: "product-1",
+            name: "Curved Artery Forceps",
+            sellingPrice: "120.00",
+            sku: "FORCEPS-001",
+            status: "ACTIVE",
+            taxRate: "18.00"
+          },
+          variant: null
+        },
+        {
+          id: "cart-item-2",
+          productId: "product-2",
+          quantity: 3,
+          variantId: null,
+          product: {
+            deletedAt: null,
+            id: "product-2",
+            name: "Sterile Surgical Drapes",
+            sellingPrice: "80.00",
+            sku: "DRAPE-001",
+            status: "ACTIVE",
+            taxRate: "12.00"
+          },
+          variant: null
+        }
+      ]
+    : [
+        {
+          id: "cart-item-1",
+          productId: "product-1",
+          quantity: 2,
+          variantId: null,
+          product: {
+            deletedAt: null,
+            id: "product-1",
+            name: "Curved Artery Forceps",
+            sellingPrice: "120.00",
+            sku: "FORCEPS-001",
+            status: "ACTIVE",
+            taxRate: "18.00"
+          },
+          variant: null
+        }
+      ];
+  const inventoryStocks = splitWarehouseStock
+    ? [
+        {
+          availableQuantity: 2,
+          id: "stock-1",
+          productId: "product-1",
+          reservedQuantity: 0,
+          variantId: null,
+          warehouseId: "warehouse-1"
+        },
+        {
+          availableQuantity: 3,
+          id: "stock-2",
+          productId: "product-2",
+          reservedQuantity: 0,
+          variantId: null,
+          warehouseId: "warehouse-2"
+        }
+      ]
+    : [
+        {
+          availableQuantity: stockAvailable,
+          id: "stock-1",
+          productId: "product-1",
+          reservedQuantity: 0,
+          variantId: null,
+          warehouseId: "warehouse-1"
+        }
+      ];
+  const stockBatches = splitWarehouseStock
+    ? [
+        {
+          batchNumber: "BATCH-1",
+          expiryDate: new Date("2026-07-01T00:00:00.000Z"),
+          id: "batch-1",
+          productId: "product-1",
+          quantity: 2,
+          variantId: null,
+          warehouseId: "warehouse-1"
+        },
+        {
+          batchNumber: "BATCH-2",
+          expiryDate: new Date("2026-08-01T00:00:00.000Z"),
+          id: "batch-2",
+          productId: "product-2",
+          quantity: 3,
+          variantId: null,
+          warehouseId: "warehouse-2"
+        }
+      ]
+    : [
+        {
+          batchNumber: "BATCH-1",
+          expiryDate: new Date("2026-07-01T00:00:00.000Z"),
+          id: "batch-1",
+          productId: "product-1",
+          quantity: batchQuantity,
+          variantId: null,
+          warehouseId: "warehouse-1"
+        }
+      ];
   const cart = {
     deletedAt: null,
     id: "cart-1",
-    items: [
-      {
-        id: "cart-item-1",
-        productId: "product-1",
-        quantity: 2,
-        variantId: null,
-        product: {
-          deletedAt: null,
-          id: "product-1",
-          name: "Curved Artery Forceps",
-          sellingPrice: "120.00",
-          sku: "FORCEPS-001",
-          status: "ACTIVE",
-          taxRate: "18.00"
-        },
-        variant: null
-      }
-    ],
+    items: cartItems,
     userId: "customer-1"
   };
   const address = {
@@ -173,18 +314,7 @@ function createOrdersPrismaMock(input?: {
     lastName: "Singh",
     mobileNumber: "9999999999"
   };
-  const warehouse = {
-    address: "Warehouse Road",
-    city: "Delhi",
-    code: "DEL-01",
-    contactNumber: "9876543210",
-    contactPerson: "Warehouse Lead",
-    id: "warehouse-1",
-    name: "Delhi warehouse",
-    pincode: "110001",
-    state: "Delhi",
-    status: "ACTIVE"
-  };
+  const warehouse = warehouses[0];
   const payments = [
     {
       amount: "283.20",
@@ -236,20 +366,102 @@ function createOrdersPrismaMock(input?: {
       }
     },
     inventoryStock: {
+      findMany: async (args: unknown) => {
+        calls.inventoryStockFindMany.push(args);
+        const where = (args as {
+          where?: {
+            availableQuantity?: { gt?: number; gte?: number };
+            productId?: string;
+            variantId?: string | null;
+            warehouseId?: string;
+          };
+        }).where ?? {};
+        const minimum =
+          where.availableQuantity?.gt ?? where.availableQuantity?.gte ?? -1;
+
+        return inventoryStocks
+          .filter(
+            (stock) =>
+              (where.productId === undefined || stock.productId === where.productId) &&
+              (!("variantId" in where) || stock.variantId === where.variantId) &&
+              (where.warehouseId === undefined ||
+                stock.warehouseId === where.warehouseId) &&
+              stock.availableQuantity > minimum
+          )
+          .sort((left, right) =>
+            left.warehouseId === right.warehouseId
+              ? left.id.localeCompare(right.id)
+              : left.warehouseId.localeCompare(right.warehouseId)
+          );
+      },
       findFirst: async (args: unknown) => {
         calls.inventoryStockFindFirst.push(args);
-        return {
-          availableQuantity: stockAvailable,
-          id: "stock-1",
-          productId: "product-1",
-          reservedQuantity: 0,
-          variantId: null,
-          warehouseId: "warehouse-1"
-        };
+        const where = (args as {
+          where?: {
+            availableQuantity?: { gte?: number };
+            productId?: string;
+            variantId?: string | null;
+            warehouseId?: string;
+          };
+        }).where ?? {};
+
+        return (
+          inventoryStocks.find(
+            (stock) =>
+              (where.productId === undefined || stock.productId === where.productId) &&
+              (!("variantId" in where) || stock.variantId === where.variantId) &&
+              (where.warehouseId === undefined ||
+                stock.warehouseId === where.warehouseId) &&
+              stock.availableQuantity >= (where.availableQuantity?.gte ?? 0)
+          ) ?? null
+        );
       },
       updateMany: async (args: unknown) => {
         calls.inventoryStockUpdateMany.push(args);
-        return { count: stockAvailable >= 2 ? 1 : 0 };
+        const updateArgs = args as {
+          data: {
+            availableQuantity?: { decrement?: number; increment?: number };
+            reservedQuantity?: { decrement?: number; increment?: number };
+          };
+          where: {
+            availableQuantity?: { gte?: number };
+            id?: string;
+            productId?: string;
+            reservedQuantity?: { gte?: number };
+            variantId?: string | null;
+            warehouseId?: string;
+          };
+        };
+        const stock = inventoryStocks.find(
+          (entry) =>
+            (updateArgs.where.id === undefined ||
+              entry.id === updateArgs.where.id) &&
+            (updateArgs.where.productId === undefined ||
+              entry.productId === updateArgs.where.productId) &&
+            (!("variantId" in updateArgs.where) ||
+              entry.variantId === updateArgs.where.variantId) &&
+            (updateArgs.where.warehouseId === undefined ||
+              entry.warehouseId === updateArgs.where.warehouseId)
+        );
+        const requiredAvailable = updateArgs.where.availableQuantity?.gte ?? 0;
+        const requiredReserved = updateArgs.where.reservedQuantity?.gte ?? 0;
+
+        if (
+          !stock ||
+          stock.availableQuantity < requiredAvailable ||
+          stock.reservedQuantity < requiredReserved
+        ) {
+          return { count: 0 };
+        }
+
+        stock.availableQuantity +=
+          updateArgs.data.availableQuantity?.increment ?? 0;
+        stock.availableQuantity -=
+          updateArgs.data.availableQuantity?.decrement ?? 0;
+        stock.reservedQuantity += updateArgs.data.reservedQuantity?.increment ?? 0;
+        stock.reservedQuantity -= updateArgs.data.reservedQuantity?.decrement ?? 0;
+
+        return { count: 1 };
       }
     },
     order: {
@@ -355,21 +567,45 @@ function createOrdersPrismaMock(input?: {
     stockBatch: {
       findMany: async (args: unknown) => {
         calls.stockBatchFindMany.push(args);
-        return [
-          {
-            batchNumber: "BATCH-1",
-            expiryDate: new Date("2026-07-01T00:00:00.000Z"),
-            id: "batch-1",
-            productId: "product-1",
-            quantity: batchQuantity,
-            variantId: null,
-            warehouseId: "warehouse-1"
-          }
-        ];
+        const where = (args as {
+          where?: {
+            productId?: string;
+            quantity?: { gt?: number };
+            variantId?: string | null;
+            warehouseId?: string;
+          };
+        }).where ?? {};
+        const minimum = where.quantity?.gt ?? -1;
+
+        return stockBatches.filter(
+          (batch) =>
+            (where.productId === undefined || batch.productId === where.productId) &&
+            (!("variantId" in where) || batch.variantId === where.variantId) &&
+            (where.warehouseId === undefined ||
+              batch.warehouseId === where.warehouseId) &&
+            batch.quantity > minimum
+        );
       },
       updateMany: async (args: unknown) => {
         calls.stockBatchUpdateMany.push(args);
-        return { count: batchQuantity >= 2 ? 1 : 0 };
+        const updateArgs = args as {
+          data: { quantity: { decrement?: number; increment?: number } };
+          where: {
+            id: string;
+            quantity?: { gte?: number };
+          };
+        };
+        const batch = stockBatches.find((entry) => entry.id === updateArgs.where.id);
+        const requiredQuantity = updateArgs.where.quantity?.gte ?? 0;
+
+        if (!batch || batch.quantity < requiredQuantity) {
+          return { count: 0 };
+        }
+
+        batch.quantity += updateArgs.data.quantity.increment ?? 0;
+        batch.quantity -= updateArgs.data.quantity.decrement ?? 0;
+
+        return { count: 1 };
       }
     },
     stockMovement: {
@@ -406,11 +642,9 @@ function createOrdersPrismaMock(input?: {
     warehouse: {
       findMany: async (args: unknown) => {
         calls.warehouseFindMany.push(args);
-        return [
-          {
-            id: "warehouse-1"
-          }
-        ];
+        return warehouses.map((entry) => ({
+          id: entry.id
+        }));
       }
     }
   };
@@ -461,6 +695,59 @@ test("createOrder reserves stock from a warehouse batch, snapshots items, create
   assert.equal(prisma.calls.paymentCreate.length, 1);
   assert.equal(prisma.calls.statusHistoryCreate.length, 1);
   assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
+});
+
+test("createOrder allocates available cart lines across different warehouses", async () => {
+  const prisma = createOrdersPrismaMock({ splitWarehouseStock: true });
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1", "warehouse-2"]) as unknown as WarehouseAccessService
+  );
+
+  const order = await service.createOrder("customer-1", {
+    paymentMethod: "COD",
+    shippingAddressId: "address-1"
+  });
+
+  assert.deepEqual(
+    order.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      warehouseId: item.warehouseId
+    })),
+    [
+      {
+        productId: "product-1",
+        quantity: 2,
+        warehouseId: "warehouse-1"
+      },
+      {
+        productId: "product-2",
+        quantity: 3,
+        warehouseId: "warehouse-2"
+      }
+    ]
+  );
+  assert.equal(prisma.calls.orderItemCreate.length, 2);
+  assert.equal(prisma.calls.stockMovementCreate.length, 2);
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
+});
+
+test("createOrder keeps the cart intact for pending online payment orders", async () => {
+  const prisma = createOrdersPrismaMock();
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await service.createOrder("customer-1", {
+    paymentMethod: "ONLINE",
+    shippingAddressId: "address-1"
+  });
+
+  assert.equal(prisma.calls.orderCreate.length, 1);
+  assert.equal(prisma.calls.paymentCreate.length, 1);
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
 });
 
 test("createOrder enqueues an order confirmation notification after checkout succeeds", async () => {

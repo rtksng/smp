@@ -1,8 +1,4 @@
-import type {
-  AnchorHTMLAttributes,
-  ButtonHTMLAttributes,
-  ReactNode
-} from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "outline";
 
@@ -26,29 +22,21 @@ type ButtonAsButtonProps = ButtonBaseProps &
 export type ButtonProps = ButtonAsLinkProps | ButtonAsButtonProps;
 
 const variantClasses: Record<ButtonVariant, string> = {
-  ghost: "bg-transparent text-[#17211f] hover:bg-[#eef3f1]",
+  ghost: "bg-transparent text-[#12314f] hover:bg-[#edf6ff]",
   outline:
-    "border-[#cfdcda] bg-white text-[#084c61] shadow-sm hover:border-[#006d77]",
-  primary: "bg-[#006d77] text-white shadow-sm hover:bg-[#084c61]",
-  secondary: "bg-[#233d4d] text-white shadow-sm hover:bg-[#17211f]"
+    "border-[#b9d6f2] bg-white !text-[#0b5cab] shadow-sm shadow-[#0b5cab]/5 hover:border-[#0b5cab] hover:bg-[#f4f9ff] hover:shadow-md hover:shadow-[#0b5cab]/10",
+  primary:
+    "bg-[#0b5cab] text-white shadow-sm shadow-[#0b5cab]/20 hover:bg-[#094f94] hover:shadow-md hover:shadow-[#0b5cab]/25",
+  secondary:
+    "border-[#cfe4f8] bg-[#eaf4ff] text-[#0b5cab] shadow-sm shadow-[#0b5cab]/5 hover:bg-[#dcedff] hover:shadow-md hover:shadow-[#0b5cab]/10"
 };
 
 export function Button(props: ButtonProps) {
   if (isLinkButton(props)) {
-    const {
-      children,
-      className,
-      href,
-      variant = "primary",
-      ...anchorProps
-    } = props;
+    const { children, className, href, variant = "primary", ...anchorProps } = props;
 
     return (
-      <a
-        className={buttonClassName(variant, className)}
-        href={href}
-        {...anchorProps}
-      >
+      <a className={buttonClassName(variant, className)} href={href} {...anchorProps}>
         {children}
       </a>
     );
@@ -75,7 +63,7 @@ export function Button(props: ButtonProps) {
 
 function buttonClassName(variant: ButtonVariant, className?: string) {
   return [
-    "inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-[#006d77] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-5 py-2 text-sm font-bold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#0b5cab] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0",
     variantClasses[variant],
     className
   ]

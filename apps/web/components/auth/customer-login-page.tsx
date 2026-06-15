@@ -11,7 +11,7 @@ import { useCustomerAuthStore } from "../../lib/stores/auth-store";
 
 export function CustomerLoginPage() {
   return (
-    <Suspense fallback={<main className="bg-[#f5f8f7] p-8">Loading login...</main>}>
+    <Suspense fallback={<main className="bg-[#f4f9ff] p-8">Loading login...</main>}>
       <CustomerLoginContent />
     </Suspense>
   );
@@ -33,9 +33,9 @@ function CustomerLoginContent() {
   return (
     <>
       <Header />
-      <main className="bg-[#f5f8f7]">
+      <main className="bg-[#f4f9ff]">
         <Container className="grid min-h-[calc(100vh-160px)] place-items-center py-10">
-          <div className="w-full max-w-md rounded-lg border border-[#d8e2df] bg-white p-5 shadow-sm sm:p-6">
+          <div className="w-full max-w-md rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 sm:p-6">
             <CustomerLoginForm onSuccess={() => router.replace(nextPath)} />
           </div>
         </Container>

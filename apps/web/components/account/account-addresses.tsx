@@ -21,11 +21,17 @@ import {
 } from "../../lib/api/customer-profile";
 import { useCustomerAuthStore } from "../../lib/stores/auth-store";
 import { Button } from "../ui/button";
-import { EmptyState } from "../ui/empty-state";
 import { ErrorState, RetryButton } from "../ui/error-state";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
-import { CustomerAccountShell } from "./customer-account-shell";
+import {
+  AccountInfoGrid,
+  AccountSection,
+  AccountSectionHeader,
+  AccountStatusBadge,
+  CustomerAccountShell,
+  PrivateEmptyState
+} from "./customer-account-shell";
 
 type AddressFieldErrors = Partial<
   Record<keyof CreateCustomerAddressInput, string>
@@ -91,6 +97,7 @@ export function AccountAddresses() {
     createDeleteAddressMutation({ queryClient })
   );
   const addresses = addressesQuery.data ?? [];
+  const defaultAddress = addresses.find((address) => address.isDefault);
   const isSaving =
     createAddressMutation.isPending || updateAddressMutation.isPending;
 
@@ -191,21 +198,6 @@ export function AccountAddresses() {
       description="Manage delivery and billing addresses for faster checkout."
       title="Addresses"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-extrabold text-[#17211f]">
-            Saved addresses
-          </h2>
-          <p className="mt-1 text-sm font-bold text-[#687773]">
-            Address changes are available immediately during checkout.
-          </p>
-        </div>
-        <Button className="w-full sm:w-auto" onClick={openCreateForm}>
-          <Plus aria-hidden="true" className="h-4 w-4" />
-          Add address
-        </Button>
-      </div>
-
       {addressesQuery.isLoading ? <AddressSkeleton /> : null}
 
       {addressesQuery.isError ? (
@@ -223,6 +215,20 @@ export function AccountAddresses() {
         <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
           {mutationError}
         </p>
+      ) : null}
+
+      {addressesQuery.isSuccess ? (
+        <AccountInfoGrid
+          items={[
+            { label: "Saved addresses", value: String(addresses.length) },
+            {
+              label: "Default",
+              value: defaultAddress?.fullName ?? "Not selected"
+            },
+            { label: "City", value: defaultAddress?.city ?? "-" },
+            { label: "Phone", value: defaultAddress?.phone ?? "-" }
+          ]}
+        />
       ) : null}
 
       {formMode.type !== "closed" ? (
@@ -243,7 +249,7 @@ export function AccountAddresses() {
       ) : null}
 
       {addressesQuery.isSuccess && addresses.length === 0 ? (
-        <EmptyState
+        <PrivateEmptyState
           action={<Button onClick={openCreateForm}>Add address</Button>}
           description="Save clinic, hospital, home, work, or other delivery addresses before placing orders."
           title="No saved addresses"
@@ -251,19 +257,31 @@ export function AccountAddresses() {
       ) : null}
 
       {addresses.length > 0 ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {addresses.map((address) => (
-            <AddressCard
-              address={address}
-              isDeleting={deleteAddressMutation.isPending}
-              isSettingDefault={setDefaultAddressMutation.isPending}
-              key={address.id}
-              onDelete={() => handleDelete(address)}
-              onEdit={() => openEditForm(address)}
-              onSetDefault={() => handleSetDefault(address.id)}
-            />
-          ))}
-        </div>
+        <AccountSection>
+          <AccountSectionHeader
+            action={
+              <Button className="w-full sm:w-auto" onClick={openCreateForm}>
+                <Plus aria-hidden="true" className="h-4 w-4" />
+                Add address
+              </Button>
+            }
+            description="Address changes are available immediately during checkout."
+            title="Saved addresses"
+          />
+          <div className="mt-4 grid gap-3">
+            {addresses.map((address) => (
+              <AddressCard
+                address={address}
+                isDeleting={deleteAddressMutation.isPending}
+                isSettingDefault={setDefaultAddressMutation.isPending}
+                key={address.id}
+                onDelete={() => handleDelete(address)}
+                onEdit={() => openEditForm(address)}
+                onSetDefault={() => handleSetDefault(address.id)}
+              />
+            ))}
+          </div>
+        </AccountSection>
       ) : null}
     </CustomerAccountShell>
   );
@@ -285,36 +303,30 @@ function AddressCard({
   onSetDefault: () => void;
 }) {
   return (
-    <article className="grid gap-4 rounded-lg border border-[#d8e2df] bg-[#f8fbfa] p-4">
+    <article className="grid gap-4 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
           <MapPin aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-extrabold text-[#17211f]">
-              {address.fullName}
-            </h3>
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-[#31413d]">
-              {formatAddressType(address.type)}
-            </span>
+            <h3 className="font-bold text-[#12314f]">{address.fullName}</h3>
+            <AccountStatusBadge>{formatAddressType(address.type)}</AccountStatusBadge>
             {address.isDefault ? (
-              <span className="rounded-full bg-[#dff3ef] px-2.5 py-1 text-xs font-extrabold text-[#0f6b50]">
-                Default
-              </span>
+              <AccountStatusBadge tone="success">Default</AccountStatusBadge>
             ) : null}
           </div>
-          <p className="mt-2 text-sm font-bold leading-6 text-[#687773]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#52677f]">
             {address.addressLine1}
             {address.addressLine2 ? `, ${address.addressLine2}` : ""},{" "}
             {address.city}, {address.state} {address.pincode}
           </p>
           {address.landmark ? (
-            <p className="mt-1 text-sm font-bold text-[#687773]">
+            <p className="mt-1 text-sm font-semibold text-[#52677f]">
               Landmark: {address.landmark}
             </p>
           ) : null}
-          <p className="mt-1 text-sm font-bold text-[#687773]">
+          <p className="mt-1 text-sm font-semibold text-[#52677f]">
             {address.phone}
           </p>
         </div>
@@ -336,7 +348,12 @@ function AddressCard({
             Set default
           </Button>
         ) : null}
-        <Button className="w-full sm:w-auto" disabled={isDeleting} onClick={onDelete} variant="ghost">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={isDeleting}
+          onClick={onDelete}
+          variant="ghost"
+        >
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           Delete
         </Button>
@@ -366,126 +383,122 @@ function AddressForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form
-      className="grid gap-5 rounded-lg border border-[#d8e2df] bg-white p-5"
-      onSubmit={onSubmit}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-extrabold text-[#17211f]">
-            {formTitle}
-          </h2>
-          <p className="mt-1 text-sm font-bold text-[#687773]">
-            Use an address that can receive medical equipment deliveries.
-          </p>
+    <AccountSection>
+      <form className="grid gap-5" onSubmit={onSubmit}>
+        <AccountSectionHeader
+          action={
+            <Button onClick={onCancel} type="button" variant="ghost">
+              <X aria-hidden="true" className="h-4 w-4" />
+              Cancel
+            </Button>
+          }
+          description="Use an address that can receive medical equipment deliveries."
+          title={formTitle}
+        />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input
+            error={addressErrors.fullName}
+            label="Full name"
+            name="fullName"
+            onChange={(event) => onChange("fullName", event.target.value)}
+            value={addressForm.fullName}
+          />
+          <Input
+            error={addressErrors.phone}
+            label="Phone"
+            name="phone"
+            onChange={(event) => onChange("phone", event.target.value)}
+            placeholder="+919876543210"
+            value={addressForm.phone}
+          />
+          <Input
+            className="md:col-span-2"
+            error={addressErrors.addressLine1}
+            label="Address line 1"
+            name="addressLine1"
+            onChange={(event) => onChange("addressLine1", event.target.value)}
+            value={addressForm.addressLine1}
+          />
+          <Input
+            error={addressErrors.addressLine2}
+            label="Address line 2"
+            name="addressLine2"
+            onChange={(event) => onChange("addressLine2", event.target.value)}
+            value={addressForm.addressLine2 ?? ""}
+          />
+          <Input
+            error={addressErrors.landmark}
+            label="Landmark"
+            name="landmark"
+            onChange={(event) => onChange("landmark", event.target.value)}
+            value={addressForm.landmark ?? ""}
+          />
+          <Input
+            error={addressErrors.city}
+            label="City"
+            name="city"
+            onChange={(event) => onChange("city", event.target.value)}
+            value={addressForm.city}
+          />
+          <Input
+            error={addressErrors.state}
+            label="State"
+            name="state"
+            onChange={(event) => onChange("state", event.target.value)}
+            value={addressForm.state}
+          />
+          <Input
+            error={addressErrors.pincode}
+            label="Pincode"
+            name="pincode"
+            onChange={(event) => onChange("pincode", event.target.value)}
+            value={addressForm.pincode}
+          />
+          <label className="grid gap-2 text-sm font-bold text-[#12314f]">
+            <span>Address type</span>
+            <select
+              className="min-h-12 rounded-full border border-[#b9d6f2] bg-white px-5 text-sm font-semibold text-[#12314f] outline-none transition focus:border-[#0b5cab] focus:ring-2 focus:ring-[#0b5cab]/20"
+              onChange={(event) =>
+                onChange("type", event.target.value as CustomerAddressType)
+              }
+              value={addressForm.type}
+            >
+              {addressTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <Button onClick={onCancel} type="button" variant="ghost">
-          <X aria-hidden="true" className="h-4 w-4" />
-          Cancel
-        </Button>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Input
-          error={addressErrors.fullName}
-          label="Full name"
-          name="fullName"
-          onChange={(event) => onChange("fullName", event.target.value)}
-          value={addressForm.fullName}
-        />
-        <Input
-          error={addressErrors.phone}
-          label="Phone"
-          name="phone"
-          onChange={(event) => onChange("phone", event.target.value)}
-          placeholder="+919876543210"
-          value={addressForm.phone}
-        />
-        <Input
-          className="md:col-span-2"
-          error={addressErrors.addressLine1}
-          label="Address line 1"
-          name="addressLine1"
-          onChange={(event) => onChange("addressLine1", event.target.value)}
-          value={addressForm.addressLine1}
-        />
-        <Input
-          error={addressErrors.addressLine2}
-          label="Address line 2"
-          name="addressLine2"
-          onChange={(event) => onChange("addressLine2", event.target.value)}
-          value={addressForm.addressLine2 ?? ""}
-        />
-        <Input
-          error={addressErrors.landmark}
-          label="Landmark"
-          name="landmark"
-          onChange={(event) => onChange("landmark", event.target.value)}
-          value={addressForm.landmark ?? ""}
-        />
-        <Input
-          error={addressErrors.city}
-          label="City"
-          name="city"
-          onChange={(event) => onChange("city", event.target.value)}
-          value={addressForm.city}
-        />
-        <Input
-          error={addressErrors.state}
-          label="State"
-          name="state"
-          onChange={(event) => onChange("state", event.target.value)}
-          value={addressForm.state}
-        />
-        <Input
-          error={addressErrors.pincode}
-          label="Pincode"
-          name="pincode"
-          onChange={(event) => onChange("pincode", event.target.value)}
-          value={addressForm.pincode}
-        />
-        <label className="grid gap-2 text-sm font-bold text-[#31413d]">
-          <span>Address type</span>
-          <select
-            className="min-h-12 rounded-lg border border-[#cfdcda] bg-white px-4 text-base text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20"
-            onChange={(event) =>
-              onChange("type", event.target.value as CustomerAddressType)
-            }
-            value={addressForm.type}
-          >
-            {addressTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div>
-        <Button className="w-full sm:w-auto" disabled={isSaving} type="submit">
-          <Plus aria-hidden="true" className="h-4 w-4" />
-          {isSaving ? "Saving..." : "Save address"}
-        </Button>
-      </div>
-    </form>
+        <div>
+          <Button className="w-full sm:w-auto" disabled={isSaving} type="submit">
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            {isSaving ? "Saving..." : "Save address"}
+          </Button>
+        </div>
+      </form>
+    </AccountSection>
   );
 }
 
 function AddressSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      {Array.from({ length: 2 }).map((_, index) => (
-        <div
-          className="grid gap-3 rounded-lg border border-[#d8e2df] bg-[#f8fbfa] p-4"
-          key={index}
-        >
-          <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-11 w-48" />
+    <div className="grid gap-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton className="h-20" key={index} />
+        ))}
+      </div>
+      <AccountSection>
+        <div className="grid gap-3">
+          {Array.from({ length: 2 }, (_, index) => (
+            <Skeleton className="h-32" key={index} />
+          ))}
         </div>
-      ))}
+      </AccountSection>
     </div>
   );
 }

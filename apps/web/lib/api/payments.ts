@@ -29,10 +29,24 @@ export const razorpayVerifyResponseSchema = z.object({
   paymentStatus: paymentStatusSchema
 });
 
+export const paymentGatewayStatusSchema = z.object({
+  message: z.string(),
+  onlinePaymentEnabled: z.boolean(),
+  provider: z.literal("razorpay")
+});
+
 export type RazorpayCreateOrder = z.infer<typeof razorpayCreateOrderSchema>;
+export type PaymentGatewayStatus = z.infer<typeof paymentGatewayStatusSchema>;
 export type VerifyRazorpayPaymentInput = z.infer<
   typeof verifyRazorpayPaymentInputSchema
 >;
+
+export function getPaymentGatewayStatus() {
+  return requestCustomerApi(
+    "/payments/gateway-status",
+    paymentGatewayStatusSchema
+  );
+}
 
 export function createRazorpayOrder(orderId: string) {
   return requestCustomerApi(

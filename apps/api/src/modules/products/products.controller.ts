@@ -6,7 +6,10 @@ import {
   ApiParam,
   ApiTags
 } from "@nestjs/swagger";
-import { ProductListQueryDto } from "./dto/product-query.dto";
+import {
+  ProductListQueryDto,
+  ProductRecommendationQueryDto
+} from "./dto/product-query.dto";
 import {
   ProductListResponseDto,
   ProductResponseDto
@@ -26,6 +29,47 @@ export class ProductsController {
   })
   listProducts(@Query() query: ProductListQueryDto) {
     return this.productsService.listPublicProducts(query);
+  }
+
+  @Get(":slug/related")
+  @ApiOperation({
+    summary:
+      "Get public related products ranked by tags, brand, category, and product attributes."
+  })
+  @ApiParam({
+    example: "curved-artery-forceps",
+    name: "slug"
+  })
+  @ApiOkResponse({
+    description: "Related public products returned.",
+    type: ProductListResponseDto
+  })
+  @ApiNotFoundResponse({ description: "Product slug is inactive or does not exist." })
+  getRelatedProducts(
+    @Param("slug") slug: string,
+    @Query() query: ProductRecommendationQueryDto
+  ) {
+    return this.productsService.getRelatedProductsBySlug(slug, query);
+  }
+
+  @Get(":slug/similar")
+  @ApiOperation({
+    summary: "Get public similar products from the same category or subcategory."
+  })
+  @ApiParam({
+    example: "curved-artery-forceps",
+    name: "slug"
+  })
+  @ApiOkResponse({
+    description: "Similar public products returned.",
+    type: ProductListResponseDto
+  })
+  @ApiNotFoundResponse({ description: "Product slug is inactive or does not exist." })
+  getSimilarProducts(
+    @Param("slug") slug: string,
+    @Query() query: ProductRecommendationQueryDto
+  ) {
+    return this.productsService.getSimilarProductsBySlug(slug, query);
   }
 
   @Get(":slug")
