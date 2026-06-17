@@ -116,6 +116,12 @@ export class InvoiceTaxBreakupResponseDto {
 }
 
 export class InvoiceTotalsResponseDto {
+  @ApiProperty({ example: 50 })
+  deliveryCharge!: number;
+
+  @ApiProperty({ example: 10 })
+  discount!: number;
+
   @ApiProperty({ example: 236 })
   grandTotal!: number;
 

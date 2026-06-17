@@ -42,6 +42,7 @@ describe("admin navigation", () => {
       "Delivery",
       "Quote Requests",
       "Coupons",
+      "Delivery Charges",
       "Settings"
     ]);
   });

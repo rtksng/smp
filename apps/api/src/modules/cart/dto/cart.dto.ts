@@ -3,6 +3,15 @@ import { IsInt, IsOptional, IsUUID, Max, Min } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { ProductStatus } from "../../../generated/prisma/enums";
 
+export class GetCartQueryDto {
+  @ApiPropertyOptional({
+    example: "9a14198b-e4bc-44bc-9d3a-e4e3d640a19a"
+  })
+  @IsOptional()
+  @IsUUID()
+  shippingAddressId?: string;
+}
+
 export class AddCartItemDto {
   @ApiProperty({
     example: "7d9f8f33-d348-4a89-94e8-907be76a91c6"

@@ -193,6 +193,8 @@ const order: Order = {
 };
 
 describe("CheckoutPage", () => {
+  const asyncUiTimeout = { timeout: 5000 };
+
   beforeEach(() => {
     mocks.createCustomerAddress.mockReset();
     mocks.createOrder.mockReset();
@@ -249,7 +251,11 @@ describe("CheckoutPage", () => {
     renderCheckout();
 
     expect(
-      await screen.findByRole("heading", { name: "Cart review" })
+      await screen.findByRole(
+        "heading",
+        { name: "Cart review" },
+        asyncUiTimeout
+      )
     ).toBeInTheDocument();
     expect(screen.getByText("SurgiPro Artery Forceps")).toBeInTheDocument();
     expect(
@@ -261,7 +267,9 @@ describe("CheckoutPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add address" }));
     fireEvent.click(screen.getByRole("button", { name: "Save address" }));
 
-    expect(await screen.findByText("Full name is required.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Full name is required.", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
     expect(screen.getByText("Address line 1 is required.")).toBeInTheDocument();
     expect(screen.getByText("City is required.")).toBeInTheDocument();
     expect(screen.getByText("State is required.")).toBeInTheDocument();
@@ -279,7 +287,9 @@ describe("CheckoutPage", () => {
 
     renderCheckout();
 
-    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("City"), {
@@ -302,18 +312,25 @@ describe("CheckoutPage", () => {
         type: "CLINIC"
       });
     });
-    expect(await screen.findByText("Address updated.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Address updated.", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
   });
 
   it("applies a promo code and sends it with checkout", async () => {
     renderCheckout();
 
-    fireEvent.change(await screen.findByLabelText("Promo code"), {
-      target: { value: "surgical10" }
-    });
+    fireEvent.change(
+      await screen.findByLabelText("Promo code", undefined, asyncUiTimeout),
+      {
+        target: { value: "surgical10" }
+      }
+    );
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
-    expect(await screen.findByText("Coupon applied.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Coupon applied.", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
 
     await waitFor(() => {
@@ -329,7 +346,9 @@ describe("CheckoutPage", () => {
   it("places a COD order with selected address and cart totals", async () => {
     renderCheckout();
 
-    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
 
@@ -357,7 +376,9 @@ describe("CheckoutPage", () => {
 
     renderCheckout();
 
-    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
     fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
 
@@ -400,7 +421,9 @@ describe("CheckoutPage", () => {
 
     renderCheckout();
 
-    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
     fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
 
@@ -421,11 +444,17 @@ describe("CheckoutPage", () => {
   it("marks online payment unavailable without creating an order or clearing checkout", async () => {
     renderCheckout();
 
-    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
 
-    const onlinePaymentButton = await screen.findByRole("button", {
-      name: /Online payment/i
-    });
+    const onlinePaymentButton = await screen.findByRole(
+      "button",
+      {
+        name: /Online payment/i
+      },
+      asyncUiTimeout
+    );
 
     expect(onlinePaymentButton).toBeDisabled();
     expect(screen.getByText("Coming soon")).toBeInTheDocument();

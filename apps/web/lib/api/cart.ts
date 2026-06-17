@@ -63,8 +63,12 @@ export type CartItem = z.infer<typeof cartItemSchema>;
 export type CartTotals = z.infer<typeof cartTotalsSchema>;
 export type AddCartItemInput = z.infer<typeof addCartItemInputSchema>;
 
-export function getCart() {
-  return requestCustomerApi("/cart", cartSchema);
+export function getCart(shippingAddressId?: string | null) {
+  return requestCustomerApi("/cart", cartSchema, {
+    query: {
+      shippingAddressId: shippingAddressId ?? undefined
+    }
+  });
 }
 
 export function addCartItem(input: AddCartItemInput) {

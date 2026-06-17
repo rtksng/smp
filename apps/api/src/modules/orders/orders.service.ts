@@ -24,6 +24,7 @@ import {
   calculateCouponDiscount,
   normalizeCouponCode
 } from "../coupons/coupons.service";
+import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { PaymentsService } from "../payments/payments.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
@@ -198,7 +199,8 @@ export class OrdersService {
     private readonly warehouseAccessService: WarehouseAccessService,
     @Optional() private readonly queueService?: ApiQueueService,
     @Optional() private readonly cartService?: CartService,
-    @Optional() private readonly paymentsService?: PaymentsService
+    @Optional() private readonly paymentsService?: PaymentsService,
+    @Optional() private readonly deliveryChargesService?: DeliveryChargesService
   ) {}
 
   async createOrder(customerId: string, input: CreateOrderDto) {
@@ -218,11 +220,23 @@ export class OrdersService {
       const lines = cart.items.map((item) => this.buildFulfillmentLine(item));
       const allocations = await this.reserveInventory(tx, lines);
       const primaryWarehouseId = allocations[0]?.warehouseId ?? null;
-      const totals = calculateTotals(
+      const itemTotals = calculateTotals(
         allocations.map((allocation) =>
           buildAllocationTotals(allocation.line, allocation.quantity)
         )
       );
+      const deliveryCharge = await this.calculateDeliveryCharge(
+        shippingAddress.pincode,
+        itemTotals.subtotal,
+        primaryWarehouseId
+      );
+      const totals = {
+        ...itemTotals,
+        deliveryCharge,
+        grandTotal: roundMoney(
+          itemTotals.subtotal + itemTotals.tax + deliveryCharge
+        )
+      };
       const couponApplication = await this.applyCouponDiscount(
         tx,
         input.couponCode,
@@ -978,6 +992,24 @@ export class OrdersService {
     };
   }
 
+  private async calculateDeliveryCharge(
+    pincode: string | null,
+    subtotal: number,
+    warehouseId: string | null
+  ) {
+    if (!this.deliveryChargesService || subtotal <= 0) {
+      return 0;
+    }
+
+    const quote = await this.deliveryChargesService.calculateDeliveryCharge({
+      pincode,
+      subtotal,
+      warehouseId
+    });
+
+    return quote.deliveryCharge;
+  }
+
   private async incrementCouponUsage(
     client: OrderClient,
     couponId: string | null
@@ -1368,6 +1400,8 @@ export class OrdersService {
               taxType: order.gstInvoice.taxType
             },
             totals: {
+              deliveryCharge: decimalToNumber(order.gstInvoice.shippingTotal),
+              discount: decimalToNumber(order.gstInvoice.discountTotal),
               grandTotal: decimalToNumber(order.gstInvoice.grandTotal),
               subtotal: decimalToNumber(order.gstInvoice.subtotal),
               tax: decimalToNumber(order.gstInvoice.taxTotal)

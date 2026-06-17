@@ -751,6 +751,8 @@ function InvoiceDetails({ order }: { order: AdminOrder }) {
       <DetailItem label="PDF status" value={order.invoice.pdfStatus} />
       <DetailItem label="Tax type" value={order.invoice.taxBreakup.taxType} />
       <DetailItem label="Subtotal" value={formatCurrency(order.invoice.totals.subtotal)} />
+      <DetailItem label="Discount" value={formatCurrency(order.invoice.totals.discount)} />
+      <DetailItem label="Delivery" value={formatCurrency(order.invoice.totals.deliveryCharge)} />
       <DetailItem label="Tax" value={formatCurrency(order.invoice.totals.tax)} />
       <DetailItem label="Grand total" value={formatCurrency(order.invoice.totals.grandTotal)} wide />
     </div>

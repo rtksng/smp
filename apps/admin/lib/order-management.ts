@@ -127,6 +127,8 @@ export type InvoiceSummary = {
     taxType: string;
   };
   totals: {
+    deliveryCharge: number;
+    discount: number;
     grandTotal: number;
     subtotal: number;
     tax: number;

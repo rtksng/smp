@@ -64,7 +64,7 @@ function CartContent() {
   const queryClient = useQueryClient();
   const setCartSummary = useCartStore((state) => state.setSummary);
   const cartQuery = useQuery({
-    queryFn: getCart,
+    queryFn: () => getCart(),
     queryKey: customerQueryKeys.cart()
   });
 

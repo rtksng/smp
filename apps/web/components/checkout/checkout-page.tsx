@@ -133,7 +133,7 @@ function CheckoutContent() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const cartQuery = useQuery({
-    queryFn: getCart,
+    queryFn: () => getCart(selectedAddressId),
     queryKey: customerQueryKeys.cart()
   });
   const addressesQuery = useQuery({
@@ -181,6 +181,7 @@ function CheckoutContent() {
     }
   });
   const cart = cartQuery.data;
+  const refetchCart = cartQuery.refetch;
   const addresses = useMemo(() => addressesQuery.data ?? [], [addressesQuery.data]);
   const selectedAddress =
     addresses.find((address) => address.id === selectedAddressId) ?? null;
@@ -200,6 +201,12 @@ function CheckoutContent() {
       setCartSummary(cart);
     }
   }, [cart, setCartSummary]);
+
+  useEffect(() => {
+    if (selectedAddressId) {
+      void refetchCart();
+    }
+  }, [refetchCart, selectedAddressId]);
 
   useEffect(() => {
     if (customer?.mobileNumber && addressForm.phone.length === 0) {
@@ -232,7 +239,7 @@ function CheckoutContent() {
 
   function applyEmptyCart() {
     resetCartSummary();
-    queryClient.setQueryData<Cart | undefined>(customerQueryKeys.cart(), (existing) =>
+    const clearCartData = (existing: Cart | undefined) =>
       existing
         ? {
             ...existing,
@@ -247,8 +254,9 @@ function CheckoutContent() {
               tax: 0
             }
           }
-        : existing
-    );
+        : existing;
+
+    queryClient.setQueryData<Cart | undefined>(customerQueryKeys.cart(), clearCartData);
   }
 
   function openCreateAddressForm() {

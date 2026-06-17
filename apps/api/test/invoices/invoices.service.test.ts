@@ -69,7 +69,8 @@ function createInvoicePrismaMock(input?: {
     },
     createdAt: now,
     deletedAt: null,
-    grandTotal: "236.00",
+    discountTotal: "10.00",
+    grandTotal: "276.00",
     id: "order-1",
     items: [
       {
@@ -105,6 +106,7 @@ function createInvoicePrismaMock(input?: {
     },
     status: input?.orderStatus ?? "CONFIRMED",
     subtotal: "200.00",
+    shippingTotal: "50.00",
     taxTotal: "36.00",
     updatedAt: now,
     user: {
@@ -215,6 +217,11 @@ test("getCustomerInvoice creates a same-state GST invoice with CGST and SGST fro
   assert.equal(invoice.items[0].igstAmount, 0);
   assert.match(invoice.html, /Curved Artery Forceps/);
   assert.match(invoice.html, /CGST/);
+  assert.match(invoice.html, /Delivery charge/);
+  assert.match(invoice.html, /Discount/);
+  assert.equal(invoice.totals.deliveryCharge, 50);
+  assert.equal(invoice.totals.discount, 10);
+  assert.equal(invoice.totals.grandTotal, 276);
   assert.equal(invoice.pdf.available, true);
   assert.equal(invoice.pdf.status, "ON_DEMAND");
   assert.equal(prisma.calls.gSTInvoiceCreate.length, 1);

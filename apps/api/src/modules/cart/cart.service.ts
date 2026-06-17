@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
@@ -11,6 +12,7 @@ import {
   WarehouseStatus
 } from "../../generated/prisma/client";
 import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
+import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
 
 const CART_INCLUDE = {
   items: {
@@ -45,19 +47,36 @@ type ReplaceCartItemInput = {
 type CartClient =
   | Pick<
       Prisma.TransactionClient,
-      "cart" | "cartItem" | "inventoryStock" | "product" | "productVariant" | "user"
+      | "address"
+      | "cart"
+      | "cartItem"
+      | "inventoryStock"
+      | "product"
+      | "productVariant"
+      | "user"
     >
   | PrismaService;
 type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type CartSerializationOptions = {
+  shippingAddressId?: string | null;
+};
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly deliveryChargesService?: DeliveryChargesService
+  ) {}
 
-  async getCart(customerId: string) {
+  async getCart(customerId: string, options: CartSerializationOptions = {}) {
     await this.assertActiveCustomer(customerId);
 
-    return this.serializeCart(await this.getCartSnapshot(customerId));
+    return this.serializeCart(
+      await this.getCartSnapshot(customerId),
+      this.prisma,
+      customerId,
+      options
+    );
   }
 
   async addItem(customerId: string, input: AddCartItemDto) {
@@ -352,7 +371,12 @@ export class CartService {
     }
   }
 
-  private async serializeCart(cart: CartRecord, client: CartClient = this.prisma) {
+  private async serializeCart(
+    cart: CartRecord,
+    client: CartClient = this.prisma,
+    customerId = cart.userId,
+    options: CartSerializationOptions = {}
+  ) {
     const items = await Promise.all(
       cart.items.map((item) => this.serializeCartItem(item, client))
     );
@@ -361,7 +385,12 @@ export class CartService {
     );
     const tax = roundMoney(items.reduce((sum, item) => sum + item.tax, 0));
     const discount = 0;
-    const deliveryCharge = 0;
+    const deliveryCharge = await this.calculateDeliveryCharge(
+      client,
+      customerId,
+      subtotal,
+      options
+    );
 
     return {
       id: cart.id,
@@ -451,6 +480,66 @@ export class CartService {
     });
 
     return stock._sum.availableQuantity ?? 0;
+  }
+
+  private async calculateDeliveryCharge(
+    client: CartClient,
+    customerId: string,
+    subtotal: number,
+    options: CartSerializationOptions
+  ) {
+    if (!this.deliveryChargesService || subtotal <= 0) {
+      return 0;
+    }
+
+    const pincode = await this.resolveDeliveryPincode(
+      client,
+      customerId,
+      options.shippingAddressId
+    );
+    const quote = await this.deliveryChargesService.calculateDeliveryCharge({
+      pincode,
+      subtotal,
+      warehouseId: null
+    });
+
+    return quote.deliveryCharge;
+  }
+
+  private async resolveDeliveryPincode(
+    client: CartClient,
+    customerId: string,
+    shippingAddressId?: string | null
+  ) {
+    if (shippingAddressId) {
+      const selectedAddress = await client.address.findFirst({
+        where: {
+          deletedAt: null,
+          id: shippingAddressId,
+          userId: customerId
+        }
+      });
+
+      if (!selectedAddress) {
+        throw new BadRequestException("Shipping address was not found.");
+      }
+
+      return selectedAddress.pincode;
+    }
+
+    const defaultAddress = await client.address.findFirst({
+      orderBy: [
+        { isDefault: "desc" as const },
+        { createdAt: "desc" as const },
+        { id: "asc" as const }
+      ],
+      where: {
+        deletedAt: null,
+        userId: customerId
+      }
+    });
+
+    return defaultAddress?.pincode ?? null;
   }
 }
 

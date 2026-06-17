@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards
@@ -30,6 +31,7 @@ import { CartService } from "./cart.service";
 import {
   AddCartItemDto,
   CartResponseDto,
+  GetCartQueryDto,
   UpdateCartItemDto
 } from "./dto/cart.dto";
 
@@ -47,8 +49,11 @@ export class CartController {
     type: CartResponseDto
   })
   @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
-  getCart(@Req() request: AuthenticatedRequest) {
-    return this.cartService.getCart(getCustomerId(request));
+  getCart(
+    @Query() query: GetCartQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.cartService.getCart(getCustomerId(request), query);
   }
 
   @Post("items")

@@ -135,6 +135,24 @@ class FakeRefundProcessor {
   }
 }
 
+class FakeDeliveryChargesService {
+  readonly calls: unknown[] = [];
+
+  constructor(private readonly deliveryCharge = 75) {}
+
+  async calculateDeliveryCharge(input: unknown) {
+    this.calls.push(input);
+
+    return {
+      deliveryCharge: this.deliveryCharge,
+      rule: {
+        id: "rule-1",
+        name: "Delhi delivery"
+      }
+    };
+  }
+}
+
 function createOrdersPrismaMock(input?: {
   batchQuantity?: number;
   existingOrderItems?: Array<{
@@ -464,6 +482,7 @@ function createOrdersPrismaMock(input?: {
   };
   const invoice = {
     cgstTotal: "21.60",
+    discountTotal: "0.00",
     grandTotal: "283.20",
     id: "invoice-1",
     igstTotal: "0.00",
@@ -471,6 +490,7 @@ function createOrdersPrismaMock(input?: {
     issuedAt: now,
     pdfStatus: "NOT_GENERATED",
     sgstTotal: "21.60",
+    shippingTotal: "0.00",
     subtotal: "240.00",
     taxTotal: "43.20",
     taxType: "CGST_SGST"
@@ -1083,6 +1103,41 @@ test("createOrder applies a valid coupon to order and payment totals", async () 
   assert.equal(prisma.calls.couponUpdate.length, 1);
 });
 
+test("createOrder stores dynamic delivery charge on order and payment totals", async () => {
+  const prisma = createOrdersPrismaMock();
+  const deliveryCharges = new FakeDeliveryChargesService(75);
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    undefined,
+    undefined,
+    undefined,
+    deliveryCharges as never
+  );
+
+  const order = await service.createOrder("customer-1", {
+    paymentMethod: "COD",
+    shippingAddressId: "address-1"
+  });
+
+  assert.equal(order.totals.deliveryCharge, 75);
+  assert.equal(order.totals.grandTotal, 358.2);
+  assert.deepEqual(deliveryCharges.calls[0], {
+    pincode: "110001",
+    subtotal: 240,
+    warehouseId: "warehouse-1"
+  });
+  assert.equal(
+    (prisma.calls.orderCreate[0] as { data: { shippingTotal: number } }).data
+      .shippingTotal,
+    75
+  );
+  assert.equal(
+    (prisma.calls.paymentCreate[0] as { data: { amount: number } }).data.amount,
+    358.2
+  );
+});
+
 test("createOrder enqueues an order confirmation notification after checkout succeeds", async () => {
   const prisma = createOrdersPrismaMock();
   const queue = new FakeOrderQueue();
@@ -1467,6 +1522,8 @@ test("getAdminOrder serializes customer, warehouse, payment, and invoice details
       taxType: "CGST_SGST"
     },
     totals: {
+      deliveryCharge: 0,
+      discount: 0,
       grandTotal: 283.2,
       subtotal: 240,
       tax: 43.2

@@ -158,6 +158,8 @@ function buildInvoicePdfLines(invoice: InvoiceResponse): PdfTextLine[] {
     { gapAfter: 8, text: "" },
     { font: "F2", fontSize: 12, text: "Totals" },
     { text: `Subtotal: ${formatMoney(invoice.totals.subtotal)}` },
+    { text: `Discount: ${formatMoney(invoice.totals.discount)}` },
+    { text: `Delivery charge: ${formatMoney(invoice.totals.deliveryCharge)}` },
     { text: `CGST: ${formatMoney(invoice.taxBreakup.cgst)}` },
     { text: `SGST: ${formatMoney(invoice.taxBreakup.sgst)}` },
     { text: `IGST: ${formatMoney(invoice.taxBreakup.igst)}` },

@@ -9,6 +9,7 @@ import { CartModule } from "../../src/modules/cart/cart.module";
 import { CategoriesModule } from "../../src/modules/categories/categories.module";
 import { CouponsModule } from "../../src/modules/coupons/coupons.module";
 import { CustomersModule } from "../../src/modules/customers/customers.module";
+import { DeliveryChargesModule } from "../../src/modules/delivery-charges/delivery-charges.module";
 import { DeliveryModule } from "../../src/modules/delivery/delivery.module";
 import { InventoryModule } from "../../src/modules/inventory/inventory.module";
 import { OrdersModule } from "../../src/modules/orders/orders.module";
@@ -29,6 +30,7 @@ const guardedModules = [
   CategoriesModule,
   CouponsModule,
   CustomersModule,
+  DeliveryChargesModule,
   DeliveryModule,
   InventoryModule,
   OrdersModule,

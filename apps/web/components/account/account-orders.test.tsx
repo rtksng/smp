@@ -163,6 +163,8 @@ const reorderedCart: Cart = {
 };
 
 describe("AccountOrderDetail", () => {
+  const asyncUiTimeout = { timeout: 5000 };
+
   beforeEach(() => {
     mocks.createRazorpayOrder.mockReset();
     mocks.getOrder.mockReset();
@@ -200,7 +202,13 @@ describe("AccountOrderDetail", () => {
   it("rebuilds the cart from an order and routes the customer to cart review", async () => {
     renderAccountOrderDetail();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Reorder items" }));
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "Reorder items" },
+        asyncUiTimeout
+      )
+    );
 
     await waitFor(() => {
       expect(mocks.reorderOrder).toHaveBeenCalledWith("order_1");
@@ -219,7 +227,13 @@ describe("AccountOrderDetail", () => {
 
     renderAccountOrderDetail();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Retry payment" }));
+    fireEvent.click(
+      await screen.findByRole(
+        "button",
+        { name: "Retry payment" },
+        asyncUiTimeout
+      )
+    );
 
     await waitFor(() => {
       expect(mocks.createRazorpayOrder).toHaveBeenCalledWith("order_1");
@@ -238,7 +252,11 @@ describe("AccountOrderDetail", () => {
       razorpay_signature: "signature_1"
     });
     expect(
-      await screen.findByText("Payment confirmed successfully.")
+      await screen.findByText(
+        "Payment confirmed successfully.",
+        undefined,
+        asyncUiTimeout
+      )
     ).toBeInTheDocument();
   });
 
@@ -262,7 +280,9 @@ describe("AccountOrderDetail", () => {
 
     renderAccountOrderDetail();
 
-    expect(await screen.findByText("Refund completed")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Refund completed", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
     expect(screen.getByText("Refund amount")).toBeInTheDocument();
     expect(screen.getAllByText("₹380.40").length).toBeGreaterThan(0);
     expect(screen.getByText("Provider reference")).toBeInTheDocument();

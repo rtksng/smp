@@ -18,6 +18,7 @@ import { CategoriesModule } from "./modules/categories/categories.module";
 import { CustomersModule } from "./modules/customers/customers.module";
 import { CouponsModule } from "./modules/coupons/coupons.module";
 import { DeliveryModule } from "./modules/delivery/delivery.module";
+import { DeliveryChargesModule } from "./modules/delivery-charges/delivery-charges.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { OrdersModule } from "./modules/orders/orders.module";
@@ -60,6 +61,7 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
     AdminUsersModule,
     CustomersModule,
     CouponsModule,
+    DeliveryChargesModule,
     DeliveryModule,
     CartModule,
     CategoriesModule,

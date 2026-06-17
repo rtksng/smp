@@ -91,6 +91,7 @@ type InvoiceDraft = {
   customerMobileNumber: string;
   customerName: string;
   destinationState: string;
+  discountTotal: number;
   grandTotal: number;
   gstNumber: string | null;
   igstTotal: number;
@@ -102,6 +103,7 @@ type InvoiceDraft = {
   pdfStatus: string;
   placeOfSupply: string;
   sgstTotal: number;
+  shippingTotal: number;
   sourceState: string | null;
   subtotal: number;
   taxTotal: number;
@@ -148,6 +150,8 @@ export type InvoiceResponse = {
     taxType: TaxType;
   };
   totals: {
+    deliveryCharge: number;
+    discount: number;
     grandTotal: number;
     subtotal: number;
     tax: number;
@@ -214,6 +218,7 @@ export class InvoicesService {
         customerMobileNumber: draft.customerMobileNumber,
         customerName: draft.customerName,
         destinationState: draft.destinationState,
+        discountTotal: draft.discountTotal,
         grandTotal: draft.grandTotal,
         gstNumber: draft.gstNumber,
         html,
@@ -245,6 +250,7 @@ export class InvoicesService {
         pdfStatus: draft.pdfStatus,
         placeOfSupply: draft.placeOfSupply,
         sgstTotal: draft.sgstTotal,
+        shippingTotal: draft.shippingTotal,
         sourceState: draft.sourceState,
         subtotal: draft.subtotal,
         taxTotal: draft.taxTotal,
@@ -333,6 +339,7 @@ export class InvoicesService {
       customerMobileNumber: order.user.mobileNumber,
       customerName,
       destinationState,
+      discountTotal: decimalToNumber(order.discountTotal),
       grandTotal: decimalToNumber(order.grandTotal),
       gstNumber: order.user.gstNumber,
       igstTotal,
@@ -344,6 +351,7 @@ export class InvoicesService {
       pdfStatus: "NOT_GENERATED",
       placeOfSupply: destinationState,
       sgstTotal,
+      shippingTotal: decimalToNumber(order.shippingTotal),
       sourceState,
       subtotal: decimalToNumber(order.subtotal),
       taxTotal: roundMoney(cgstTotal + sgstTotal + igstTotal),
@@ -433,6 +441,8 @@ export class InvoicesService {
         taxType: invoice.taxType as TaxType
       },
       totals: {
+        deliveryCharge: decimalToNumber(invoice.shippingTotal),
+        discount: decimalToNumber(invoice.discountTotal),
         grandTotal: decimalToNumber(invoice.grandTotal),
         subtotal: decimalToNumber(invoice.subtotal),
         tax: decimalToNumber(invoice.taxTotal)
@@ -547,6 +557,8 @@ function renderInvoiceHtml(invoice: InvoiceDraft) {
   <table class="totals">
     <tbody>
       <tr><th>Subtotal</th><td>${formatMoney(invoice.subtotal)}</td></tr>
+      <tr><th>Discount</th><td>${formatMoney(invoice.discountTotal)}</td></tr>
+      <tr><th>Delivery charge</th><td>${formatMoney(invoice.shippingTotal)}</td></tr>
       <tr><th>CGST</th><td>${formatMoney(invoice.cgstTotal)}</td></tr>
       <tr><th>SGST</th><td>${formatMoney(invoice.sgstTotal)}</td></tr>
       <tr><th>IGST</th><td>${formatMoney(invoice.igstTotal)}</td></tr>

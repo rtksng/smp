@@ -111,6 +111,11 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
+    href: "/delivery-charges",
+    label: "Delivery Charges",
+    permissions: [ADMIN_PERMISSION.SettingsManage]
+  },
+  {
     href: "/reports",
     label: "Reports",
     permissions: [ADMIN_PERMISSION.ReportsRead]

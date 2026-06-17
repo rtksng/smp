@@ -58,7 +58,7 @@ export function Header() {
   );
   const cartQuery = useQuery({
     enabled: Boolean(session),
-    queryFn: getCart,
+    queryFn: () => getCart(),
     queryKey: customerQueryKeys.cart()
   });
   const logoutMutation = useMutation(

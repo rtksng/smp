@@ -61,6 +61,14 @@ type InventoryStockFixture = {
   variantId: string | null;
 };
 
+type AddressFixture = {
+  deletedAt: Date | null;
+  id: string;
+  isDefault: boolean;
+  pincode: string;
+  userId: string;
+};
+
 type CartFixture = {
   createdAt: Date;
   deletedAt: Date | null;
@@ -81,6 +89,7 @@ type CartItemFixture = {
 
 type CartPrismaMock = PrismaService & {
   calls: {
+    addressFindFirst: unknown[];
     cartCreate: unknown[];
     cartFindFirst: unknown[];
     cartItemCreate: unknown[];
@@ -194,6 +203,35 @@ function stockFixture(
   };
 }
 
+function addressFixture(input: Partial<AddressFixture> = {}): AddressFixture {
+  return {
+    deletedAt: null,
+    id: "address-1",
+    isDefault: true,
+    pincode: "110001",
+    userId: "customer-1",
+    ...input
+  };
+}
+
+class FakeDeliveryChargesService {
+  readonly calls: unknown[] = [];
+
+  constructor(private readonly deliveryCharge = 75) {}
+
+  async calculateDeliveryCharge(input: unknown) {
+    this.calls.push(input);
+
+    return {
+      deliveryCharge: this.deliveryCharge,
+      rule: {
+        id: "rule-1",
+        name: "Delhi delivery"
+      }
+    };
+  }
+}
+
 function createCartPrismaMock(input?: {
   cart?: CartFixture;
   items?: CartItemFixture[];
@@ -201,13 +239,16 @@ function createCartPrismaMock(input?: {
   stocks?: InventoryStockFixture[];
   user?: UserFixture | null;
   variants?: ProductVariantFixture[];
+  addresses?: AddressFixture[];
 }): CartPrismaMock {
   const carts = [input?.cart ?? cartFixture()];
   const items = [...(input?.items ?? [])];
   const products = input?.products ?? [productFixture()];
   const variants = input?.variants ?? [variantFixture()];
   const stocks = input?.stocks ?? [stockFixture()];
+  const addresses = input?.addresses ?? [addressFixture()];
   const calls: CartPrismaMock["calls"] = {
+    addressFindFirst: [],
     cartCreate: [],
     cartFindFirst: [],
     cartItemCreate: [],
@@ -225,6 +266,21 @@ function createCartPrismaMock(input?: {
     calls,
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
       callback(prisma),
+    address: {
+      findFirst: async (args: { where?: { id?: string; userId?: string } }) => {
+        calls.addressFindFirst.push(args);
+
+        return (
+          addresses.find(
+            (address) =>
+              (args.where?.id === undefined || address.id === args.where.id) &&
+              (args.where?.userId === undefined ||
+                address.userId === args.where.userId) &&
+              address.deletedAt === null
+          ) ?? null
+        );
+      }
+    },
     cart: {
       create: async (args: { data: { userId: string } }) => {
         calls.cartCreate.push(args);
@@ -541,6 +597,30 @@ test("replaceWithItem validates stock before clearing the existing cart", async 
   );
   assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
   assert.equal(prisma.calls.cartItemCreate.length, 0);
+});
+
+test("getCart includes a dynamic delivery charge for the selected shipping address", async () => {
+  const prisma = createCartPrismaMock({
+    items: [cartItemFixture({ quantity: 2, variantId: "variant-1" })],
+    stocks: [stockFixture({ availableQuantity: 5, variantId: "variant-1" })]
+  });
+  const deliveryCharges = new FakeDeliveryChargesService(75);
+  const service = new CartService(
+    prisma,
+    deliveryCharges as never
+  );
+
+  const cart = await service.getCart("customer-1", {
+    shippingAddressId: "address-1"
+  } as never);
+
+  assert.equal(cart.totals.deliveryCharge, 75);
+  assert.equal(cart.totals.grandTotal, 405.4);
+  assert.deepEqual(deliveryCharges.calls[0], {
+    pincode: "110001",
+    subtotal: 280,
+    warehouseId: null
+  });
 });
 
 test("replaceWithItems prepares a multi-item cart for reorder", async () => {
