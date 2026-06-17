@@ -1,0 +1,16 @@
+.git
+.next
+.turbo
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+tmp
+storage
+apps/api/storage/uploads
+*.dump
+*.log
+.env
+.env.*
+!.env.example
