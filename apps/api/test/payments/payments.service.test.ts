@@ -32,6 +32,19 @@ type FakePayment = {
   transactionRef: string | null;
 };
 
+type FakeRefund = {
+  amount: string;
+  createdAt: Date;
+  id: string;
+  orderId: string;
+  paymentId: string | null;
+  processedAt: Date | null;
+  providerRefundId: string | null;
+  reason: string | null;
+  status: string;
+  updatedAt: Date;
+};
+
 type FakeOrder = {
   deletedAt: Date | null;
   grandTotal: string;
@@ -43,10 +56,7 @@ type FakeOrder = {
   userId: string;
 };
 
-function createPaymentSignature(
-  razorpayOrderId: string,
-  razorpayPaymentId: string
-) {
+function createPaymentSignature(razorpayOrderId: string, razorpayPaymentId: string) {
   return createHmac("sha256", keySecret)
     .update(`${razorpayOrderId}|${razorpayPaymentId}`)
     .digest("hex");
@@ -60,6 +70,8 @@ function createPaymentsPrismaMock(input?: {
   existingWebhookEventId?: string;
   order?: Partial<FakeOrder>;
   payment?: Partial<FakePayment>;
+  payments?: Partial<FakePayment>[];
+  refund?: Partial<FakeRefund>;
 }) {
   const payment: FakePayment = {
     amount: "283.20",
@@ -75,27 +87,60 @@ function createPaymentsPrismaMock(input?: {
     transactionRef: null,
     ...input?.payment
   };
+  const payments: FakePayment[] = [
+    payment,
+    ...(input?.payments ?? []).map((entry, index) => ({
+      ...payment,
+      id: `payment-${index + 2}`,
+      providerAmountPaise: null,
+      providerOrderId: null,
+      providerPaymentId: null,
+      transactionRef: null,
+      ...entry
+    }))
+  ];
   const order: FakeOrder = {
     deletedAt: null,
     grandTotal: "283.20",
     id: "order-1",
     orderNumber: "ORD-20260525-000001",
     paymentStatus: "PENDING",
-    payments: [payment],
+    payments,
     status: "CREATED",
     userId: "customer-1",
     ...input?.order
   };
+  const refunds: FakeRefund[] = input?.refund
+    ? [
+        {
+          amount: input.refund.amount ?? payment.amount,
+          createdAt: now,
+          id: input.refund.id ?? "refund-1",
+          orderId: input.refund.orderId ?? order.id,
+          paymentId:
+            input.refund.paymentId === undefined ? payment.id : input.refund.paymentId,
+          processedAt: input.refund.processedAt ?? null,
+          providerRefundId: input.refund.providerRefundId ?? null,
+          reason: input.refund.reason ?? "Customer requested return.",
+          status: input.refund.status ?? "PENDING",
+          updatedAt: now
+        }
+      ]
+    : [];
   const calls: Record<string, unknown[]> = {
     cartItemDeleteMany: [],
     orderFindFirst: [],
     orderStatusHistoryCreate: [],
     orderUpdate: [],
+    paymentCreate: [],
     paymentFindFirst: [],
     paymentUpdate: [],
     paymentWebhookCreate: [],
     paymentWebhookFindFirst: [],
-    refundCreate: []
+    refundCreate: [],
+    refundFindFirst: [],
+    refundFindMany: [],
+    refundUpdate: []
   };
   const existingWebhookIds = new Set<string>();
 
@@ -107,7 +152,9 @@ function createPaymentsPrismaMock(input?: {
     calls,
     records: {
       order,
-      payment
+      payment,
+      payments,
+      refunds
     },
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>
       callback(prisma),
@@ -145,40 +192,80 @@ function createPaymentsPrismaMock(input?: {
       }
     },
     payment: {
+      create: async (args: { data: Partial<FakePayment> }) => {
+        calls.paymentCreate.push(args);
+        const createdPayment: FakePayment = {
+          amount: String(args.data.amount ?? payment.amount),
+          id: `payment-${payments.length + 1}`,
+          method: args.data.method ?? "ONLINE",
+          orderId: args.data.orderId ?? order.id,
+          paidAt: null,
+          provider: null,
+          providerAmountPaise: null,
+          providerOrderId: null,
+          providerPaymentId: null,
+          status: args.data.status ?? "PENDING",
+          transactionRef: null
+        };
+
+        payments.push(createdPayment);
+        order.payments = payments;
+        return createdPayment;
+      },
       findFirst: async (args: unknown) => {
         calls.paymentFindFirst.push(args);
-        const where = (args as {
-          where: {
-            id?: string;
-            providerOrderId?: string;
-            providerPaymentId?: string;
-          };
-        }).where;
+        const where = (
+          args as {
+            where: {
+              id?: string;
+              providerOrderId?: string;
+              providerPaymentId?: string;
+            };
+          }
+        ).where;
+        const matchingPayment = payments.find((candidate) => {
+          if (
+            where.providerOrderId &&
+            where.providerOrderId !== candidate.providerOrderId
+          ) {
+            return false;
+          }
 
-        if (where.providerOrderId && where.providerOrderId !== payment.providerOrderId) {
-          return null;
-        }
+          if (
+            where.providerPaymentId &&
+            where.providerPaymentId !== candidate.providerPaymentId
+          ) {
+            return false;
+          }
 
-        if (
-          where.providerPaymentId &&
-          where.providerPaymentId !== payment.providerPaymentId
-        ) {
-          return null;
-        }
+          if (where.id && where.id !== candidate.id) {
+            return false;
+          }
 
-        if (where.id && where.id !== payment.id) {
+          return true;
+        });
+
+        if (!matchingPayment) {
           return null;
         }
 
         return {
-          ...payment,
+          ...matchingPayment,
           order
         };
       },
       update: async (args: { data: Partial<FakePayment>; where: { id: string } }) => {
         calls.paymentUpdate.push(args);
-        Object.assign(payment, args.data);
-        return payment;
+        const targetPayment = payments.find(
+          (candidate) => candidate.id === args.where.id
+        );
+
+        if (!targetPayment) {
+          throw new Error(`Payment ${args.where.id} not found in mock.`);
+        }
+
+        Object.assign(targetPayment, args.data);
+        return targetPayment;
       }
     },
     paymentWebhook: {
@@ -226,6 +313,99 @@ function createPaymentsPrismaMock(input?: {
         return {
           id: "refund-1"
         };
+      },
+      findFirst: async (args: unknown) => {
+        calls.refundFindFirst.push(args);
+        const where = (
+          args as {
+            where?: {
+              id?: string;
+              orderId?: string;
+              providerRefundId?: string;
+              status?: { in?: string[] } | string;
+            };
+          }
+        ).where ?? {};
+        const refund =
+          refunds.find((candidate) => {
+            if (where.id && candidate.id !== where.id) {
+              return false;
+            }
+
+            if (where.orderId && candidate.orderId !== where.orderId) {
+              return false;
+            }
+
+            if (
+              where.providerRefundId &&
+              candidate.providerRefundId !== where.providerRefundId
+            ) {
+              return false;
+            }
+
+            if (
+              typeof where.status === "string" &&
+              candidate.status !== where.status
+            ) {
+              return false;
+            }
+
+            if (
+              typeof where.status === "object" &&
+              where.status.in &&
+              !where.status.in.includes(candidate.status)
+            ) {
+              return false;
+            }
+
+            return true;
+          }) ?? null;
+
+        if (!refund) {
+          return null;
+        }
+
+        return {
+          ...refund,
+          order,
+          payment: refund.paymentId
+            ? payments.find((candidate) => candidate.id === refund.paymentId) ?? null
+            : null
+        };
+      },
+      findMany: async (args: unknown) => {
+        calls.refundFindMany.push(args);
+        const where = (
+          args as {
+            where?: {
+              paymentId?: string;
+              status?: string;
+            };
+          }
+        ).where ?? {};
+
+        return refunds.filter((candidate) => {
+          if (where.paymentId && candidate.paymentId !== where.paymentId) {
+            return false;
+          }
+
+          if (where.status && candidate.status !== where.status) {
+            return false;
+          }
+
+          return true;
+        });
+      },
+      update: async (args: { data: Partial<FakeRefund>; where: { id: string } }) => {
+        calls.refundUpdate.push(args);
+        const refund = refunds.find((candidate) => candidate.id === args.where.id);
+
+        if (!refund) {
+          throw new Error(`Refund ${args.where.id} not found in mock.`);
+        }
+
+        Object.assign(refund, args.data);
+        return refund;
       }
     }
   };
@@ -235,7 +415,9 @@ function createPaymentsPrismaMock(input?: {
 
 function createRazorpayClientMock() {
   const calls: Record<string, unknown[]> = {
-    createOrder: []
+    createOrder: [],
+    createRefund: [],
+    fetchRefund: []
   };
   const client = {
     calls,
@@ -250,14 +432,33 @@ function createRazorpayClientMock() {
         status: "created"
       };
     },
+    createRefund: async (paymentId: string, input: unknown) => {
+      calls.createRefund.push({ input, paymentId });
+
+      return {
+        amount: 28320,
+        id: "rfnd_razorpay_1",
+        payment_id: paymentId,
+        status: "processed"
+      };
+    },
+    fetchRefund: async (refundId: string) => {
+      calls.fetchRefund.push(refundId);
+
+      return {
+        amount: 28320,
+        id: refundId,
+        payment_id: "pay_razorpay_1",
+        status: "processed"
+      };
+    },
     getKeyId: () => "rzp_test_key",
     isConfigured: () => true,
     verifyPaymentSignature: (
       razorpayOrderId: string,
       razorpayPaymentId: string,
       signature: string
-    ) =>
-      signature === createPaymentSignature(razorpayOrderId, razorpayPaymentId),
+    ) => signature === createPaymentSignature(razorpayOrderId, razorpayPaymentId),
     verifyWebhookSignature: (rawBody: Buffer, signature: string) =>
       signature === createWebhookSignature(rawBody)
   };
@@ -362,6 +563,38 @@ test("createRazorpayOrder rejects cancelled orders and does not create a gateway
   assert.equal(razorpayClient.calls.createOrder.length, 0);
 });
 
+test("createRazorpayOrder creates a fresh attempt for failed online payments", async () => {
+  const prisma = createPaymentsPrismaMock({
+    order: {
+      paymentStatus: "FAILED"
+    },
+    payment: {
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_failed_1",
+      providerPaymentId: "pay_failed_1",
+      status: "FAILED",
+      transactionRef: "pay_failed_1"
+    }
+  });
+  const razorpayClient = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpayClient as unknown as RazorpayClient
+  );
+
+  const result = await service.createRazorpayOrder("customer-1", {
+    orderId: "order-1"
+  });
+  const retryPayment = prisma.records.payments[1];
+
+  assert.equal(prisma.calls.paymentCreate.length, 1);
+  assert.equal(prisma.records.order.paymentStatus, "PENDING");
+  assert.equal(retryPayment?.status, "PENDING");
+  assert.equal(retryPayment?.providerOrderId, "order_razorpay_1");
+  assert.equal(result.paymentId, retryPayment?.id);
+});
+
 test("verifyRazorpayPayment verifies the signature and confirms a created order", async () => {
   const prisma = createPaymentsPrismaMock({
     payment: {
@@ -378,10 +611,7 @@ test("verifyRazorpayPayment verifies the signature and confirms a created order"
     orderId: "order-1",
     razorpay_order_id: "order_razorpay_1",
     razorpay_payment_id: "pay_razorpay_1",
-    razorpay_signature: createPaymentSignature(
-      "order_razorpay_1",
-      "pay_razorpay_1"
-    )
+    razorpay_signature: createPaymentSignature("order_razorpay_1", "pay_razorpay_1")
   });
 
   assert.equal(result.paymentStatus, "PAID");
@@ -390,6 +620,44 @@ test("verifyRazorpayPayment verifies the signature and confirms a created order"
   assert.equal(prisma.records.order.paymentStatus, "PAID");
   assert.equal(prisma.records.order.status, "CONFIRMED");
   assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
+});
+
+test("verifyRazorpayPayment confirms the matching retry attempt after an earlier failure", async () => {
+  const prisma = createPaymentsPrismaMock({
+    payment: {
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_failed_1",
+      providerPaymentId: "pay_failed_1",
+      status: "FAILED",
+      transactionRef: "pay_failed_1"
+    },
+    payments: [
+      {
+        id: "payment-retry-1",
+        provider: "razorpay",
+        providerOrderId: "order_retry_1",
+        status: "PENDING"
+      }
+    ]
+  });
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient
+  );
+
+  const result = await service.verifyRazorpayPayment("customer-1", {
+    orderId: "order-1",
+    razorpay_order_id: "order_retry_1",
+    razorpay_payment_id: "pay_retry_1",
+    razorpay_signature: createPaymentSignature("order_retry_1", "pay_retry_1")
+  });
+
+  assert.equal(result.paymentId, "payment-retry-1");
+  assert.equal(result.paymentStatus, "PAID");
+  assert.equal(prisma.records.payments[0]?.status, "FAILED");
+  assert.equal(prisma.records.payments[1]?.status, "PAID");
+  assert.equal(prisma.records.payments[1]?.providerPaymentId, "pay_retry_1");
 });
 
 test("verifyRazorpayPayment enqueues invoice generation after payment confirmation", async () => {
@@ -410,10 +678,7 @@ test("verifyRazorpayPayment enqueues invoice generation after payment confirmati
     orderId: "order-1",
     razorpay_order_id: "order_razorpay_1",
     razorpay_payment_id: "pay_razorpay_1",
-    razorpay_signature: createPaymentSignature(
-      "order_razorpay_1",
-      "pay_razorpay_1"
-    )
+    razorpay_signature: createPaymentSignature("order_razorpay_1", "pay_razorpay_1")
   });
 
   assert.equal(queue.invoiceJobs.length, 1);
@@ -475,10 +740,7 @@ test("verifyRazorpayPayment rejects stored Razorpay amount mismatches", async ()
         orderId: "order-1",
         razorpay_order_id: "order_razorpay_1",
         razorpay_payment_id: "pay_razorpay_1",
-        razorpay_signature: createPaymentSignature(
-          "order_razorpay_1",
-          "pay_razorpay_1"
-        )
+        razorpay_signature: createPaymentSignature("order_razorpay_1", "pay_razorpay_1")
       }),
     BadRequestException
   );
@@ -509,10 +771,7 @@ test("verifyRazorpayPayment prevents duplicate successful payments", async () =>
         orderId: "order-1",
         razorpay_order_id: "order_razorpay_1",
         razorpay_payment_id: "pay_razorpay_2",
-        razorpay_signature: createPaymentSignature(
-          "order_razorpay_1",
-          "pay_razorpay_2"
-        )
+        razorpay_signature: createPaymentSignature("order_razorpay_1", "pay_razorpay_2")
       }),
     ConflictException
   );
@@ -583,9 +842,8 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
       provider: (queue.paymentWebhookJobs[0] as { provider: string }).provider,
       providerEventId: (queue.paymentWebhookJobs[0] as { providerEventId: string })
         .providerEventId,
-      rawBodyBase64: (
-        queue.paymentWebhookJobs[0] as { rawBodyBase64: string }
-      ).rawBodyBase64,
+      rawBodyBase64: (queue.paymentWebhookJobs[0] as { rawBodyBase64: string })
+        .rawBodyBase64,
       signature: (queue.paymentWebhookJobs[0] as { signature: string }).signature,
       version: (queue.paymentWebhookJobs[0] as { version: number }).version
     },
@@ -598,11 +856,204 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
     }
   );
   assert.ok(
-    Date.parse(
-      (queue.paymentWebhookJobs[0] as { receivedAt: string }).receivedAt
-    )
+    Date.parse((queue.paymentWebhookJobs[0] as { receivedAt: string }).receivedAt)
   );
   assert.equal(prisma.calls.paymentWebhookCreate.length, 1);
   assert.equal(prisma.records.payment.status, "PAID");
   assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
+});
+
+test("handleRazorpayWebhook marks failed payments for customer recovery", async () => {
+  const prisma = createPaymentsPrismaMock({
+    payment: {
+      provider: "razorpay",
+      providerOrderId: "order_razorpay_1"
+    }
+  });
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient
+  );
+  const payload = {
+    account_id: "acc_1",
+    contains: ["payment"],
+    created_at: 1779693600,
+    entity: "event",
+    event: "payment.failed",
+    payload: {
+      payment: {
+        entity: {
+          amount: 28320,
+          id: "pay_failed_1",
+          order_id: "order_razorpay_1"
+        }
+      }
+    },
+    id: "evt_failed_1"
+  };
+  const rawBody = Buffer.from(JSON.stringify(payload));
+
+  const result = (await service.handleRazorpayWebhook(
+    rawBody,
+    payload,
+    createWebhookSignature(rawBody)
+  )) as Record<string, unknown>;
+
+  assert.equal(result.processed, true);
+  assert.equal(prisma.records.payment.status, "FAILED");
+  assert.equal(prisma.records.payment.providerPaymentId, "pay_failed_1");
+  assert.equal(prisma.records.order.paymentStatus, "FAILED");
+});
+
+test("processPendingOrderRefund creates a Razorpay refund and completes local refund state", async () => {
+  const prisma = createPaymentsPrismaMock({
+    order: {
+      paymentStatus: "PAID",
+      status: "RETURNED"
+    },
+    payment: {
+      paidAt: now,
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_razorpay_1",
+      providerPaymentId: "pay_razorpay_1",
+      status: "PAID",
+      transactionRef: "pay_razorpay_1"
+    },
+    refund: {
+      amount: "283.20",
+      paymentId: "payment-1",
+      reason: "Seal was damaged on arrival",
+      status: "PENDING"
+    }
+  });
+  const razorpayClient = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpayClient as unknown as RazorpayClient
+  );
+
+  const result = await service.processPendingOrderRefund("order-1");
+
+  assert.equal(result?.status, "COMPLETED");
+  assert.equal(prisma.records.refunds[0]?.providerRefundId, "rfnd_razorpay_1");
+  assert.equal(prisma.records.refunds[0]?.status, "COMPLETED");
+  assert.ok(prisma.records.refunds[0]?.processedAt instanceof Date);
+  assert.equal(prisma.records.payment.status, "REFUNDED");
+  assert.equal(prisma.records.order.paymentStatus, "REFUNDED");
+  assert.deepEqual(razorpayClient.calls.createRefund, [
+    {
+      input: {
+        amount: 28320,
+        notes: {
+          orderId: "order-1",
+          orderNumber: "ORD-20260525-000001",
+          refundId: "refund-1"
+        },
+        receipt: "refund-refund-1",
+        speed: "normal"
+      },
+      paymentId: "pay_razorpay_1"
+    }
+  ]);
+});
+
+test("processPendingOrderRefund refetches failed Razorpay refund status", async () => {
+  const prisma = createPaymentsPrismaMock({
+    order: {
+      paymentStatus: "PAID",
+      status: "RETURNED"
+    },
+    payment: {
+      paidAt: now,
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_razorpay_1",
+      providerPaymentId: "pay_razorpay_1",
+      status: "PAID",
+      transactionRef: "pay_razorpay_1"
+    },
+    refund: {
+      amount: "283.20",
+      paymentId: "payment-1",
+      providerRefundId: "rfnd_razorpay_1",
+      reason: "Seal was damaged on arrival",
+      status: "FAILED"
+    }
+  });
+  const razorpayClient = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpayClient as unknown as RazorpayClient
+  );
+
+  const result = await service.processPendingOrderRefund("order-1");
+
+  assert.equal(result?.status, "COMPLETED");
+  assert.deepEqual(razorpayClient.calls.fetchRefund, ["rfnd_razorpay_1"]);
+  assert.equal(razorpayClient.calls.createRefund.length, 0);
+  assert.equal(prisma.records.refunds[0]?.status, "COMPLETED");
+  assert.ok(prisma.records.refunds[0]?.processedAt instanceof Date);
+  assert.equal(prisma.records.payment.status, "REFUNDED");
+  assert.equal(prisma.records.order.paymentStatus, "REFUNDED");
+});
+
+test("handleRazorpayWebhook completes processing refunds from Razorpay refund webhooks", async () => {
+  const prisma = createPaymentsPrismaMock({
+    order: {
+      paymentStatus: "PAID",
+      status: "RETURNED"
+    },
+    payment: {
+      paidAt: now,
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_razorpay_1",
+      providerPaymentId: "pay_razorpay_1",
+      status: "PAID",
+      transactionRef: "pay_razorpay_1"
+    },
+    refund: {
+      amount: "283.20",
+      paymentId: "payment-1",
+      providerRefundId: "rfnd_razorpay_1",
+      reason: "Seal was damaged on arrival",
+      status: "PROCESSING"
+    }
+  });
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient
+  );
+  const payload = {
+    account_id: "acc_1",
+    contains: ["refund"],
+    created_at: 1779693600,
+    entity: "event",
+    event: "refund.processed",
+    id: "evt_refund_1",
+    payload: {
+      refund: {
+        entity: {
+          amount: 28320,
+          id: "rfnd_razorpay_1",
+          payment_id: "pay_razorpay_1",
+          status: "processed"
+        }
+      }
+    }
+  };
+  const rawBody = Buffer.from(JSON.stringify(payload));
+
+  const result = (await service.handleRazorpayWebhook(
+    rawBody,
+    payload,
+    createWebhookSignature(rawBody)
+  )) as Record<string, unknown>;
+
+  assert.equal(result.processed, true);
+  assert.equal(prisma.records.refunds[0]?.status, "COMPLETED");
+  assert.ok(prisma.records.refunds[0]?.processedAt instanceof Date);
+  assert.equal(prisma.records.payment.status, "REFUNDED");
+  assert.equal(prisma.records.order.paymentStatus, "REFUNDED");
 });

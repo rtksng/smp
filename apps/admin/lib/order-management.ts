@@ -21,8 +21,17 @@ export const PAYMENT_STATUSES = [
   "CANCELLED"
 ] as const;
 
+export const REFUND_STATUSES = [
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED"
+] as const;
+
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+export type RefundStatus = (typeof REFUND_STATUSES)[number];
 export type PaymentMethod = "COD" | "ONLINE";
 
 export type OrderFilters = {
@@ -32,6 +41,13 @@ export type OrderFilters = {
   orderNumber: string;
   paymentStatus: "" | PaymentStatus;
   status: "" | OrderStatus;
+  warehouseId: string;
+};
+
+export type ReturnRequestFilters = {
+  customerMobile: string;
+  orderNumber: string;
+  status: "" | RefundStatus;
   warehouseId: string;
 };
 
@@ -117,6 +133,16 @@ export type InvoiceSummary = {
   };
 };
 
+export type OrderRefund = {
+  amount: number;
+  createdAt: string;
+  id: string;
+  processedAt: string | null;
+  providerRefundId: string | null;
+  reason: string | null;
+  status: RefundStatus;
+};
+
 export type OrderStatusHistory = {
   changedById: string | null;
   createdAt: string;
@@ -137,6 +163,7 @@ export type AdminOrder = {
   paymentMethod: PaymentMethod | null;
   paymentStatus: PaymentStatus;
   placedAt: string | null;
+  refunds: OrderRefund[];
   shippingAddress: OrderAddress | null;
   status: OrderStatus;
   statusHistory: OrderStatusHistory[];
@@ -184,6 +211,15 @@ const CANCELLABLE_STATUSES = new Set<OrderStatus>([
 ]);
 
 const DELIVERY_ASSIGNABLE_STATUSES = new Set<OrderStatus>(["CONFIRMED", "PACKED"]);
+const ACTIVE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
+  "PENDING",
+  "PROCESSING"
+]);
+const PROCESSABLE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
+  "PENDING",
+  "PROCESSING",
+  "FAILED"
+]);
 
 export function createEmptyOrderFilters(): OrderFilters {
   return {
@@ -192,6 +228,15 @@ export function createEmptyOrderFilters(): OrderFilters {
     dateTo: "",
     orderNumber: "",
     paymentStatus: "",
+    status: "",
+    warehouseId: ""
+  };
+}
+
+export function createEmptyReturnRequestFilters(): ReturnRequestFilters {
+  return {
+    customerMobile: "",
+    orderNumber: "",
     status: "",
     warehouseId: ""
   };
@@ -215,6 +260,21 @@ export function buildOrderQuery(
   };
 }
 
+export function buildReturnRequestQuery(
+  filters: ReturnRequestFilters,
+  page = 1,
+  limit = 20
+): QueryParams {
+  return {
+    customerMobile: trimmedOrUndefined(filters.customerMobile),
+    limit,
+    orderNumber: trimmedOrUndefined(filters.orderNumber),
+    page,
+    status: filters.status || undefined,
+    warehouseId: filters.warehouseId || undefined
+  };
+}
+
 export function getNextOrderStatuses(status: OrderStatus) {
   return NEXT_STATUSES[status];
 }
@@ -227,6 +287,35 @@ export function canAssignDelivery(status: OrderStatus) {
   return DELIVERY_ASSIGNABLE_STATUSES.has(status);
 }
 
+export function getLatestRefund(order: Pick<AdminOrder, "refunds">) {
+  return order.refunds[0] ?? null;
+}
+
+export function canApproveReturn(order: Pick<AdminOrder, "refunds" | "status">) {
+  const latestRefund = getLatestRefund(order);
+
+  return (
+    order.status === "DELIVERED" &&
+    Boolean(latestRefund && ACTIVE_RETURN_REFUND_STATUSES.has(latestRefund.status))
+  );
+}
+
+export function canRejectReturn(order: Pick<AdminOrder, "refunds">) {
+  const latestRefund = getLatestRefund(order);
+
+  return Boolean(
+    latestRefund && ACTIVE_RETURN_REFUND_STATUSES.has(latestRefund.status)
+  );
+}
+
+export function canProcessReturnRefund(order: Pick<AdminOrder, "refunds">) {
+  const latestRefund = getLatestRefund(order);
+
+  return Boolean(
+    latestRefund && PROCESSABLE_RETURN_REFUND_STATUSES.has(latestRefund.status)
+  );
+}
+
 export function buildOrderStatusPayload(status: OrderStatus, note: string) {
   return {
     note: trimmedOrUndefined(note),
@@ -237,6 +326,12 @@ export function buildOrderStatusPayload(status: OrderStatus, note: string) {
 export function buildCancelOrderPayload(reason: string) {
   return {
     reason: trimmedOrUndefined(reason)
+  };
+}
+
+export function buildReturnActionPayload(note: string) {
+  return {
+    note: trimmedOrUndefined(note)
   };
 }
 

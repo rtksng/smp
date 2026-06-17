@@ -9,7 +9,11 @@ import { ErrorState } from "../ui/error-state";
 
 export function PaymentFailedPage() {
   const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId");
   const reason = searchParams.get("reason");
+  const retryHref = orderId
+    ? `/account/orders/${encodeURIComponent(orderId)}`
+    : "/checkout";
 
   return (
     <>
@@ -19,9 +23,11 @@ export function PaymentFailedPage() {
           <ErrorState
             action={
               <>
-                <Button href="/checkout">Retry checkout</Button>
-                <Button href="/cart" variant="outline">
-                  Back to cart
+                <Button href={retryHref}>
+                  {orderId ? "Retry payment" : "Retry checkout"}
+                </Button>
+                <Button href={orderId ? "/account/orders" : "/cart"} variant="outline">
+                  {orderId ? "View orders" : "Back to cart"}
                 </Button>
                 <Button href="/products" variant="ghost">
                   Continue shopping
@@ -31,7 +37,9 @@ export function PaymentFailedPage() {
             className="bg-white"
             message={
               reason ??
-              "Payment failed. The payment was cancelled or could not be verified. You can retry checkout or contact support if money was deducted."
+              (orderId
+                ? "Payment failed. Your order is saved as pending, so you can retry payment or cancel it from order details."
+                : "Payment failed. The payment was cancelled or could not be verified. You can retry checkout or contact support if money was deducted.")
             }
             title="We could not confirm your online payment"
           />

@@ -16,7 +16,6 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
-  ApiNotImplementedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -42,6 +41,8 @@ import { PermissionCode } from "../permissions/permissions.constants";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import {
   AdminOrderListQueryDto,
+  AdminReturnActionDto,
+  AdminReturnRequestListQueryDto,
   CancelOrderDto,
   OrderListResponseDto,
   OrderResponseDto,
@@ -110,12 +111,12 @@ export class AdminOrdersController {
     name: "format",
     required: false
   })
-  @ApiProduces("application/json", "text/html")
+  @ApiProduces("application/json", "text/html", "application/pdf")
   @ApiOkResponse({
-    description: "GST invoice returned. Use format=html to download invoice HTML.",
+    description:
+      "GST invoice returned. Use format=html to download invoice HTML or format=pdf to download invoice PDF.",
     type: InvoiceResponseDto
   })
-  @ApiNotImplementedResponse({ description: "PDF generation is not wired yet." })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks orders.read permission or warehouse assignment." })
   @ApiNotFoundResponse({ description: "Order was not found." })
@@ -180,6 +181,111 @@ export class AdminOrdersController {
     return this.ordersService.cancelOrder(
       id,
       body,
+      getAdminActionContext(request)
+    );
+  }
+}
+
+@ApiBearerAuth()
+@ApiTags("Admin returns/refunds")
+@Controller("admin/returns-refunds")
+@UseGuards(AdminJwtGuard, PermissionGuard)
+export class AdminReturnsRefundsController {
+  constructor(private readonly ordersService: OrdersService) {}
+
+  @Get()
+  @RequirePermission(PermissionCode.OrdersRead)
+  @ApiOperation({
+    summary: "List return requests and refunds with warehouse scoping."
+  })
+  @ApiOkResponse({
+    description: "Return requests returned.",
+    type: OrderListResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks orders.read permission or warehouse assignment." })
+  listReturnRequests(
+    @Query() query: AdminReturnRequestListQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.listAdminReturnRequests(query, getAuth(request));
+  }
+
+  @Post(":orderId/approve")
+  @RequirePermission(PermissionCode.OrdersUpdate)
+  @ApiOperation({ summary: "Approve a return request and process its refund." })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "orderId"
+  })
+  @ApiOkResponse({
+    description: "Return request approved.",
+    type: OrderResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Return request cannot be approved." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks orders.update permission or warehouse assignment." })
+  @ApiNotFoundResponse({ description: "Order was not found." })
+  approveReturnRequest(
+    @Param("orderId", ParseUUIDPipe) orderId: string,
+    @Body() body: AdminReturnActionDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.approveAdminReturn(
+      orderId,
+      body,
+      getAdminActionContext(request)
+    );
+  }
+
+  @Post(":orderId/reject")
+  @RequirePermission(PermissionCode.OrdersUpdate)
+  @ApiOperation({ summary: "Reject a return request without changing the order status." })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "orderId"
+  })
+  @ApiOkResponse({
+    description: "Return request rejected.",
+    type: OrderResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Return request cannot be rejected." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks orders.update permission or warehouse assignment." })
+  @ApiNotFoundResponse({ description: "Order was not found." })
+  rejectReturnRequest(
+    @Param("orderId", ParseUUIDPipe) orderId: string,
+    @Body() body: AdminReturnActionDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.rejectAdminReturn(
+      orderId,
+      body,
+      getAdminActionContext(request)
+    );
+  }
+
+  @Post(":orderId/process")
+  @RequirePermission(PermissionCode.OrdersUpdate)
+  @ApiOperation({ summary: "Process or refetch a return refund status." })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "orderId"
+  })
+  @ApiOkResponse({
+    description: "Return refund processing refreshed.",
+    type: OrderResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Refund cannot be processed." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks orders.update permission or warehouse assignment." })
+  @ApiNotFoundResponse({ description: "Order was not found." })
+  processReturnRefund(
+    @Param("orderId", ParseUUIDPipe) orderId: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.processAdminReturnRefund(
+      orderId,
       getAdminActionContext(request)
     );
   }

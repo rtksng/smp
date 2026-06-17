@@ -1,26 +1,41 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardCheck,
+  CreditCard,
   Download,
   MapPin,
+  Truck,
+  Undo2,
+  XCircle,
   RotateCcw
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   getFriendlyApiErrorMessage,
   isNotFoundApiError
 } from "../../lib/api/error-messages";
+import {
+  createCancelOrderMutation,
+  createCheckoutPaymentVerificationMutation,
+  createCheckoutRazorpayOrderMutation,
+  createReorderMutation,
+  createRequestReturnMutation
+} from "../../lib/api/mutation-helpers";
 import { customerQueryKeys } from "../../lib/api/query-keys";
 import {
   canDownloadOrderInvoice,
   downloadOrderInvoiceHtml,
+  downloadOrderInvoicePdf,
   getOrder,
   listCustomerOrders,
   type Order
 } from "../../lib/api/orders";
+import { openRazorpayCheckout } from "../../lib/checkout/razorpay";
+import { useCartStore } from "../../lib/stores/cart-store";
 import { Button } from "../ui/button";
 import { ErrorState, RetryButton } from "../ui/error-state";
 import { Skeleton, TableSkeleton } from "../ui/skeleton";
@@ -121,13 +136,54 @@ export function AccountOrders() {
 }
 
 export function AccountOrderDetail({ orderId }: { orderId: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const orderQuery = useQuery({
     queryFn: () => getOrder(orderId),
     queryKey: customerQueryKeys.order(orderId)
   });
   const order = orderQuery.data;
+  const setCartSummary = useCartStore((state) => state.setSummary);
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
+  const [isDownloadingPdfInvoice, setIsDownloadingPdfInvoice] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [returnReason, setReturnReason] = useState("");
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const reorderMutation = useMutation(
+    createReorderMutation({
+      onSuccess: () => router.push("/cart"),
+      queryClient,
+      setCartSummary
+    })
+  );
+  const cancelOrderMutation = useMutation(
+    createCancelOrderMutation({
+      onSuccess: () => {
+        setActionError(null);
+        setActionMessage("Order cancelled successfully.");
+      },
+      queryClient
+    })
+  );
+  const requestReturnMutation = useMutation(
+    createRequestReturnMutation({
+      onSuccess: () => {
+        setActionError(null);
+        setActionMessage("Return request submitted.");
+      },
+      queryClient
+    })
+  );
+  const createRazorpayOrderMutation = useMutation(
+    createCheckoutRazorpayOrderMutation()
+  );
+  const verifyPaymentMutation = useMutation(
+    createCheckoutPaymentVerificationMutation()
+  );
+  const paymentRetryPending =
+    createRazorpayOrderMutation.isPending || verifyPaymentMutation.isPending;
 
   async function handleDownloadInvoice() {
     if (!order) {
@@ -139,11 +195,96 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
       setInvoiceError(null);
       await downloadOrderInvoiceHtml(order);
     } catch (error) {
-      setInvoiceError(
-        getFriendlyApiErrorMessage(error, "Unable to download invoice.")
-      );
+      setInvoiceError(getFriendlyApiErrorMessage(error, "Unable to download invoice."));
     } finally {
       setIsDownloadingInvoice(false);
+    }
+  }
+
+  async function handleDownloadPdfInvoice() {
+    if (!order) {
+      return;
+    }
+
+    try {
+      setIsDownloadingPdfInvoice(true);
+      setInvoiceError(null);
+      await downloadOrderInvoicePdf(order);
+    } catch (error) {
+      setInvoiceError(
+        getFriendlyApiErrorMessage(error, "Unable to download PDF invoice.")
+      );
+    } finally {
+      setIsDownloadingPdfInvoice(false);
+    }
+  }
+
+  async function handleRetryOnlinePayment() {
+    if (!order) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      setActionMessage(null);
+      const razorpayOrder = await createRazorpayOrderMutation.mutateAsync(order.id);
+      const paymentResponse = await openRazorpayCheckout({
+        amount: razorpayOrder.razorpay.amount,
+        contact: order.shippingAddress?.mobileNumber,
+        currency: razorpayOrder.razorpay.currency,
+        description: order.orderNumber,
+        key: razorpayOrder.razorpay.keyId,
+        name: "Surgical Medical Equipment",
+        orderId: razorpayOrder.razorpay.orderId,
+        prefillName: order.shippingAddress?.fullName
+      });
+
+      await verifyPaymentMutation.mutateAsync({
+        orderId: order.id,
+        ...paymentResponse
+      });
+      await orderQuery.refetch();
+      setActionMessage("Payment confirmed successfully.");
+    } catch (error) {
+      setActionError(
+        getFriendlyApiErrorMessage(error, "Unable to retry online payment.")
+      );
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!order) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      setActionMessage(null);
+      await cancelOrderMutation.mutateAsync({
+        orderId: order.id,
+        reason: normalizeOptionalReason(cancelReason)
+      });
+    } catch (error) {
+      setActionError(getFriendlyApiErrorMessage(error, "Unable to cancel order."));
+    }
+  }
+
+  async function handleRequestReturn() {
+    if (!order) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      setActionMessage(null);
+      await requestReturnMutation.mutateAsync({
+        orderId: order.id,
+        reason: normalizeOptionalReason(returnReason)
+      });
+    } catch (error) {
+      setActionError(
+        getFriendlyApiErrorMessage(error, "Unable to submit return request.")
+      );
     }
   }
 
@@ -167,10 +308,7 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
           message={
             isNotFoundApiError(orderQuery.error)
               ? "We could not find this order in your account."
-              : getFriendlyApiErrorMessage(
-                  orderQuery.error,
-                  "Unable to load order."
-                )
+              : getFriendlyApiErrorMessage(orderQuery.error, "Unable to load order.")
           }
           title={
             isNotFoundApiError(orderQuery.error)
@@ -201,6 +339,7 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
             <div className="grid gap-5">
               <OrderItems order={order} />
               <DeliveryAddress order={order} />
+              <DeliveryTracking order={order} />
               <StatusTimeline order={order} />
             </div>
             <aside className="grid h-fit gap-5">
@@ -212,23 +351,109 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                 />
                 <div className="mt-4 grid gap-3">
                   {canDownloadOrderInvoice(order) ? (
+                    <>
+                      <Button
+                        disabled={isDownloadingPdfInvoice}
+                        onClick={handleDownloadPdfInvoice}
+                      >
+                        <Download aria-hidden="true" className="h-4 w-4" />
+                        {isDownloadingPdfInvoice
+                          ? "Downloading PDF..."
+                          : "Download PDF invoice"}
+                      </Button>
+                      <Button
+                        disabled={isDownloadingInvoice}
+                        onClick={handleDownloadInvoice}
+                        variant="outline"
+                      >
+                        <Download aria-hidden="true" className="h-4 w-4" />
+                        {isDownloadingInvoice
+                          ? "Downloading HTML..."
+                          : "Download HTML invoice"}
+                      </Button>
+                    </>
+                  ) : null}
+                  {canRetryOnlinePayment(order) ? (
                     <Button
-                      disabled={isDownloadingInvoice}
-                      onClick={handleDownloadInvoice}
+                      disabled={paymentRetryPending}
+                      onClick={handleRetryOnlinePayment}
+                      variant="secondary"
                     >
-                      <Download aria-hidden="true" className="h-4 w-4" />
-                      {isDownloadingInvoice
-                        ? "Downloading..."
-                        : "Download invoice"}
+                      <CreditCard aria-hidden="true" className="h-4 w-4" />
+                      {paymentRetryPending ? "Opening payment..." : "Retry payment"}
                     </Button>
                   ) : null}
-                  <Button disabled variant="outline">
+                  {canCancelOrder(order) ? (
+                    <div className="grid gap-2 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-3">
+                      <textarea
+                        aria-label="Cancellation reason"
+                        className="min-h-20 rounded-lg border border-[#c3d7eb] bg-white px-3 py-2 text-sm font-semibold text-[#12314f] outline-none transition focus:border-[#0b5cab] focus:ring-2 focus:ring-[#0b5cab]/15"
+                        onChange={(event) => setCancelReason(event.target.value)}
+                        placeholder="Cancellation reason"
+                        value={cancelReason}
+                      />
+                      <Button
+                        disabled={cancelOrderMutation.isPending}
+                        onClick={handleCancelOrder}
+                        variant="outline"
+                      >
+                        <XCircle aria-hidden="true" className="h-4 w-4" />
+                        {cancelOrderMutation.isPending
+                          ? "Cancelling..."
+                          : "Cancel order"}
+                      </Button>
+                    </div>
+                  ) : null}
+                  {canRequestReturn(order) ? (
+                    <div className="grid gap-2 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-3">
+                      <textarea
+                        aria-label="Return request reason"
+                        className="min-h-20 rounded-lg border border-[#c3d7eb] bg-white px-3 py-2 text-sm font-semibold text-[#12314f] outline-none transition focus:border-[#0b5cab] focus:ring-2 focus:ring-[#0b5cab]/15"
+                        onChange={(event) => setReturnReason(event.target.value)}
+                        placeholder="Return request reason"
+                        value={returnReason}
+                      />
+                      <Button
+                        disabled={requestReturnMutation.isPending}
+                        onClick={handleRequestReturn}
+                        variant="outline"
+                      >
+                        <Undo2 aria-hidden="true" className="h-4 w-4" />
+                        {requestReturnMutation.isPending
+                          ? "Submitting..."
+                          : "Request return"}
+                      </Button>
+                    </div>
+                  ) : null}
+                  <Button
+                    disabled={reorderMutation.isPending}
+                    onClick={() => reorderMutation.mutate(order.id)}
+                    variant="outline"
+                  >
                     <RotateCcw aria-hidden="true" className="h-4 w-4" />
-                    Reorder coming soon
+                    {reorderMutation.isPending ? "Preparing cart..." : "Reorder items"}
                   </Button>
                   <Button href="/account/orders" variant="ghost">
                     Back to orders
                   </Button>
+                  {reorderMutation.isError ? (
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                      {getFriendlyApiErrorMessage(
+                        reorderMutation.error,
+                        "Unable to prepare reorder cart."
+                      )}
+                    </p>
+                  ) : null}
+                  {actionMessage ? (
+                    <p className="rounded-lg bg-[#e7f3f2] px-4 py-3 text-sm font-bold text-[#006d77]">
+                      {actionMessage}
+                    </p>
+                  ) : null}
+                  {actionError ? (
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                      {actionError}
+                    </p>
+                  ) : null}
                   {invoiceError ? (
                     <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
                       {invoiceError}
@@ -389,9 +614,7 @@ function DeliveryAddress({ order }: { order: Order }) {
               <MapPin aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-bold text-[#12314f]">
-                {address.fullName}
-              </p>
+              <p className="text-sm font-bold text-[#12314f]">{address.fullName}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#52677f]">
                 {address.line1}
                 {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
@@ -412,7 +635,77 @@ function DeliveryAddress({ order }: { order: Order }) {
   );
 }
 
+function DeliveryTracking({ order }: { order: Order }) {
+  if (order.deliveryTracking.length === 0) {
+    return null;
+  }
+
+  return (
+    <AccountSection>
+      <AccountSectionHeader
+        description="Delivery partner and movement updates for this order."
+        title="Delivery tracking"
+      />
+      <div className="mt-4 grid gap-3">
+        {order.deliveryTracking.map((tracking) => (
+          <div
+            className="rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5"
+            key={tracking.id}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
+                <Truck aria-hidden="true" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[#12314f]">
+                  {formatDeliveryStatus(tracking.status)}
+                </p>
+                {tracking.deliveryPartnerName ? (
+                  <p className="mt-1 text-sm font-semibold text-[#52677f]">
+                    {tracking.deliveryPartnerName}
+                    {tracking.vehicleNumber ? ` | ${tracking.vehicleNumber}` : ""}
+                  </p>
+                ) : null}
+                {tracking.failureReason ? (
+                  <p className="mt-1 text-sm font-semibold text-[#7a271a]">
+                    {tracking.failureReason}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 border-t border-[#d6e7f8] pt-4">
+              {tracking.statusHistory.map((entry) => (
+                <div className="flex gap-3" key={entry.id}>
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#0b5cab]" />
+                  <div>
+                    <p className="text-xs font-bold text-[#12314f]">
+                      {formatDeliveryStatus(entry.status)}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#52677f]">
+                      {formatDate(entry.createdAt)}
+                      {entry.latitude !== null && entry.longitude !== null
+                        ? ` | ${entry.latitude.toFixed(4)}, ${entry.longitude.toFixed(4)}`
+                        : ""}
+                    </p>
+                    {entry.note ? (
+                      <p className="mt-1 text-sm leading-6 text-[#52677f]">
+                        {entry.note}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </AccountSection>
+  );
+}
+
 function PaymentDetails({ order }: { order: Order }) {
+  const latestRefund = order.refunds[0];
+
   return (
     <AccountSection>
       <AccountSectionHeader
@@ -420,14 +713,12 @@ function PaymentDetails({ order }: { order: Order }) {
         title="Payment details"
       />
       <dl className="mt-4 grid gap-2 text-sm text-[#12314f]">
-        <InfoRow
-          label="Method"
-          value={formatPaymentMethod(order.paymentMethod)}
-        />
+        <InfoRow label="Method" value={formatPaymentMethod(order.paymentMethod)} />
         <InfoRow
           label="Payment status"
           value={formatPaymentStatus(order.paymentStatus)}
         />
+        {latestRefund ? <RefundDetails refund={latestRefund} /> : null}
         <InfoRow
           label="Subtotal"
           value={priceFormatter.format(order.totals.subtotal)}
@@ -444,6 +735,28 @@ function PaymentDetails({ order }: { order: Order }) {
         </div>
       </dl>
     </AccountSection>
+  );
+}
+
+function RefundDetails({ refund }: { refund: Order["refunds"][number] }) {
+  return (
+    <div className="my-2 grid gap-2 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-3">
+      <InfoRow label="Return/refund" value={formatRefundStatus(refund.status)} />
+      <InfoRow label="Refund amount" value={priceFormatter.format(refund.amount)} />
+      <InfoRow label="Requested" value={formatDate(refund.createdAt)} />
+      {refund.processedAt ? (
+        <InfoRow label="Processed" value={formatDate(refund.processedAt)} />
+      ) : null}
+      {refund.providerRefundId ? (
+        <InfoRow label="Provider reference" value={refund.providerRefundId} />
+      ) : null}
+      {refund.reason ? (
+        <div className="grid gap-1 border-t border-[#d6e7f8] pt-2">
+          <dt className="text-[#52677f]">Reason</dt>
+          <dd className="font-bold leading-6 text-[#12314f]">{refund.reason}</dd>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -481,9 +794,7 @@ function StatusTimeline({ order }: { order: Order }) {
                 {formatDate(entry.createdAt)}
               </p>
               {entry.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#52677f]">
-                  {entry.note}
-                </p>
+                <p className="mt-1 text-sm leading-6 text-[#52677f]">{entry.note}</p>
               ) : null}
             </div>
           </div>
@@ -499,6 +810,31 @@ function OrderStatusBadge({ status }: { status: Order["status"] }) {
       {formatOrderStatus(status)}
     </AccountStatusBadge>
   );
+}
+
+function canCancelOrder(order: Order) {
+  return ["ASSIGNED", "CONFIRMED", "CREATED", "PACKED"].includes(order.status);
+}
+
+function canRequestReturn(order: Order) {
+  return (
+    order.status === "DELIVERED" &&
+    !order.refunds.some((refund) => ["PENDING", "PROCESSING"].includes(refund.status))
+  );
+}
+
+function canRetryOnlinePayment(order: Order) {
+  return (
+    order.paymentMethod === "ONLINE" &&
+    ["FAILED", "PENDING"].includes(order.paymentStatus) &&
+    order.status === "CREATED"
+  );
+}
+
+function normalizeOptionalReason(value: string) {
+  const reason = value.trim();
+
+  return reason.length > 0 ? reason : undefined;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -578,6 +914,34 @@ function formatPaymentStatus(status: Order["paymentStatus"]) {
     return "Payment pending";
   }
 
+  return formatConstantLabel(status);
+}
+
+function formatRefundStatus(status: Order["refunds"][number]["status"]) {
+  if (status === "CANCELLED") {
+    return "Return rejected";
+  }
+
+  if (status === "COMPLETED") {
+    return "Refund completed";
+  }
+
+  if (status === "FAILED") {
+    return "Refund failed";
+  }
+
+  if (status === "PENDING") {
+    return "Return requested";
+  }
+
+  if (status === "PROCESSING") {
+    return "Refund processing";
+  }
+
+  return formatConstantLabel(status);
+}
+
+function formatDeliveryStatus(status: Order["deliveryTracking"][number]["status"]) {
   return formatConstantLabel(status);
 }
 

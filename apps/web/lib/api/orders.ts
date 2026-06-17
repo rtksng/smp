@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiClientError, buildApiUrl } from "./client";
 import { requestCustomerApi } from "./customer-client";
-import { cartTotalsSchema } from "./cart";
+import { cartSchema, cartTotalsSchema } from "./cart";
 import { useCustomerAuthStore } from "../stores/auth-store";
 
 export const paymentMethodSchema = z.enum(["COD", "ONLINE"]);
@@ -27,6 +27,7 @@ export const orderStatusSchema = z.enum([
 
 export const createOrderInputSchema = z.object({
   billingAddressId: z.string().nullable().optional(),
+  couponCode: z.string().trim().min(1).max(64).nullable().optional(),
   paymentMethod: paymentMethodSchema,
   shippingAddressId: z.string().min(1, "Select a delivery address.")
 });
@@ -66,14 +67,58 @@ export const orderStatusHistorySchema = z.object({
   status: orderStatusSchema
 });
 
+export const orderRefundSchema = z.object({
+  amount: z.number(),
+  createdAt: z.string(),
+  id: z.string(),
+  processedAt: z.string().nullable(),
+  providerRefundId: z.string().nullable().default(null),
+  reason: z.string().nullable(),
+  status: z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"])
+});
+
+export const deliveryStatusSchema = z.enum([
+  "ASSIGNED",
+  "ACCEPTED",
+  "PICKED_UP",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "FAILED",
+  "CANCELLED"
+]);
+
+export const orderDeliveryTrackingSchema = z.object({
+  assignedAt: z.string(),
+  deliveredAt: z.string().nullable(),
+  deliveryPartnerName: z.string().nullable(),
+  failureReason: z.string().nullable(),
+  id: z.string(),
+  pickedUpAt: z.string().nullable(),
+  proofOfDeliveryUrl: z.string().nullable(),
+  status: deliveryStatusSchema,
+  statusHistory: z.array(
+    z.object({
+      createdAt: z.string(),
+      id: z.string(),
+      latitude: z.number().nullable(),
+      longitude: z.number().nullable(),
+      note: z.string().nullable(),
+      status: deliveryStatusSchema
+    })
+  ),
+  vehicleNumber: z.string().nullable()
+});
+
 export const orderSchema = z.object({
   createdAt: z.string(),
+  deliveryTracking: z.array(orderDeliveryTrackingSchema).default([]),
   id: z.string(),
   items: z.array(orderItemSchema),
   orderNumber: z.string(),
   paymentMethod: paymentMethodSchema.nullable(),
   paymentStatus: paymentStatusSchema,
   placedAt: z.string().nullable(),
+  refunds: z.array(orderRefundSchema).default([]),
   shippingAddress: orderAddressSchema.nullable(),
   status: orderStatusSchema,
   statusHistory: z.array(orderStatusHistorySchema),
@@ -121,6 +166,38 @@ export function getOrder(orderId: string) {
   return requestCustomerApi(`/orders/${encodeURIComponent(orderId)}`, orderSchema);
 }
 
+export function reorderOrder(orderId: string) {
+  return requestCustomerApi(
+    `/orders/${encodeURIComponent(orderId)}/reorder`,
+    cartSchema,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function cancelOrder(orderId: string, reason?: string) {
+  return requestCustomerApi(
+    `/orders/${encodeURIComponent(orderId)}/cancel`,
+    orderSchema,
+    {
+      body: JSON.stringify({ reason }),
+      method: "POST"
+    }
+  );
+}
+
+export function requestOrderReturn(orderId: string, reason?: string) {
+  return requestCustomerApi(
+    `/orders/${encodeURIComponent(orderId)}/return-request`,
+    orderSchema,
+    {
+      body: JSON.stringify({ reason }),
+      method: "POST"
+    }
+  );
+}
+
 export function canDownloadOrderInvoice(order: Order) {
   const invoiceableStatuses = new Set<Order["status"]>([
     "ASSIGNED",
@@ -138,23 +215,37 @@ export function canDownloadOrderInvoice(order: Order) {
   return order.paymentMethod !== "ONLINE" || order.paymentStatus === "PAID";
 }
 
-export function buildOrderInvoiceDownloadUrl(orderId: string) {
+export function buildOrderInvoiceDownloadUrl(
+  orderId: string,
+  format: "html" | "pdf" = "html"
+) {
   return buildApiUrl(`/orders/${encodeURIComponent(orderId)}/invoice`, {
-    format: "html"
+    format
   });
 }
 
 export async function downloadOrderInvoiceHtml(
   order: Pick<Order, "id" | "orderNumber">
 ) {
-  const response = await fetchOrderInvoice(order.id);
+  const response = await fetchOrderInvoice(order.id, "html");
+  await downloadInvoiceResponse(response, `invoice-${order.orderNumber}.html`);
+}
+
+export async function downloadOrderInvoicePdf(
+  order: Pick<Order, "id" | "orderNumber">
+) {
+  const response = await fetchOrderInvoice(order.id, "pdf");
+  await downloadInvoiceResponse(response, `invoice-${order.orderNumber}.pdf`);
+}
+
+async function downloadInvoiceResponse(response: Response, filename: string) {
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   try {
     link.href = url;
-    link.download = `invoice-${order.orderNumber}.html`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
   } finally {
@@ -163,11 +254,11 @@ export async function downloadOrderInvoiceHtml(
   }
 }
 
-async function fetchOrderInvoice(orderId: string) {
+async function fetchOrderInvoice(orderId: string, format: "html" | "pdf") {
   const authStore = useCustomerAuthStore.getState();
   const currentAccessToken = authStore.session?.tokens.accessToken ?? null;
-  let response = await fetch(buildOrderInvoiceDownloadUrl(orderId), {
-    headers: invoiceDownloadHeaders(currentAccessToken)
+  let response = await fetch(buildOrderInvoiceDownloadUrl(orderId, format), {
+    headers: invoiceDownloadHeaders(currentAccessToken, format)
   });
 
   if (response.status === 401) {
@@ -176,8 +267,8 @@ async function fetchOrderInvoice(orderId: string) {
       const refreshedAccessToken = refreshedSession?.tokens.accessToken ?? null;
 
       if (refreshedAccessToken) {
-        response = await fetch(buildOrderInvoiceDownloadUrl(orderId), {
-          headers: invoiceDownloadHeaders(refreshedAccessToken)
+        response = await fetch(buildOrderInvoiceDownloadUrl(orderId, format), {
+          headers: invoiceDownloadHeaders(refreshedAccessToken, format)
         });
       }
     } catch {
@@ -195,9 +286,12 @@ async function fetchOrderInvoice(orderId: string) {
   return response;
 }
 
-function invoiceDownloadHeaders(accessToken: string | null) {
+function invoiceDownloadHeaders(
+  accessToken: string | null,
+  format: "html" | "pdf"
+) {
   const headers = new Headers({
-    Accept: "text/html"
+    Accept: format === "pdf" ? "application/pdf" : "text/html"
   });
 
   if (accessToken) {

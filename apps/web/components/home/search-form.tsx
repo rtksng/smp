@@ -1,10 +1,12 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import { getProducts } from "../../lib/api/products";
 import { useCatalogStore } from "../../lib/stores/catalog-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -27,6 +29,34 @@ export function SearchForm({
   const setSearchInput = useCatalogStore((state) => state.setSearchInput);
   const submitSearch = useCatalogStore((state) => state.submitSearch);
   const [error, setError] = useState<string | undefined>();
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const trimmedSearchInput = searchInput.trim();
+  const autocompleteQuery = useQuery({
+    enabled: trimmedSearchInput.length >= 2,
+    queryFn: () =>
+      getProducts({
+        limit: 5,
+        search: trimmedSearchInput
+      }),
+    queryKey: ["search-autocomplete", trimmedSearchInput],
+    staleTime: 30_000
+  });
+  const dynamicSuggestions = useMemo(
+    () =>
+      uniqueSuggestions([
+        ...(autocompleteQuery.data?.items.flatMap((product) => [
+          product.name,
+          product.sku
+        ]) ?? []),
+        ...recentSearches,
+        ...suggestions
+      ]).slice(0, compact ? 5 : 8),
+    [autocompleteQuery.data?.items, compact, recentSearches, suggestions]
+  );
+
+  useEffect(() => {
+    setRecentSearches(readRecentSearches());
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,6 +70,7 @@ export function SearchForm({
       }
 
       setError(undefined);
+      rememberSearch(search);
       router.push(params.toString() ? `/products?${params.toString()}` : "/products");
     } catch (issue) {
       if (issue instanceof z.ZodError) {
@@ -48,6 +79,11 @@ export function SearchForm({
         setError("Search is invalid.");
       }
     }
+  }
+
+  function handleSuggestionClick(suggestion: string) {
+    setSearchInput(suggestion);
+    rememberSearch(suggestion);
   }
 
   return (
@@ -78,13 +114,14 @@ export function SearchForm({
           <span className={compact ? "sr-only" : ""}>Search</span>
         </Button>
       </form>
-      {suggestions.length > 0 ? (
+      {dynamicSuggestions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#12314f]">
-          {suggestions.map((suggestion) => (
+          {dynamicSuggestions.map((suggestion) => (
             <a
               className="rounded-full border border-[#d6e7f8] bg-white px-3 py-1.5 text-[#0b5cab] transition hover:border-[#0b5cab] hover:bg-[#edf6ff]"
               href={`/products?${new URLSearchParams({ q: suggestion }).toString()}`}
               key={suggestion}
+              onClick={() => handleSuggestionClick(suggestion)}
             >
               {suggestion}
             </a>
@@ -92,5 +129,53 @@ export function SearchForm({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function uniqueSuggestions(values: string[]) {
+  const seen = new Set<string>();
+
+  return values
+    .map((value) => value.trim())
+    .filter((value) => {
+      const key = value.toLowerCase();
+      const keep = value.length > 0 && !seen.has(key);
+
+      if (keep) {
+        seen.add(key);
+      }
+
+      return keep;
+    });
+}
+
+function readRecentSearches() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem("surgical.customer.recent-searches") ?? "[]"
+    );
+
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string").slice(0, 5)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberSearch(value: string) {
+  if (typeof window === "undefined" || value.length === 0) {
+    return;
+  }
+
+  const searches = uniqueSuggestions([value, ...readRecentSearches()]).slice(0, 5);
+
+  window.localStorage.setItem(
+    "surgical.customer.recent-searches",
+    JSON.stringify(searches)
   );
 }

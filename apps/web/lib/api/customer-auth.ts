@@ -6,7 +6,7 @@ export const customerTokenSetSchema = z.object({
   accessToken: z.string(),
   accessTokenExpiresAt: z.string(),
   accessTokenExpiresInSeconds: z.number(),
-  refreshToken: z.string(),
+  refreshToken: z.string().nullable().optional(),
   refreshTokenExpiresAt: z.string(),
   refreshTokenExpiresInSeconds: z.number(),
   tokenType: z.literal("Bearer")
@@ -65,6 +65,7 @@ export async function verifyCustomerOtp(mobileNumber: string, otp: string) {
         mobileNumber: normalizeIndianMobileNumber(mobileNumber),
         otp
       }),
+      credentials: "include",
       method: "POST"
     }
   );
@@ -75,18 +76,20 @@ export async function verifyCustomerOtp(mobileNumber: string, otp: string) {
   } satisfies CustomerSession;
 }
 
-export async function refreshCustomerTokens(refreshToken: string) {
+export async function refreshCustomerTokens(refreshToken?: string | null) {
   const data = await requestApi("/auth/customer/refresh", customerRefreshResponseSchema, {
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+    credentials: "include",
     method: "POST"
   });
 
   return data.tokens;
 }
 
-export function logoutCustomerSession(refreshToken: string) {
+export function logoutCustomerSession(refreshToken?: string | null) {
   return requestApi("/auth/customer/logout", customerLogoutResponseSchema, {
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+    credentials: "include",
     method: "POST"
   });
 }

@@ -13,6 +13,16 @@ const cartMocks = vi.hoisted(() => ({
   addCartItem: vi.fn(),
   buyNowCartItem: vi.fn()
 }));
+const wishlistMocks = vi.hoisted(() => ({
+  addWishlistItem: vi.fn(),
+  getWishlist: vi.fn(),
+  removeWishlistItem: vi.fn()
+}));
+const feedbackMocks = vi.hoisted(() => ({
+  createProductQuestion: vi.fn(),
+  createProductReview: vi.fn(),
+  getProductFeedback: vi.fn()
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -38,6 +48,18 @@ vi.mock("../../lib/api/cart", async () => {
     buyNowCartItem: cartMocks.buyNowCartItem
   };
 });
+
+vi.mock("../../lib/api/wishlist", () => ({
+  addWishlistItem: wishlistMocks.addWishlistItem,
+  getWishlist: wishlistMocks.getWishlist,
+  removeWishlistItem: wishlistMocks.removeWishlistItem
+}));
+
+vi.mock("../../lib/api/product-feedback", () => ({
+  createProductQuestion: feedbackMocks.createProductQuestion,
+  createProductReview: feedbackMocks.createProductReview,
+  getProductFeedback: feedbackMocks.getProductFeedback
+}));
 
 vi.mock("../layout/header", () => ({
   Header: () => <header>Header</header>
@@ -217,8 +239,50 @@ describe("ProductDetailPage", () => {
     routerPush.mockClear();
     cartMocks.addCartItem.mockReset();
     cartMocks.buyNowCartItem.mockReset();
+    wishlistMocks.addWishlistItem.mockReset();
+    feedbackMocks.createProductQuestion.mockReset();
+    feedbackMocks.createProductReview.mockReset();
+    feedbackMocks.getProductFeedback.mockReset();
+    wishlistMocks.getWishlist.mockReset();
+    wishlistMocks.removeWishlistItem.mockReset();
     cartMocks.addCartItem.mockResolvedValue(preparedCart);
     cartMocks.buyNowCartItem.mockResolvedValue(preparedCart);
+    wishlistMocks.getWishlist.mockResolvedValue(emptyProducts);
+    wishlistMocks.addWishlistItem.mockResolvedValue({
+      ...emptyProducts,
+      items: [product]
+    });
+    wishlistMocks.removeWishlistItem.mockResolvedValue(emptyProducts);
+    feedbackMocks.getProductFeedback.mockResolvedValue({
+      questions: [],
+      reviews: []
+    });
+    feedbackMocks.createProductQuestion.mockResolvedValue({
+      questions: [
+        {
+          answer: null,
+          createdAt: "2026-06-15T10:00:00.000Z",
+          customerName: "Asha Rao",
+          id: "question-1",
+          question: "Is this sterile?",
+          status: "PENDING"
+        }
+      ],
+      reviews: []
+    });
+    feedbackMocks.createProductReview.mockResolvedValue({
+      questions: [],
+      reviews: [
+        {
+          comment: "Matched the SKU.",
+          createdAt: "2026-06-15T10:00:00.000Z",
+          customerName: "Asha Rao",
+          id: "review-1",
+          rating: 5,
+          title: null
+        }
+      ]
+    });
     vi.mocked(getRelatedProducts).mockClear();
     vi.mocked(getSimilarProducts).mockClear();
     useCustomerAuthStore.setState({

@@ -108,6 +108,52 @@ export class ProductsService {
     return this.serializeProduct(product);
   }
 
+  async getPublicProductsByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return {
+        items: [],
+        pagination: {
+          hasNextPage: false,
+          hasPreviousPage: false,
+          limit: 0,
+          page: 1,
+          total: 0,
+          totalPages: 0
+        }
+      };
+    }
+
+    const products = await this.prisma.product.findMany({
+      include: PRODUCT_INCLUDE,
+      where: {
+        deletedAt: null,
+        id: {
+          in: ids
+        },
+        status: {
+          in: [...PUBLIC_PRODUCT_STATUSES]
+        }
+      }
+    });
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const items = ids
+      .map((id) => productById.get(id))
+      .filter((product): product is ProductRecord => Boolean(product))
+      .map((product) => this.serializeProduct(product));
+
+    return {
+      items,
+      pagination: {
+        hasNextPage: false,
+        hasPreviousPage: false,
+        limit: ids.length,
+        page: 1,
+        total: items.length,
+        totalPages: items.length > 0 ? 1 : 0
+      }
+    };
+  }
+
   async getSimilarProductsBySlug(
     slug: string,
     query: { limit?: number } = {}

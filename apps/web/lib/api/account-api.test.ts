@@ -11,8 +11,12 @@ import {
 } from "./customer-profile";
 import {
   canDownloadOrderInvoice,
+  buildOrderInvoiceDownloadUrl,
+  cancelOrder,
   getOrder,
   listCustomerOrders,
+  requestOrderReturn,
+  reorderOrder,
   type Order
 } from "./orders";
 
@@ -138,6 +142,92 @@ describe("account API helpers", () => {
     ]);
   });
 
+  it("reorders a previous order into the customer cart", async () => {
+    const cart = {
+      id: "cart_1",
+      itemCount: 2,
+      items: [],
+      totalQuantity: 5,
+      totals: {
+        deliveryCharge: 0,
+        discount: 0,
+        grandTotal: 0,
+        subtotal: 0,
+        tax: 0
+      },
+      updatedAt: "2026-06-02T10:00:00.000Z"
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse(cart, 201));
+
+    await expect(reorderOrder("order_1")).resolves.toEqual(cart);
+
+    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
+      ["https://api.example.com/api/v1/orders/order_1/reorder", "POST"]
+    ]);
+  });
+
+  it("cancels and requests returns for customer orders", async () => {
+    const cancelledOrder = accountOrder({
+      paymentMethod: "COD",
+      paymentStatus: "CANCELLED",
+      status: "CANCELLED"
+    });
+    const returnedOrder = {
+      ...accountOrder({
+        paymentMethod: "ONLINE",
+        paymentStatus: "PAID",
+        status: "DELIVERED"
+      }),
+      refunds: [
+        {
+          amount: 330.4,
+          createdAt: "2026-05-26T10:00:00.000Z",
+          id: "refund_1",
+          processedAt: null,
+          reason: "Wrong item",
+          status: "PENDING" as const
+        }
+      ]
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse(cancelledOrder))
+      .mockResolvedValueOnce(jsonResponse(returnedOrder));
+
+    await expect(cancelOrder("order_1", "Needed later")).resolves.toMatchObject({
+      status: "CANCELLED"
+    });
+    await expect(
+      requestOrderReturn("order_1", "Wrong item")
+    ).resolves.toMatchObject({
+      refunds: [{ status: "PENDING" }]
+    });
+
+    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method, init?.body])).toEqual([
+      [
+        "https://api.example.com/api/v1/orders/order_1/cancel",
+        "POST",
+        JSON.stringify({ reason: "Needed later" })
+      ],
+      [
+        "https://api.example.com/api/v1/orders/order_1/return-request",
+        "POST",
+        JSON.stringify({ reason: "Wrong item" })
+      ]
+    ]);
+  });
+
+  it("builds invoice download URLs for HTML and PDF formats", () => {
+    expect(String(buildOrderInvoiceDownloadUrl("order_1"))).toBe(
+      "https://api.example.com/api/v1/orders/order_1/invoice?format=html"
+    );
+    expect(String(buildOrderInvoiceDownloadUrl("order_1", "pdf"))).toBe(
+      "https://api.example.com/api/v1/orders/order_1/invoice?format=pdf"
+    );
+  });
+
   it("shows invoice downloads only for invoiceable orders", () => {
     expect(
       canDownloadOrderInvoice(
@@ -209,6 +299,7 @@ function accountOrder({
 }): Order {
   return {
     createdAt: "2026-05-25T10:00:00.000Z",
+    deliveryTracking: [],
     id: "order_1",
     items: [
       {
@@ -230,6 +321,7 @@ function accountOrder({
     paymentMethod,
     paymentStatus,
     placedAt: "2026-05-25T10:00:00.000Z",
+    refunds: [],
     shippingAddress: {
       city: "Mumbai",
       country: "India",

@@ -37,6 +37,11 @@ const CART_INCLUDE = {
 
 type CartRecord = Prisma.CartGetPayload<{ include: typeof CART_INCLUDE }>;
 type CartItemRecord = CartRecord["items"][number];
+type ReplaceCartItemInput = {
+  productId: string;
+  quantity: number;
+  variantId?: string | null;
+};
 type CartClient =
   | Pick<
       Prisma.TransactionClient,
@@ -117,6 +122,47 @@ export class CartService {
           variantId
         }
       });
+
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+    });
+  }
+
+  async replaceWithItems(customerId: string, inputs: ReplaceCartItemInput[]) {
+    await this.assertActiveCustomer(customerId);
+    const lines = mergeCartLines(inputs);
+
+    if (lines.length === 0) {
+      throw new BadRequestException("No cart items were provided.");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const cart = await this.getOrCreateCart(customerId, tx);
+
+      for (const line of lines) {
+        await this.assertSellableStock(
+          tx,
+          line.productId,
+          line.variantId,
+          line.quantity
+        );
+      }
+
+      await tx.cartItem.deleteMany({
+        where: {
+          cartId: cart.id
+        }
+      });
+
+      for (const line of lines) {
+        await tx.cartItem.create({
+          data: {
+            cartId: cart.id,
+            productId: line.productId,
+            quantity: line.quantity,
+            variantId: line.variantId
+          }
+        });
+      }
 
       return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
     });
@@ -418,6 +464,28 @@ function toProductReference(record: { id: string; name: string; slug: string }) 
     name: record.name,
     slug: record.slug
   };
+}
+
+function mergeCartLines(inputs: ReplaceCartItemInput[]) {
+  const merged = new Map<string, Required<ReplaceCartItemInput>>();
+
+  for (const input of inputs) {
+    const variantId = input.variantId ?? null;
+    const key = `${input.productId}:${variantId ?? "base"}`;
+    const existing = merged.get(key);
+
+    if (existing) {
+      existing.quantity += input.quantity;
+    } else {
+      merged.set(key, {
+        productId: input.productId,
+        quantity: input.quantity,
+        variantId
+      });
+    }
+  }
+
+  return [...merged.values()];
 }
 
 function decimalToNumber(value: DecimalValue) {

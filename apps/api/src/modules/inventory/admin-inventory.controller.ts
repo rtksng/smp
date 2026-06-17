@@ -29,6 +29,7 @@ import {
   InventoryListQueryDto,
   InventoryStockResponseDto,
   NearExpiryQueryDto,
+  ReturnDispositionDto,
   StockBatchResponseDto,
   StockInDto,
   StockMovementQueryDto,
@@ -77,6 +78,23 @@ export class AdminInventoryController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.inventoryService.transferStock(
+      body,
+      getAdminActionContext(request)
+    );
+  }
+
+  @Post("return-disposition")
+  @RequirePermission(PermissionCode.InventoryUpdate)
+  @ApiOperation({ summary: "Disposition returned order items after inspection." })
+  @ApiCreatedResponse({ description: "Returned stock disposition recorded." })
+  @ApiBadRequestResponse({ description: "Return disposition is invalid or exceeds returned quantity." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks inventory.update permission or warehouse assignment." })
+  dispositionReturnedItems(
+    @Body() body: ReturnDispositionDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.inventoryService.dispositionReturnedItems(
       body,
       getAdminActionContext(request)
     );

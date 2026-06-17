@@ -11,6 +11,10 @@ const nextConfig = {
         protocol: "https"
       },
       {
+        hostname: "smp-production-b700.up.railway.app",
+        protocol: "https"
+      },
+      {
         hostname: "localhost",
         protocol: "http"
       },

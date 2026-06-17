@@ -23,6 +23,16 @@ describe("product listing initial data helpers", () => {
     expect(getLockedProductFilters({ slug: "surgical", type: "category" })).toEqual({
       category: "surgical"
     });
+    expect(
+      getLockedProductFilters({
+        slug: "dental",
+        subcategorySlug: "endodontics",
+        type: "subcategory"
+      })
+    ).toEqual({
+      category: "dental",
+      subcategory: "endodontics"
+    });
     expect(getLockedProductFilters({ slug: "acme", type: "brand" })).toEqual({
       brand: "acme"
     });

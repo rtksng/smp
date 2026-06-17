@@ -12,7 +12,10 @@ import {
   CustomerRequestOtpDto,
   CustomerVerifyOtpDto
 } from "../dto/customer-login.dto";
-import { LogoutDto, RefreshTokenDto } from "../dto/session-token.dto";
+import {
+  OptionalLogoutDto,
+  OptionalRefreshTokenDto
+} from "../dto/session-token.dto";
 
 @Injectable()
 export class CustomerAuthService {
@@ -84,13 +87,23 @@ export class CustomerAuthService {
     };
   }
 
-  async refresh(dto: RefreshTokenDto, context: AuthRequestContext) {
+  async refresh(
+    dto: OptionalRefreshTokenDto,
+    context: AuthRequestContext,
+    cookieRefreshToken?: string
+  ) {
+    const refreshToken = dto.refreshToken ?? cookieRefreshToken;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException("Invalid or expired refresh token.");
+    }
+
     const payload = await this.authTokenService.verifyRefreshToken(
-      dto.refreshToken,
+      refreshToken,
       AuthTokenAudience.Customer
     );
     const currentRefreshTokenHash = this.authTokenService.hashRefreshToken(
-      dto.refreshToken
+      refreshToken
     );
     const session = await this.prisma.userSession.findFirst({
       include: {
@@ -135,9 +148,15 @@ export class CustomerAuthService {
     };
   }
 
-  async logout(dto: LogoutDto) {
+  async logout(dto: OptionalLogoutDto, cookieRefreshToken?: string) {
+    const refreshToken = dto.refreshToken ?? cookieRefreshToken;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException("Invalid refresh token.");
+    }
+
     const payload = await this.authTokenService.verifyRefreshToken(
-      dto.refreshToken,
+      refreshToken,
       AuthTokenAudience.Customer
     );
 
@@ -147,7 +166,7 @@ export class CustomerAuthService {
       },
       where: {
         id: payload.sessionId,
-        refreshToken: this.authTokenService.hashRefreshToken(dto.refreshToken),
+        refreshToken: this.authTokenService.hashRefreshToken(refreshToken),
         revokedAt: null
       }
     });

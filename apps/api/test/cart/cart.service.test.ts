@@ -543,6 +543,116 @@ test("replaceWithItem validates stock before clearing the existing cart", async 
   assert.equal(prisma.calls.cartItemCreate.length, 0);
 });
 
+test("replaceWithItems prepares a multi-item cart for reorder", async () => {
+  const prisma = createCartPrismaMock({
+    items: [
+      cartItemFixture({ id: "existing-cart-item", productId: "product-3" })
+    ],
+    products: [
+      productFixture(),
+      productFixture({
+        id: "product-2",
+        name: "Sterile Surgical Drapes",
+        sku: "DRAPE-001",
+        slug: "sterile-surgical-drapes"
+      }),
+      productFixture({ id: "product-3", sku: "OLD-001" })
+    ],
+    stocks: [
+      stockFixture({ availableQuantity: 5, variantId: "variant-1" }),
+      stockFixture({
+        availableQuantity: 6,
+        productId: "product-2",
+        variantId: null
+      })
+    ],
+    variants: [variantFixture()]
+  });
+  const service = new CartService(prisma);
+
+  const cart = await service.replaceWithItems("customer-1", [
+    {
+      productId: "product-1",
+      quantity: 3,
+      variantId: "variant-1"
+    },
+    {
+      productId: "product-1",
+      quantity: 2,
+      variantId: "variant-1"
+    },
+    {
+      productId: "product-2",
+      quantity: 4,
+      variantId: null
+    }
+  ]);
+
+  assert.deepEqual(prisma.calls.cartItemDeleteMany[0], {
+    where: {
+      cartId: "cart-1"
+    }
+  });
+  assert.deepEqual(
+    prisma.calls.cartItemCreate.map((call) => (call as { data: unknown }).data),
+    [
+      {
+        cartId: "cart-1",
+        productId: "product-1",
+        quantity: 5,
+        variantId: "variant-1"
+      },
+      {
+        cartId: "cart-1",
+        productId: "product-2",
+        quantity: 4,
+        variantId: null
+      }
+    ]
+  );
+  assert.equal(cart.itemCount, 2);
+  assert.equal(cart.totalQuantity, 9);
+});
+
+test("replaceWithItems validates all reorder lines before clearing the cart", async () => {
+  const prisma = createCartPrismaMock({
+    items: [cartItemFixture({ productId: "product-3" })],
+    products: [
+      productFixture(),
+      productFixture({ id: "product-2", sku: "DRAPE-001" }),
+      productFixture({ id: "product-3", sku: "OLD-001" })
+    ],
+    stocks: [
+      stockFixture({ availableQuantity: 5 }),
+      stockFixture({
+        availableQuantity: 1,
+        productId: "product-2",
+        variantId: null
+      })
+    ]
+  });
+  const service = new CartService(prisma);
+
+  await assert.rejects(
+    () =>
+      service.replaceWithItems("customer-1", [
+        {
+          productId: "product-1",
+          quantity: 2,
+          variantId: null
+        },
+        {
+          productId: "product-2",
+          quantity: 3,
+          variantId: null
+        }
+      ]),
+    BadRequestException
+  );
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
+  assert.equal(prisma.calls.cartItemCreate.length, 0);
+});
+
 test("updateItem scopes cart items to the token customer and validates stock", async () => {
   const prisma = createCartPrismaMock({
     items: [cartItemFixture({ quantity: 2 })],

@@ -10,10 +10,14 @@ import { CheckoutPage } from "./checkout-page";
 const mocks = vi.hoisted(() => ({
   createCustomerAddress: vi.fn(),
   createOrder: vi.fn(),
+  createRazorpayOrder: vi.fn(),
   getPaymentGatewayStatus: vi.fn(),
   getCart: vi.fn(),
   listCustomerAddresses: vi.fn(),
+  openRazorpayCheckout: vi.fn(),
   routerReplace: vi.fn(),
+  validateCoupon: vi.fn(),
+  verifyRazorpayPayment: vi.fn(),
   updateCustomerAddress: vi.fn()
 }));
 
@@ -25,9 +29,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../auth/protected-customer-route", () => ({
-  ProtectedCustomerRoute: ({ children }: { children: ReactNode }) => (
-    <>{children}</>
-  )
+  ProtectedCustomerRoute: ({ children }: { children: ReactNode }) => <>{children}</>
 }));
 
 vi.mock("../layout/header", () => ({
@@ -39,9 +41,8 @@ vi.mock("../layout/footer", () => ({
 }));
 
 vi.mock("../../lib/api/cart", async () => {
-  const actual = await vi.importActual<typeof import("../../lib/api/cart")>(
-    "../../lib/api/cart"
-  );
+  const actual =
+    await vi.importActual<typeof import("../../lib/api/cart")>("../../lib/api/cart");
 
   return {
     ...actual,
@@ -50,9 +51,9 @@ vi.mock("../../lib/api/cart", async () => {
 });
 
 vi.mock("../../lib/api/customer-profile", async () => {
-  const actual = await vi.importActual<
-    typeof import("../../lib/api/customer-profile")
-  >("../../lib/api/customer-profile");
+  const actual = await vi.importActual<typeof import("../../lib/api/customer-profile")>(
+    "../../lib/api/customer-profile"
+  );
 
   return {
     ...actual,
@@ -62,10 +63,22 @@ vi.mock("../../lib/api/customer-profile", async () => {
   };
 });
 
-vi.mock("../../lib/api/orders", async () => {
-  const actual = await vi.importActual<typeof import("../../lib/api/orders")>(
-    "../../lib/api/orders"
+vi.mock("../../lib/api/coupons", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api/coupons")>(
+    "../../lib/api/coupons"
   );
+
+  return {
+    ...actual,
+    validateCoupon: mocks.validateCoupon
+  };
+});
+
+vi.mock("../../lib/api/orders", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../lib/api/orders")>(
+      "../../lib/api/orders"
+    );
 
   return {
     ...actual,
@@ -80,12 +93,14 @@ vi.mock("../../lib/api/payments", async () => {
 
   return {
     ...actual,
-    getPaymentGatewayStatus: mocks.getPaymentGatewayStatus
+    createRazorpayOrder: mocks.createRazorpayOrder,
+    getPaymentGatewayStatus: mocks.getPaymentGatewayStatus,
+    verifyRazorpayPayment: mocks.verifyRazorpayPayment
   };
 });
 
 vi.mock("../../lib/checkout/razorpay", () => ({
-  openRazorpayCheckout: vi.fn()
+  openRazorpayCheckout: mocks.openRazorpayCheckout
 }));
 
 const address: CustomerAddress = {
@@ -124,8 +139,7 @@ const cart: Cart = {
       },
       createdAt: "2026-06-01T00:00:00.000Z",
       id: "cart_item_1",
-      imageUrl:
-        "http://localhost:4000/uploads/catalog/products/images/forceps.png",
+      imageUrl: "http://localhost:4000/uploads/catalog/products/images/forceps.png",
       isAvailable: true,
       name: "SurgiPro Artery Forceps",
       productId: "product_1",
@@ -162,12 +176,14 @@ const cart: Cart = {
 
 const order: Order = {
   createdAt: "2026-06-01T00:00:00.000Z",
+  deliveryTracking: [],
   id: "order_1",
   items: [],
   orderNumber: "ORD-20260601-ABC12345",
   paymentMethod: "COD",
   paymentStatus: "PENDING",
   placedAt: "2026-06-01T00:00:00.000Z",
+  refunds: [],
   shippingAddress: null,
   status: "CREATED",
   statusHistory: [],
@@ -180,18 +196,50 @@ describe("CheckoutPage", () => {
   beforeEach(() => {
     mocks.createCustomerAddress.mockReset();
     mocks.createOrder.mockReset();
+    mocks.createRazorpayOrder.mockReset();
     mocks.getPaymentGatewayStatus.mockReset();
     mocks.getCart.mockReset();
     mocks.listCustomerAddresses.mockReset();
+    mocks.openRazorpayCheckout.mockReset();
     mocks.routerReplace.mockReset();
+    mocks.validateCoupon.mockReset();
+    mocks.verifyRazorpayPayment.mockReset();
     mocks.updateCustomerAddress.mockReset();
     mocks.getCart.mockResolvedValue(cart);
     mocks.listCustomerAddresses.mockResolvedValue([address]);
     mocks.createOrder.mockResolvedValue(order);
+    mocks.createRazorpayOrder.mockResolvedValue({
+      orderId: "order_1",
+      paymentId: "payment_1",
+      razorpay: {
+        amount: 121000,
+        currency: "INR",
+        keyId: "rzp_test_key",
+        orderId: "order_razorpay_1"
+      }
+    });
     mocks.getPaymentGatewayStatus.mockResolvedValue({
       message: "Payment gateway is not configured yet.",
       onlinePaymentEnabled: false,
       provider: "razorpay"
+    });
+    mocks.openRazorpayCheckout.mockResolvedValue({
+      razorpay_order_id: "order_razorpay_1",
+      razorpay_payment_id: "pay_razorpay_1",
+      razorpay_signature: "signature_1"
+    });
+    mocks.verifyRazorpayPayment.mockResolvedValue({
+      orderStatus: "CONFIRMED",
+      paymentId: "payment_1",
+      paymentStatus: "PAID"
+    });
+    mocks.validateCoupon.mockResolvedValue({
+      code: "SURGICAL10",
+      discount: 40,
+      grandTotal: 1170,
+      message: "Coupon applied.",
+      subtotal: 1000,
+      tax: 180
     });
   });
 
@@ -200,8 +248,9 @@ describe("CheckoutPage", () => {
 
     renderCheckout();
 
-    expect(await screen.findByRole("heading", { name: "Cart review" }))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Cart review" })
+    ).toBeInTheDocument();
     expect(screen.getByText("SurgiPro Artery Forceps")).toBeInTheDocument();
     expect(
       screen.getByAltText("SurgiPro Artery Forceps product image")
@@ -256,6 +305,27 @@ describe("CheckoutPage", () => {
     expect(await screen.findByText("Address updated.")).toBeInTheDocument();
   });
 
+  it("applies a promo code and sends it with checkout", async () => {
+    renderCheckout();
+
+    fireEvent.change(await screen.findByLabelText("Promo code"), {
+      target: { value: "surgical10" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(await screen.findByText("Coupon applied.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+
+    await waitFor(() => {
+      expect(mocks.createOrder).toHaveBeenCalledWith({
+        billingAddressId: null,
+        couponCode: "SURGICAL10",
+        paymentMethod: "COD",
+        shippingAddressId: "address_1"
+      });
+    });
+  });
+
   it("places a COD order with selected address and cart totals", async () => {
     renderCheckout();
 
@@ -266,11 +336,86 @@ describe("CheckoutPage", () => {
     await waitFor(() => {
       expect(mocks.createOrder).toHaveBeenCalledWith({
         billingAddressId: null,
+        couponCode: null,
         paymentMethod: "COD",
         shippingAddressId: "address_1"
       });
     });
     expect(mocks.routerReplace).toHaveBeenCalledWith("/order-success/order_1");
+  });
+
+  it("completes an online Razorpay checkout and verifies the payment", async () => {
+    mocks.createOrder.mockResolvedValue({
+      ...order,
+      paymentMethod: "ONLINE"
+    });
+    mocks.getPaymentGatewayStatus.mockResolvedValue({
+      message: "Online payment is available.",
+      onlinePaymentEnabled: true,
+      provider: "razorpay"
+    });
+
+    renderCheckout();
+
+    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
+
+    await waitFor(() => {
+      expect(mocks.createOrder).toHaveBeenCalledWith({
+        billingAddressId: null,
+        couponCode: null,
+        paymentMethod: "ONLINE",
+        shippingAddressId: "address_1"
+      });
+    });
+    expect(mocks.createRazorpayOrder).toHaveBeenCalledWith("order_1");
+    expect(mocks.openRazorpayCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 121000,
+        key: "rzp_test_key",
+        orderId: "order_razorpay_1"
+      })
+    );
+    expect(mocks.verifyRazorpayPayment).toHaveBeenCalledWith({
+      orderId: "order_1",
+      razorpay_order_id: "order_razorpay_1",
+      razorpay_payment_id: "pay_razorpay_1",
+      razorpay_signature: "signature_1"
+    });
+    expect(mocks.routerReplace).toHaveBeenCalledWith("/order-success/order_1");
+  });
+
+  it("routes cancelled Razorpay checkout to payment recovery with the pending order id", async () => {
+    mocks.createOrder.mockResolvedValue({
+      ...order,
+      paymentMethod: "ONLINE"
+    });
+    mocks.getPaymentGatewayStatus.mockResolvedValue({
+      message: "Online payment is available.",
+      onlinePaymentEnabled: true,
+      provider: "razorpay"
+    });
+    mocks.openRazorpayCheckout.mockRejectedValue(new Error("Payment was cancelled."));
+
+    renderCheckout();
+
+    expect(await screen.findByText("Asha Clinic")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
+
+    await waitFor(() => {
+      expect(mocks.routerReplace).toHaveBeenCalledWith(
+        expect.stringContaining("/payment-failed?")
+      );
+    });
+    const failedHref = String(mocks.routerReplace.mock.calls.at(-1)?.[0]);
+    const failedUrl = new URL(failedHref, "http://localhost");
+
+    expect(failedUrl.pathname).toBe("/payment-failed");
+    expect(failedUrl.searchParams.get("orderId")).toBe("order_1");
+    expect(failedUrl.searchParams.get("reason")).toBe("Payment was cancelled.");
+    expect(mocks.verifyRazorpayPayment).not.toHaveBeenCalled();
   });
 
   it("marks online payment unavailable without creating an order or clearing checkout", async () => {
@@ -290,9 +435,7 @@ describe("CheckoutPage", () => {
 
     fireEvent.click(onlinePaymentButton);
 
-    expect(
-      screen.getByRole("button", { name: "Place COD order" })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeInTheDocument();
     expect(screen.getByText("SurgiPro Artery Forceps")).toBeInTheDocument();
     expect(mocks.createOrder).not.toHaveBeenCalled();
     expect(mocks.routerReplace).not.toHaveBeenCalledWith(

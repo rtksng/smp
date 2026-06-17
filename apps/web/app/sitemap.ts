@@ -5,7 +5,7 @@ import { getProducts } from "../lib/api/products";
 import type { Category } from "../lib/api/schemas";
 import { getAbsoluteUrl } from "../lib/seo/metadata";
 
-const staticRoutes = ["/", "/products"] as const;
+const staticRoutes = ["/", "/products", "/brands"] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, categories, brands] = await Promise.all([
@@ -20,8 +20,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(products?.items ?? []).map((product) =>
       sitemapEntry(`/products/${product.slug}`, new Date(product.updatedAt), "daily", 0.7)
     ),
-    ...flattenCategories(categories ?? []).map((category) =>
-      sitemapEntry(`/categories/${category.slug}`, now, "weekly", 0.6)
+    ...categoryRoutes(categories ?? []).map((route) =>
+      sitemapEntry(route, now, "weekly", 0.6)
     ),
     ...(brands ?? []).map((brand) =>
       sitemapEntry(`/brands/${brand.slug}`, now, "weekly", 0.6)
@@ -43,10 +43,12 @@ function sitemapEntry(
   };
 }
 
-function flattenCategories(categories: Category[]): Category[] {
+function categoryRoutes(categories: Category[]) {
   return categories.flatMap((category) => [
-    category,
-    ...flattenCategories(category.children)
+    `/categories/${category.slug}`,
+    ...category.children.map(
+      (subcategory) => `/categories/${category.slug}/${subcategory.slug}`
+    )
   ]);
 }
 

@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import {
+  OrderStatus,
   Prisma,
   ProductStatus,
   StockMovementType,
@@ -20,10 +21,12 @@ import type {
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
+import { ReturnStockDisposition } from "./dto/inventory.dto";
 import type {
   AdjustStockDto,
   InventoryListQueryDto,
   NearExpiryQueryDto,
+  ReturnDispositionDto,
   StockInDto,
   StockMovementQueryDto,
   TransferStockDto
@@ -407,6 +410,219 @@ export class InventoryService {
     await this.enqueueInventoryAlerts(result.alerts);
 
     return result.response;
+  }
+
+  async dispositionReturnedItems(
+    input: ReturnDispositionDto,
+    context: AdminActionContext
+  ) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        include: {
+          items: true
+        },
+        where: {
+          deletedAt: null,
+          id: input.orderId
+        }
+      });
+
+      if (!order) {
+        throw new NotFoundException("Returned order was not found.");
+      }
+
+      if (order.status !== OrderStatus.RETURNED) {
+        throw new BadRequestException("Only returned orders can be dispositioned.");
+      }
+
+      const inputItemIds = new Set<string>();
+      for (const item of input.items) {
+        if (inputItemIds.has(item.orderItemId)) {
+          throw new BadRequestException("Return disposition item is duplicated.");
+        }
+        inputItemIds.add(item.orderItemId);
+      }
+
+      const orderItemsById = new Map(order.items.map((item) => [item.id, item]));
+      const dispositionLines = input.items.map((item) => {
+        const orderItem = orderItemsById.get(item.orderItemId);
+
+        if (!orderItem) {
+          throw new BadRequestException("Return disposition item is not in this order.");
+        }
+        if (!orderItem.warehouseId) {
+          throw new BadRequestException(
+            "Returned item is not linked to a warehouse."
+          );
+        }
+
+        return {
+          input: item,
+          orderItem
+        };
+      });
+      const warehouseIds = [
+        ...new Set(
+          dispositionLines.map(({ orderItem }) => orderItem.warehouseId as string)
+        )
+      ];
+
+      for (const warehouseId of warehouseIds) {
+        await this.warehouseAccessService.assertCanManageWarehouse(
+          context.auth,
+          warehouseId
+        );
+        await this.assertActiveWarehouse(tx, warehouseId);
+      }
+
+      const existingMovements = await tx.stockMovement.findMany({
+        where: {
+          referenceId: {
+            in: [...inputItemIds]
+          },
+          referenceType: "RETURN_DISPOSITION"
+        }
+      });
+      const disposedQuantityByItemId = new Map<string, number>();
+
+      for (const movement of existingMovements) {
+        if (!movement.referenceId) {
+          continue;
+        }
+        disposedQuantityByItemId.set(
+          movement.referenceId,
+          (disposedQuantityByItemId.get(movement.referenceId) ?? 0) +
+            movement.quantity
+        );
+      }
+
+      const responseItems = [];
+      const auditBefore = dispositionLines.map(({ orderItem }) => ({
+        disposedQuantity: disposedQuantityByItemId.get(orderItem.id) ?? 0,
+        orderItemId: orderItem.id,
+        orderedQuantity: orderItem.quantity
+      }));
+
+      for (const { input: line, orderItem } of dispositionLines) {
+        const warehouseId = orderItem.warehouseId;
+        const alreadyDisposed = disposedQuantityByItemId.get(orderItem.id) ?? 0;
+
+        if (!warehouseId) {
+          throw new BadRequestException(
+            "Returned item is not linked to a warehouse."
+          );
+        }
+
+        if (alreadyDisposed + line.quantity > orderItem.quantity) {
+          throw new BadRequestException(
+            "Return disposition quantity exceeds the remaining returned quantity."
+          );
+        }
+
+        let restocked = false;
+        let stockAfter: InventoryStockRecord | null = null;
+        let batchAfter: StockBatchRecord | null = null;
+
+        if (line.disposition === ReturnStockDisposition.RESTOCK) {
+          if (!orderItem.stockBatchId) {
+            throw new BadRequestException(
+              "Returned item is not linked to a stock batch."
+            );
+          }
+
+          const product = await this.assertProductAndVariant(
+            tx,
+            orderItem.productId,
+            orderItem.variantId
+          );
+          const stockBatch = await tx.stockBatch.findFirst({
+            where: {
+              id: orderItem.stockBatchId,
+              productId: orderItem.productId,
+              variantId: orderItem.variantId,
+              warehouseId
+            }
+          });
+
+          if (!stockBatch) {
+            throw new NotFoundException("Original stock batch was not found.");
+          }
+
+          stockAfter = await this.incrementInventoryStock(tx, {
+            delta: line.quantity,
+            productId: orderItem.productId,
+            variantId: orderItem.variantId,
+            warehouseId
+          });
+          batchAfter = await tx.stockBatch.update({
+            data: {
+              quantity: {
+                increment: line.quantity
+              }
+            },
+            where: {
+              id: stockBatch.id
+            }
+          });
+          await this.publishProductWhenStocked(tx, product, stockAfter);
+          restocked = true;
+        }
+
+        const movement = await tx.stockMovement.create({
+          data: {
+            createdById: context.auth.sub,
+            metadata: toJsonValue({
+              disposition: line.disposition,
+              orderId: order.id,
+              orderItemId: orderItem.id,
+              orderNumber: order.orderNumber,
+              stockBatchId: orderItem.stockBatchId
+            }),
+            notes: line.note ?? input.note,
+            productId: orderItem.productId,
+            quantity: line.quantity,
+            referenceId: orderItem.id,
+            referenceType: "RETURN_DISPOSITION",
+            stockBatchId: orderItem.stockBatchId,
+            type: StockMovementType.RETURN,
+            variantId: orderItem.variantId,
+            warehouseId
+          }
+        });
+
+        responseItems.push({
+          disposition: line.disposition,
+          movementId: movement.id,
+          orderItemId: orderItem.id,
+          quantity: line.quantity,
+          restocked,
+          stock: stockAfter ? this.serializeStock(stockAfter) : null,
+          stockBatch: batchAfter ? this.serializeBatch(batchAfter) : null
+        });
+      }
+
+      await this.writeAuditLog(tx, context, {
+        action: "inventory.return_disposition",
+        after: {
+          items: responseItems,
+          note: input.note,
+          orderId: order.id,
+          orderNumber: order.orderNumber
+        },
+        before: {
+          items: auditBefore
+        },
+        entityId: order.id
+      });
+
+      return {
+        items: responseItems,
+        orderId: order.id,
+        orderNumber: order.orderNumber
+      };
+    });
+
+    return result;
   }
 
   async listInventory(query: InventoryListQueryDto, auth: AuthJwtPayload) {

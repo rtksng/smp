@@ -18,6 +18,11 @@ export type ProductListingContext =
     }
   | {
       slug: string;
+      subcategorySlug: string;
+      type: "subcategory";
+    }
+  | {
+      slug: string;
       type: "brand";
     };
 
@@ -44,6 +49,10 @@ export async function getProductListingInitialData(
   rawSearchParams: ProductListingSearchParams = {}
 ): Promise<ProductListingServerData> {
   const lockedFilters = getLockedProductFilters(context);
+  const categorySlug =
+    context.type === "category" || context.type === "subcategory"
+      ? context.slug
+      : undefined;
   const filters = parseProductFilters(
     searchParamsToUrlSearchParams(rawSearchParams),
     lockedFilters
@@ -52,7 +61,7 @@ export async function getProductListingInitialData(
     safeRead(getProducts(productFiltersToProductQuery(filters))),
     safeRead(getCategories()),
     safeRead(getBrands()),
-    context.type === "category" ? safeRead(getCategory(context.slug)) : undefined,
+    categorySlug ? safeRead(getCategory(categorySlug)) : undefined,
     context.type === "brand" ? safeRead(getBrand(context.slug)) : undefined
   ]);
 
@@ -72,6 +81,13 @@ export function getLockedProductFilters(context: ProductListingContext) {
   if (context.type === "category") {
     return {
       category: context.slug
+    };
+  }
+
+  if (context.type === "subcategory") {
+    return {
+      category: context.slug,
+      subcategory: context.subcategorySlug
     };
   }
 

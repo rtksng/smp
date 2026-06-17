@@ -11,6 +11,10 @@ import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
 type InventoryProductStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+type ExistingDispositionMovement = {
+  quantity: number;
+  referenceId: string | null;
+};
 
 function adminAuth(role = AdminRoleCode.InventoryManager): AuthJwtPayload {
   return {
@@ -68,14 +72,21 @@ class FakeInventoryQueue {
 }
 
 function createInventoryPrismaMock({
+  existingDispositionMovements = [],
+  orderStatus = "RETURNED",
   productStatus = "ACTIVE"
-}: { productStatus?: InventoryProductStatus } = {}) {
+}: {
+  existingDispositionMovements?: ExistingDispositionMovement[];
+  orderStatus?: "CREATED" | "RETURNED";
+  productStatus?: InventoryProductStatus;
+} = {}) {
   const calls: Record<string, unknown[]> = {
     adminAuditLogCreate: [],
     inventoryStockCreate: [],
     inventoryStockFindFirst: [],
     inventoryStockFindMany: [],
     inventoryStockUpdate: [],
+    orderFindFirst: [],
     productFindFirst: [],
     productUpdate: [],
     stockBatchCreate: [],
@@ -144,6 +155,37 @@ function createInventoryPrismaMock({
         };
       }
     },
+    order: {
+      findFirst: async (args: unknown) => {
+        calls.orderFindFirst.push(args);
+        return {
+          deletedAt: null,
+          id: "order-1",
+          items: [
+            {
+              id: "order-item-1",
+              name: "Curved Artery Forceps",
+              productId: "product-1",
+              quantity: 3,
+              stockBatchId: "batch-1",
+              variantId: null,
+              warehouseId: "warehouse-1"
+            },
+            {
+              id: "order-item-2",
+              name: "Suture Pack",
+              productId: "product-1",
+              quantity: 2,
+              stockBatchId: "batch-1",
+              variantId: null,
+              warehouseId: "warehouse-1"
+            }
+          ],
+          orderNumber: "ORD-RETURN-1",
+          status: orderStatus
+        };
+      }
+    },
     product: {
       findFirst: async (args: unknown) => {
         calls.productFindFirst.push(args);
@@ -200,7 +242,7 @@ function createInventoryPrismaMock({
       },
       findMany: async (args: unknown) => {
         calls.stockMovementFindMany.push(args);
-        return [];
+        return existingDispositionMovements;
       }
     },
     warehouse: {
@@ -425,6 +467,143 @@ test("transferStock creates paired source OUT and destination IN movements", asy
     ),
     ["OUT", "IN"]
   );
+});
+
+test("dispositionReturnedItems restocks saleable returns and records quarantined returns", async () => {
+  const prisma = createInventoryPrismaMock();
+  const access = new FakeWarehouseAccess();
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    access as unknown as WarehouseAccessService
+  );
+
+  const result = await service.dispositionReturnedItems(
+    {
+      items: [
+        {
+          disposition: "RESTOCK",
+          orderItemId: "order-item-1",
+          quantity: 2
+        },
+        {
+          disposition: "QUARANTINE",
+          note: "Packaging seal broken.",
+          orderItemId: "order-item-2",
+          quantity: 1
+        }
+      ],
+      note: "Return inspection complete.",
+      orderId: "order-1"
+    },
+    actionContext()
+  );
+
+  assert.deepEqual(access.assertedWarehouseIds, ["warehouse-1"]);
+  assert.equal(result.orderId, "order-1");
+  assert.deepEqual(
+    result.items.map((item) => ({
+      disposition: item.disposition,
+      movementId: item.movementId,
+      orderItemId: item.orderItemId,
+      quantity: item.quantity,
+      restocked: item.restocked
+    })),
+    [
+      {
+        disposition: "RESTOCK",
+        movementId: "movement-1",
+        orderItemId: "order-item-1",
+        quantity: 2,
+        restocked: true
+      },
+      {
+        disposition: "QUARANTINE",
+        movementId: "movement-2",
+        orderItemId: "order-item-2",
+        quantity: 1,
+        restocked: false
+      }
+    ]
+  );
+  assert.equal(prisma.calls.inventoryStockUpdate.length, 1);
+  assert.deepEqual(prisma.calls.inventoryStockUpdate[0], {
+    data: {
+      availableQuantity: {
+        increment: 2
+      }
+    },
+    where: {
+      id: "stock-1"
+    }
+  });
+  assert.equal(prisma.calls.stockBatchUpdate.length, 1);
+  assert.deepEqual(prisma.calls.stockMovementCreate.map(
+    (call) => (call as { data: { metadata: { disposition: string }; type: string } }).data
+      .metadata.disposition
+  ), ["RESTOCK", "QUARANTINE"]);
+  assert.deepEqual(
+    prisma.calls.stockMovementCreate.map(
+      (call) =>
+        (call as {
+          data: {
+            referenceId: string;
+            referenceType: string;
+            type: string;
+          };
+        }).data
+    ).map((movement) => ({
+      referenceId: movement.referenceId,
+      referenceType: movement.referenceType,
+      type: movement.type
+    })),
+    [
+      {
+        referenceId: "order-item-1",
+        referenceType: "RETURN_DISPOSITION",
+        type: "RETURN"
+      },
+      {
+        referenceId: "order-item-2",
+        referenceType: "RETURN_DISPOSITION",
+        type: "RETURN"
+      }
+    ]
+  );
+  assert.equal(prisma.calls.adminAuditLogCreate.length, 1);
+});
+
+test("dispositionReturnedItems rejects quantities above the remaining returned item quantity", async () => {
+  const prisma = createInventoryPrismaMock({
+    existingDispositionMovements: [
+      {
+        quantity: 2,
+        referenceId: "order-item-1"
+      }
+    ]
+  });
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () =>
+      service.dispositionReturnedItems(
+        {
+          items: [
+            {
+              disposition: "SCRAP",
+              orderItemId: "order-item-1",
+              quantity: 2
+            }
+          ],
+          orderId: "order-1"
+        },
+        actionContext()
+      ),
+    BadRequestException
+  );
+  assert.equal(prisma.calls.stockMovementCreate.length, 0);
 });
 
 test("listInventory scopes non-super-admins to assigned warehouses", async () => {

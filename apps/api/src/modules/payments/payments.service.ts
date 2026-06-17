@@ -24,8 +24,18 @@ import { RazorpayClient } from "./razorpay.client";
 
 const RAZORPAY_PROVIDER = "razorpay";
 const RAZORPAY_CURRENCY = "INR" as const;
-const VALID_ONLINE_PAYMENT_ORDER_STATUSES = new Set<OrderStatus>([
-  OrderStatus.CREATED
+const VALID_ONLINE_PAYMENT_ORDER_STATUSES = new Set<OrderStatus>([OrderStatus.CREATED]);
+const STARTABLE_ORDER_PAYMENT_STATUSES = new Set<PaymentStatus>([
+  PaymentStatus.PENDING,
+  PaymentStatus.FAILED
+]);
+const VERIFIABLE_ORDER_PAYMENT_STATUSES = new Set<PaymentStatus>([
+  PaymentStatus.PENDING,
+  PaymentStatus.AUTHORIZED
+]);
+const VERIFIABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
+  PaymentStatus.PENDING,
+  PaymentStatus.AUTHORIZED
 ]);
 
 const ORDER_WITH_PAYMENTS_INCLUDE = {
@@ -33,8 +43,15 @@ const ORDER_WITH_PAYMENTS_INCLUDE = {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   }
 } as const satisfies Prisma.OrderInclude;
+const REFUND_WITH_PAYMENT_ORDER_INCLUDE = {
+  order: true,
+  payment: true
+} as const satisfies Prisma.RefundInclude;
 
-type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type DecimalValue =
+  | number
+  | string
+  | { toNumber?: () => number; toString: () => string };
 type OrderWithPayments = Prisma.OrderGetPayload<{
   include: typeof ORDER_WITH_PAYMENTS_INCLUDE;
 }>;
@@ -43,6 +60,9 @@ type PaymentWithOrder = Prisma.PaymentGetPayload<{
   include: {
     order: true;
   };
+}>;
+type RefundWithPaymentAndOrder = Prisma.RefundGetPayload<{
+  include: typeof REFUND_WITH_PAYMENT_ORDER_INCLUDE;
 }>;
 type PaymentClient =
   | Pick<
@@ -60,6 +80,12 @@ type RazorpayPaymentEntity = {
   amount: number;
   id: string;
   orderId: string;
+};
+type RazorpayRefundEntity = {
+  amount: number;
+  id: string;
+  paymentId: string;
+  status: "failed" | "pending" | "processed";
 };
 
 @Injectable()
@@ -86,8 +112,33 @@ export class PaymentsService {
     this.assertPaymentGatewayConfigured();
 
     const order = await this.findCustomerOrder(this.prisma, customerId, input.orderId);
-    const payment = this.findOnlinePayment(order);
-    this.assertPaymentCanStart(order, payment);
+    let payment = this.findReusableOnlinePayment(order);
+
+    this.assertOrderCanStartPayment(order);
+
+    if (!payment) {
+      payment = await this.prisma.payment.create({
+        data: {
+          amount: decimalToNumber(order.grandTotal),
+          method: PaymentMethod.ONLINE,
+          orderId: order.id,
+          status: PaymentStatus.PENDING
+        }
+      });
+
+      if (order.paymentStatus !== PaymentStatus.PENDING) {
+        await this.prisma.order.update({
+          data: {
+            paymentStatus: PaymentStatus.PENDING
+          },
+          where: {
+            id: order.id
+          }
+        });
+      }
+    }
+
+    this.assertPaymentCanStart(payment);
     const amountPaise = this.resolvePaymentAmountPaise(order, payment);
 
     if (payment.providerOrderId) {
@@ -119,10 +170,7 @@ export class PaymentsService {
     return this.serializeRazorpayOrder(order, updatedPayment, amountPaise);
   }
 
-  async verifyRazorpayPayment(
-    customerId: string,
-    input: VerifyRazorpayPaymentDto
-  ) {
+  async verifyRazorpayPayment(customerId: string, input: VerifyRazorpayPaymentDto) {
     if (
       !this.razorpayClient.verifyPaymentSignature(
         input.razorpay_order_id,
@@ -136,7 +184,10 @@ export class PaymentsService {
     let invoiceOrderId: string | null = null;
     const result = await this.prisma.$transaction(async (tx) => {
       const order = await this.findCustomerOrder(tx, customerId, input.orderId);
-      const payment = this.findOnlinePayment(order);
+      const payment = this.findOnlinePaymentForProviderOrder(
+        order,
+        input.razorpay_order_id
+      );
       this.assertPaymentCanVerify(order, payment, input.razorpay_order_id);
       const amountPaise = this.resolvePaymentAmountPaise(order, payment);
       this.assertStoredProviderAmountMatches(payment, amountPaise);
@@ -263,6 +314,7 @@ export class PaymentsService {
     let invoiceOrderId: string | null = null;
     const result = await this.prisma.$transaction(async (tx) => {
       const paymentEntity = extractRazorpayPaymentEntity(parsedPayload);
+      const refundEntity = extractRazorpayRefundEntity(parsedPayload);
       const payment = paymentEntity
         ? await tx.payment.findFirst({
             include: {
@@ -272,6 +324,15 @@ export class PaymentsService {
               providerOrderId: paymentEntity.orderId
             }
           })
+        : refundEntity
+          ? await tx.payment.findFirst({
+              include: {
+                order: true
+              },
+              where: {
+                providerPaymentId: refundEntity.paymentId
+              }
+            })
         : null;
       const webhook = await tx.paymentWebhook.create({
         data: {
@@ -290,7 +351,8 @@ export class PaymentsService {
             tx,
             parsedPayload,
             payment,
-            paymentEntity
+            paymentEntity,
+            refundEntity
           )
         : false;
 
@@ -344,6 +406,31 @@ export class PaymentsService {
     });
   }
 
+  async processPendingOrderRefund(orderId: string) {
+    const refund = await this.prisma.refund.findFirst({
+      include: REFUND_WITH_PAYMENT_ORDER_INCLUDE,
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      where: {
+        orderId,
+        status: {
+          in: [RefundStatus.PENDING, RefundStatus.PROCESSING, RefundStatus.FAILED]
+        }
+      }
+    });
+
+    if (!refund) {
+      return null;
+    }
+
+    if (!this.isPaidRazorpayRefund(refund)) {
+      return this.serializeRefund(refund);
+    }
+
+    this.assertPaymentGatewayConfigured();
+
+    return this.processRazorpayRefund(refund);
+  }
+
   private async findCustomerOrder(
     client: PaymentClient,
     customerId: string,
@@ -367,9 +454,7 @@ export class PaymentsService {
 
   private assertPaymentGatewayConfigured() {
     if (!this.razorpayClient.isConfigured()) {
-      throw new ServiceUnavailableException(
-        "Payment gateway is not configured yet."
-      );
+      throw new ServiceUnavailableException("Payment gateway is not configured yet.");
     }
   }
 
@@ -384,19 +469,51 @@ export class PaymentsService {
     });
   }
 
-  private findOnlinePayment(order: OrderWithPayments) {
-    const payment = order.payments.find(
+  private findOnlinePayments(order: OrderWithPayments) {
+    const payments = order.payments.filter(
       (entry) => entry.method === PaymentMethod.ONLINE
     );
 
-    if (!payment) {
+    if (payments.length === 0) {
       throw new BadRequestException("Order does not use online payment.");
+    }
+
+    return payments;
+  }
+
+  private findOnlinePaymentForProviderOrder(
+    order: OrderWithPayments,
+    providerOrderId: string
+  ) {
+    const payment = this.findOnlinePayments(order).find(
+      (entry) => entry.providerOrderId === providerOrderId
+    );
+
+    if (!payment) {
+      throw new BadRequestException("Razorpay order id does not match this payment.");
     }
 
     return payment;
   }
 
-  private assertPaymentCanStart(order: OrderWithPayments, payment: OrderPayment) {
+  private findReusableOnlinePayment(order: OrderWithPayments) {
+    const payments = this.findOnlinePayments(order);
+
+    if (payments.some((payment) => payment.status === PaymentStatus.PAID)) {
+      throw new ConflictException("Order payment has already succeeded.");
+    }
+
+    return (
+      payments.find(
+        (payment) =>
+          payment.status === PaymentStatus.PENDING && Boolean(payment.providerOrderId)
+      ) ??
+      payments.find((payment) => payment.status === PaymentStatus.PENDING) ??
+      null
+    );
+  }
+
+  private assertOrderCanStartPayment(order: OrderWithPayments) {
     if (order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException("Cancelled orders cannot be paid online.");
     }
@@ -405,16 +522,36 @@ export class PaymentsService {
       throw new BadRequestException("Order is not in a valid payment state.");
     }
 
-    if (order.paymentStatus === PaymentStatus.PAID || payment.status === PaymentStatus.PAID) {
+    if (order.paymentStatus === PaymentStatus.PAID) {
       throw new ConflictException("Order payment has already succeeded.");
     }
 
-    if (order.paymentStatus !== PaymentStatus.PENDING) {
+    if (!STARTABLE_ORDER_PAYMENT_STATUSES.has(order.paymentStatus)) {
       throw new BadRequestException("Order payment is not pending.");
     }
+  }
 
+  private assertPaymentCanStart(payment: OrderPayment) {
     if (payment.status !== PaymentStatus.PENDING) {
       throw new BadRequestException("Online payment is not pending.");
+    }
+  }
+
+  private assertOrderCanVerifyPayment(order: OrderWithPayments) {
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException("Cancelled orders cannot be paid online.");
+    }
+
+    if (!VALID_ONLINE_PAYMENT_ORDER_STATUSES.has(order.status)) {
+      throw new BadRequestException("Order is not in a valid payment state.");
+    }
+
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      throw new ConflictException("Order payment has already succeeded.");
+    }
+
+    if (!VERIFIABLE_ORDER_PAYMENT_STATUSES.has(order.paymentStatus)) {
+      throw new BadRequestException("Order payment is not pending.");
     }
   }
 
@@ -423,7 +560,7 @@ export class PaymentsService {
     payment: OrderPayment,
     razorpayOrderId: string
   ) {
-    this.assertPaymentCanStart(order, payment);
+    this.assertOrderCanVerifyPayment(order);
 
     if (!payment.providerOrderId) {
       throw new BadRequestException("Razorpay order has not been created.");
@@ -431,6 +568,10 @@ export class PaymentsService {
 
     if (payment.providerOrderId !== razorpayOrderId) {
       throw new BadRequestException("Razorpay order id does not match this payment.");
+    }
+
+    if (!VERIFIABLE_PAYMENT_STATUSES.has(payment.status)) {
+      throw new BadRequestException("Online payment is not pending.");
     }
   }
 
@@ -480,9 +621,19 @@ export class PaymentsService {
     tx: Prisma.TransactionClient,
     payload: RazorpayWebhookPayload,
     payment: PaymentWithOrder,
-    paymentEntity: RazorpayPaymentEntity | null
+    paymentEntity: RazorpayPaymentEntity | null,
+    refundEntity: RazorpayRefundEntity | null
   ) {
     const event = readString(payload.event);
+
+    if (refundEntity) {
+      return this.processSupportedRefundWebhookEvent(
+        tx,
+        event,
+        payment,
+        refundEntity
+      );
+    }
 
     if (!paymentEntity) {
       return false;
@@ -594,6 +745,283 @@ export class PaymentsService {
     return false;
   }
 
+  private async processSupportedRefundWebhookEvent(
+    tx: Prisma.TransactionClient,
+    event: string | null,
+    payment: PaymentWithOrder,
+    refundEntity: RazorpayRefundEntity
+  ) {
+    if (event !== "refund.processed" && event !== "refund.failed") {
+      return false;
+    }
+
+    if (payment.providerPaymentId !== refundEntity.paymentId) {
+      throw new BadRequestException("Webhook refund payment id does not match.");
+    }
+
+    const refund = await tx.refund.findFirst({
+      include: REFUND_WITH_PAYMENT_ORDER_INCLUDE,
+      where: {
+        providerRefundId: refundEntity.id
+      }
+    });
+
+    if (!refund) {
+      return false;
+    }
+
+    if (refund.paymentId !== payment.id) {
+      throw new BadRequestException("Webhook refund does not match this payment.");
+    }
+
+    if (refundEntity.amount !== decimalToPaise(refund.amount)) {
+      throw new BadRequestException("Webhook refund amount does not match.");
+    }
+
+    const status = mapRazorpayRefundStatus(refundEntity.status);
+
+    if (refund.status === status) {
+      return false;
+    }
+
+    await tx.refund.update({
+      data: {
+        processedAt: status === RefundStatus.COMPLETED ? new Date() : null,
+        status
+      },
+      where: {
+        id: refund.id
+      }
+    });
+
+    if (status === RefundStatus.COMPLETED) {
+      await this.updatePaymentRefundStatus(tx, payment.id);
+    }
+
+    return true;
+  }
+
+  private async processRazorpayRefund(refund: RefundWithPaymentAndOrder) {
+    if (refund.providerRefundId) {
+      return this.refreshRazorpayRefund(refund);
+    }
+
+    this.assertRefundCanUseRazorpay(refund);
+    const payment = refund.payment;
+
+    if (!payment?.providerPaymentId) {
+      throw new BadRequestException(
+        "Refund can be processed only after Razorpay payment capture."
+      );
+    }
+
+    const amountPaise = decimalToPaise(refund.amount);
+
+    if (amountPaise <= 0) {
+      throw new BadRequestException("Refund amount must be greater than zero.");
+    }
+
+    await this.prisma.refund.update({
+      data: {
+        status: RefundStatus.PROCESSING
+      },
+      where: {
+        id: refund.id
+      }
+    });
+
+    let providerRefund: Awaited<ReturnType<RazorpayClient["createRefund"]>>;
+
+    try {
+      providerRefund = await this.razorpayClient.createRefund(
+        payment.providerPaymentId,
+        {
+          amount: amountPaise,
+          notes: {
+            orderId: refund.orderId,
+            orderNumber: refund.order.orderNumber,
+            refundId: refund.id
+          },
+          receipt: `refund-${refund.id}`,
+          speed: "normal"
+        }
+      );
+    } catch (error) {
+      await this.prisma.refund.update({
+        data: {
+          status: RefundStatus.PENDING
+        },
+        where: {
+          id: refund.id
+        }
+      });
+      throw error;
+    }
+
+    if (providerRefund.amount !== amountPaise) {
+      await this.prisma.refund.update({
+        data: {
+          status: RefundStatus.PENDING
+        },
+        where: {
+          id: refund.id
+        }
+      });
+      throw new BadRequestException("Razorpay refund amount does not match.");
+    }
+
+    const status = mapRazorpayRefundStatus(providerRefund.status);
+    const processedAt = status === RefundStatus.COMPLETED ? new Date() : null;
+    const updatedRefund = await this.prisma.refund.update({
+      data: {
+        processedAt,
+        providerRefundId: providerRefund.id,
+        status
+      },
+      where: {
+        id: refund.id
+      }
+    });
+
+    if (status === RefundStatus.COMPLETED) {
+      await this.updatePaymentRefundStatus(this.prisma, payment.id);
+    }
+
+    return this.serializeRefund({
+      ...refund,
+      ...updatedRefund
+    });
+  }
+
+  private async refreshRazorpayRefund(refund: RefundWithPaymentAndOrder) {
+    this.assertRefundCanUseRazorpay(refund);
+    const payment = refund.payment;
+
+    if (!payment?.providerPaymentId) {
+      throw new BadRequestException(
+        "Refund status can be refreshed only after Razorpay payment capture."
+      );
+    }
+
+    if (!refund.providerRefundId) {
+      throw new BadRequestException("Refund does not have a Razorpay refund id.");
+    }
+
+    const providerRefund = await this.razorpayClient.fetchRefund(
+      refund.providerRefundId
+    );
+
+    if (providerRefund.payment_id !== payment.providerPaymentId) {
+      throw new BadRequestException("Razorpay refund payment id does not match.");
+    }
+
+    if (providerRefund.amount !== decimalToPaise(refund.amount)) {
+      throw new BadRequestException("Razorpay refund amount does not match.");
+    }
+
+    const status = mapRazorpayRefundStatus(providerRefund.status);
+    const processedAt =
+      status === RefundStatus.COMPLETED
+        ? refund.processedAt ?? new Date()
+        : null;
+    const updatedRefund = await this.prisma.refund.update({
+      data: {
+        processedAt,
+        status
+      },
+      where: {
+        id: refund.id
+      }
+    });
+
+    if (status === RefundStatus.COMPLETED) {
+      await this.updatePaymentRefundStatus(this.prisma, payment.id);
+    }
+
+    return this.serializeRefund({
+      ...refund,
+      ...updatedRefund
+    });
+  }
+
+  private assertRefundCanUseRazorpay(refund: RefundWithPaymentAndOrder) {
+    if (!refund.payment) {
+      throw new BadRequestException("Refund is not linked to a payment.");
+    }
+
+    if (refund.payment.method !== PaymentMethod.ONLINE) {
+      throw new BadRequestException(
+        "Only online payments can be refunded through Razorpay."
+      );
+    }
+
+    if (refund.payment.status !== PaymentStatus.PAID) {
+      throw new BadRequestException("Only paid payments can be refunded.");
+    }
+
+    if (refund.payment.provider !== RAZORPAY_PROVIDER) {
+      throw new BadRequestException(
+        "Refund can be processed only for Razorpay payments."
+      );
+    }
+  }
+
+  private isPaidRazorpayRefund(refund: RefundWithPaymentAndOrder) {
+    return (
+      refund.payment?.method === PaymentMethod.ONLINE &&
+      refund.payment.status === PaymentStatus.PAID &&
+      refund.payment.provider === RAZORPAY_PROVIDER
+    );
+  }
+
+  private async updatePaymentRefundStatus(
+    client: PaymentClient,
+    paymentId: string
+  ) {
+    const payment = await client.payment.findFirst({
+      where: {
+        id: paymentId
+      }
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Payment was not found for this refund.");
+    }
+
+    const completedRefunds = await client.refund.findMany({
+      where: {
+        paymentId,
+        status: RefundStatus.COMPLETED
+      }
+    });
+    const completedAmount = completedRefunds.reduce(
+      (sum, refund) => sum + decimalToNumber(refund.amount),
+      0
+    );
+    const paidAmount = decimalToNumber(payment.amount);
+    const nextStatus =
+      completedAmount >= paidAmount
+        ? PaymentStatus.REFUNDED
+        : PaymentStatus.PARTIALLY_REFUNDED;
+
+    await client.payment.update({
+      data: {
+        status: nextStatus
+      },
+      where: {
+        id: paymentId
+      }
+    });
+    await client.order.update({
+      data: {
+        paymentStatus: nextStatus
+      },
+      where: {
+        id: payment.orderId
+      }
+    });
+  }
+
   private serializeRazorpayOrder(
     order: Pick<OrderWithPayments, "id">,
     payment: Pick<OrderPayment, "id" | "providerOrderId">,
@@ -612,6 +1040,31 @@ export class PaymentsService {
         keyId: this.razorpayClient.getKeyId(),
         orderId: payment.providerOrderId
       }
+    };
+  }
+
+  private serializeRefund(
+    refund: Pick<
+      RefundWithPaymentAndOrder,
+      | "amount"
+      | "id"
+      | "orderId"
+      | "paymentId"
+      | "processedAt"
+      | "providerRefundId"
+      | "reason"
+      | "status"
+    >
+  ) {
+    return {
+      amount: decimalToNumber(refund.amount),
+      id: refund.id,
+      orderId: refund.orderId,
+      paymentId: refund.paymentId,
+      processedAt: refund.processedAt,
+      providerRefundId: refund.providerRefundId,
+      reason: refund.reason,
+      status: refund.status
     };
   }
 }
@@ -634,6 +1087,29 @@ function extractRazorpayPaymentEntity(
     amount,
     id,
     orderId
+  };
+}
+
+function extractRazorpayRefundEntity(
+  payload: RazorpayWebhookPayload
+): RazorpayRefundEntity | null {
+  const eventPayload = readRecord(payload.payload);
+  const refundWrapper = readRecord(eventPayload?.refund);
+  const entity = readRecord(refundWrapper?.entity);
+  const id = readString(entity?.id);
+  const paymentId = readString(entity?.payment_id);
+  const amount = entity?.amount;
+  const status = readRazorpayRefundStatus(entity?.status);
+
+  if (!id || !paymentId || typeof amount !== "number" || !status) {
+    return null;
+  }
+
+  return {
+    amount,
+    id,
+    paymentId,
+    status
   };
 }
 
@@ -665,6 +1141,18 @@ function decimalToPaise(value: DecimalValue) {
   return Math.round(decimalToNumber(value) * 100);
 }
 
+function mapRazorpayRefundStatus(status: "failed" | "pending" | "processed") {
+  if (status === "processed") {
+    return RefundStatus.COMPLETED;
+  }
+
+  if (status === "failed") {
+    return RefundStatus.FAILED;
+  }
+
+  return RefundStatus.PROCESSING;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -675,6 +1163,12 @@ function readRecord(value: unknown) {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readRazorpayRefundStatus(value: unknown) {
+  return value === "failed" || value === "pending" || value === "processed"
+    ? value
+    : null;
 }
 
 function toJsonValue(value: unknown) {

@@ -27,6 +27,7 @@ import {
   productFiltersToSearchParams,
   SORT_OPTIONS,
   STOCK_OPTIONS,
+  type ProductFilterOverrides,
   type ProductFilters
 } from "../../lib/catalog/product-filters";
 import { getProducts } from "../../lib/api/products";
@@ -75,7 +76,12 @@ export function ProductListingPage({
   const lockedFilters = useMemo(
     () => ({
       brand: context.type === "brand" ? context.slug : undefined,
-      category: context.type === "category" ? context.slug : undefined
+      category:
+        context.type === "category" || context.type === "subcategory"
+          ? context.slug
+          : undefined,
+      subcategory:
+        context.type === "subcategory" ? context.subcategorySlug : undefined
     }),
     [context]
   );
@@ -114,13 +120,24 @@ export function ProductListingPage({
     staleTime: LISTING_STALE_TIME_MS
   });
   const categoryQuery = useQuery({
-    enabled: context.type === "category",
+    enabled: context.type === "category" || context.type === "subcategory",
     initialData:
-      context.type === "category" && initialData?.category?.slug === context.slug
+      (context.type === "category" || context.type === "subcategory") &&
+      initialData?.category?.slug === context.slug
         ? initialData.category
         : undefined,
-    queryFn: () => getCategory(context.type === "category" ? context.slug : ""),
-    queryKey: ["category", context.type === "category" ? context.slug : ""],
+    queryFn: () =>
+      getCategory(
+        context.type === "category" || context.type === "subcategory"
+          ? context.slug
+          : ""
+      ),
+    queryKey: [
+      "category",
+      context.type === "category" || context.type === "subcategory"
+        ? context.slug
+        : ""
+    ],
     staleTime: LISTING_STALE_TIME_MS
   });
   const brandQuery = useQuery({
@@ -133,12 +150,17 @@ export function ProductListingPage({
     queryKey: ["brand", context.type === "brand" ? context.slug : ""],
     staleTime: LISTING_STALE_TIME_MS
   });
+  const subcategoryName = findSubcategoryName(
+    categoryQuery.data,
+    context.type === "subcategory" ? context.subcategorySlug : filters.subcategory
+  );
   const pageHeading = buildHeading(
     context,
     categoryQuery.data?.name,
-    brandQuery.data?.name
+    brandQuery.data?.name,
+    subcategoryName
   );
-  const pageDescription = buildDescription(context, filters.search);
+  const pageDescription = buildDescription(context, filters.search, categoryQuery.data?.name);
   const availableHref = productFiltersToHref(
     pathname,
     { ...filters, availability: "available", page: 1 },
@@ -211,12 +233,12 @@ export function ProductListingPage({
                 title="Unable to load brand"
               />
             ) : null}
-            {context.type === "category" && categoryQuery.data ? (
+            {(context.type === "category" || context.type === "subcategory") &&
+            categoryQuery.data ? (
               <SubcategoryNav
                 category={categoryQuery.data}
                 filters={filters}
                 lockedFilters={lockedFilters}
-                pathname={pathname}
               />
             ) : null}
           </Container>
@@ -239,16 +261,17 @@ export function ProductListingPage({
             className="hidden lg:sticky lg:top-20 lg:block lg:self-start"
             data-testid="desktop-product-filters"
           >
-            <FiltersForm
-              brandName={brandQuery.data?.name}
-              brands={brandsQuery.data}
-              categories={categoriesQuery.data}
-              categoryName={categoryQuery.data?.name}
-              filters={filters}
-              lockedFilters={lockedFilters}
-              onFiltersChange={handleFiltersChange}
-              pathname={pathname}
-            />
+              <FiltersForm
+                brandName={brandQuery.data?.name}
+                brands={brandsQuery.data}
+                categories={categoriesQuery.data}
+                categoryName={categoryQuery.data?.name}
+                filters={filters}
+                lockedFilters={lockedFilters}
+                onFiltersChange={handleFiltersChange}
+                pathname={pathname}
+                subcategoryName={subcategoryName}
+              />
           </aside>
 
           <section
@@ -356,6 +379,7 @@ export function ProductListingPage({
                 onFiltersChange={handleFiltersChange}
                 pathname={pathname}
                 showTitle={false}
+                subcategoryName={subcategoryName}
               />
             </section>
           </div>
@@ -377,7 +401,8 @@ function FiltersForm({
   lockedFilters,
   onFiltersChange,
   pathname,
-  showTitle = true
+  showTitle = true,
+  subcategoryName
 }: {
   brandName?: string;
   brands?: Brand[];
@@ -386,10 +411,11 @@ function FiltersForm({
   className?: string;
   fieldsClassName?: string;
   filters: ProductFilters;
-  lockedFilters: { brand?: string; category?: string };
+  lockedFilters: ProductFilterOverrides;
   onFiltersChange: (filters: ProductFilters) => void;
   pathname: string;
   showTitle?: boolean;
+  subcategoryName?: string;
 }) {
   const activeCategory = lockedFilters.category ?? filters.category ?? "";
   const [selectedCategory, setSelectedCategory] = useState(activeCategory);
@@ -419,6 +445,10 @@ function FiltersForm({
 
     if (lockedFilters.category) {
       nextFilters.category = lockedFilters.category;
+    }
+
+    if (lockedFilters.subcategory) {
+      nextFilters.subcategory = lockedFilters.subcategory;
     }
 
     onFiltersChange(nextFilters);
@@ -492,32 +522,39 @@ function FiltersForm({
           </Field>
         )}
 
-        <Field label="Subcategory">
-          <HeroFilterSelect
-            disabled={subcategoryGroups.length === 0}
+        {lockedFilters.subcategory ? (
+          <LockedField
             label="Subcategory"
-            name="subcategory"
-            onChange={(value) => {
-              setSelectedSubcategory(value);
-              updateFilters({ subcategory: readFilterText(value) });
-            }}
-            options={[
-              {
-                label: "All subcategories",
-                value: ""
-              }
-            ]}
-            placeholder="All subcategories"
-            sections={subcategoryGroups.map((group) => ({
-              label: group.category.name,
-              options: group.subcategories.map((subcategory) => ({
-                label: subcategory.name,
-                value: subcategory.slug
-              }))
-            }))}
-            value={selectedSubcategory}
+            value={subcategoryName ?? lockedFilters.subcategory}
           />
-        </Field>
+        ) : (
+          <Field label="Subcategory">
+            <HeroFilterSelect
+              disabled={subcategoryGroups.length === 0}
+              label="Subcategory"
+              name="subcategory"
+              onChange={(value) => {
+                setSelectedSubcategory(value);
+                updateFilters({ subcategory: readFilterText(value) });
+              }}
+              options={[
+                {
+                  label: "All subcategories",
+                  value: ""
+                }
+              ]}
+              placeholder="All subcategories"
+              sections={subcategoryGroups.map((group) => ({
+                label: group.category.name,
+                options: group.subcategories.map((subcategory) => ({
+                  label: subcategory.name,
+                  value: subcategory.slug
+                }))
+              }))}
+              value={selectedSubcategory}
+            />
+          </Field>
+        )}
 
         {lockedFilters.brand ? (
           <LockedField label="Brand" value={brandName ?? lockedFilters.brand} />
@@ -673,13 +710,11 @@ function ClearFiltersLink({ pathname }: { pathname: string }) {
 function SubcategoryNav({
   category,
   filters,
-  lockedFilters,
-  pathname
+  lockedFilters
 }: {
   category: Category;
   filters: ProductFilters;
-  lockedFilters: { brand?: string; category?: string };
-  pathname: string;
+  lockedFilters: ProductFilterOverrides;
 }) {
   if (category.children.length === 0) {
     return null;
@@ -696,9 +731,13 @@ function SubcategoryNav({
               : "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
           ].join(" ")}
           href={productFiltersToHref(
-            pathname,
+            `/categories/${category.slug}`,
             { ...filters, page: 1, subcategory: undefined },
-            lockedFilters
+            {
+              ...lockedFilters,
+              category: category.slug,
+              subcategory: undefined
+            }
           )}
         >
           All {category.name}
@@ -712,9 +751,13 @@ function SubcategoryNav({
                 : "border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
             ].join(" ")}
             href={productFiltersToHref(
-              pathname,
+              `/categories/${category.slug}/${subcategory.slug}`,
               { ...filters, page: 1, subcategory: subcategory.slug },
-              lockedFilters
+              {
+                ...lockedFilters,
+                category: category.slug,
+                subcategory: subcategory.slug
+              }
             )}
             key={subcategory.id}
           >
@@ -780,7 +823,7 @@ function ActiveFilterSummary({
   pathname
 }: {
   filters: ProductFilters;
-  lockedFilters: { brand?: string; category?: string };
+  lockedFilters: ProductFilterOverrides;
   pathname: string;
 }) {
   const chips = getActiveFilterChips(filters, lockedFilters);
@@ -816,7 +859,7 @@ function Pagination({
   totalPages
 }: {
   filters: ProductFilters;
-  lockedFilters: { brand?: string; category?: string };
+  lockedFilters: ProductFilterOverrides;
   pathname: string;
   totalPages: number;
 }) {
@@ -910,8 +953,13 @@ function getSubcategoryGroups(
 function buildHeading(
   context: ProductListingContext,
   categoryName: string | undefined,
-  brandName: string | undefined
+  brandName: string | undefined,
+  subcategoryName: string | undefined
 ) {
+  if (context.type === "subcategory") {
+    return subcategoryName ? `${subcategoryName} products` : "Subcategory products";
+  }
+
   if (context.type === "category") {
     return categoryName ? `${categoryName} products` : "Category products";
   }
@@ -923,9 +971,19 @@ function buildHeading(
   return "All products";
 }
 
-function buildDescription(context: ProductListingContext, search: string | undefined) {
+function buildDescription(
+  context: ProductListingContext,
+  search: string | undefined,
+  categoryName: string | undefined
+) {
   if (search) {
     return `Results for "${search}" with filters saved in the URL.`;
+  }
+
+  if (context.type === "subcategory") {
+    return categoryName
+      ? `Browse this ${categoryName} subcategory with price, stock, specialty, and brand filters.`
+      : "Browse this subcategory with price, stock, specialty, and brand filters.";
   }
 
   if (context.type === "category") {
@@ -941,14 +999,16 @@ function buildDescription(context: ProductListingContext, search: string | undef
 
 function getActiveFilterChips(
   filters: ProductFilters,
-  lockedFilters: { brand?: string; category?: string }
+  lockedFilters: ProductFilterOverrides
 ) {
   return [
     filters.search ? `Search: ${filters.search}` : undefined,
     !lockedFilters.category && filters.category
       ? `Category: ${filters.category}`
       : undefined,
-    filters.subcategory ? `Subcategory: ${filters.subcategory}` : undefined,
+    !lockedFilters.subcategory && filters.subcategory
+      ? `Subcategory: ${filters.subcategory}`
+      : undefined,
     !lockedFilters.brand && filters.brand ? `Brand: ${filters.brand}` : undefined,
     filters.minPrice !== undefined ? `Min Rs ${filters.minPrice}` : undefined,
     filters.maxPrice !== undefined ? `Max Rs ${filters.maxPrice}` : undefined,
@@ -963,6 +1023,18 @@ function getActiveFilterChips(
       ? `Sort: ${SORT_OPTIONS.find((option) => option.value === filters.sort)?.label ?? filters.sort}`
       : undefined
   ].filter(Boolean) as string[];
+}
+
+function findSubcategoryName(
+  category: Category | undefined,
+  subcategorySlug: string | undefined
+) {
+  if (!category || !subcategorySlug) {
+    return undefined;
+  }
+
+  return category.children.find((subcategory) => subcategory.slug === subcategorySlug)
+    ?.name;
 }
 
 const inputClassName =

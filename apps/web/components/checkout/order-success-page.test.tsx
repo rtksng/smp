@@ -36,6 +36,7 @@ vi.mock("../../lib/api/orders", async () => {
 
 const order: Order = {
   createdAt: "2026-06-02T10:00:00.000Z",
+  deliveryTracking: [],
   id: "order_1",
   items: [
     {
@@ -71,6 +72,7 @@ const order: Order = {
   paymentMethod: "COD",
   paymentStatus: "PENDING",
   placedAt: "2026-06-02T10:05:00.000Z",
+  refunds: [],
   shippingAddress: {
     city: "Mumbai",
     country: "India",

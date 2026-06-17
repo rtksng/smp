@@ -47,9 +47,7 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
         const refreshToken = get().session?.tokens.refreshToken;
 
         try {
-          if (refreshToken) {
-            await logoutCustomerSession(refreshToken);
-          }
+          await logoutCustomerSession(refreshToken);
         } finally {
           set({
             isLoginOpen: false,
@@ -74,7 +72,9 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
         }
 
         try {
-          const tokens = await refreshCustomerTokens(currentSession.tokens.refreshToken);
+          const tokens = await refreshCustomerTokens(
+            currentSession.tokens.refreshToken
+          );
           const nextSession = {
             ...currentSession,
             tokens
@@ -128,6 +128,14 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
       },
       partialize: (state) => ({
         session: state.session
+          ? {
+              ...state.session,
+              tokens: {
+                ...state.session.tokens,
+                refreshToken: null
+              }
+            }
+          : null
       }),
       storage: createJSONStorage(() => window.localStorage)
     }

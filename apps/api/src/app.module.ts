@@ -16,6 +16,7 @@ import { BrandsModule } from "./modules/brands/brands.module";
 import { CartModule } from "./modules/cart/cart.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { CustomersModule } from "./modules/customers/customers.module";
+import { CouponsModule } from "./modules/coupons/coupons.module";
 import { DeliveryModule } from "./modules/delivery/delivery.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
@@ -23,10 +24,13 @@ import { OrdersModule } from "./modules/orders/orders.module";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
 import { ProductsModule } from "./modules/products/products.module";
+import { ProductFeedbackModule } from "./modules/product-feedback/product-feedback.module";
+import { QuoteRequestsModule } from "./modules/quote-requests/quote-requests.module";
 import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
 import { WarehousesModule } from "./modules/warehouses/warehouses.module";
+import { WishlistModule } from "./modules/wishlist/wishlist.module";
 
 @Module({
   imports: [
@@ -55,11 +59,14 @@ import { WarehousesModule } from "./modules/warehouses/warehouses.module";
     AuthModule,
     AdminUsersModule,
     CustomersModule,
+    CouponsModule,
     DeliveryModule,
     CartModule,
     CategoriesModule,
     BrandsModule,
     ProductsModule,
+    ProductFeedbackModule,
+    QuoteRequestsModule,
     OrdersModule,
     PaymentsModule,
     InventoryModule,
@@ -67,7 +74,8 @@ import { WarehousesModule } from "./modules/warehouses/warehouses.module";
     ReportsModule,
     RolesModule,
     UploadsModule,
-    WarehousesModule
+    WarehousesModule,
+    WishlistModule
   ],
   providers: [
     StructuredLogger,

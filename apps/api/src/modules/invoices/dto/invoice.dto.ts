@@ -127,15 +127,15 @@ export class InvoiceTotalsResponseDto {
 }
 
 export class InvoicePdfResponseDto {
-  @ApiProperty({ example: false })
+  @ApiProperty({ example: true })
   available!: boolean;
 
   @ApiProperty({
-    example: "PDF generation is reserved for the async invoice worker."
+    example: "PDF invoice can be downloaded on demand."
   })
   message!: string;
 
-  @ApiProperty({ example: "NOT_GENERATED" })
+  @ApiProperty({ example: "ON_DEMAND" })
   status!: string;
 }
 

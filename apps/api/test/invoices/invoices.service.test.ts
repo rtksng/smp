@@ -6,6 +6,8 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
 import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
+import { InvoiceFormat } from "../../src/modules/invoices/dto/invoice.dto";
+import { prepareInvoiceHttpResponse } from "../../src/modules/invoices/invoice-http-response";
 import { InvoicesService } from "../../src/modules/invoices/invoices.service";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
@@ -213,8 +215,46 @@ test("getCustomerInvoice creates a same-state GST invoice with CGST and SGST fro
   assert.equal(invoice.items[0].igstAmount, 0);
   assert.match(invoice.html, /Curved Artery Forceps/);
   assert.match(invoice.html, /CGST/);
-  assert.equal(invoice.pdf.available, false);
+  assert.equal(invoice.pdf.available, true);
+  assert.equal(invoice.pdf.status, "ON_DEMAND");
   assert.equal(prisma.calls.gSTInvoiceCreate.length, 1);
+});
+
+test("prepareInvoiceHttpResponse returns downloadable PDF bytes", async () => {
+  const prisma = createInvoicePrismaMock();
+  const service = new InvoicesService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+  const invoice = await service.getCustomerInvoice("customer-1", "order-1");
+  const headers = new Map<string, string>();
+  const response = {
+    setHeader: (name: string, value: string) => {
+      headers.set(name.toLowerCase(), value);
+    }
+  };
+
+  const body = prepareInvoiceHttpResponse(
+    invoice,
+    { format: InvoiceFormat.Pdf },
+    response as never
+  );
+
+  assert.ok(Buffer.isBuffer(body));
+  assert.equal(body.subarray(0, 5).toString("utf8"), "%PDF-");
+  assert.equal(headers.get("content-type"), "application/pdf");
+  assert.equal(headers.get("content-length"), String(body.byteLength));
+  assert.equal(
+    headers.get("content-disposition"),
+    `attachment; filename="${invoice.invoiceNumber}.pdf"`
+  );
+  const pdfSource = body.toString("utf8");
+  assert.match(pdfSource, /GST Invoice/);
+  assert.match(pdfSource, /Ritika Surgical Clinic/);
+  assert.match(pdfSource, /Curved Artery Forceps/);
+  assert.match(pdfSource, /Unit price/);
+  assert.match(pdfSource, /Taxable value/);
+  assert.match(pdfSource, /Grand total/);
 });
 
 test("getCustomerInvoice creates an interstate GST invoice with IGST only", async () => {

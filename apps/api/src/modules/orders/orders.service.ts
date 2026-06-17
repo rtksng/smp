@@ -9,22 +9,33 @@ import {
 import { PrismaService } from "../../database/prisma.service";
 import { ApiQueueService } from "../../queues/api-queue.service";
 import {
+  DeliveryStatus,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
   Prisma,
   ProductStatus,
+  RefundStatus,
   StockMovementType,
   WarehouseStatus
 } from "../../generated/prisma/client";
+import { CartService } from "../cart/cart.service";
+import {
+  calculateCouponDiscount,
+  normalizeCouponCode
+} from "../coupons/coupons.service";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
+import { PaymentsService } from "../payments/payments.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
 import type {
   AdminOrderListQueryDto,
+  AdminReturnActionDto,
+  AdminReturnRequestListQueryDto,
   CancelOrderDto,
   CreateOrderDto,
   OrderListQueryDto,
+  RequestReturnDto,
   UpdateOrderStatusDto
 } from "./dto/order.dto";
 
@@ -40,12 +51,24 @@ const CART_CHECKOUT_INCLUDE = {
 
 const ORDER_INCLUDE = {
   billingAddress: true,
+  deliveryAssignments: {
+    include: {
+      deliveryPartner: true,
+      statusHistory: {
+        orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+      }
+    },
+    orderBy: [{ assignedAt: "desc" as const }, { id: "asc" as const }]
+  },
   gstInvoice: true,
   items: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   payments: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+  },
+  refunds: {
+    orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }]
   },
   shippingAddress: true,
   statusHistory: {
@@ -57,12 +80,24 @@ const ORDER_INCLUDE = {
 
 const ORDER_SUMMARY_INCLUDE = {
   billingAddress: true,
+  deliveryAssignments: {
+    include: {
+      deliveryPartner: true,
+      statusHistory: {
+        orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+      }
+    },
+    orderBy: [{ assignedAt: "desc" as const }, { id: "asc" as const }]
+  },
   gstInvoice: true,
   items: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   },
   payments: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+  },
+  refunds: {
+    orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }]
   },
   shippingAddress: true,
   statusHistory: {
@@ -77,6 +112,17 @@ const CANCELLABLE_STATUSES = new Set<OrderStatus>([
   OrderStatus.CONFIRMED,
   OrderStatus.PACKED,
   OrderStatus.ASSIGNED
+]);
+
+const ACTIVE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
+  RefundStatus.PENDING,
+  RefundStatus.PROCESSING
+]);
+
+const PROCESSABLE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
+  RefundStatus.PENDING,
+  RefundStatus.PROCESSING,
+  RefundStatus.FAILED
 ]);
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -105,11 +151,15 @@ type OrderClient =
       | "address"
       | "cart"
       | "cartItem"
+      | "coupon"
+      | "deliveryAssignment"
+      | "deliveryStatusHistory"
       | "inventoryStock"
       | "order"
       | "orderItem"
       | "orderStatusHistory"
       | "payment"
+      | "refund"
       | "stockBatch"
       | "stockMovement"
       | "user"
@@ -146,7 +196,9 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly warehouseAccessService: WarehouseAccessService,
-    @Optional() private readonly queueService?: ApiQueueService
+    @Optional() private readonly queueService?: ApiQueueService,
+    @Optional() private readonly cartService?: CartService,
+    @Optional() private readonly paymentsService?: PaymentsService
   ) {}
 
   async createOrder(customerId: string, input: CreateOrderDto) {
@@ -171,11 +223,18 @@ export class OrdersService {
           buildAllocationTotals(allocation.line, allocation.quantity)
         )
       );
+      const couponApplication = await this.applyCouponDiscount(
+        tx,
+        input.couponCode,
+        totals.subtotal
+      );
+      const payableTotal = roundMoney(totals.grandTotal - couponApplication.discount);
       const order = await tx.order.create({
         data: {
           billingAddressId: billingAddress.id,
-          discountTotal: totals.discount,
-          grandTotal: totals.grandTotal,
+          couponId: couponApplication.couponId,
+          discountTotal: couponApplication.discount,
+          grandTotal: payableTotal,
           orderNumber: await this.generateOrderNumber(tx),
           paymentStatus: PaymentStatus.PENDING,
           placedAt: new Date(),
@@ -230,7 +289,7 @@ export class OrdersService {
 
       await tx.payment.create({
         data: {
-          amount: totals.grandTotal,
+          amount: payableTotal,
           method: input.paymentMethod,
           orderId: order.id,
           status: PaymentStatus.PENDING
@@ -242,6 +301,7 @@ export class OrdersService {
           status: OrderStatus.CREATED
         }
       });
+      await this.incrementCouponUsage(tx, couponApplication.couponId);
 
       if (input.paymentMethod === PaymentMethod.COD) {
         await tx.cartItem.deleteMany({
@@ -310,6 +370,136 @@ export class OrdersService {
     return this.serializeOrder(order);
   }
 
+  async reorder(customerId: string, orderId: string) {
+    await this.assertActiveCustomer(this.prisma, customerId);
+    const order = await this.prisma.order.findFirst({
+      include: ORDER_INCLUDE,
+      where: {
+        deletedAt: null,
+        id: orderId,
+        userId: customerId
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order was not found.");
+    }
+
+    if (order.items.length === 0) {
+      throw new BadRequestException("Order has no items to reorder.");
+    }
+
+    if (!this.cartService) {
+      throw new BadRequestException("Cart service is unavailable.");
+    }
+
+    return this.cartService.replaceWithItems(
+      customerId,
+      mergeOrderItemsForReorder(order.items)
+    );
+  }
+
+  async cancelMyOrder(
+    customerId: string,
+    orderId: string,
+    input: CancelOrderDto
+  ) {
+    await this.assertActiveCustomer(this.prisma, customerId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await this.findCustomerOrder(tx, customerId, orderId);
+
+      if (!CANCELLABLE_STATUSES.has(order.status)) {
+        throw new BadRequestException(
+          "Order cannot be cancelled in its current status."
+        );
+      }
+
+      await this.releaseReservedInventoryForCancelledOrder(tx, order);
+      await this.cancelActiveDeliveryAssignments(tx, order, input.reason);
+
+      const paidPayment = order.payments.find(
+        (payment) => payment.status === PaymentStatus.PAID
+      );
+
+      if (paidPayment) {
+        await tx.refund.create({
+          data: {
+            amount: decimalToNumber(paidPayment.amount),
+            orderId: order.id,
+            paymentId: paidPayment.id,
+            reason: input.reason ?? "Customer cancelled order.",
+            status: RefundStatus.PENDING
+          }
+        });
+      }
+
+      await tx.order.update({
+        data: {
+          paymentStatus: paidPayment ? order.paymentStatus : PaymentStatus.CANCELLED,
+          status: OrderStatus.CANCELLED
+        },
+        where: {
+          id: order.id
+        }
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          note: input.reason,
+          orderId: order.id,
+          status: OrderStatus.CANCELLED
+        }
+      });
+
+      return this.serializeOrder(await this.findOrderById(tx, order.id));
+    });
+  }
+
+  async requestMyOrderReturn(
+    customerId: string,
+    orderId: string,
+    input: RequestReturnDto
+  ) {
+    await this.assertActiveCustomer(this.prisma, customerId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await this.findCustomerOrder(tx, customerId, orderId);
+
+      if (order.status !== OrderStatus.DELIVERED) {
+        throw new BadRequestException(
+          "Return requests can be submitted only after delivery."
+        );
+      }
+
+      if (
+        order.refunds.some((refund) =>
+          ACTIVE_RETURN_REFUND_STATUSES.has(refund.status)
+        )
+      ) {
+        throw new BadRequestException(
+          "A return or refund request is already pending for this order."
+        );
+      }
+
+      const paidPayment =
+        order.payments.find((payment) => payment.status === PaymentStatus.PAID) ??
+        order.payments[0] ??
+        null;
+
+      await tx.refund.create({
+        data: {
+          amount: decimalToNumber(order.grandTotal),
+          orderId: order.id,
+          paymentId: paidPayment?.id,
+          reason: input.reason ?? "Customer requested return.",
+          status: RefundStatus.PENDING
+        }
+      });
+
+      return this.serializeOrder(await this.findOrderById(tx, order.id));
+    });
+  }
+
   async listAdminOrders(query: AdminOrderListQueryDto, auth: AuthJwtPayload) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -343,6 +533,45 @@ export class OrdersService {
     );
   }
 
+  async listAdminReturnRequests(
+    query: AdminReturnRequestListQueryDto,
+    auth: AuthJwtPayload
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const refundWhere: Prisma.RefundWhereInput = {
+      status: query.status
+    };
+    const where: Prisma.OrderWhereInput = {
+      deletedAt: null,
+      orderNumber: buildInsensitiveContainsFilter(query.orderNumber),
+      refunds: {
+        some: stripUndefined(refundWhere)
+      },
+      user: buildCustomerMobileFilter(query.customerMobile),
+      warehouseId: await this.buildScopedWarehouseFilter(query.warehouseId, auth)
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        include: ORDER_SUMMARY_INCLUDE,
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+        where: stripUndefined(where)
+      }),
+      this.prisma.order.count({
+        where: stripUndefined(where)
+      })
+    ]);
+
+    return paginated(
+      items.map((order) => this.serializeOrderSummary(order)),
+      total,
+      page,
+      limit
+    );
+  }
+
   async getAdminOrder(orderId: string, auth: AuthJwtPayload) {
     const order = await this.findAdminOrder(orderId, auth);
 
@@ -359,6 +588,7 @@ export class OrdersService {
     }
 
     let invoiceOrderId: string | null = null;
+    let refundOrderId: string | null = null;
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
       this.assertAllowedStatusTransition(order.status, input.status);
@@ -391,6 +621,10 @@ export class OrdersService {
         invoiceOrderId = order.id;
       }
 
+      if (input.status === OrderStatus.RETURNED) {
+        refundOrderId = order.id;
+      }
+
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
 
@@ -402,7 +636,89 @@ export class OrdersService {
       });
     }
 
+    if (refundOrderId) {
+      await this.paymentsService?.processPendingOrderRefund(refundOrderId);
+      return this.getAdminOrder(refundOrderId, context.auth);
+    }
+
     return updatedOrder;
+  }
+
+  async approveAdminReturn(
+    orderId: string,
+    input: AdminReturnActionDto,
+    context: AdminActionContext
+  ) {
+    return this.updateStatus(
+      orderId,
+      {
+        note: input.note ?? "Return request approved.",
+        status: OrderStatus.RETURNED
+      },
+      context
+    );
+  }
+
+  async rejectAdminReturn(
+    orderId: string,
+    input: AdminReturnActionDto,
+    context: AdminActionContext
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await this.findAdminOrder(orderId, context.auth, tx);
+      const refund = await tx.refund.findFirst({
+        where: {
+          orderId: order.id,
+          status: {
+            in: [RefundStatus.PENDING, RefundStatus.PROCESSING]
+          }
+        }
+      });
+
+      if (!refund) {
+        throw new BadRequestException("No pending return request was found.");
+      }
+
+      const note = input.note?.trim() || "Return request rejected.";
+
+      await tx.refund.update({
+        data: {
+          reason: appendRefundNote(refund.reason, note),
+          status: RefundStatus.CANCELLED
+        },
+        where: {
+          id: refund.id
+        }
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          changedById: context.auth.sub,
+          note,
+          orderId: order.id,
+          status: order.status
+        }
+      });
+
+      return this.serializeOrder(await this.findOrderById(tx, order.id));
+    });
+  }
+
+  async processAdminReturnRefund(
+    orderId: string,
+    context: AdminActionContext
+  ) {
+    const order = await this.findAdminOrder(orderId, context.auth);
+    const refund = order.refunds.find((entry) =>
+      PROCESSABLE_RETURN_REFUND_STATUSES.has(entry.status)
+    );
+
+    if (!refund) {
+      throw new BadRequestException("No actionable return refund was found.");
+    }
+
+    await this.paymentsService?.processPendingOrderRefund(order.id);
+
+    return this.getAdminOrder(order.id, context.auth);
   }
 
   async cancelOrder(
@@ -628,6 +944,60 @@ export class OrdersService {
     }));
   }
 
+  private async applyCouponDiscount(
+    client: OrderClient,
+    couponCode: string | null | undefined,
+    subtotal: number
+  ) {
+    const code = couponCode ? normalizeCouponCode(couponCode) : "";
+
+    if (!code) {
+      return {
+        couponId: null,
+        discount: 0
+      };
+    }
+
+    const coupon = await client.coupon.findFirst({
+      where: {
+        code: {
+          equals: code,
+          mode: "insensitive"
+        },
+        deletedAt: null
+      }
+    });
+
+    if (!coupon) {
+      throw new NotFoundException("Coupon was not found.");
+    }
+
+    return {
+      couponId: coupon.id,
+      discount: calculateCouponDiscount(coupon, subtotal)
+    };
+  }
+
+  private async incrementCouponUsage(
+    client: OrderClient,
+    couponId: string | null
+  ) {
+    if (!couponId) {
+      return;
+    }
+
+    await client.coupon.update({
+      data: {
+        usedCount: {
+          increment: 1
+        }
+      },
+      where: {
+        id: couponId
+      }
+    });
+  }
+
   private async reserveBatchesForStock(
     tx: Prisma.TransactionClient,
     line: FulfillmentLine,
@@ -716,6 +1086,27 @@ export class OrdersService {
         auth,
         order.warehouseId
       );
+    }
+
+    return order;
+  }
+
+  private async findCustomerOrder(
+    client: OrderClient,
+    customerId: string,
+    orderId: string
+  ) {
+    const order = await client.order.findFirst({
+      include: ORDER_INCLUDE,
+      where: {
+        deletedAt: null,
+        id: orderId,
+        userId: customerId
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order was not found.");
     }
 
     return order;
@@ -853,6 +1244,39 @@ export class OrdersService {
     }
   }
 
+  private async cancelActiveDeliveryAssignments(
+    tx: Prisma.TransactionClient,
+    order: OrderRecord,
+    reason?: string
+  ) {
+    for (const assignment of order.deliveryAssignments) {
+      if (
+        assignment.status === DeliveryStatus.CANCELLED ||
+        assignment.status === DeliveryStatus.DELIVERED ||
+        assignment.status === DeliveryStatus.FAILED
+      ) {
+        continue;
+      }
+
+      await tx.deliveryAssignment.update({
+        data: {
+          failureReason: reason,
+          status: DeliveryStatus.CANCELLED
+        },
+        where: {
+          id: assignment.id
+        }
+      });
+      await tx.deliveryStatusHistory.create({
+        data: {
+          deliveryAssignmentId: assignment.id,
+          note: reason,
+          status: DeliveryStatus.CANCELLED
+        }
+      });
+    }
+  }
+
   private async buildScopedWarehouseFilter(
     warehouseId: string | undefined,
     auth: AuthJwtPayload
@@ -912,6 +1336,25 @@ export class OrdersService {
         mobileNumber: order.user.mobileNumber
       },
       id: order.id,
+      deliveryTracking: order.deliveryAssignments.map((assignment) => ({
+        assignedAt: assignment.assignedAt,
+        deliveredAt: assignment.deliveredAt,
+        deliveryPartnerName: assignment.deliveryPartner?.fullName ?? null,
+        failureReason: assignment.failureReason,
+        id: assignment.id,
+        pickedUpAt: assignment.pickedUpAt,
+        proofOfDeliveryUrl: assignment.proofOfDeliveryUrl,
+        status: assignment.status,
+        statusHistory: assignment.statusHistory.map((entry) => ({
+          createdAt: entry.createdAt,
+          id: entry.id,
+          latitude: decimalToNullableNumber(entry.latitude),
+          longitude: decimalToNullableNumber(entry.longitude),
+          note: entry.note,
+          status: entry.status
+        })),
+        vehicleNumber: assignment.deliveryPartner?.vehicleNumber ?? null
+      })),
       invoice: order.gstInvoice
         ? {
             id: order.gstInvoice.id,
@@ -961,6 +1404,15 @@ export class OrdersService {
       paymentMethod: order.payments[0]?.method ?? null,
       paymentStatus: order.paymentStatus,
       placedAt: order.placedAt,
+      refunds: order.refunds.map((refund) => ({
+        amount: decimalToNumber(refund.amount),
+        createdAt: refund.createdAt,
+        id: refund.id,
+        processedAt: refund.processedAt,
+        providerRefundId: refund.providerRefundId,
+        reason: refund.reason,
+        status: refund.status
+      })),
       shippingAddress: serializeAddress(order.shippingAddress),
       status: order.status,
       statusHistory: order.statusHistory.map((entry) => ({
@@ -1061,6 +1513,34 @@ function stockUnavailableMessage(line: FulfillmentLine, availableQuantity: numbe
   return `${line.name} is out of stock. Please remove it from your cart.`;
 }
 
+function mergeOrderItemsForReorder(items: OrderRecord["items"]) {
+  const merged = new Map<
+    string,
+    {
+      productId: string;
+      quantity: number;
+      variantId: string | null;
+    }
+  >();
+
+  for (const item of items) {
+    const key = `${item.productId}:${item.variantId ?? "base"}`;
+    const existing = merged.get(key);
+
+    if (existing) {
+      existing.quantity += item.quantity;
+    } else {
+      merged.set(key, {
+        productId: item.productId,
+        quantity: item.quantity,
+        variantId: item.variantId
+      });
+    }
+  }
+
+  return [...merged.values()];
+}
+
 function decimalToNumber(value: DecimalValue) {
   if (typeof value === "number") {
     return value;
@@ -1077,6 +1557,10 @@ function decimalToNumber(value: DecimalValue) {
   return Number(value.toString());
 }
 
+function decimalToNullableNumber(value: DecimalValue | null) {
+  return value === null ? null : decimalToNumber(value);
+}
+
 function buildCustomerMobileFilter(customerMobile: string | undefined) {
   const mobile = customerMobile?.trim();
 
@@ -1089,6 +1573,14 @@ function buildCustomerMobileFilter(customerMobile: string | undefined) {
       contains: mobile
     }
   };
+}
+
+function appendRefundNote(reason: string | null, note: string) {
+  if (!reason) {
+    return note;
+  }
+
+  return `${reason} Rejection note: ${note}`;
 }
 
 function buildDateRangeFilter(dateFrom?: string, dateTo?: string) {

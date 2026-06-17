@@ -64,17 +64,17 @@ describe("customer navigation helpers", () => {
       },
       {
         children: [
-          {
-            href: "/categories/dental?subcategory=dental-instruments",
-            id: "dental-instruments",
-            label: "Dental Instruments",
-            slug: "dental-instruments"
-          },
-          {
-            href: "/categories/dental?subcategory=endodontic-products",
-            id: "dental-endo",
-            label: "Endodontic Products",
-            slug: "endodontic-products"
+            {
+              href: "/categories/dental/dental-instruments",
+              id: "dental-instruments",
+              label: "Dental Instruments",
+              slug: "dental-instruments"
+            },
+            {
+              href: "/categories/dental/endodontic-products",
+              id: "dental-endo",
+              label: "Endodontic Products",
+              slug: "endodontic-products"
           }
         ],
         description: "Dental equipment and consumables",

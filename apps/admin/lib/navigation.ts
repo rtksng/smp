@@ -37,6 +37,11 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
+    href: "/product-feedback",
+    label: "Product Feedback",
+    permissions: [ADMIN_PERMISSION.ProductsRead]
+  },
+  {
     href: INVENTORY_OVERVIEW_PATH,
     label: "Inventory",
     children: [
@@ -61,6 +66,11 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
     href: "/orders",
     label: "Orders",
+    permissions: [ADMIN_PERMISSION.OrdersRead]
+  },
+  {
+    href: "/returns-refunds",
+    label: "Returns & Refunds",
     permissions: [ADMIN_PERMISSION.OrdersRead]
   },
   {
@@ -89,6 +99,16 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     href: "/delivery",
     label: "Delivery",
     permissions: [ADMIN_PERMISSION.DeliveryRead]
+  },
+  {
+    href: "/quote-requests",
+    label: "Quote Requests",
+    permissions: [ADMIN_PERMISSION.SettingsManage]
+  },
+  {
+    href: "/coupons",
+    label: "Coupons",
+    permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
     href: "/reports",

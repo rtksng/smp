@@ -706,7 +706,7 @@ function OrderItemsTable({ order }: { order: AdminOrder }) {
 }
 
 function PaymentDetails({ order }: { order: AdminOrder }) {
-  if (order.paymentDetails.length === 0) {
+  if (order.paymentDetails.length === 0 && order.refunds.length === 0) {
     return <div className="emptyPanel smallEmpty">No payment attempts recorded.</div>;
   }
 
@@ -720,6 +720,19 @@ function PaymentDetails({ order }: { order: AdminOrder }) {
             {formatOrderLabel(payment.status)} · {payment.provider ?? "No provider"} ·{" "}
             {payment.transactionRef ?? payment.providerPaymentId ?? payment.id}
           </small>
+        </div>
+      ))}
+      {order.refunds.map((refund) => (
+        <div className="detailItem" data-wide="true" key={refund.id}>
+          <span>Refund {formatOrderLabel(refund.status)}</span>
+          <strong>{formatCurrency(refund.amount)}</strong>
+          <small>
+            {refund.providerRefundId ?? refund.id} /{" "}
+            {refund.processedAt
+              ? `Processed ${formatDateTime(refund.processedAt)}`
+              : "Not processed yet"}
+          </small>
+          {refund.reason ? <small>{refund.reason}</small> : null}
         </div>
       ))}
     </div>

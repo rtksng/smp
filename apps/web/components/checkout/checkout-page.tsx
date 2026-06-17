@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  BadgePercent,
   CheckCircle2,
   CreditCard,
   Edit3,
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCart, type Cart, type CartItem } from "../../lib/api/cart";
+import { validateCoupon, type CouponValidation } from "../../lib/api/coupons";
 import {
   getFriendlyApiErrorMessage,
   stockErrorMessage
@@ -113,20 +115,22 @@ function CheckoutContent() {
   const customer = useCustomerAuthStore((state) => state.session?.customer);
   const setCartSummary = useCartStore((state) => state.setSummary);
   const resetCartSummary = useCartStore((state) => state.reset);
-  const [addressFormMode, setAddressFormMode] =
-    useState<AddressFormMode>({ type: "closed" });
+  const [addressFormMode, setAddressFormMode] = useState<AddressFormMode>({
+    type: "closed"
+  });
   const [addressForm, setAddressForm] =
     useState<CreateCustomerAddressInput>(emptyAddressForm);
   const [addressErrors, setAddressErrors] = useState<AddressFieldErrors>({});
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
-  const [addressMutationError, setAddressMutationError] = useState<string | null>(
-    null
-  );
+  const [addressMutationError, setAddressMutationError] = useState<string | null>(null);
   const [addressSuccessMessage, setAddressSuccessMessage] = useState<string | null>(
     null
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const cartQuery = useQuery({
     queryFn: getCart,
@@ -168,6 +172,14 @@ function CheckoutContent() {
   const verifyPaymentMutation = useMutation(
     createCheckoutPaymentVerificationMutation()
   );
+  const validateCouponMutation = useMutation({
+    mutationFn: validateCoupon,
+    onSuccess: (coupon) => {
+      setAppliedCoupon(coupon);
+      setCouponCode(coupon.code);
+      setCouponError(null);
+    }
+  });
   const cart = cartQuery.data;
   const addresses = useMemo(() => addressesQuery.data ?? [], [addressesQuery.data]);
   const selectedAddress =
@@ -176,8 +188,7 @@ function CheckoutContent() {
     cart?.items.some(
       (item) => !item.isAvailable || item.quantity > item.availableQuantity
     ) ?? false;
-  const onlinePaymentEnabled =
-    paymentGatewayQuery.data?.onlinePaymentEnabled === true;
+  const onlinePaymentEnabled = paymentGatewayQuery.data?.onlinePaymentEnabled === true;
   const onlinePaymentMessage =
     paymentGatewayQuery.data?.message ??
     "Online payments are currently unavailable. Please choose Cash on Delivery or try again later.";
@@ -339,9 +350,12 @@ function CheckoutContent() {
     setIsProcessing(true);
     setSubmitError(null);
 
+    let pendingOnlineOrderId: string | null = null;
+
     try {
       const order = await createOrderMutation.mutateAsync({
         billingAddressId: null,
+        couponCode: appliedCoupon?.code ?? null,
         paymentMethod,
         shippingAddressId: selectedAddressId
       });
@@ -352,6 +366,7 @@ function CheckoutContent() {
         return;
       }
 
+      pendingOnlineOrderId = order.id;
       const razorpayOrder = await createRazorpayOrderMutation.mutateAsync(order.id);
       const paymentResponse = await openRazorpayCheckout({
         amount: razorpayOrder.razorpay.amount,
@@ -373,10 +388,39 @@ function CheckoutContent() {
     } catch (error) {
       const message = getFriendlyApiErrorMessage(error, "Unable to place order.");
 
+      if (paymentMethod === "ONLINE" && pendingOnlineOrderId) {
+        router.replace(buildPaymentFailedHref(pendingOnlineOrderId, message));
+        return;
+      }
+
       setSubmitError(message);
       processingRef.current = false;
       setIsProcessing(false);
     }
+  }
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+
+    if (!code) {
+      setCouponError("Enter a promo code.");
+      return;
+    }
+
+    try {
+      setCouponError(null);
+      await validateCouponMutation.mutateAsync(code);
+    } catch (error) {
+      setAppliedCoupon(null);
+      setCouponError(getFriendlyApiErrorMessage(error, "Unable to apply promo code."));
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
+    validateCouponMutation.reset();
   }
 
   return (
@@ -490,13 +534,23 @@ function CheckoutContent() {
           </div>
 
           <OrderSummary
+            appliedCoupon={appliedCoupon}
             cart={cart}
+            couponCode={couponCode}
+            couponError={couponError}
             hasBlockingStockIssue={hasBlockingStockIssue}
+            isApplyingCoupon={validateCouponMutation.isPending}
             isProcessing={isProcessing}
             paymentMethod={paymentMethod}
             selectedAddress={selectedAddress}
+            setCouponCode={(value) => {
+              setCouponCode(value);
+              setCouponError(null);
+            }}
             submitError={submitError}
+            onApplyCoupon={handleApplyCoupon}
             onPlaceOrder={handlePlaceOrder}
+            onRemoveCoupon={handleRemoveCoupon}
           />
         </div>
       ) : null}
@@ -605,8 +659,7 @@ function CartReview({ cart }: { cart: Cart }) {
 
 function CheckoutCartItem({ item }: { item: CartItem }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const stockWarning =
-    !item.isAvailable || item.quantity > item.availableQuantity;
+  const stockWarning = !item.isAvailable || item.quantity > item.availableQuantity;
 
   return (
     <article className="grid grid-cols-[72px_1fr] gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-3 shadow-sm shadow-[#0b5cab]/5 sm:grid-cols-[84px_minmax(0,1fr)_auto] sm:items-center">
@@ -645,10 +698,7 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
         </div>
         {stockWarning ? (
           <p className="mt-2 flex gap-2 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-3 py-2 text-xs font-bold leading-5 text-[#7a271a]">
-            <AlertTriangle
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0"
-            />
+            <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
             {stockErrorMessage(item.availableQuantity)}
           </p>
         ) : null}
@@ -918,11 +968,7 @@ function AddressForm({
       </div>
 
       <div>
-        <Button
-          className="w-full sm:w-auto"
-          disabled={isSaving}
-          type="submit"
-        >
+        <Button className="w-full sm:w-auto" disabled={isSaving} type="submit">
           <Plus aria-hidden="true" className="h-4 w-4" />
           {isSaving ? "Saving..." : submitLabel}
         </Button>
@@ -1001,22 +1047,39 @@ function PaymentMethodSelection({
 }
 
 function OrderSummary({
+  appliedCoupon,
   cart,
+  couponCode,
+  couponError,
   hasBlockingStockIssue,
+  isApplyingCoupon,
   isProcessing,
+  onApplyCoupon,
   onPlaceOrder,
+  onRemoveCoupon,
   paymentMethod,
   selectedAddress,
+  setCouponCode,
   submitError
 }: {
+  appliedCoupon: CouponValidation | null;
   cart: Cart;
+  couponCode: string;
+  couponError: string | null;
   hasBlockingStockIssue: boolean;
+  isApplyingCoupon: boolean;
   isProcessing: boolean;
+  onApplyCoupon: () => void;
   onPlaceOrder: () => void;
+  onRemoveCoupon: () => void;
   paymentMethod: PaymentMethod;
   selectedAddress: CustomerAddress | null;
+  setCouponCode: (value: string) => void;
   submitError: string | null;
 }) {
+  const discount = appliedCoupon?.discount ?? cart.totals.discount;
+  const grandTotal = Math.max(0, cart.totals.grandTotal - discount);
+
   return (
     <aside className="h-fit rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 xl:sticky xl:top-28">
       <SectionHeading
@@ -1042,20 +1105,58 @@ function OrderSummary({
       </div>
 
       <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5">
-        <p className="text-xs font-bold uppercase text-[#52677f]">
-          Price details
-        </p>
+        <div className="flex items-center gap-2 text-sm font-bold text-[#12314f]">
+          <BadgePercent aria-hidden="true" className="h-4 w-4 text-[#0b5cab]" />
+          Promo code
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Input
+            aria-label="Promo code"
+            disabled={Boolean(appliedCoupon)}
+            onChange={(event) => setCouponCode(event.target.value)}
+            placeholder="Enter code"
+            value={couponCode}
+          />
+          {appliedCoupon ? (
+            <Button onClick={onRemoveCoupon} type="button" variant="outline">
+              Remove
+            </Button>
+          ) : (
+            <Button
+              disabled={isApplyingCoupon}
+              onClick={onApplyCoupon}
+              type="button"
+              variant="outline"
+            >
+              {isApplyingCoupon ? "Applying..." : "Apply"}
+            </Button>
+          )}
+        </div>
+        {appliedCoupon ? (
+          <p className="mt-2 rounded-lg bg-[#e7f3f2] px-3 py-2 text-sm font-bold text-[#006d77]">
+            {appliedCoupon.message}
+          </p>
+        ) : null}
+        {couponError ? (
+          <p
+            className="mt-2 rounded-lg bg-[#fff5f5] px-3 py-2 text-sm font-bold text-[#7a271a]"
+            role="alert"
+          >
+            {couponError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5">
+        <p className="text-xs font-bold uppercase text-[#52677f]">Price details</p>
         <div className="mt-3 grid gap-2 text-sm text-[#31413d]">
-        <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
-        <SummaryRow
-          label="Discount"
-          value={cart.totals.discount > 0 ? -cart.totals.discount : 0}
-        />
-        <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
-        <SummaryRow label="Tax/GST" value={cart.totals.tax} />
+          <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
+          <SummaryRow label="Discount" value={discount > 0 ? -discount : 0} />
+          <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
+          <SummaryRow label="Tax/GST" value={cart.totals.tax} />
           <div className="mt-2 flex items-center justify-between border-t border-[#d6e7f8] pt-4 text-base font-bold text-[#12314f]">
             <span>Total payable</span>
-            <span>{priceFormatter.format(cart.totals.grandTotal)}</span>
+            <span>{priceFormatter.format(grandTotal)}</span>
           </div>
         </div>
       </div>
@@ -1068,13 +1169,19 @@ function OrderSummary({
       </div>
 
       {hasBlockingStockIssue ? (
-        <p className="mt-4 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]" role="alert">
+        <p
+          className="mt-4 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]"
+          role="alert"
+        >
           {stockErrorMessage()}
         </p>
       ) : null}
 
       {submitError ? (
-        <p className="mt-4 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]" role="alert">
+        <p
+          className="mt-4 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]"
+          role="alert"
+        >
           {submitError}
         </p>
       ) : null}
@@ -1154,6 +1261,15 @@ function toFieldErrors(
   ) as AddressFieldErrors;
 }
 
+function buildPaymentFailedHref(orderId: string, reason: string) {
+  const params = new URLSearchParams({
+    orderId,
+    reason
+  });
+
+  return `/payment-failed?${params.toString()}`;
+}
+
 function formatAddress(address: CustomerAddress) {
   return [
     address.addressLine1,
@@ -1167,7 +1283,5 @@ function formatAddress(address: CustomerAddress) {
 }
 
 function formatAddressType(type: CustomerAddressType) {
-  return type
-    .toLowerCase()
-    .replace(/^\w/, (character) => character.toUpperCase());
+  return type.toLowerCase().replace(/^\w/, (character) => character.toUpperCase());
 }

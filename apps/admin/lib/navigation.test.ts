@@ -17,16 +17,33 @@ describe("admin navigation", () => {
     expect(labels).toContain("Products");
     expect(labels).toContain("Categories");
     expect(labels).toContain("Brands");
+    expect(labels).toContain("Product Feedback");
     expect(labels).not.toContain("Inventory");
   });
 
-  it("shows delivery and settings only with their own permissions", () => {
+  it("shows order sections to order readers", () => {
+    const labels = getVisibleNavigationItems([ADMIN_PERMISSION.OrdersRead]).map(
+      (item) => item.label
+    );
+
+    expect(labels).toContain("Orders");
+    expect(labels).toContain("Returns & Refunds");
+    expect(labels).not.toContain("Customers");
+  });
+
+  it("shows delivery, quote requests, coupons, and settings only with their own permissions", () => {
     const labels = getVisibleNavigationItems([
       ADMIN_PERMISSION.DeliveryRead,
       ADMIN_PERMISSION.SettingsManage
     ]).map((item) => item.label);
 
-    expect(labels).toEqual(["Dashboard", "Delivery", "Settings"]);
+    expect(labels).toEqual([
+      "Dashboard",
+      "Delivery",
+      "Quote Requests",
+      "Coupons",
+      "Settings"
+    ]);
   });
 
   it("shows warehouse subnavigation under warehouses for warehouse readers", () => {

@@ -200,6 +200,37 @@ describe("ProductListingPage", () => {
     }
   });
 
+  it("locks subcategory routes while preserving category navigation", () => {
+    pathname = "/categories/dental/endodontics";
+
+    renderListing({
+      context: {
+        slug: "dental",
+        subcategorySlug: "endodontics",
+        type: "subcategory"
+      },
+      initialData: {
+        category: categories[1]
+      },
+      initialFilters: {
+        category: "dental",
+        page: 1,
+        sort: "latest",
+        subcategory: "endodontics"
+      }
+    });
+
+    expect(screen.getByRole("heading", { name: "Endodontics products" }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("Endodontics").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("link", { name: "All Dental" })).toHaveAttribute(
+      "href",
+      "/categories/dental"
+    );
+    expect(screen.getAllByRole("link", { name: "Reset filters" })[0])
+      .toHaveAttribute("href", "/categories/dental/endodontics");
+  });
+
   it("updates subcategory choices when the category filter changes", async () => {
     searchParams = new URLSearchParams({
       category: "consumables"
@@ -314,7 +345,8 @@ describe("ProductListingPage", () => {
 
 function renderListing({
   context = { type: "all" },
-  initialData
+  initialData,
+  initialFilters
 }: Partial<Parameters<typeof ProductListingPage>[0]> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -335,10 +367,12 @@ function renderListing({
             products,
             ...initialData
           }}
-          initialFilters={{
-            page: 1,
-            sort: "latest"
-          }}
+          initialFilters={
+            initialFilters ?? {
+              page: 1,
+              sort: "latest"
+            }
+          }
         />
       </HeroUIProvider>
     </QueryClientProvider>

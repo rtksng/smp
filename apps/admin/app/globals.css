@@ -864,6 +864,12 @@ h2 {
   gap: 10px;
 }
 
+.feedbackAnswerForm {
+  display: grid;
+  gap: 10px;
+  min-width: min(100%, 280px);
+}
+
 .inlineForm {
   align-items: center;
   display: grid;
@@ -1687,6 +1693,17 @@ h2 {
 .tableActions a {
   min-height: 36px;
   padding: 8px 10px;
+}
+
+.verticalActions {
+  align-items: stretch;
+  flex-direction: column;
+  width: min(220px, 100%);
+}
+
+.verticalActions button,
+.verticalActions a {
+  width: 100%;
 }
 
 .categoryChildSummary {

@@ -34,7 +34,7 @@ export type ProductFilters = {
   subcategory?: string;
 };
 
-type ProductFilterOverrides = {
+export type ProductFilterOverrides = {
   brand?: string;
   category?: string;
   subcategory?: string;

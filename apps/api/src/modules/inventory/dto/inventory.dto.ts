@@ -1,7 +1,9 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMinSize,
   IsDateString,
   IsEnum,
+  IsArray,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,10 +12,17 @@ import {
   Max,
   MaxLength,
   Min,
-  NotEquals
+  NotEquals,
+  ValidateNested
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { StockMovementType } from "../../../generated/prisma/enums";
+
+export enum ReturnStockDisposition {
+  QUARANTINE = "QUARANTINE",
+  RESTOCK = "RESTOCK",
+  SCRAP = "SCRAP"
+}
 
 export class StockInDto {
   @ApiProperty({ example: "BATCH-2026-001" })
@@ -219,6 +228,46 @@ export class InventoryStockResponseDto {
 
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;
+}
+
+export class ReturnDispositionItemDto {
+  @ApiProperty({ enum: ReturnStockDisposition, example: ReturnStockDisposition.RESTOCK })
+  @IsEnum(ReturnStockDisposition)
+  disposition!: ReturnStockDisposition;
+
+  @ApiPropertyOptional({ example: "Outer packaging is damaged." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  orderItemId!: string;
+
+  @ApiProperty({ example: 2, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+}
+
+export class ReturnDispositionDto {
+  @ApiProperty({ type: [ReturnDispositionItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ReturnDispositionItemDto)
+  items!: ReturnDispositionItemDto[];
+
+  @ApiPropertyOptional({ example: "Return inspection completed at receiving desk." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsUUID("4")
+  orderId!: string;
 }
 
 export class StockBatchResponseDto {

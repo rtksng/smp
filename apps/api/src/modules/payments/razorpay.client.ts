@@ -21,6 +21,22 @@ export type RazorpayCreateOrderResult = {
   status: string;
 };
 
+export type RazorpayCreateRefundInput = {
+  amount: number;
+  notes: Record<string, string>;
+  receipt: string;
+  speed: "normal" | "optimum";
+};
+
+export type RazorpayCreateRefundResult = {
+  amount: number;
+  id: string;
+  payment_id: string;
+  status: "failed" | "pending" | "processed";
+};
+
+export type RazorpayFetchRefundResult = RazorpayCreateRefundResult;
+
 @Injectable()
 export class RazorpayClient {
   private readonly keyId: string;
@@ -82,6 +98,79 @@ export class RazorpayClient {
     return payload;
   }
 
+  async createRefund(paymentId: string, input: RazorpayCreateRefundInput) {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+
+    const response = await fetch(
+      `https://api.razorpay.com/v1/payments/${encodeURIComponent(
+        paymentId
+      )}/refund`,
+      {
+        body: JSON.stringify({
+          amount: input.amount,
+          notes: input.notes,
+          receipt: input.receipt,
+          speed: input.speed
+        }),
+        headers: {
+          Authorization: `Basic ${Buffer.from(
+            `${this.keyId}:${this.keySecret}`
+          ).toString("base64")}`,
+          "Content-Type": "application/json"
+        },
+        method: "POST"
+      }
+    );
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new BadGatewayException("Razorpay refund creation failed.");
+    }
+
+    if (!isRazorpayCreateRefundResult(payload)) {
+      throw new BadGatewayException("Razorpay returned an invalid refund response.");
+    }
+
+    return payload;
+  }
+
+  async fetchRefund(refundId: string) {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+
+    const response = await fetch(
+      `https://api.razorpay.com/v1/refunds/${encodeURIComponent(refundId)}`,
+      {
+        headers: {
+          Authorization: `Basic ${Buffer.from(
+            `${this.keyId}:${this.keySecret}`
+          ).toString("base64")}`
+        },
+        method: "GET"
+      }
+    );
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new BadGatewayException("Razorpay refund fetch failed.");
+    }
+
+    if (!isRazorpayCreateRefundResult(payload)) {
+      throw new BadGatewayException("Razorpay returned an invalid refund response.");
+    }
+
+    return payload;
+  }
+
   verifyPaymentSignature(
     razorpayOrderId: string,
     razorpayPaymentId: string,
@@ -116,6 +205,23 @@ function isRazorpayCreateOrderResult(
     typeof value.id === "string" &&
     typeof value.receipt === "string" &&
     typeof value.status === "string"
+  );
+}
+
+function isRazorpayCreateRefundResult(
+  value: unknown
+): value is RazorpayCreateRefundResult {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.amount === "number" &&
+    typeof value.id === "string" &&
+    typeof value.payment_id === "string" &&
+    (value.status === "failed" ||
+      value.status === "pending" ||
+      value.status === "processed")
   );
 }
 

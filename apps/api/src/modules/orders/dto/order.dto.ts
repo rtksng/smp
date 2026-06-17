@@ -7,13 +7,16 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  DeliveryStatus,
   OrderStatus,
   PaymentMethod,
-  PaymentStatus
+  PaymentStatus,
+  RefundStatus
 } from "../../../generated/prisma/enums";
 
 export class CreateOrderDto {
@@ -37,6 +40,15 @@ export class CreateOrderDto {
   })
   @IsEnum(PaymentMethod)
   paymentMethod!: PaymentMethod;
+
+  @ApiPropertyOptional({
+    example: "SURGICAL10",
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  couponCode?: string | null;
 }
 
 export class OrderListQueryDto {
@@ -109,6 +121,37 @@ export class AdminOrderListQueryDto extends OrderListQueryDto {
   warehouseId?: string;
 }
 
+export class AdminReturnRequestListQueryDto extends OrderListQueryDto {
+  @ApiPropertyOptional({
+    enum: RefundStatus,
+    example: RefundStatus.PENDING
+  })
+  @IsEnum(RefundStatus)
+  @IsOptional()
+  status?: RefundStatus;
+
+  @ApiPropertyOptional({
+    example: "9999999999"
+  })
+  @IsOptional()
+  @IsString()
+  customerMobile?: string;
+
+  @ApiPropertyOptional({
+    example: "ORD-20260525"
+  })
+  @IsOptional()
+  @IsString()
+  orderNumber?: string;
+
+  @ApiPropertyOptional({
+    example: "2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"
+  })
+  @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
+}
+
 export class UpdateOrderStatusDto {
   @ApiProperty({
     enum: OrderStatus,
@@ -132,6 +175,25 @@ export class CancelOrderDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+export class RequestReturnDto {
+  @ApiPropertyOptional({
+    example: "Wrong item size for the requested procedure set."
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class AdminReturnActionDto {
+  @ApiPropertyOptional({
+    example: "Returned item received by warehouse."
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
 }
 
 export class OrderTotalsResponseDto {
@@ -301,6 +363,81 @@ export class OrderPaymentDetailResponseDto {
   transactionRef!: string | null;
 }
 
+export class OrderRefundResponseDto {
+  @ApiProperty({ example: 283.2 })
+  amount!: number;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
+  createdAt!: Date;
+
+  @ApiProperty({ example: "refund-id" })
+  id!: string;
+
+  @ApiPropertyOptional({ example: "rfnd_razorpay_1", nullable: true })
+  providerRefundId!: string | null;
+
+  @ApiProperty({ example: "Customer requested return.", nullable: true })
+  reason!: string | null;
+
+  @ApiProperty({ enum: RefundStatus, example: RefundStatus.PENDING })
+  status!: RefundStatus;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
+  processedAt!: Date | null;
+}
+
+export class OrderDeliveryTrackingHistoryResponseDto {
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
+  createdAt!: Date;
+
+  @ApiProperty({ example: "history-id" })
+  id!: string;
+
+  @ApiProperty({ example: 28.613939, nullable: true })
+  latitude!: number | null;
+
+  @ApiProperty({ example: 77.209023, nullable: true })
+  longitude!: number | null;
+
+  @ApiProperty({ example: "Picked up from dispatch bay 2.", nullable: true })
+  note!: string | null;
+
+  @ApiProperty({ enum: DeliveryStatus, example: DeliveryStatus.PICKED_UP })
+  status!: DeliveryStatus;
+}
+
+export class OrderDeliveryTrackingResponseDto {
+  @ApiProperty({ example: "assignment-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Asha Driver", nullable: true })
+  deliveryPartnerName!: string | null;
+
+  @ApiProperty({ example: "DL01AB1234", nullable: true })
+  vehicleNumber!: string | null;
+
+  @ApiProperty({ enum: DeliveryStatus, example: DeliveryStatus.ASSIGNED })
+  status!: DeliveryStatus;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
+  assignedAt!: Date;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
+  pickedUpAt!: Date | null;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
+  deliveredAt!: Date | null;
+
+  @ApiProperty({ example: "http://localhost:4000/uploads/proofs/order-1.jpg", nullable: true })
+  proofOfDeliveryUrl!: string | null;
+
+  @ApiProperty({ example: "Clinic was closed.", nullable: true })
+  failureReason!: string | null;
+
+  @ApiProperty({ type: [OrderDeliveryTrackingHistoryResponseDto] })
+  statusHistory!: OrderDeliveryTrackingHistoryResponseDto[];
+}
+
 export class OrderInvoiceTaxBreakupResponseDto {
   @ApiProperty({ example: 21.6 })
   cgst!: number;
@@ -382,6 +519,12 @@ export class OrderResponseDto {
 
   @ApiProperty({ type: [OrderPaymentDetailResponseDto] })
   paymentDetails!: OrderPaymentDetailResponseDto[];
+
+  @ApiProperty({ type: [OrderRefundResponseDto] })
+  refunds!: OrderRefundResponseDto[];
+
+  @ApiProperty({ type: [OrderDeliveryTrackingResponseDto] })
+  deliveryTracking!: OrderDeliveryTrackingResponseDto[];
 
   @ApiProperty({ type: OrderInvoiceSummaryResponseDto, nullable: true })
   invoice!: OrderInvoiceSummaryResponseDto | null;

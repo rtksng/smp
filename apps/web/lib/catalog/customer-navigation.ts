@@ -29,7 +29,7 @@ export function buildCategoryNavigation(
     children: sortCategories(category.children)
       .filter((subcategory) => subcategory.isActive)
       .map((subcategory) => ({
-        href: `/categories/${category.slug}?subcategory=${subcategory.slug}`,
+        href: `/categories/${category.slug}/${subcategory.slug}`,
         id: subcategory.id,
         label: subcategory.name,
         slug: subcategory.slug
@@ -74,7 +74,7 @@ export function buildMarketplaceNavItems(
       source: "category" as const
     })),
     {
-      href: "/#brands",
+      href: "/brands",
       id: "brands",
       label: "Brands",
       slug: "brands",

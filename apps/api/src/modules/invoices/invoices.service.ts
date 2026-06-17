@@ -136,7 +136,7 @@ export type InvoiceResponse = {
   orderId: string;
   orderNumber: string;
   pdf: {
-    available: false;
+    available: boolean;
     message: string;
     status: string;
   };
@@ -421,9 +421,9 @@ export class InvoicesService {
       orderId: invoice.orderId,
       orderNumber: invoice.order.orderNumber,
       pdf: {
-        available: false,
-        message: "PDF generation is reserved for the async invoice worker.",
-        status: invoice.pdfStatus
+        available: true,
+        message: "PDF invoice can be downloaded on demand.",
+        status: invoice.pdfStatus === "NOT_GENERATED" ? "ON_DEMAND" : invoice.pdfStatus
       },
       sourceState: invoice.sourceState,
       taxBreakup: {

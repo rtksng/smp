@@ -34,7 +34,7 @@ import { SearchForm } from "../home/search-form";
 const mobileNavItems = [
   { href: "/products", label: "Products" },
   { href: "/#categories", label: "Departments" },
-  { href: "/#brands", label: "Brands" },
+  { href: "/brands", label: "Brands" },
   { href: "/#bulk", label: "Bulk quote" }
 ] as const;
 

@@ -15,7 +15,6 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiCreatedResponse,
-  ApiNotImplementedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -28,6 +27,7 @@ import {
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../auth/guards/authenticated-request";
 import { CustomerJwtGuard } from "../auth/guards/customer-jwt.guard";
+import { CartResponseDto } from "../cart/dto/cart.dto";
 import {
   InvoiceFormat,
   InvoiceFormatQueryDto,
@@ -37,9 +37,11 @@ import { prepareInvoiceHttpResponse } from "../invoices/invoice-http-response";
 import { InvoicesService } from "../invoices/invoices.service";
 import {
   CreateOrderDto,
+  CancelOrderDto,
   OrderListQueryDto,
   OrderListResponseDto,
-  OrderResponseDto
+  OrderResponseDto,
+  RequestReturnDto
 } from "./dto/order.dto";
 import { OrdersService } from "./orders.service";
 
@@ -69,6 +71,80 @@ export class OrdersController {
     return this.ordersService.createOrder(getCustomerId(request), body);
   }
 
+  @Post(":id/reorder")
+  @ApiOperation({
+    summary: "Replace the authenticated customer's cart with items from an order."
+  })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "id"
+  })
+  @ApiCreatedResponse({
+    description: "Customer cart rebuilt from the selected order.",
+    type: CartResponseDto
+  })
+  @ApiBadRequestResponse({
+    description: "Order items are unavailable or cannot be added to cart."
+  })
+  @ApiNotFoundResponse({ description: "Order was not found for this customer." })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  reorder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.reorder(getCustomerId(request), id);
+  }
+
+  @Post(":id/cancel")
+  @ApiOperation({
+    summary: "Cancel an authenticated customer's order before dispatch."
+  })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "id"
+  })
+  @ApiOkResponse({
+    description: "Customer order cancelled.",
+    type: OrderResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Order cannot be cancelled in its current status." })
+  @ApiNotFoundResponse({ description: "Order was not found for this customer." })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  cancelMyOrder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: CancelOrderDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.cancelMyOrder(getCustomerId(request), id, body);
+  }
+
+  @Post(":id/return-request")
+  @ApiOperation({
+    summary: "Request a return/refund for a delivered customer order."
+  })
+  @ApiParam({
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    name: "id"
+  })
+  @ApiOkResponse({
+    description: "Return request recorded.",
+    type: OrderResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Order is not eligible for return or already has an active return." })
+  @ApiNotFoundResponse({ description: "Order was not found for this customer." })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  requestMyOrderReturn(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: RequestReturnDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersService.requestMyOrderReturn(
+      getCustomerId(request),
+      id,
+      body
+    );
+  }
+
   @Get("my")
   @ApiOperation({ summary: "List the authenticated customer's orders." })
   @ApiOkResponse({
@@ -96,12 +172,12 @@ export class OrdersController {
     name: "format",
     required: false
   })
-  @ApiProduces("application/json", "text/html")
+  @ApiProduces("application/json", "text/html", "application/pdf")
   @ApiOkResponse({
-    description: "GST invoice returned. Use format=html to download invoice HTML.",
+    description:
+      "GST invoice returned. Use format=html to download invoice HTML or format=pdf to download invoice PDF.",
     type: InvoiceResponseDto
   })
-  @ApiNotImplementedResponse({ description: "PDF generation is not wired yet." })
   @ApiNotFoundResponse({ description: "Order was not found for this customer." })
   @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
   async getMyOrderInvoice(

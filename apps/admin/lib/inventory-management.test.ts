@@ -3,6 +3,7 @@ import {
   adjustStockFormSchema,
   buildAdjustStockPayload,
   buildInventoryRequest,
+  buildReturnDispositionPayload,
   buildStockInPayload,
   buildTransferStockPayload,
   INVENTORY_ACTIONS_PATH,
@@ -11,6 +12,7 @@ import {
   INVENTORY_TABS,
   isLowStock,
   isNearExpiry,
+  returnDispositionFormSchema,
   stockInFormSchema,
   transferStockFormSchema
 } from "./inventory-management";
@@ -185,5 +187,49 @@ describe("inventory management helpers", () => {
       toWarehouseId: "8d9f8f33-d348-4a89-94e8-907be76a91c6",
       variantId: null
     });
+  });
+
+  it("normalizes returned stock disposition payloads", () => {
+    const values = returnDispositionFormSchema.parse({
+      disposition: "QUARANTINE",
+      note: " Packaging seal broken. ",
+      orderId: "6d9f8f33-d348-4a89-94e8-907be76a91c6",
+      orderItemId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+      quantity: "2"
+    });
+
+    expect(buildReturnDispositionPayload(values)).toEqual({
+      items: [
+        {
+          disposition: "QUARANTINE",
+          note: "Packaging seal broken.",
+          orderItemId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+          quantity: 2
+        }
+      ],
+      orderId: "6d9f8f33-d348-4a89-94e8-907be76a91c6"
+    });
+  });
+
+  it("rejects invalid returned stock disposition form values", () => {
+    expect(
+      returnDispositionFormSchema.safeParse({
+        disposition: "RESTOCK",
+        note: "",
+        orderId: "6d9f8f33-d348-4a89-94e8-907be76a91c6",
+        orderItemId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+        quantity: "0"
+      }).success
+    ).toBe(false);
+
+    expect(
+      returnDispositionFormSchema.safeParse({
+        disposition: "DONATE",
+        note: "",
+        orderId: "6d9f8f33-d348-4a89-94e8-907be76a91c6",
+        orderItemId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+        quantity: "1"
+      }).success
+    ).toBe(false);
   });
 });

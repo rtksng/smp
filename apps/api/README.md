@@ -184,11 +184,11 @@ NestJS backend for the Surgical Medical Equipment Platform.
 - Razorpay webhooks use Nest raw body capture and verify `x-razorpay-signature` with `RAZORPAY_WEBHOOK_SECRET` before persistence or processing.
 - Razorpay webhook deliveries enqueue the signed payload to the `payment-webhook` queue, store parsed JSON and the raw signed payload in `PaymentWebhook`, and keep provider event ids unique when Razorpay sends them so duplicate deliveries are ignored safely.
 - COD payments remain `PENDING` after checkout and are not marked paid by Razorpay flows.
-- Refund support currently creates a `PENDING` `Refund` placeholder row and does not call a provider refund API yet.
+- Customer return requests create `PENDING` refund records. When an admin accepts a delivered return by moving the order to `RETURNED`, paid Razorpay orders call the Razorpay refund API, store the provider refund id, and update payment/order refund status from the provider response or Razorpay refund webhooks.
 - GST invoice generation is enqueued on the `invoice` queue once an online order payment is captured or a COD order is moved to `CONFIRMED`; invoice read endpoints still create missing invoice records idempotently from order item snapshot data.
 - Customer invoice access uses `GET /api/v1/orders/:id/invoice`; admin invoice access uses `GET /api/v1/admin/orders/:id/invoice` and remains warehouse-scoped through `orders.read`.
-- Invoice responses include persisted customer details, GSTIN when available, billing address, source/destination state, invoice items, CGST/SGST or IGST breakup, generated HTML, and a PDF placeholder status.
-- Add `?format=html` to either invoice endpoint to download the generated HTML invoice; `?format=pdf` returns a not-implemented response until PDF rendering moves into the invoice worker.
+- Invoice responses include persisted customer details, GSTIN when available, billing address, source/destination state, invoice items, CGST/SGST or IGST breakup, generated HTML, and on-demand PDF availability.
+- Add `?format=html` to either invoice endpoint to download the generated HTML invoice; add `?format=pdf` to download the generated PDF invoice. The default response remains JSON invoice metadata.
 - Order confirmation notifications are enqueued to the `notifications` queue after checkout succeeds.
 - Low-stock and near-expiry inventory alerts are enqueued to `low-stock-alert` and `near-expiry-alert` when inventory mutations detect those conditions.
 - Queue names live in `packages/config`; job names and payload versions live in `packages/types`.

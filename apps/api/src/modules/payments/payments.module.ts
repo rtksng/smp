@@ -9,6 +9,7 @@ import { RazorpayClient } from "./razorpay.client";
 @Module({
   controllers: [PaymentsController],
   imports: [AuthCommonModule, PrismaModule, ApiQueuesModule],
-  providers: [PaymentsService, RazorpayClient]
+  providers: [PaymentsService, RazorpayClient],
+  exports: [PaymentsService]
 })
 export class PaymentsModule {}

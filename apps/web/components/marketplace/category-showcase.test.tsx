@@ -39,7 +39,7 @@ describe("CategoryShowcase", () => {
     );
     expect(screen.getByRole("link", { name: "Sutures" })).toHaveAttribute(
       "href",
-      "/categories/consumables?subcategory=sutures"
+      "/categories/consumables/sutures"
     );
   });
 });

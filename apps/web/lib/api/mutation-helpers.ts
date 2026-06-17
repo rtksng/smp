@@ -21,7 +21,10 @@ import {
   type UpdateCustomerProfileInput
 } from "./customer-profile";
 import {
+  cancelOrder,
   createOrder,
+  requestOrderReturn,
+  reorderOrder,
   type CreateOrderInput,
   type Order
 } from "./orders";
@@ -345,6 +348,64 @@ export function createCheckoutPaymentVerificationMutation() {
   return {
     mutationFn: (input: VerifyRazorpayPaymentInput) =>
       verifyRazorpayPayment(input)
+  };
+}
+
+export function createReorderMutation({
+  onSuccess,
+  queryClient,
+  setCartSummary
+}: {
+  onSuccess?: SuccessHandler<Cart>;
+  queryClient: QueryClient;
+  setCartSummary: CartSummarySetter;
+}) {
+  return {
+    mutationFn: (orderId: string) => reorderOrder(orderId),
+    onSuccess: async (cart: Cart, _variables?: string) => {
+      syncCartCache(queryClient, setCartSummary, cart);
+      await onSuccess?.(cart);
+    }
+  };
+}
+
+export function createCancelOrderMutation({
+  onSuccess,
+  queryClient
+}: {
+  onSuccess?: SuccessHandler<Order>;
+  queryClient: QueryClient;
+}) {
+  return {
+    mutationFn: ({ orderId, reason }: { orderId: string; reason?: string }) =>
+      cancelOrder(orderId, reason),
+    onSuccess: async (order: Order) => {
+      queryClient.setQueryData(customerQueryKeys.order(order.id), order);
+      await queryClient.invalidateQueries({
+        queryKey: customerQueryKeys.orders()
+      });
+      await onSuccess?.(order);
+    }
+  };
+}
+
+export function createRequestReturnMutation({
+  onSuccess,
+  queryClient
+}: {
+  onSuccess?: SuccessHandler<Order>;
+  queryClient: QueryClient;
+}) {
+  return {
+    mutationFn: ({ orderId, reason }: { orderId: string; reason?: string }) =>
+      requestOrderReturn(orderId, reason),
+    onSuccess: async (order: Order) => {
+      queryClient.setQueryData(customerQueryKeys.order(order.id), order);
+      await queryClient.invalidateQueries({
+        queryKey: customerQueryKeys.orders()
+      });
+      await onSuccess?.(order);
+    }
   };
 }
 

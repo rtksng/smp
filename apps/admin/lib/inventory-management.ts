@@ -33,7 +33,14 @@ export const STOCK_MOVEMENT_TYPES = [
   "RETURN"
 ] as const;
 
+export const RETURN_STOCK_DISPOSITIONS = [
+  "RESTOCK",
+  "QUARANTINE",
+  "SCRAP"
+] as const;
+
 export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+export type ReturnStockDisposition = (typeof RETURN_STOCK_DISPOSITIONS)[number];
 
 export type InventoryFilters = {
   lowStock: boolean;
@@ -206,10 +213,21 @@ export const transferStockFormSchema = z
     path: ["toWarehouseId"]
   });
 
+export const returnDispositionFormSchema = z.object({
+  disposition: z.enum(RETURN_STOCK_DISPOSITIONS),
+  note: optionalText("Note", 1000).optional().default(""),
+  orderId: uuidField("Order"),
+  orderItemId: uuidField("Order item"),
+  quantity: positiveIntegerString("Quantity")
+});
+
 export type InventoryFilterValues = z.infer<typeof inventoryFiltersSchema>;
 export type StockInFormValues = z.infer<typeof stockInFormSchema>;
 export type AdjustStockFormValues = z.infer<typeof adjustStockFormSchema>;
 export type TransferStockFormValues = z.infer<typeof transferStockFormSchema>;
+export type ReturnDispositionFormValues = z.infer<
+  typeof returnDispositionFormSchema
+>;
 
 export function createEmptyInventoryFilters(): InventoryFilters {
   return {
@@ -258,6 +276,19 @@ export function createEmptyTransferStockFormValues() {
     quantity: "",
     toWarehouseId: "",
     variantId: ""
+  };
+}
+
+export function createEmptyReturnDispositionFormValues(
+  orderId = "",
+  orderItemId = ""
+): ReturnDispositionFormValues {
+  return {
+    disposition: "RESTOCK",
+    note: "",
+    orderId,
+    orderItemId,
+    quantity: "1"
   };
 }
 
@@ -330,6 +361,22 @@ export function buildTransferStockPayload(values: TransferStockFormValues) {
     quantity: Number(values.quantity),
     toWarehouseId: values.toWarehouseId,
     variantId: blankToNull(values.variantId)
+  };
+}
+
+export function buildReturnDispositionPayload(
+  values: ReturnDispositionFormValues
+) {
+  return {
+    items: [
+      {
+        disposition: values.disposition,
+        note: blankToUndefined(values.note),
+        orderItemId: values.orderItemId,
+        quantity: Number(values.quantity)
+      }
+    ],
+    orderId: values.orderId
   };
 }
 

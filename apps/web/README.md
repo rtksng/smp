@@ -42,6 +42,12 @@ Customer account management uses protected customer endpoints:
 - `GET /orders/my`
 - `GET /orders/:id`
 - `GET /orders/:id/invoice?format=html`
+- `GET /orders/:id/invoice?format=pdf`
+- `POST /orders/:id/cancel`
+- `POST /orders/:id/return-request`
+- `GET /wishlist`
+- `POST /wishlist`
+- `DELETE /wishlist/:productId`
 
 ## Product Browsing
 
@@ -52,6 +58,8 @@ Routes:
 - `/products`
 - `/products/[slug]`
 - `/categories/[slug]`
+- `/categories/[slug]/[subcategory]`
+- `/brands`
 - `/brands/[slug]`
 
 The listing pages keep filters in URL query params so searches are shareable and refresh-safe. Supported params:
@@ -77,15 +85,16 @@ Sorting values:
 - `price_high_to_low`
 - `name_az`
 
-The detail page uses `/products/:slug` and shows image gallery, pricing, GST/tax rate, stock availability, quantity actions, medical details, documents, related products, and similar category products.
+The detail page uses `/products/:slug` and shows image gallery, pricing, GST/tax rate, stock availability, quantity actions, wishlist save/remove, medical details, documents, customer reviews, product questions, related products, and similar category products.
 
 ## Storefront UX Direction
 
 The customer storefront uses a procurement-first layout for hospitals and clinics:
 
 - Search is the primary entry point and supports quick-search shortcuts for common purchase terms.
+- Search also provides live product suggestions and recent customer searches.
 - The header keeps product search, product browsing, categories, brands, cart, and login visible on desktop, with a mobile drawer for smaller screens.
-- Home sections prioritize department browsing, procurement-ready product cards, verified brands, workflow clarity, and bulk quote support.
+- Home sections prioritize department browsing, procurement-ready product cards, verified brands, workflow clarity, and a live bulk quote request form.
 - Product cards show hospital price, MRP savings, SKU, GST rate, GST invoice readiness, stock state, delivery-at-checkout context, and full-width add-to-cart actions.
 - Product detail pages use a clean image area, structured product signals, medical details, and a sticky purchase panel on large screens for price, quantity, add-to-cart, buy-now, payment, and bulk-support context.
 
@@ -98,6 +107,8 @@ data:
 - `/products`
 - `/products/[slug]`
 - `/categories/[slug]`
+- `/categories/[slug]/[subcategory]`
+- `/brands`
 - `/brands/[slug]`
 
 Product detail metadata uses the product API `metaTitle` and `metaDescription`
@@ -143,7 +154,7 @@ Protected routes:
 
 Unauthenticated protected-route visits redirect to `/login?next=<previous-path>`. Add-to-cart actions prompt the login modal when the customer is not signed in. After successful login, the customer returns to the prior page.
 
-For the MVP, access and refresh tokens are stored in a namespaced browser storage entry via Zustand persistence and are cleared on logout or failed refresh. Production hardening should move refresh-token storage to secure, HTTP-only cookies when the backend contract supports it.
+Access tokens are kept in the customer auth store, while refresh is backed by the API's secure HTTP-only customer refresh cookie. Zustand persistence strips the refresh token before writing browser storage, and logout clears both the API cookie and the local customer session.
 
 ## Customer Account
 
@@ -153,9 +164,10 @@ The protected customer account section includes:
 - `/account/profile` editable profile details for name, email, business name, and GST number, with mobile shown as read-only
 - `/account/addresses` saved address management with add, edit, delete, set default, and HOME, WORK, CLINIC, HOSPITAL, OTHER address types
 - `/account/orders` order history with order number, date, order status, payment status, and total
-- `/account/orders/[id]` order detail with items, delivery address, payment details, status timeline, conditional invoice HTML download, and a disabled reorder placeholder
+- `/account/orders/[id]` order detail with items, delivery address, payment details, refund status, delivery tracking, status timeline, invoice HTML/PDF downloads, reorder-to-cart, payment retry, cancel, and return-request actions
+- `/account/wishlist` saved products with direct product navigation
 
-Account routes use the shared protected customer route, loading skeletons, empty states, and retryable error states. Invoice download is shown only for orders that can produce a customer invoice under the backend order and payment status rules.
+Account routes use the shared protected customer route, loading skeletons, empty states, and retryable error states. Invoice download is shown only for orders that can produce a customer invoice under the backend order and payment status rules. Cancel and return actions are conditionally shown from the backend order status.
 
 ## Cart and Checkout
 
@@ -168,17 +180,24 @@ The customer cart and checkout flow uses protected customer APIs:
 - `DELETE /cart`
 - `GET /me/addresses`
 - `POST /me/addresses`
+- `POST /coupons/validate`
 - `POST /orders`
 - `GET /orders/my`
 - `GET /orders/:id`
+- `POST /orders/:id/reorder`
 - `GET /orders/:id/invoice?format=html`
+- `GET /orders/:id/invoice?format=pdf`
 - `POST /payments/razorpay/create-order`
 - `POST /payments/razorpay/verify`
+- `POST /quote-requests`
+- `GET /products/:slug/feedback`
+- `POST /products/:slug/feedback/reviews`
+- `POST /products/:slug/feedback/questions`
 
 Routes:
 
 - `/cart` fetches the backend cart, supports quantity update, item removal, cart clearing, stock warnings, and a full price summary.
-- `/checkout` requires login, supports saved address selection, inline address creation, COD or online payment selection, and a final confirmation summary before submission.
+- `/checkout` requires login, supports saved address selection, inline address creation, coupon validation, COD or online payment selection, and a final confirmation summary before submission.
 - `/order-success/[orderId]` fetches the placed order and shows status, payment, delivery address, items, and totals.
 - `/payment-failed` shows online payment retry actions when Razorpay checkout is cancelled or verification fails.
 

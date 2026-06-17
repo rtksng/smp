@@ -9,6 +9,8 @@ import {
   CreditCard,
   Download,
   FileText,
+  Heart,
+  HeartOff,
   Minus,
   PackageCheck,
   Plus,
@@ -32,10 +34,21 @@ import {
   createBuyNowCartItemMutation
 } from "../../lib/api/mutation-helpers";
 import {
+  createProductQuestion,
+  createProductReview,
+  getProductFeedback,
+  type ProductFeedback
+} from "../../lib/api/product-feedback";
+import {
   getProduct,
   getRelatedProducts,
   getSimilarProducts
 } from "../../lib/api/products";
+import {
+  addWishlistItem,
+  getWishlist,
+  removeWishlistItem
+} from "../../lib/api/wishlist";
 import type { Product } from "../../lib/api/schemas";
 import { getCurrentCustomerPath } from "../../lib/auth/current-path";
 import {
@@ -68,6 +81,9 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   const [selectedImageId, setSelectedImageId] = useState<string | undefined>();
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set());
   const [actionMessage, setActionMessage] = useState<string | undefined>();
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [question, setQuestion] = useState("");
   const setCartSummary = useCartStore((state) => state.setSummary);
   const promptLogin = useCustomerAuthStore((state) => state.promptLogin);
   const session = useCustomerAuthStore((state) => state.session);
@@ -86,6 +102,16 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     enabled: Boolean(product?.slug),
     queryFn: () => getSimilarProducts(product?.slug ?? slug, { limit: 4 }),
     queryKey: ["similar-products", product?.slug]
+  });
+  const feedbackQuery = useQuery({
+    enabled: Boolean(product?.slug),
+    queryFn: () => getProductFeedback(product?.slug ?? slug),
+    queryKey: ["product-feedback", product?.slug]
+  });
+  const wishlistQuery = useQuery({
+    enabled: Boolean(session),
+    queryFn: getWishlist,
+    queryKey: ["customer-wishlist"]
   });
   const selectedImage = useMemo(() => {
     if (!product) {
@@ -110,11 +136,47 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
       setCartSummary
     })
   );
+  const addWishlistMutation = useMutation({
+    mutationFn: addWishlistItem,
+    onSuccess: (wishlist) => {
+      queryClient.setQueryData(["customer-wishlist"], wishlist);
+    }
+  });
+  const removeWishlistMutation = useMutation({
+    mutationFn: removeWishlistItem,
+    onSuccess: (wishlist) => {
+      queryClient.setQueryData(["customer-wishlist"], wishlist);
+    }
+  });
+  const reviewMutation = useMutation({
+    mutationFn: (input: { comment: string; rating: number }) =>
+      createProductReview(product?.slug ?? slug, input),
+    onSuccess: (feedback) => {
+      queryClient.setQueryData(["product-feedback", product?.slug], feedback);
+      setReviewComment("");
+      setReviewRating(5);
+      setActionMessage("Review submitted.");
+    }
+  });
+  const questionMutation = useMutation({
+    mutationFn: (input: { question: string }) =>
+      createProductQuestion(product?.slug ?? slug, input),
+    onSuccess: (feedback) => {
+      queryClient.setQueryData(["product-feedback", product?.slug], feedback);
+      setQuestion("");
+      setActionMessage("Question submitted.");
+    }
+  });
   const savings = product ? getProductSavings(product) : null;
   const selectedImageFailed = selectedImage
     ? failedImageIds.has(selectedImage.id)
     : false;
   const cartActionPending = addCartMutation.isPending || buyNowMutation.isPending;
+  const isSaved = Boolean(
+    product && wishlistQuery.data?.items.some((item) => item.id === product.id)
+  );
+  const wishlistPending =
+    addWishlistMutation.isPending || removeWishlistMutation.isPending;
 
   function handleImageError(imageId: string) {
     setFailedImageIds((current) => {
@@ -168,6 +230,66 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     } catch (error) {
       setActionMessage(
         getFriendlyApiErrorMessage(error, "Unable to add item to cart.")
+      );
+    }
+  }
+
+  async function handleWishlistToggle() {
+    if (!session) {
+      promptLogin(getCurrentCustomerPath());
+      return;
+    }
+
+    if (!product) {
+      return;
+    }
+
+    try {
+      setActionMessage(undefined);
+
+      if (isSaved) {
+        await removeWishlistMutation.mutateAsync(product.id);
+        setActionMessage("Removed from wishlist.");
+      } else {
+        await addWishlistMutation.mutateAsync({ productId: product.id });
+        setActionMessage("Saved to wishlist.");
+      }
+    } catch (error) {
+      setActionMessage(
+        getFriendlyApiErrorMessage(error, "Unable to update wishlist.")
+      );
+    }
+  }
+
+  async function handleReviewSubmit() {
+    if (!session) {
+      promptLogin(getCurrentCustomerPath());
+      return;
+    }
+
+    try {
+      await reviewMutation.mutateAsync({
+        comment: reviewComment,
+        rating: reviewRating
+      });
+    } catch (error) {
+      setActionMessage(
+        getFriendlyApiErrorMessage(error, "Unable to submit review.")
+      );
+    }
+  }
+
+  async function handleQuestionSubmit() {
+    if (!session) {
+      promptLogin(getCurrentCustomerPath());
+      return;
+    }
+
+    try {
+      await questionMutation.mutateAsync({ question });
+    } catch (error) {
+      setActionMessage(
+        getFriendlyApiErrorMessage(error, "Unable to submit question.")
       );
     }
   }
@@ -416,6 +538,23 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   <div className="mt-5 grid gap-3">
                     <Button
                       className="w-full"
+                      disabled={wishlistPending}
+                      onClick={handleWishlistToggle}
+                      variant="outline"
+                    >
+                      {isSaved ? (
+                        <HeartOff aria-hidden="true" className="h-4 w-4" />
+                      ) : (
+                        <Heart aria-hidden="true" className="h-4 w-4" />
+                      )}
+                      {wishlistPending
+                        ? "Updating..."
+                        : isSaved
+                          ? "Remove from wishlist"
+                          : "Save for later"}
+                    </Button>
+                    <Button
+                      className="w-full"
                       disabled={cartActionPending || !product.inStock}
                       onClick={() => handleAddToCart()}
                     >
@@ -473,6 +612,19 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 ) : null}
 
                 <ProductDocuments product={product} />
+                <ProductFeedbackSection
+                  feedback={feedbackQuery.data}
+                  question={question}
+                  questionPending={questionMutation.isPending}
+                  reviewComment={reviewComment}
+                  reviewPending={reviewMutation.isPending}
+                  reviewRating={reviewRating}
+                  setQuestion={setQuestion}
+                  setReviewComment={setReviewComment}
+                  setReviewRating={setReviewRating}
+                  onQuestionSubmit={handleQuestionSubmit}
+                  onReviewSubmit={handleReviewSubmit}
+                />
               </div>
             </div>
           ) : null}
@@ -636,6 +788,148 @@ function ProductDocuments({ product }: { product: Product }) {
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function ProductFeedbackSection({
+  feedback,
+  question,
+  questionPending,
+  reviewComment,
+  reviewPending,
+  reviewRating,
+  setQuestion,
+  setReviewComment,
+  setReviewRating,
+  onQuestionSubmit,
+  onReviewSubmit
+}: {
+  feedback?: ProductFeedback;
+  question: string;
+  questionPending: boolean;
+  reviewComment: string;
+  reviewPending: boolean;
+  reviewRating: number;
+  setQuestion: (value: string) => void;
+  setReviewComment: (value: string) => void;
+  setReviewRating: (value: number) => void;
+  onQuestionSubmit: () => void;
+  onReviewSubmit: () => void;
+}) {
+  const reviews = feedback?.reviews ?? [];
+  const questions = feedback?.questions ?? [];
+
+  return (
+    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 xl:col-span-3">
+      <SectionHeader
+        description="Customer reviews and product questions stay attached to the catalog item."
+        eyebrow="Customer feedback"
+        size="compact"
+        title="Reviews and Q&A"
+      />
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-4">
+          <h3 className="text-sm font-bold text-[#17211f]">Reviews</h3>
+          <div className="grid gap-3">
+            {reviews.length > 0 ? (
+              reviews.slice(0, 4).map((review) => (
+                <article
+                  className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4"
+                  key={review.id}
+                >
+                  <p className="text-sm font-bold text-[#17211f]">
+                    Rating {review.rating}/5 |{" "}
+                    {review.title ?? "Customer review"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#687773]">
+                    {review.comment}
+                  </p>
+                  <p className="mt-2 text-xs font-bold text-[#687773]">
+                    {review.customerName}
+                  </p>
+                </article>
+              ))
+            ) : (
+              <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+                No reviews yet.
+              </p>
+            )}
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4">
+            <select
+              aria-label="Review rating"
+              className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-bold text-[#17211f]"
+              onChange={(event) => setReviewRating(Number(event.target.value))}
+              value={reviewRating}
+            >
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <option key={rating} value={rating}>
+                  {rating} star{rating === 1 ? "" : "s"}
+                </option>
+              ))}
+            </select>
+            <textarea
+              aria-label="Review comment"
+              className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
+              onChange={(event) => setReviewComment(event.target.value)}
+              placeholder="Share purchase feedback"
+              value={reviewComment}
+            />
+            <Button
+              disabled={reviewPending}
+              onClick={onReviewSubmit}
+              type="button"
+            >
+              {reviewPending ? "Submitting..." : "Submit review"}
+            </Button>
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <h3 className="text-sm font-bold text-[#17211f]">Questions</h3>
+          <div className="grid gap-3">
+            {questions.length > 0 ? (
+              questions.slice(0, 4).map((entry) => (
+                <article
+                  className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4"
+                  key={entry.id}
+                >
+                  <p className="text-sm font-bold text-[#17211f]">
+                    {entry.question}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#687773]">
+                    {entry.answer ?? "Awaiting answer."}
+                  </p>
+                  <p className="mt-2 text-xs font-bold text-[#687773]">
+                    {entry.customerName}
+                  </p>
+                </article>
+              ))
+            ) : (
+              <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+                No questions yet.
+              </p>
+            )}
+          </div>
+          <div className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4">
+            <textarea
+              aria-label="Product question"
+              className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Ask about compatibility, pack size, or delivery"
+              value={question}
+            />
+            <Button
+              disabled={questionPending}
+              onClick={onQuestionSubmit}
+              type="button"
+              variant="outline"
+            >
+              {questionPending ? "Submitting..." : "Ask question"}
+            </Button>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
