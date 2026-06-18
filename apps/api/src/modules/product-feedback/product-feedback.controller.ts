@@ -28,11 +28,13 @@ import { PermissionCode } from "../permissions/permissions.constants";
 import {
   AdminProductFeedbackListQueryDto,
   AdminProductFeedbackListResponseDto,
+  AdminProductFeedbackItemDto,
   AnswerProductQuestionDto,
   CreateProductQuestionDto,
   CreateProductReviewDto,
+  ModerateProductQuestionDto,
+  ModerateProductReviewDto,
   ProductFeedbackResponseDto,
-  ProductQuestionResponseDto
 } from "./dto/product-feedback.dto";
 import { ProductFeedbackService } from "./product-feedback.service";
 
@@ -118,7 +120,7 @@ export class AdminProductFeedbackController {
   @ApiOperation({ summary: "Answer a product question." })
   @ApiOkResponse({
     description: "Product question answered.",
-    type: ProductQuestionResponseDto
+    type: AdminProductFeedbackItemDto
   })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   answerQuestion(
@@ -126,6 +128,36 @@ export class AdminProductFeedbackController {
     @Body() body: AnswerProductQuestionDto
   ) {
     return this.productFeedbackService.answerQuestion(id, body);
+  }
+
+  @Patch("reviews/:id/moderation")
+  @RequirePermission(PermissionCode.ProductsUpdate)
+  @ApiOperation({ summary: "Moderate a product review." })
+  @ApiOkResponse({
+    description: "Product review moderation status updated.",
+    type: AdminProductFeedbackItemDto
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  moderateReview(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: ModerateProductReviewDto
+  ) {
+    return this.productFeedbackService.moderateReview(id, body);
+  }
+
+  @Patch("questions/:id/moderation")
+  @RequirePermission(PermissionCode.ProductsUpdate)
+  @ApiOperation({ summary: "Moderate a product question." })
+  @ApiOkResponse({
+    description: "Product question moderation status updated.",
+    type: AdminProductFeedbackItemDto
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  moderateQuestion(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: ModerateProductQuestionDto
+  ) {
+    return this.productFeedbackService.moderateQuestion(id, body);
   }
 }
 

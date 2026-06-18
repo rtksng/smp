@@ -39,6 +39,7 @@ test("default RBAC seed defines the required role and permission codes", () => {
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
     PermissionCode.UsersRead,
+    PermissionCode.UsersUpdate,
     PermissionCode.ReportsRead,
     PermissionCode.SettingsManage
   ]);

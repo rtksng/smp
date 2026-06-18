@@ -283,8 +283,8 @@ export class OrderItemResponseDto {
   @ApiProperty({ example: "Curved Artery Forceps" })
   name!: string;
 
-  @ApiProperty({ example: "product-id" })
-  productId!: string;
+  @ApiProperty({ example: "product-id", nullable: true })
+  productId!: string | null;
 
   @ApiProperty({ example: 2 })
   quantity!: number;
@@ -428,7 +428,10 @@ export class OrderDeliveryTrackingResponseDto {
   @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
   deliveredAt!: Date | null;
 
-  @ApiProperty({ example: "http://localhost:4000/uploads/proofs/order-1.jpg", nullable: true })
+  @ApiProperty({
+    example: "http://localhost:4000/uploads/proofs/order-1.jpg",
+    nullable: true
+  })
   proofOfDeliveryUrl!: string | null;
 
   @ApiProperty({ example: "Clinic was closed.", nullable: true })

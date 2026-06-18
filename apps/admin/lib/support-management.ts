@@ -1,18 +1,43 @@
 import type { QueryParams } from "./admin-api";
 
-export const QUOTE_REQUEST_STATUSES = ["NEW", "CONTACTED", "CLOSED"] as const;
+export const QUOTE_REQUEST_STATUSES = [
+  "NEW",
+  "CONTACTED",
+  "QUOTED",
+  "ACCEPTED",
+  "REJECTED",
+  "CONVERTED",
+  "CLOSED"
+] as const;
 export const COUPON_TYPES = ["PERCENTAGE", "FIXED_AMOUNT"] as const;
 export const PRODUCT_FEEDBACK_TYPES = ["REVIEW", "QUESTION"] as const;
 export const PRODUCT_FEEDBACK_STATUSES = [
+  "PENDING_REVIEW",
   "PENDING",
   "ANSWERED",
-  "PUBLISHED"
+  "PUBLISHED",
+  "REJECTED",
+  "HIDDEN"
+] as const;
+export const PRODUCT_REVIEW_MODERATION_STATUSES = [
+  "PENDING_REVIEW",
+  "PUBLISHED",
+  "REJECTED",
+  "HIDDEN"
+] as const;
+export const PRODUCT_QUESTION_MODERATION_STATUSES = [
+  "PENDING",
+  "HIDDEN"
 ] as const;
 
 export type QuoteRequestStatus = (typeof QUOTE_REQUEST_STATUSES)[number];
 export type CouponType = (typeof COUPON_TYPES)[number];
 export type ProductFeedbackType = (typeof PRODUCT_FEEDBACK_TYPES)[number];
 export type ProductFeedbackStatus = (typeof PRODUCT_FEEDBACK_STATUSES)[number];
+export type ProductReviewModerationStatus =
+  (typeof PRODUCT_REVIEW_MODERATION_STATUSES)[number];
+export type ProductQuestionModerationStatus =
+  (typeof PRODUCT_QUESTION_MODERATION_STATUSES)[number];
 
 export type PaginatedAdminResponse<T> = {
   items: T[];
@@ -28,17 +53,78 @@ export type PaginatedAdminResponse<T> = {
 
 export type AdminQuoteRequest = {
   createdAt: string;
+  convertedCartId: string | null;
+  customerDecision: {
+    decidedAt: string;
+    note: string | null;
+    status: "ACCEPTED" | "REJECTED";
+  } | null;
   email: string;
   id: string;
   message: string;
   mobileNumber: string;
   name: string;
   organization: string | null;
+  quotation: {
+    items: Array<{
+      lineSubtotal: number;
+      lineTotal: number;
+      name: string;
+      productId: string | null;
+      quantity: number;
+      sku: string;
+      taxAmount: number;
+      taxRate: number;
+      unitPrice: number;
+      variantId: string | null;
+    }>;
+    notes: string | null;
+    respondedAt: string;
+    totals: {
+      grandTotal: number;
+      shippingTotal: number;
+      subtotal: number;
+      taxTotal: number;
+    };
+    validUntil: string | null;
+  } | null;
   status: QuoteRequestStatus;
 };
 
 export type QuoteRequestFilters = {
   status: "" | QuoteRequestStatus;
+};
+
+export type QuoteResponseLineFormValues = {
+  name: string;
+  productId: string;
+  quantity: string;
+  sku: string;
+  taxRate: string;
+  unitPrice: string;
+  variantId: string;
+};
+
+export type QuoteResponseDraft = {
+  items: QuoteResponseLineFormValues[];
+  notes: string;
+  shippingTotal: string;
+  validUntil: string;
+};
+
+export type QuoteResponsePayload = {
+  items: Array<{
+    name: string;
+    productId?: string | null;
+    quantity: number;
+    sku: string;
+    taxRate?: number;
+    unitPrice: number;
+    variantId?: string | null;
+  }>;
+  notes?: string;
+  shippingTotal?: number;
+  validUntil?: string;
 };
 
 export type AdminCoupon = {
@@ -94,6 +180,8 @@ export type AdminProductFeedback = {
   productId: string;
   question: string | null;
   rating: number | null;
+  moderatedAt: string | null;
+  moderationNote: string | null;
   status: string;
   title: string | null;
   type: ProductFeedbackType;
@@ -108,6 +196,27 @@ export type ProductFeedbackFilters = {
 export function createEmptyQuoteRequestFilters(): QuoteRequestFilters {
   return {
     status: ""
+  };
+}
+
+export function createEmptyQuoteResponseLine(): QuoteResponseLineFormValues {
+  return {
+    name: "",
+    productId: "",
+    quantity: "1",
+    sku: "",
+    taxRate: "0",
+    unitPrice: "",
+    variantId: ""
+  };
+}
+
+export function createEmptyQuoteResponseDraft(): QuoteResponseDraft {
+  return {
+    items: [createEmptyQuoteResponseLine()],
+    notes: "",
+    shippingTotal: "0",
+    validUntil: ""
   };
 }
 
@@ -151,6 +260,102 @@ export function buildQuoteRequestQuery(
   };
 }
 
+export function validateQuoteResponseDraft(values: QuoteResponseDraft) {
+  const errors: string[] = [];
+
+  if (values.items.length === 0) {
+    errors.push("Add at least one quoted item.");
+  }
+
+  values.items.forEach((item, index) => {
+    const lineLabel = `Line ${index + 1}`;
+    const quantity = toNumberOrNaN(item.quantity);
+    const unitPrice = toNumberOrNaN(item.unitPrice);
+    const taxRate = item.taxRate.trim() ? toNumberOrNaN(item.taxRate) : 0;
+
+    if (!item.sku.trim()) {
+      errors.push(`${lineLabel}: enter a SKU.`);
+    }
+
+    if (!item.name.trim()) {
+      errors.push(`${lineLabel}: enter an item name.`);
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      errors.push(`${lineLabel}: quantity must be a whole number above 0.`);
+    }
+
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      errors.push(`${lineLabel}: unit price must be 0 or higher.`);
+    }
+
+    if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
+      errors.push(`${lineLabel}: tax rate must be between 0 and 100.`);
+    }
+  });
+
+  const shippingTotal = values.shippingTotal.trim()
+    ? toNumberOrNaN(values.shippingTotal)
+    : 0;
+
+  if (!Number.isFinite(shippingTotal) || shippingTotal < 0) {
+    errors.push("Shipping must be 0 or higher.");
+  }
+
+  return errors;
+}
+
+export function calculateQuoteResponseDraftTotals(values: QuoteResponseDraft) {
+  const lineTotals = values.items.map((item) => {
+    const quantity = finiteNumber(item.quantity);
+    const unitPrice = finiteNumber(item.unitPrice);
+    const taxRate = finiteNumber(item.taxRate);
+    const subtotal = roundMoney(quantity * unitPrice);
+    const taxAmount = roundMoney(subtotal * (taxRate / 100));
+
+    return {
+      subtotal,
+      taxAmount,
+      total: roundMoney(subtotal + taxAmount)
+    };
+  });
+  const subtotal = roundMoney(
+    lineTotals.reduce((sum, line) => sum + line.subtotal, 0)
+  );
+  const taxTotal = roundMoney(
+    lineTotals.reduce((sum, line) => sum + line.taxAmount, 0)
+  );
+  const shippingTotal = roundMoney(finiteNumber(values.shippingTotal));
+
+  return {
+    grandTotal: roundMoney(subtotal + taxTotal + shippingTotal),
+    shippingTotal,
+    subtotal,
+    taxTotal
+  };
+}
+
+export function buildQuoteResponsePayload(
+  values: QuoteResponseDraft
+): QuoteResponsePayload {
+  return {
+    items: values.items.map((item) => ({
+      name: item.name.trim(),
+      productId: trimmedOrNull(item.productId),
+      quantity: Math.trunc(toNumberOrNaN(item.quantity)),
+      sku: item.sku.trim(),
+      taxRate: item.taxRate.trim() ? toNumberOrNaN(item.taxRate) : 0,
+      unitPrice: toNumberOrNaN(item.unitPrice),
+      variantId: trimmedOrNull(item.variantId)
+    })),
+    notes: trimmedOrUndefined(values.notes),
+    shippingTotal: values.shippingTotal.trim()
+      ? toNumberOrNaN(values.shippingTotal)
+      : 0,
+    validUntil: trimmedOrUndefined(values.validUntil)
+  };
+}
+
 export function buildCouponQuery(
   filters: CouponFilters,
   page = 1,
@@ -174,6 +379,16 @@ export function buildProductFeedbackQuery(
     productId: trimmedOrUndefined(filters.productId),
     status: filters.status || undefined,
     type: filters.type || undefined
+  };
+}
+
+export function buildProductFeedbackModerationPayload(
+  status: ProductFeedbackStatus,
+  moderationNote: string
+) {
+  return {
+    moderationNote: trimmedOrUndefined(moderationNote),
+    status
   };
 }
 
@@ -263,6 +478,14 @@ export function formatSupportLabel(value: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+export function getProductFeedbackStatusTone(status: string) {
+  if (status === "PENDING_REVIEW") {
+    return "PENDING";
+  }
+
+  return status;
+}
+
 export function formatSupportDateTime(value: string | null) {
   if (!value) {
     return "-";
@@ -324,6 +547,16 @@ function toNullableInteger(value: string) {
 
 function toNumberOrNaN(value: string) {
   return Number(value.trim());
+}
+
+function finiteNumber(value: string) {
+  const number = toNumberOrNaN(value);
+
+  return Number.isFinite(number) ? number : 0;
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function toDateInputValue(value: string | null) {

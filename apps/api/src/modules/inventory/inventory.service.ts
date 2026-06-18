@@ -32,7 +32,10 @@ import type {
   TransferStockDto
 } from "./dto/inventory.dto";
 
-type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type DecimalValue =
+  | number
+  | string
+  | { toNumber?: () => number; toString: () => string };
 type InventoryStockRecord = {
   availableQuantity: number;
   id: string;
@@ -200,10 +203,7 @@ export class InventoryService {
       if (!beforeStock && input.quantityDelta < 0) {
         throw new BadRequestException("Stock cannot become negative.");
       }
-      if (
-        beforeStock &&
-        beforeStock.availableQuantity + input.quantityDelta < 0
-      ) {
+      if (beforeStock && beforeStock.availableQuantity + input.quantityDelta < 0) {
         throw new BadRequestException("Stock cannot become negative.");
       }
 
@@ -448,12 +448,12 @@ export class InventoryService {
         const orderItem = orderItemsById.get(item.orderItemId);
 
         if (!orderItem) {
-          throw new BadRequestException("Return disposition item is not in this order.");
+          throw new BadRequestException(
+            "Return disposition item is not in this order."
+          );
         }
         if (!orderItem.warehouseId) {
-          throw new BadRequestException(
-            "Returned item is not linked to a warehouse."
-          );
+          throw new BadRequestException("Returned item is not linked to a warehouse.");
         }
 
         return {
@@ -491,8 +491,7 @@ export class InventoryService {
         }
         disposedQuantityByItemId.set(
           movement.referenceId,
-          (disposedQuantityByItemId.get(movement.referenceId) ?? 0) +
-            movement.quantity
+          (disposedQuantityByItemId.get(movement.referenceId) ?? 0) + movement.quantity
         );
       }
 
@@ -508,8 +507,12 @@ export class InventoryService {
         const alreadyDisposed = disposedQuantityByItemId.get(orderItem.id) ?? 0;
 
         if (!warehouseId) {
+          throw new BadRequestException("Returned item is not linked to a warehouse.");
+        }
+
+        if (!orderItem.productId) {
           throw new BadRequestException(
-            "Returned item is not linked to a warehouse."
+            "Returned custom quote item is not linked to inventory."
           );
         }
 
@@ -1051,9 +1054,7 @@ export class InventoryService {
     });
   }
 
-  private buildLowStockAlerts(
-    stock: InventoryStockRecord
-  ): SendLowStockAlertJobData[] {
+  private buildLowStockAlerts(stock: InventoryStockRecord): SendLowStockAlertJobData[] {
     if (stock.availableQuantity > stock.reorderLevel) {
       return [];
     }
@@ -1071,9 +1072,7 @@ export class InventoryService {
     ];
   }
 
-  private buildNearExpiryAlerts(
-    batch: StockBatchRecord
-  ): SendNearExpiryAlertJobData[] {
+  private buildNearExpiryAlerts(batch: StockBatchRecord): SendNearExpiryAlertJobData[] {
     if (!batch.expiryDate || !isNearExpiry(batch.expiryDate)) {
       return [];
     }

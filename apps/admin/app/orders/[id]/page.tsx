@@ -1,14 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Ban,
-  CheckCircle2,
-  FileText,
-  RefreshCw,
-  Truck
-} from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, FileText, RefreshCw, Truck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -270,9 +263,9 @@ function OrderDetailContent() {
               <div className="actionRow">
                 <Button asChild className="iconTextButton" variant="outline">
                   <Link href="/orders">
-              <ArrowLeft aria-hidden size={16} />
-              <span>Back</span>
-            </Link>
+                    <ArrowLeft aria-hidden size={16} />
+                    <span>Back</span>
+                  </Link>
                 </Button>
                 <Button
                   className="iconTextButton"
@@ -290,31 +283,42 @@ function OrderDetailContent() {
             title={order?.orderNumber ?? "Loading order"}
           />
 
-        {message ? <p className="formSuccess">{message}</p> : null}
-        {mutationError ? (
-          <p className="formError" role="alert">
-            {mutationError}
-          </p>
-        ) : null}
-        {orderQuery.isLoading ? <LoadingState label="Loading order..." /> : null}
-        {orderQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(orderQuery.error) ?? "Unable to load order."}
-          </p>
-        ) : null}
+          {message ? <p className="formSuccess">{message}</p> : null}
+          {mutationError ? (
+            <p className="formError" role="alert">
+              {mutationError}
+            </p>
+          ) : null}
+          {orderQuery.isLoading ? <LoadingState label="Loading order..." /> : null}
+          {orderQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(orderQuery.error) ?? "Unable to load order."}
+            </p>
+          ) : null}
 
-        {order ? (
-          <div className="metricGrid resourceMetrics">
-            <MetricCard label="Status" tone="primary" value={formatOrderLabel(order.status)} />
-            <MetricCard label="Payment" value={formatOrderLabel(order.paymentStatus)} />
-            <MetricCard
-              label="Warehouse"
-              tone="warning"
-              value={order.warehouse?.code ?? order.warehouseId ?? "Unassigned"}
-            />
-            <MetricCard label="Total" tone="primary" value={formatCurrency(order.totals.grandTotal)} />
-          </div>
-        ) : null}
+          {order ? (
+            <div className="metricGrid resourceMetrics">
+              <MetricCard
+                label="Status"
+                tone="primary"
+                value={formatOrderLabel(order.status)}
+              />
+              <MetricCard
+                label="Payment"
+                value={formatOrderLabel(order.paymentStatus)}
+              />
+              <MetricCard
+                label="Warehouse"
+                tone="warning"
+                value={order.warehouse?.code ?? order.warehouseId ?? "Unassigned"}
+              />
+              <MetricCard
+                label="Total"
+                tone="primary"
+                value={formatCurrency(order.totals.grandTotal)}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -329,10 +333,16 @@ function OrderDetailContent() {
                 </div>
               </div>
               <div className="detailGrid">
-                <DetailItem label="Name" value={`${order.customer.firstName} ${order.customer.lastName ?? ""}`} />
+                <DetailItem
+                  label="Name"
+                  value={`${order.customer.firstName} ${order.customer.lastName ?? ""}`}
+                />
                 <DetailItem label="Mobile" value={order.customer.mobileNumber} />
                 <DetailItem label="Email" value={order.customer.email ?? "-"} />
-                <DetailItem label="Business" value={order.customer.businessName ?? "-"} />
+                <DetailItem
+                  label="Business"
+                  value={order.customer.businessName ?? "-"}
+                />
                 <DetailItem label="GSTIN" value={order.customer.gstNumber ?? "-"} />
                 <DetailItem label="Customer ID" value={order.customer.id} />
               </div>
@@ -345,7 +355,10 @@ function OrderDetailContent() {
                   <h2>Delivery address</h2>
                 </div>
               </div>
-              <AddressDetail address={order.shippingAddress} emptyLabel="No delivery address on this order." />
+              <AddressDetail
+                address={order.shippingAddress}
+                emptyLabel="No delivery address on this order."
+              />
             </section>
           </div>
 
@@ -386,11 +399,24 @@ function OrderDetailContent() {
                 </div>
               </div>
               <div className="detailGrid">
-                <DetailItem label="Subtotal" value={formatCurrency(order.totals.subtotal)} />
+                <DetailItem
+                  label="Subtotal"
+                  value={formatCurrency(order.totals.subtotal)}
+                />
                 <DetailItem label="Tax" value={formatCurrency(order.totals.tax)} />
-                <DetailItem label="Discount" value={formatCurrency(order.totals.discount)} />
-                <DetailItem label="Delivery" value={formatCurrency(order.totals.deliveryCharge)} />
-                <DetailItem label="Grand total" value={formatCurrency(order.totals.grandTotal)} wide />
+                <DetailItem
+                  label="Discount"
+                  value={formatCurrency(order.totals.discount)}
+                />
+                <DetailItem
+                  label="Delivery"
+                  value={formatCurrency(order.totals.deliveryCharge)}
+                />
+                <DetailItem
+                  label="Grand total"
+                  value={formatCurrency(order.totals.grandTotal)}
+                  wide
+                />
               </div>
             </section>
           </div>
@@ -412,7 +438,9 @@ function OrderDetailContent() {
                   <p className="eyebrow">Invoice</p>
                   <h2>Invoice details</h2>
                 </div>
-                {order.invoice ? <FileText aria-hidden color="var(--primary)" size={22} /> : null}
+                {order.invoice ? (
+                  <FileText aria-hidden color="var(--primary)" size={22} />
+                ) : null}
               </div>
               <InvoiceDetails order={order} />
             </section>
@@ -467,9 +495,15 @@ function OrderDetailContent() {
                           value={statusNote}
                         />
                       </label>
-                      <Button className="iconTextButton" disabled={isMutating} type="submit">
+                      <Button
+                        className="iconTextButton"
+                        disabled={isMutating}
+                        type="submit"
+                      >
                         <CheckCircle2 aria-hidden size={16} />
-                        <span>{statusMutation.isPending ? "Updating..." : "Update status"}</span>
+                        <span>
+                          {statusMutation.isPending ? "Updating..." : "Update status"}
+                        </span>
                       </Button>
                     </>
                   ) : (
@@ -500,7 +534,9 @@ function OrderDetailContent() {
                         variant="destructive"
                       >
                         <Ban aria-hidden size={16} />
-                        <span>{cancelMutation.isPending ? "Cancelling..." : "Cancel order"}</span>
+                        <span>
+                          {cancelMutation.isPending ? "Cancelling..." : "Cancel order"}
+                        </span>
                       </Button>
                     </>
                   ) : (
@@ -513,7 +549,10 @@ function OrderDetailContent() {
               </PermissionGate>
 
               <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
-                <form className="formStack compactForm" onSubmit={requestDeliveryAssignment}>
+                <form
+                  className="formStack compactForm"
+                  onSubmit={requestDeliveryAssignment}
+                >
                   <h3>Assign delivery</h3>
                   {canAssignDelivery(order.status) ? (
                     <>
@@ -527,7 +566,8 @@ function OrderDetailContent() {
                       ) : null}
                       {partnersQuery.isError ? (
                         <p className="formError" role="alert">
-                          {getErrorMessage(partnersQuery.error) ?? "Unable to load delivery partners."}
+                          {getErrorMessage(partnersQuery.error) ??
+                            "Unable to load delivery partners."}
                         </p>
                       ) : null}
                       <label>
@@ -612,7 +652,11 @@ function OrderDetailContent() {
                         variant="secondary"
                       >
                         <Truck aria-hidden size={16} />
-                        <span>{assignMutation.isPending ? "Assigning..." : "Assign delivery"}</span>
+                        <span>
+                          {assignMutation.isPending
+                            ? "Assigning..."
+                            : "Assign delivery"}
+                        </span>
                       </Button>
                     </>
                   ) : (
@@ -683,22 +727,22 @@ function OrderItemsTable({ order }: { order: AdminOrder }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-      {order.items.map((item) => (
-        <TableRow key={item.id}>
-          <TableCell>
-            <strong>{item.name}</strong>
-            <em>{item.productId}</em>
-          </TableCell>
-          <TableCell>{item.sku}</TableCell>
-          <TableCell>{item.quantity}</TableCell>
-          <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-          <TableCell>
-            {formatCurrency(item.taxAmount)} ({item.taxRate}%)
-          </TableCell>
-          <TableCell>{formatCurrency(item.total)}</TableCell>
-          <TableCell>{item.warehouseId ?? "-"}</TableCell>
-        </TableRow>
-      ))}
+          {order.items.map((item) => (
+            <TableRow key={item.id}>
+              <TableCell>
+                <strong>{item.name}</strong>
+                <em>{item.productId ?? "Custom quote line"}</em>
+              </TableCell>
+              <TableCell>{item.sku}</TableCell>
+              <TableCell>{item.quantity}</TableCell>
+              <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+              <TableCell>
+                {formatCurrency(item.taxAmount)} ({item.taxRate}%)
+              </TableCell>
+              <TableCell>{formatCurrency(item.total)}</TableCell>
+              <TableCell>{item.warehouseId ?? "-"}</TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </div>
@@ -741,7 +785,9 @@ function PaymentDetails({ order }: { order: AdminOrder }) {
 
 function InvoiceDetails({ order }: { order: AdminOrder }) {
   if (!order.invoice) {
-    return <div className="emptyPanel smallEmpty">No invoice has been generated yet.</div>;
+    return (
+      <div className="emptyPanel smallEmpty">No invoice has been generated yet.</div>
+    );
   }
 
   return (
@@ -750,11 +796,24 @@ function InvoiceDetails({ order }: { order: AdminOrder }) {
       <DetailItem label="Issued" value={formatDateTime(order.invoice.issuedAt)} />
       <DetailItem label="PDF status" value={order.invoice.pdfStatus} />
       <DetailItem label="Tax type" value={order.invoice.taxBreakup.taxType} />
-      <DetailItem label="Subtotal" value={formatCurrency(order.invoice.totals.subtotal)} />
-      <DetailItem label="Discount" value={formatCurrency(order.invoice.totals.discount)} />
-      <DetailItem label="Delivery" value={formatCurrency(order.invoice.totals.deliveryCharge)} />
+      <DetailItem
+        label="Subtotal"
+        value={formatCurrency(order.invoice.totals.subtotal)}
+      />
+      <DetailItem
+        label="Discount"
+        value={formatCurrency(order.invoice.totals.discount)}
+      />
+      <DetailItem
+        label="Delivery"
+        value={formatCurrency(order.invoice.totals.deliveryCharge)}
+      />
       <DetailItem label="Tax" value={formatCurrency(order.invoice.totals.tax)} />
-      <DetailItem label="Grand total" value={formatCurrency(order.invoice.totals.grandTotal)} wide />
+      <DetailItem
+        label="Grand total"
+        value={formatCurrency(order.invoice.totals.grandTotal)}
+        wide
+      />
     </div>
   );
 }

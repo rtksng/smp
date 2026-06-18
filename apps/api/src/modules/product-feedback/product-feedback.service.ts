@@ -6,17 +6,23 @@ import type {
   AdminProductFeedbackType,
   AnswerProductQuestionDto,
   CreateProductQuestionDto,
-  CreateProductReviewDto
+  CreateProductReviewDto,
+  ModerateProductQuestionDto,
+  ModerateProductReviewDto
 } from "./dto/product-feedback.dto";
 
 const REVIEW_TEMPLATE_KEY = "product_review";
 const QUESTION_TEMPLATE_KEY = "product_question";
 const PRODUCT_FEEDBACK_CHANNEL = "product_feedback";
+const PUBLIC_REVIEW_STATUS = "PUBLISHED";
+const PUBLIC_QUESTION_STATUS = "ANSWERED";
 
 type FeedbackPayload = {
   answer?: string | null;
   comment?: string;
   customerName: string;
+  moderatedAt?: string | null;
+  moderationNote?: string | null;
   question?: string;
   rating?: number;
   title?: string | null;
@@ -34,9 +40,16 @@ export class ProductFeedbackService {
       where: {
         channel: PRODUCT_FEEDBACK_CHANNEL,
         recipient: product.id,
-        templateKey: {
-          in: [REVIEW_TEMPLATE_KEY, QUESTION_TEMPLATE_KEY]
-        }
+        OR: [
+          {
+            status: PUBLIC_REVIEW_STATUS,
+            templateKey: REVIEW_TEMPLATE_KEY
+          },
+          {
+            status: PUBLIC_QUESTION_STATUS,
+            templateKey: QUESTION_TEMPLATE_KEY
+          }
+        ]
       }
     });
 
@@ -99,23 +112,29 @@ export class ProductFeedbackService {
   ) {
     const product = await this.findPublicProduct(slug);
     const customer = await this.findCustomer(customerId);
-    await this.prisma.notificationLog.create({
+    const created = await this.prisma.notificationLog.create({
       data: {
         channel: PRODUCT_FEEDBACK_CHANNEL,
         payload: toJsonValue({
           comment: input.comment.trim(),
           customerName: formatCustomerName(customer),
+          moderatedAt: null,
+          moderationNote: null,
           rating: input.rating,
           title: input.title?.trim() || null
         }),
         recipient: product.id,
-        status: "PUBLISHED",
+        status: "PENDING_REVIEW",
         templateKey: REVIEW_TEMPLATE_KEY,
         userId: customerId
       }
     });
+    const feedback = await this.listFeedback(slug);
 
-    return this.listFeedback(slug);
+    return {
+      ...feedback,
+      reviews: [serializeReview(created), ...feedback.reviews]
+    };
   }
 
   async createQuestion(
@@ -125,12 +144,14 @@ export class ProductFeedbackService {
   ) {
     const product = await this.findPublicProduct(slug);
     const customer = await this.findCustomer(customerId);
-    await this.prisma.notificationLog.create({
+    const created = await this.prisma.notificationLog.create({
       data: {
         channel: PRODUCT_FEEDBACK_CHANNEL,
         payload: toJsonValue({
           answer: null,
           customerName: formatCustomerName(customer),
+          moderatedAt: null,
+          moderationNote: null,
           question: input.question.trim()
         }),
         recipient: product.id,
@@ -139,8 +160,12 @@ export class ProductFeedbackService {
         userId: customerId
       }
     });
+    const feedback = await this.listFeedback(slug);
 
-    return this.listFeedback(slug);
+    return {
+      ...feedback,
+      questions: [serializeQuestion(created), ...feedback.questions]
+    };
   }
 
   async answerQuestion(id: string, input: AnswerProductQuestionDto) {
@@ -158,7 +183,9 @@ export class ProductFeedbackService {
 
     const payload = {
       ...readPayload(question.payload),
-      answer: input.answer.trim()
+      answer: input.answer.trim(),
+      moderatedAt: new Date().toISOString(),
+      moderationNote: "Answered by admin."
     };
     const updated = await this.prisma.notificationLog.update({
       data: {
@@ -170,7 +197,29 @@ export class ProductFeedbackService {
       }
     });
 
-    return serializeQuestion(updated);
+    return serializeAdminFeedback(updated);
+  }
+
+  async moderateReview(id: string, input: ModerateProductReviewDto) {
+    const updated = await this.updateFeedbackStatus(
+      id,
+      REVIEW_TEMPLATE_KEY,
+      input.status,
+      input.moderationNote
+    );
+
+    return serializeAdminFeedback(updated);
+  }
+
+  async moderateQuestion(id: string, input: ModerateProductQuestionDto) {
+    const updated = await this.updateFeedbackStatus(
+      id,
+      QUESTION_TEMPLATE_KEY,
+      input.status,
+      input.moderationNote
+    );
+
+    return serializeAdminFeedback(updated);
   }
 
   private async findPublicProduct(slug: string) {
@@ -205,6 +254,41 @@ export class ProductFeedbackService {
     }
 
     return customer;
+  }
+
+  private async updateFeedbackStatus(
+    id: string,
+    templateKey: string,
+    status: string,
+    moderationNote?: string | null
+  ) {
+    const feedback = await this.prisma.notificationLog.findFirst({
+      where: {
+        channel: PRODUCT_FEEDBACK_CHANNEL,
+        id,
+        templateKey
+      }
+    });
+
+    if (!feedback) {
+      throw new NotFoundException("Product feedback was not found.");
+    }
+
+    const payload = {
+      ...readPayload(feedback.payload),
+      moderatedAt: new Date().toISOString(),
+      moderationNote: moderationNote?.trim() || null
+    };
+
+    return this.prisma.notificationLog.update({
+      data: {
+        payload: toJsonValue(payload),
+        status
+      },
+      where: {
+        id
+      }
+    });
   }
 }
 
@@ -245,6 +329,8 @@ function serializeAdminFeedback(record: FeedbackLogRecord) {
     createdAt: record.createdAt,
     customerName: payload.customerName,
     id: record.id,
+    moderationNote: payload.moderationNote ?? null,
+    moderatedAt: payload.moderatedAt ?? null,
     productId: record.recipient,
     question: type === "QUESTION" ? payload.question : null,
     rating: type === "REVIEW" ? payload.rating : null,
@@ -267,6 +353,10 @@ function readPayload(value: unknown): FeedbackPayload {
     comment: typeof payload.comment === "string" ? payload.comment : "",
     customerName:
       typeof payload.customerName === "string" ? payload.customerName : "Customer",
+    moderatedAt:
+      typeof payload.moderatedAt === "string" ? payload.moderatedAt : null,
+    moderationNote:
+      typeof payload.moderationNote === "string" ? payload.moderationNote : null,
     question: typeof payload.question === "string" ? payload.question : "",
     rating: typeof payload.rating === "number" ? payload.rating : 0,
     title: typeof payload.title === "string" ? payload.title : null

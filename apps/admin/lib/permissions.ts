@@ -22,6 +22,7 @@ export const ADMIN_PERMISSION = {
   ReportsRead: "reports.read",
   SettingsManage: "settings.manage",
   UsersRead: "users.read",
+  UsersUpdate: "users.update",
   WarehouseManage: "warehouse.manage",
   WarehouseRead: "warehouse.read",
   WarehouseStaffManage: "warehouse.staff.manage"

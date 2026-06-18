@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw, Search } from "lucide-react";
+import { Eye, RefreshCw, Search } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AdminShell } from "../admin-shell";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -34,6 +35,9 @@ import {
   buildCustomerQuery,
   createEmptyCustomerFilters,
   formatCustomerDate,
+  formatCustomerStatus,
+  getCustomerStatusTone,
+  resolveCustomerStatus,
   type AdminCustomer,
   type CustomerFilters,
   type PaginatedCustomerResponse
@@ -229,28 +233,44 @@ function CustomerTable({ customers }: { customers: AdminCustomer[] }) {
             <TableHead>Orders</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-      {customers.map((customer) => (
-        <TableRow key={customer.id}>
-          <TableCell>
-            <strong>{customer.name}</strong>
-            <em>{customer.addressCount} addresses</em>
-          </TableCell>
-          <TableCell>{customer.mobileNumber}</TableCell>
-          <TableCell>{customer.email ?? "-"}</TableCell>
-          <TableCell>
-            <strong>{customer.businessName ?? "-"}</strong>
-            <em>{customer.gstNumber ?? "No GSTIN"}</em>
-          </TableCell>
-          <TableCell>{customer.orderCount}</TableCell>
-          <TableCell>
-            <StatusBadge status={customer.isActive ? "ACTIVE" : "INACTIVE"} />
-          </TableCell>
-          <TableCell>{formatCustomerDate(customer.createdAt)}</TableCell>
-        </TableRow>
-      ))}
+          {customers.map((customer) => {
+            const status = resolveCustomerStatus(customer);
+
+            return (
+              <TableRow key={customer.id}>
+                <TableCell>
+                  <Link className="tablePrimaryLink" href={`/customers/${customer.id}`}>
+                    {customer.name}
+                  </Link>
+                  <em>{customer.addressCount} addresses</em>
+                </TableCell>
+                <TableCell>{customer.mobileNumber}</TableCell>
+                <TableCell>{customer.email ?? "-"}</TableCell>
+                <TableCell>
+                  <strong>{customer.businessName ?? "-"}</strong>
+                  <em>{customer.gstNumber ?? "No GSTIN"}</em>
+                </TableCell>
+                <TableCell>{customer.orderCount}</TableCell>
+                <TableCell>
+                  <StatusBadge status={getCustomerStatusTone(status)} />
+                  <em>{formatCustomerStatus(status)}</em>
+                </TableCell>
+                <TableCell>{formatCustomerDate(customer.createdAt)}</TableCell>
+                <TableCell>
+                  <Button asChild className="iconTextButton" size="sm" variant="outline">
+                    <Link href={`/customers/${customer.id}`}>
+                      <Eye aria-hidden size={14} />
+                      <span>View</span>
+                    </Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

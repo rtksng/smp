@@ -90,7 +90,7 @@ export type LinkedWarehouse = {
 export type OrderItem = {
   id: string;
   name: string;
-  productId: string;
+  productId: string | null;
   quantity: number;
   sku: string;
   stockBatchId: string | null;
@@ -213,10 +213,7 @@ const CANCELLABLE_STATUSES = new Set<OrderStatus>([
 ]);
 
 const DELIVERY_ASSIGNABLE_STATUSES = new Set<OrderStatus>(["CONFIRMED", "PACKED"]);
-const ACTIVE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
-  "PENDING",
-  "PROCESSING"
-]);
+const ACTIVE_RETURN_REFUND_STATUSES = new Set<RefundStatus>(["PENDING", "PROCESSING"]);
 const PROCESSABLE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
   "PENDING",
   "PROCESSING",

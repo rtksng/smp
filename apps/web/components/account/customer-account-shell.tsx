@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
+  FileText,
   LayoutDashboard,
   LogOut,
   Heart,
@@ -24,6 +25,7 @@ const accountLinks = [
   { href: "/account/profile", icon: UserRound, label: "Profile" },
   { href: "/account/addresses", icon: MapPin, label: "Addresses" },
   { href: "/account/wishlist", icon: Heart, label: "Wishlist" },
+  { href: "/account/quotes", icon: FileText, label: "Quotes" },
   { href: "/account/orders", icon: Package, label: "Orders" }
 ];
 
@@ -77,7 +79,7 @@ export function CustomerAccountShell({
                 </div>
                 <nav
                   aria-label="Account navigation"
-                  className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-1"
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-1"
                 >
                   {accountLinks.map((link) => {
                     const Icon = link.icon;

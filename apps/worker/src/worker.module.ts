@@ -3,6 +3,10 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { QUEUE_NAMES } from "@surgical/config";
 import { InvoicesProcessor } from "./queues/invoices.processor";
+import {
+  NotificationLogRepository,
+  PgNotificationLogRepository
+} from "./notifications/notification-log.repository";
 import { LowStockAlertProcessor } from "./queues/low-stock-alert.processor";
 import { NearExpiryAlertProcessor } from "./queues/near-expiry-alert.processor";
 import { NotificationsProcessor } from "./queues/notifications.processor";
@@ -65,6 +69,10 @@ function createRedisConnection() {
   ],
   providers: [
     StructuredLogger,
+    {
+      provide: NotificationLogRepository,
+      useClass: PgNotificationLogRepository
+    },
     OtpProcessor,
     NotificationsProcessor,
     InvoicesProcessor,

@@ -10,7 +10,8 @@ import {
   TrendingUp
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import {
   ConfirmationDialog,
@@ -127,11 +128,17 @@ export function InventoryManagementPage({ view }: { view: InventoryView }) {
 function InventoryContent({ view }: { view: InventoryView }) {
   const { api } = useAdminSession();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
+  const urlFilters = useMemo(
+    () => createInventoryFiltersFromSearchParams(new URLSearchParams(searchKey)),
+    [searchKey]
+  );
   const [draftFilters, setDraftFilters] = useState<InventoryFilters>(
-    createEmptyInventoryFilters()
+    urlFilters
   );
   const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>(
-    createEmptyInventoryFilters()
+    urlFilters
   );
   const [stockInValues, setStockInValues] = useState<StockInInputValues>(
     createEmptyStockInFormValues()
@@ -155,6 +162,11 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const isOverviewView = view === "overview";
   const isActionsView = view === "actions";
   const isMovementsView = view === "movements";
+
+  useEffect(() => {
+    setDraftFilters(urlFilters);
+    setAppliedFilters(urlFilters);
+  }, [urlFilters]);
 
   const inventoryRequest = useMemo(
     () => buildInventoryRequest(appliedFilters),
@@ -1445,4 +1457,16 @@ function getFieldErrors<TFields extends Record<string, unknown>>(error: z.ZodErr
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : null;
+}
+
+function createInventoryFiltersFromSearchParams(searchParams: {
+  get: (key: string) => string | null;
+}) {
+  return {
+    lowStock: searchParams.get("lowStock") === "true",
+    nearExpiry: searchParams.get("nearExpiry") === "true",
+    productId: searchParams.get("productId") ?? "",
+    search: searchParams.get("search") ?? "",
+    warehouseId: searchParams.get("warehouseId") ?? ""
+  };
 }

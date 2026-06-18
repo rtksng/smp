@@ -137,7 +137,10 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.RETURNED]: []
 };
 
-type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type DecimalValue =
+  | number
+  | string
+  | { toNumber?: () => number; toString: () => string };
 type CartCheckoutRecord = Prisma.CartGetPayload<{
   include: typeof CART_CHECKOUT_INCLUDE;
 }>;
@@ -177,6 +180,31 @@ type FulfillmentLine = {
   taxRate: number;
   unitPrice: number;
   variantId: string | null;
+};
+
+export type QuoteOrderLine = {
+  lineSubtotal: number;
+  lineTotal: number;
+  name: string;
+  productId: string | null;
+  quantity: number;
+  sku: string;
+  taxAmount: number;
+  taxRate: number;
+  unitPrice: number;
+  variantId: string | null;
+};
+
+export type CreateQuoteOrderInput = {
+  items: QuoteOrderLine[];
+  notes: string | null;
+  quoteId: string;
+  totals: {
+    grandTotal: number;
+    shippingTotal: number;
+    subtotal: number;
+    taxTotal: number;
+  };
 };
 
 type SelectedWarehouseStock = {
@@ -233,9 +261,7 @@ export class OrdersService {
       const totals = {
         ...itemTotals,
         deliveryCharge,
-        grandTotal: roundMoney(
-          itemTotals.subtotal + itemTotals.tax + deliveryCharge
-        )
+        grandTotal: roundMoney(itemTotals.subtotal + itemTotals.tax + deliveryCharge)
       };
       const couponApplication = await this.applyCouponDiscount(
         tx,
@@ -339,6 +365,88 @@ export class OrdersService {
     return order;
   }
 
+  async createOrderFromQuote(customerId: string, input: CreateQuoteOrderInput) {
+    if (input.items.length === 0) {
+      throw new BadRequestException("Quote has no orderable items.");
+    }
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      await this.assertActiveCustomer(tx, customerId);
+      const defaultAddress = await tx.address.findFirst({
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+        where: {
+          deletedAt: null,
+          userId: customerId
+        }
+      });
+      const order = await tx.order.create({
+        data: {
+          billingAddressId: defaultAddress?.id ?? null,
+          discountTotal: 0,
+          grandTotal: roundMoney(input.totals.grandTotal),
+          notes: quoteOrderNote(input),
+          orderNumber: await this.generateOrderNumber(tx),
+          paymentStatus: PaymentStatus.PENDING,
+          placedAt: new Date(),
+          shippingAddressId: defaultAddress?.id ?? null,
+          shippingTotal: roundMoney(input.totals.shippingTotal),
+          status: OrderStatus.CREATED,
+          subtotal: roundMoney(input.totals.subtotal),
+          taxTotal: roundMoney(input.totals.taxTotal),
+          userId: customerId,
+          warehouseId: null
+        }
+      });
+
+      for (const item of input.items) {
+        await tx.orderItem.create({
+          data: {
+            name: item.name,
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            sku: item.sku,
+            stockBatchId: null,
+            taxAmount: roundMoney(item.taxAmount),
+            taxRate: roundMoney(item.taxRate),
+            total: roundMoney(item.lineTotal),
+            unitPrice: roundMoney(item.unitPrice),
+            variantId: item.productId ? item.variantId : null,
+            warehouseId: null
+          }
+        });
+      }
+
+      await tx.payment.create({
+        data: {
+          amount: roundMoney(input.totals.grandTotal),
+          method: PaymentMethod.ONLINE,
+          orderId: order.id,
+          status: PaymentStatus.PENDING
+        }
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          note: `Created from quote ${input.quoteId}.`,
+          orderId: order.id,
+          status: OrderStatus.CREATED
+        }
+      });
+
+      return this.serializeOrder(await this.findOrderById(tx, order.id));
+    });
+
+    await this.queueService?.enqueueOrderConfirmation({
+      customerId,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      requestedAt: new Date().toISOString(),
+      version: 1
+    });
+
+    return order;
+  }
+
   async listMyOrders(customerId: string, query: OrderListQueryDto) {
     await this.assertActiveCustomer(this.prisma, customerId);
     const page = query.page ?? 1;
@@ -403,6 +511,12 @@ export class OrdersService {
       throw new BadRequestException("Order has no items to reorder.");
     }
 
+    if (order.items.some((item) => !item.productId)) {
+      throw new BadRequestException(
+        "Custom quote items cannot be reordered into cart."
+      );
+    }
+
     if (!this.cartService) {
       throw new BadRequestException("Cart service is unavailable.");
     }
@@ -413,11 +527,7 @@ export class OrdersService {
     );
   }
 
-  async cancelMyOrder(
-    customerId: string,
-    orderId: string,
-    input: CancelOrderDto
-  ) {
+  async cancelMyOrder(customerId: string, orderId: string, input: CancelOrderDto) {
     await this.assertActiveCustomer(this.prisma, customerId);
 
     return this.prisma.$transaction(async (tx) => {
@@ -486,9 +596,7 @@ export class OrdersService {
       }
 
       if (
-        order.refunds.some((refund) =>
-          ACTIVE_RETURN_REFUND_STATUSES.has(refund.status)
-        )
+        order.refunds.some((refund) => ACTIVE_RETURN_REFUND_STATUSES.has(refund.status))
       ) {
         throw new BadRequestException(
           "A return or refund request is already pending for this order."
@@ -717,10 +825,7 @@ export class OrdersService {
     });
   }
 
-  async processAdminReturnRefund(
-    orderId: string,
-    context: AdminActionContext
-  ) {
+  async processAdminReturnRefund(orderId: string, context: AdminActionContext) {
     const order = await this.findAdminOrder(orderId, context.auth);
     const refund = order.refunds.find((entry) =>
       PROCESSABLE_RETURN_REFUND_STATUSES.has(entry.status)
@@ -744,7 +849,9 @@ export class OrdersService {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
 
       if (!CANCELLABLE_STATUSES.has(order.status)) {
-        throw new BadRequestException("Order cannot be cancelled in its current status.");
+        throw new BadRequestException(
+          "Order cannot be cancelled in its current status."
+        );
       }
 
       await this.releaseReservedInventoryForCancelledOrder(tx, order);
@@ -838,7 +945,9 @@ export class OrdersService {
     }
 
     const variantName = item.variant?.name;
-    const name = variantName ? `${item.product.name} - ${variantName}` : item.product.name;
+    const name = variantName
+      ? `${item.product.name} - ${variantName}`
+      : item.product.name;
     const sku = item.variant?.sku ?? item.product.sku;
     const unitPrice = decimalToNumber(
       item.variant?.sellingPrice ?? item.product.sellingPrice
@@ -1010,10 +1119,7 @@ export class OrdersService {
     return quote.deliveryCharge;
   }
 
-  private async incrementCouponUsage(
-    client: OrderClient,
-    couponId: string | null
-  ) {
+  private async incrementCouponUsage(client: OrderClient, couponId: string | null) {
     if (!couponId) {
       return;
     }
@@ -1191,6 +1297,12 @@ export class OrdersService {
         continue;
       }
 
+      if (!item.productId) {
+        throw new BadRequestException(
+          "Custom quote items are not linked to reserved inventory."
+        );
+      }
+
       const stockUpdate = await tx.inventoryStock.updateMany({
         data: {
           reservedQuantity: {
@@ -1220,6 +1332,12 @@ export class OrdersService {
     for (const item of order.items) {
       if (item.warehouseId === null) {
         continue;
+      }
+
+      if (!item.productId) {
+        throw new BadRequestException(
+          "Custom quote items are not linked to reserved inventory."
+        );
       }
 
       const stockUpdate = await tx.inventoryStock.updateMany({
@@ -1482,9 +1600,7 @@ export class OrdersService {
 
 function sortBatchesForAllocation<
   T extends { createdAt?: Date; expiryDate: Date | null; id: string }
->(
-  batches: T[]
-) {
+>(batches: T[]) {
   return [...batches].sort((left, right) => {
     if (left.expiryDate !== null && right.expiryDate !== null) {
       const expiryDifference = left.expiryDate.getTime() - right.expiryDate.getTime();
@@ -1501,7 +1617,9 @@ function sortBatchesForAllocation<
     const createdDifference =
       (left.createdAt?.getTime() ?? 0) - (right.createdAt?.getTime() ?? 0);
 
-    return createdDifference === 0 ? left.id.localeCompare(right.id) : createdDifference;
+    return createdDifference === 0
+      ? left.id.localeCompare(right.id)
+      : createdDifference;
   });
 }
 
@@ -1523,9 +1641,7 @@ function calculateTotals(
     total: number;
   }>
 ) {
-  const subtotal = roundMoney(
-    items.reduce((sum, item) => sum + item.subtotal, 0)
-  );
+  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.subtotal, 0));
   const tax = roundMoney(items.reduce((sum, item) => sum + item.tax, 0));
   const discount = 0;
   const deliveryCharge = 0;
@@ -1547,6 +1663,12 @@ function stockUnavailableMessage(line: FulfillmentLine, availableQuantity: numbe
   return `${line.name} is out of stock. Please remove it from your cart.`;
 }
 
+function quoteOrderNote(input: CreateQuoteOrderInput) {
+  return [`Created from quote ${input.quoteId}.`, input.notes]
+    .filter((part): part is string => Boolean(part))
+    .join(" ");
+}
+
 function mergeOrderItemsForReorder(items: OrderRecord["items"]) {
   const merged = new Map<
     string,
@@ -1558,6 +1680,12 @@ function mergeOrderItemsForReorder(items: OrderRecord["items"]) {
   >();
 
   for (const item of items) {
+    if (!item.productId) {
+      throw new BadRequestException(
+        "Custom quote items cannot be reordered into cart."
+      );
+    }
+
     const key = `${item.productId}:${item.variantId ?? "base"}`;
     const existing = merged.get(key);
 
@@ -1666,9 +1794,7 @@ function parseDateBoundary(value: string | undefined, boundary: "end" | "start")
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
-function serializeAddress(
-  address: NonNullable<OrderRecord["shippingAddress"]> | null
-) {
+function serializeAddress(address: NonNullable<OrderRecord["shippingAddress"]> | null) {
   return address
     ? {
         city: address.city,

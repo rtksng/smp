@@ -6,6 +6,9 @@ import {
   Boxes,
   CalendarDays,
   Clock3,
+  Download,
+  ExternalLink,
+  FileText,
   IndianRupee,
   RefreshCw,
   Search,
@@ -14,6 +17,7 @@ import {
   Users,
   Warehouse
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -33,14 +37,20 @@ import {
 import { useAdminSession } from "../../lib/admin-session";
 import {
   buildDashboardReportQuery,
+  buildReportDrilldownHref,
   createDefaultReportFilters,
+  downloadDashboardReportExport,
   formatReportCurrency,
   formatReportNumber,
+  formatReportStatusLabel,
   getDashboardEmptyState,
   reportDateRangeError,
+  REPORT_ORDER_STATUSES,
+  REPORT_PAYMENT_STATUSES,
   type DashboardCards,
   type DashboardReport,
   type DashboardReportFilters,
+  type ReportExportFormat,
   type StockAlertPoint,
   type WarehouseStockSummaryPoint
 } from "../../lib/reports-management";
@@ -52,6 +62,7 @@ type ReportsDashboardProps = {
 };
 
 type MetricCard = {
+  href?: string;
   icon: ReactNode;
   label: string;
   tone: "neutral" | "primary" | "warning";
@@ -59,7 +70,7 @@ type MetricCard = {
 };
 
 export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
-  const { api } = useAdminSession();
+  const { api, session } = useAdminSession();
   const [draftFilters, setDraftFilters] = useState<DashboardReportFilters>(() =>
     createDefaultReportFilters()
   );
@@ -67,6 +78,10 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
     createDefaultReportFilters()
   );
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportingFormat, setExportingFormat] = useState<ReportExportFormat | null>(
+    null
+  );
   const reportQuery = useMemo(
     () => buildDashboardReportQuery(appliedFilters),
     [appliedFilters]
@@ -119,22 +134,66 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
     setAppliedFilters(defaults);
   }
 
+  async function handleExport(format: ReportExportFormat) {
+    if (!session) {
+      setExportError("Admin session is required to export reports.");
+      return;
+    }
+
+    setExportError(null);
+    setExportingFormat(format);
+
+    try {
+      await downloadDashboardReportExport(
+        appliedFilters,
+        format,
+        session.tokens.accessToken
+      );
+    } catch (error) {
+      setExportError(getErrorMessage(error) ?? "Unable to export dashboard report.");
+    } finally {
+      setExportingFormat(null);
+    }
+  }
+
   return (
     <>
       <Card className="reportControlPanel">
         <CardHeader>
           <PageHeader
             actions={
-              <Button
-                className="iconTextButton"
-                disabled={dashboardQuery.isFetching}
-                onClick={() => void dashboardQuery.refetch()}
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw aria-hidden size={16} />
-                <span>{dashboardQuery.isFetching ? "Refreshing..." : "Refresh"}</span>
-              </Button>
+              <div className="reportExportActions">
+                <Button
+                  className="iconTextButton"
+                  disabled={Boolean(exportingFormat)}
+                  onClick={() => void handleExport("csv")}
+                  type="button"
+                  variant="outline"
+                >
+                  <Download aria-hidden size={16} />
+                  <span>{exportingFormat === "csv" ? "Exporting..." : "CSV"}</span>
+                </Button>
+                <Button
+                  className="iconTextButton"
+                  disabled={Boolean(exportingFormat)}
+                  onClick={() => void handleExport("pdf")}
+                  type="button"
+                  variant="outline"
+                >
+                  <FileText aria-hidden size={16} />
+                  <span>{exportingFormat === "pdf" ? "Exporting..." : "PDF"}</span>
+                </Button>
+                <Button
+                  className="iconTextButton"
+                  disabled={dashboardQuery.isFetching}
+                  onClick={() => void dashboardQuery.refetch()}
+                  type="button"
+                  variant="outline"
+                >
+                  <RefreshCw aria-hidden size={16} />
+                  <span>{dashboardQuery.isFetching ? "Refreshing..." : "Refresh"}</span>
+                </Button>
+              </div>
             }
             eyebrow={eyebrow}
             summary="Warehouse-scoped orders, revenue, inventory alerts, and operating coverage."
@@ -160,6 +219,11 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
               {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
             </p>
           ) : null}
+          {exportError ? (
+            <p className="formError" role="alert">
+              {exportError}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -181,12 +245,19 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
 
       {report ? (
         <>
-          <MetricGrid cards={report.cards} />
+          <MetricGrid cards={report.cards} filters={appliedFilters} />
           <div className="reportChartsGrid">
             <ChartPanel title="Orders by day">
               <BarList
                 emptyState="No orders in this date range."
                 getLabel={(item) => formatShortDate(item.date)}
+                getHref={(item) =>
+                  buildReportDrilldownHref("orders", {
+                    ...appliedFilters,
+                    dateFrom: item.date,
+                    dateTo: item.date
+                  })
+                }
                 getValue={(item) => item.orders}
                 items={report.charts.ordersByDay}
                 renderValue={(value) => formatReportNumber(value)}
@@ -197,6 +268,14 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
               <BarList
                 emptyState="No paid revenue in this date range."
                 getLabel={(item) => formatShortDate(item.date)}
+                getHref={(item) =>
+                  buildReportDrilldownHref("orders", {
+                    ...appliedFilters,
+                    dateFrom: item.date,
+                    dateTo: item.date,
+                    paymentStatus: "PAID"
+                  })
+                }
                 getValue={(item) => item.revenue}
                 items={report.charts.revenueByDay}
                 renderValue={(value) => formatReportCurrency(value)}
@@ -207,6 +286,9 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
               <BarList
                 emptyState="No product sales in this date range."
                 getLabel={(item) => item.name}
+                getHref={(item) =>
+                  buildReportDrilldownHref("product", appliedFilters, item.productId)
+                }
                 getSubLabel={(item) => item.sku}
                 getValue={(item) => item.quantity}
                 items={report.charts.topSellingProducts}
@@ -217,11 +299,14 @@ export function ReportsDashboard({ eyebrow, title }: ReportsDashboardProps) {
             </ChartPanel>
 
             <ChartPanel title="Stock alerts">
-              <StockAlertChart items={report.charts.stockAlerts} />
+              <StockAlertChart filters={appliedFilters} items={report.charts.stockAlerts} />
             </ChartPanel>
 
             <ChartPanel wide title="Warehouse-wise stock summary">
-              <WarehouseStockSummaryChart items={report.charts.warehouseStockSummary} />
+              <WarehouseStockSummaryChart
+                filters={appliedFilters}
+                items={report.charts.warehouseStockSummary}
+              />
             </ChartPanel>
           </div>
         </>
@@ -285,6 +370,56 @@ function ReportFilterForm({
         </Select>
       </Label>
       <Label>
+        Order status
+        <Select
+          aria-label="Order status"
+          onValueChange={(orderStatus) =>
+            onChange({
+              ...filters,
+              orderStatus: orderStatus as DashboardReportFilters["orderStatus"]
+            })
+          }
+          value={filters.orderStatus}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Any status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Any status</SelectItem>
+            {REPORT_ORDER_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatReportStatusLabel(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Label>
+      <Label>
+        Payment status
+        <Select
+          aria-label="Payment status"
+          onValueChange={(paymentStatus) =>
+            onChange({
+              ...filters,
+              paymentStatus: paymentStatus as DashboardReportFilters["paymentStatus"]
+            })
+          }
+          value={filters.paymentStatus}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Any payment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Any payment</SelectItem>
+            {REPORT_PAYMENT_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatReportStatusLabel(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Label>
+      <Label>
         Expiry window
         <Input
           inputMode="numeric"
@@ -310,45 +445,61 @@ function ReportFilterForm({
   );
 }
 
-function MetricGrid({ cards }: { cards: DashboardCards }) {
+function MetricGrid({
+  cards,
+  filters
+}: {
+  cards: DashboardCards;
+  filters: DashboardReportFilters;
+}) {
   const metrics: MetricCard[] = [
     {
+      href: buildReportDrilldownHref("orders", filters),
       icon: <ShoppingCart aria-hidden size={18} />,
       label: "Total orders",
       tone: "primary",
       value: formatReportNumber(cards.totalOrders)
     },
     {
+      href: buildReportDrilldownHref("orders", filters),
       icon: <CalendarDays aria-hidden size={18} />,
       label: "Today orders",
       tone: "primary",
       value: formatReportNumber(cards.todayOrders)
     },
     {
+      href: buildReportDrilldownHref("orders", {
+        ...filters,
+        paymentStatus: "PAID"
+      }),
       icon: <IndianRupee aria-hidden size={18} />,
       label: "Revenue",
       tone: "primary",
       value: formatReportCurrency(cards.revenue)
     },
     {
+      href: buildReportDrilldownHref("orders", filters),
       icon: <Clock3 aria-hidden size={18} />,
       label: "Pending orders",
       tone: "warning",
       value: formatReportNumber(cards.pendingOrders)
     },
     {
+      href: buildReportDrilldownHref("inventory-low-stock", filters),
       icon: <AlertTriangle aria-hidden size={18} />,
       label: "Low stock products",
       tone: "warning",
       value: formatReportNumber(cards.lowStockProducts)
     },
     {
+      href: buildReportDrilldownHref("inventory-near-expiry", filters),
       icon: <Boxes aria-hidden size={18} />,
       label: "Near expiry batches",
       tone: "warning",
       value: formatReportNumber(cards.nearExpiryBatches)
     },
     {
+      href: buildReportDrilldownHref("customers", filters),
       icon: <Users aria-hidden size={18} />,
       label: "Active customers",
       tone: "neutral",
@@ -361,6 +512,7 @@ function MetricGrid({ cards }: { cards: DashboardCards }) {
       value: formatReportNumber(cards.activeDeliveryPartners)
     },
     {
+      href: buildReportDrilldownHref("warehouse", filters),
       icon: <Warehouse aria-hidden size={18} />,
       label: "Active warehouses",
       tone: "neutral",
@@ -370,10 +522,10 @@ function MetricGrid({ cards }: { cards: DashboardCards }) {
 
   return (
     <section className="metricGrid reportMetricGrid" aria-label="Dashboard cards">
-      {metrics.map((metric) => (
-        <Card
+      {metrics.map((metric) => {
+        const card = (
+          <Card
           className={`metric reportMetric metric--${metric.tone}`}
-          key={metric.label}
         >
           <CardContent>
             <span className="reportMetricLabel">
@@ -382,8 +534,17 @@ function MetricGrid({ cards }: { cards: DashboardCards }) {
             </span>
             <strong className="metricText">{metric.value}</strong>
           </CardContent>
-        </Card>
-      ))}
+          </Card>
+        );
+
+        return metric.href ? (
+          <Link className="reportMetricLink" href={metric.href} key={metric.label}>
+            {card}
+          </Link>
+        ) : (
+          <div key={metric.label}>{card}</div>
+        );
+      })}
     </section>
   );
 }
@@ -413,6 +574,7 @@ function ChartPanel({
 function BarList<TItem>({
   emptyState,
   getLabel,
+  getHref,
   getSubLabel,
   getValue,
   items,
@@ -420,6 +582,7 @@ function BarList<TItem>({
 }: {
   emptyState: string;
   getLabel: (item: TItem) => string;
+  getHref?: (item: TItem) => string | undefined;
   getSubLabel?: (item: TItem) => string;
   getValue: (item: TItem) => number;
   items: TItem[];
@@ -436,19 +599,33 @@ function BarList<TItem>({
       {items.map((item) => {
         const value = getValue(item);
         const width = maxValue > 0 ? Math.max((value / maxValue) * 100, 3) : 0;
-
-        return (
-          <div className="barRow" key={`${getLabel(item)}-${getSubLabel?.(item) ?? ""}`}>
+        const href = getHref?.(item);
+        const key = `${getLabel(item)}-${getSubLabel?.(item) ?? ""}`;
+        const rowContent = (
+          <>
             <div className="barHeader">
               <span>
                 <strong>{getLabel(item)}</strong>
                 {getSubLabel ? <em>{getSubLabel(item)}</em> : null}
               </span>
-              <b>{renderValue(value, item)}</b>
+              <b>
+                {renderValue(value, item)}
+                {href ? <ExternalLink aria-hidden size={13} /> : null}
+              </b>
             </div>
             <div className="barTrack" aria-hidden>
               <span style={{ width: `${width}%` }} />
             </div>
+          </>
+        );
+
+        return href ? (
+          <Link className="barRow reportDrilldownRow" href={href} key={key}>
+            {rowContent}
+          </Link>
+        ) : (
+          <div className="barRow" key={key}>
+            {rowContent}
           </div>
         );
       })}
@@ -456,7 +633,13 @@ function BarList<TItem>({
   );
 }
 
-function StockAlertChart({ items }: { items: StockAlertPoint[] }) {
+function StockAlertChart({
+  filters,
+  items
+}: {
+  filters: DashboardReportFilters;
+  items: StockAlertPoint[];
+}) {
   const maxValue = Math.max(
     ...items.map((item) => item.lowStockProducts + item.nearExpiryBatches),
     0
@@ -486,6 +669,26 @@ function StockAlertChart({ items }: { items: StockAlertPoint[] }) {
                 {formatReportNumber(item.nearExpiryBatches)} expiry
               </b>
             </div>
+            <div className="reportRowActions">
+              <Link
+                href={buildReportDrilldownHref(
+                  "inventory-low-stock",
+                  filters,
+                  item.warehouseId
+                )}
+              >
+                Low stock
+              </Link>
+              <Link
+                href={buildReportDrilldownHref(
+                  "inventory-near-expiry",
+                  filters,
+                  item.warehouseId
+                )}
+              >
+                Expiry
+              </Link>
+            </div>
             <div className="stackedBars" aria-hidden>
               <span className="stackedBarsLow" style={{ width: `${lowWidth}%` }} />
               <span className="stackedBarsExpiry" style={{ width: `${expiryWidth}%` }} />
@@ -497,7 +700,13 @@ function StockAlertChart({ items }: { items: StockAlertPoint[] }) {
   );
 }
 
-function WarehouseStockSummaryChart({ items }: { items: WarehouseStockSummaryPoint[] }) {
+function WarehouseStockSummaryChart({
+  filters,
+  items
+}: {
+  filters: DashboardReportFilters;
+  items: WarehouseStockSummaryPoint[];
+}) {
   if (items.length === 0) {
     return <div className="emptyPanel smallEmpty">No warehouse stock summary available.</div>;
   }
@@ -514,7 +723,13 @@ function WarehouseStockSummaryChart({ items }: { items: WarehouseStockSummaryPoi
       {items.map((item) => (
         <div className="warehouseStockRow" key={item.warehouseId} role="row">
           <span role="cell">
-            <strong>{item.warehouseName}</strong>
+            <strong>
+              <Link
+                href={buildReportDrilldownHref("warehouse", filters, item.warehouseId)}
+              >
+                {item.warehouseName}
+              </Link>
+            </strong>
             <em>{item.warehouseCode}</em>
           </span>
           <span role="cell">{formatReportNumber(item.availableQuantity)}</span>
@@ -522,10 +737,26 @@ function WarehouseStockSummaryChart({ items }: { items: WarehouseStockSummaryPoi
           <span role="cell">{formatReportNumber(item.activeBatches)}</span>
           <span className="flagList" role="cell">
             {item.lowStockProducts > 0 ? (
-              <b>{formatReportNumber(item.lowStockProducts)} low</b>
+              <Link
+                href={buildReportDrilldownHref(
+                  "inventory-low-stock",
+                  filters,
+                  item.warehouseId
+                )}
+              >
+                {formatReportNumber(item.lowStockProducts)} low
+              </Link>
             ) : null}
             {item.nearExpiryBatches > 0 ? (
-              <b>{formatReportNumber(item.nearExpiryBatches)} expiry</b>
+              <Link
+                href={buildReportDrilldownHref(
+                  "inventory-near-expiry",
+                  filters,
+                  item.warehouseId
+                )}
+              >
+                {formatReportNumber(item.nearExpiryBatches)} expiry
+              </Link>
             ) : null}
             {item.lowStockProducts === 0 && item.nearExpiryBatches === 0 ? (
               <span>-</span>

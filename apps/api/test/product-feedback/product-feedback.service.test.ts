@@ -147,6 +147,10 @@ test("product feedback captures reviews, questions, and admin answers", async ()
   assert.equal(answered.answer, "Yes, it supports standard autoclave cycles.");
   assert.equal(answered.status, "ANSWERED");
 
+  await service.moderateReview("feedback-1", {
+    status: "PUBLISHED"
+  });
+
   const listed = await service.listFeedback("surgical-forceps");
 
   assert.equal(listed.reviews.length, 1);
@@ -189,6 +193,68 @@ test("admin feedback listing filters questions and keeps answer context", async 
   assert.equal(prisma.calls.countLog.length, 1);
 });
 
+test("public feedback only exposes approved reviews and answered questions", async () => {
+  const prisma = createProductFeedbackPrismaMock();
+  const service = new ProductFeedbackService(prisma as unknown as PrismaService);
+
+  const submittedReview = await service.createReview("customer-1", "surgical-forceps", {
+    comment: "Useful in daily dressing work.",
+    rating: 4,
+    title: "Useful"
+  });
+  const submittedQuestion = await service.createQuestion("customer-1", "surgical-forceps", {
+    question: "Does this include a sterile pouch?"
+  });
+
+  assert.equal(submittedReview.reviews.length, 1);
+  assert.equal(submittedQuestion.questions.length, 1);
+
+  const publicBeforeModeration = await service.listFeedback("surgical-forceps");
+
+  assert.equal(publicBeforeModeration.reviews.length, 0);
+  assert.equal(publicBeforeModeration.questions.length, 0);
+
+  const approved = await service.moderateReview("feedback-1", {
+    moderationNote: "Verified purchase language is safe.",
+    status: "PUBLISHED"
+  });
+  await service.answerQuestion("feedback-2", {
+    answer: "Yes, it ships with one sterile pouch."
+  });
+
+  assert.equal(approved.status, "PUBLISHED");
+  assert.equal(approved.moderationNote, "Verified purchase language is safe.");
+
+  const publicAfterModeration = await service.listFeedback("surgical-forceps");
+
+  assert.equal(publicAfterModeration.reviews.length, 1);
+  assert.equal(publicAfterModeration.questions.length, 1);
+
+  await service.moderateReview("feedback-1", {
+    moderationNote: "Temporarily hidden during recheck.",
+    status: "HIDDEN"
+  });
+  await service.moderateQuestion("feedback-2", {
+    moderationNote: "Question no longer applies to current SKU.",
+    status: "HIDDEN"
+  });
+
+  const publicAfterHiding = await service.listFeedback("surgical-forceps");
+
+  assert.equal(publicAfterHiding.reviews.length, 0);
+  assert.equal(publicAfterHiding.questions.length, 0);
+
+  const adminHidden = await service.listAdminFeedback({
+    limit: 10,
+    page: 1,
+    status: "HIDDEN"
+  });
+
+  assert.equal(adminHidden.items.length, 2);
+  assert.equal(adminHidden.items[0]?.moderationNote, "Temporarily hidden during recheck.");
+  assert.ok(adminHidden.items[0]?.moderatedAt);
+});
+
 test("product feedback rejects missing products or inactive customers", async () => {
   await assert.rejects(
     () =>
@@ -221,21 +287,47 @@ function filterLogs<
     templateKey: string;
   }
 >(logs: T[], where: Record<string, unknown>) {
+  const orFilters = where.OR as Record<string, unknown>[] | undefined;
+
   return logs.filter((log) => {
     const templateKey = where.templateKey as
       | string
       | { in?: string[] }
       | undefined;
-
-    return (
+    const matchesDirectFilters =
       (where.channel === undefined || log.channel === where.channel) &&
       (where.recipient === undefined || log.recipient === where.recipient) &&
-      (where.status === undefined || log.status === where.status) &&
+      matchesValue(log.status, where.status) &&
       (typeof templateKey === "string"
         ? log.templateKey === templateKey
         : templateKey?.in
           ? templateKey.in.includes(log.templateKey)
-          : true)
+          : true);
+
+    return (
+      matchesDirectFilters &&
+      (!orFilters?.length ||
+        orFilters.some(
+          (filter) =>
+            matchesValue(log.status, filter.status) &&
+            matchesValue(log.templateKey, filter.templateKey)
+        ))
     );
   });
+}
+
+function matchesValue(value: string, filter: unknown) {
+  if (filter === undefined) {
+    return true;
+  }
+
+  if (typeof filter === "string") {
+    return value === filter;
+  }
+
+  if (filter && typeof filter === "object" && "in" in filter) {
+    return ((filter as { in?: string[] }).in ?? []).includes(value);
+  }
+
+  return true;
 }

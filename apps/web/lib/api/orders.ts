@@ -47,7 +47,7 @@ export const orderAddressSchema = z.object({
 export const orderItemSchema = z.object({
   id: z.string(),
   name: z.string(),
-  productId: z.string(),
+  productId: z.string().nullable(),
   quantity: z.number(),
   sku: z.string(),
   stockBatchId: z.string().nullable(),
@@ -286,10 +286,7 @@ async function fetchOrderInvoice(orderId: string, format: "html" | "pdf") {
   return response;
 }
 
-function invoiceDownloadHeaders(
-  accessToken: string | null,
-  format: "html" | "pdf"
-) {
+function invoiceDownloadHeaders(accessToken: string | null, format: "html" | "pdf") {
   const headers = new Headers({
     Accept: format === "pdf" ? "application/pdf" : "text/html"
   });

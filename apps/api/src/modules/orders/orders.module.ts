@@ -15,11 +15,7 @@ import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
 
 @Module({
-  controllers: [
-    OrdersController,
-    AdminOrdersController,
-    AdminReturnsRefundsController
-  ],
+  controllers: [OrdersController, AdminOrdersController, AdminReturnsRefundsController],
   imports: [
     AuthCommonModule,
     CartModule,
@@ -30,6 +26,7 @@ import { OrdersService } from "./orders.service";
     PaymentsModule,
     ApiQueuesModule
   ],
+  exports: [OrdersService],
   providers: [OrdersService]
 })
 export class OrdersModule {}

@@ -27,6 +27,7 @@ The API and worker must use the same Redis namespace:
 
 ```bash
 NODE_ENV=development
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/surgical_platform?schema=public
 REDIS_URL=redis://localhost:6379
 REDIS_QUEUE_PREFIX=surgical-platform
 ERROR_MONITORING_ENABLED=false
@@ -38,8 +39,8 @@ Worker logs are emitted as JSON through the shared Nest logger surface. Keep the
 ## Queues
 
 - `otp`: mock OTP delivery
-- `notifications`: mock order confirmation delivery
+- `notifications`: persists customer order confirmation records to `NotificationLog`
 - `invoice`: mock invoice generation
 - `payment-webhook`: Razorpay webhook follow-up processing
-- `low-stock-alert`: mock low-stock alert delivery
-- `near-expiry-alert`: mock near-expiry alert delivery
+- `low-stock-alert`: persists admin low-stock alert records to `NotificationLog`
+- `near-expiry-alert`: persists admin near-expiry alert records to `NotificationLog`

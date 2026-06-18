@@ -7,10 +7,15 @@ import {
   type SendOrderConfirmationJobData
 } from "@surgical/types";
 import type { Job } from "bullmq";
+import { NotificationLogRepository } from "../notifications/notification-log.repository";
 
 @Processor(QUEUE_NAMES.notifications)
 export class NotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationsProcessor.name);
+
+  constructor(private readonly notificationLogs: NotificationLogRepository) {
+    super();
+  }
 
   async process(
     job: Job<SendOrderConfirmationJobData, void, NotificationJobName>
@@ -19,8 +24,9 @@ export class NotificationsProcessor extends WorkerHost {
       throw new Error(`Unsupported notification job: ${job.name}`);
     }
 
+    await this.notificationLogs.createOrderConfirmation(job.data);
     this.logger.log(
-      `Mock order confirmation for order ${job.data.orderNumber} and customer ${job.data.customerId}`
+      `Persisted order confirmation for order ${job.data.orderNumber} and customer ${job.data.customerId}`
     );
   }
 }

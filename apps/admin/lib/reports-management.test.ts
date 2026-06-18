@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDashboardReportQuery,
+  buildReportDrilldownHref,
+  buildReportExportUrl,
   createDefaultReportFilters,
+  dashboardReportDownloadFilename,
   formatReportCurrency,
   getDashboardEmptyState,
   reportDateRangeError,
@@ -35,6 +38,8 @@ describe("reports management helpers", () => {
       dateFrom: "2026-04-27",
       dateTo: "2026-05-26",
       nearExpiryDays: "30",
+      orderStatus: "",
+      paymentStatus: "",
       warehouseId: ""
     });
   });
@@ -45,12 +50,16 @@ describe("reports management helpers", () => {
         dateFrom: "2026-05-01",
         dateTo: "2026-05-26",
         nearExpiryDays: "45",
+        orderStatus: "DELIVERED",
+        paymentStatus: "PAID",
         warehouseId: "warehouse-1"
       })
     ).toEqual({
       dateFrom: "2026-05-01",
       dateTo: "2026-05-26",
       nearExpiryDays: 45,
+      orderStatus: "DELIVERED",
+      paymentStatus: "PAID",
       warehouseId: "warehouse-1"
     });
 
@@ -59,6 +68,8 @@ describe("reports management helpers", () => {
         dateFrom: "",
         dateTo: "",
         nearExpiryDays: "0",
+        orderStatus: "",
+        paymentStatus: "",
         warehouseId: ""
       })
     ).toEqual({});
@@ -70,6 +81,8 @@ describe("reports management helpers", () => {
         dateFrom: "2026-05-27",
         dateTo: "2026-05-26",
         nearExpiryDays: "30",
+        orderStatus: "",
+        paymentStatus: "",
         warehouseId: ""
       })
     ).toBe("Start date must be before end date.");
@@ -78,6 +91,8 @@ describe("reports management helpers", () => {
         dateFrom: "2026-05-01",
         dateTo: "2026-05-26",
         nearExpiryDays: "30",
+        orderStatus: "",
+        paymentStatus: "",
         warehouseId: ""
       })
     ).toBeNull();
@@ -95,5 +110,44 @@ describe("reports management helpers", () => {
       })
     ).toBeNull();
     expect(formatReportCurrency(128520.25)).toBe("₹1,28,520.25");
+  });
+
+  it("builds report export URLs and stable download filenames", () => {
+    const filters = {
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-26",
+      nearExpiryDays: "45",
+      orderStatus: "DELIVERED" as const,
+      paymentStatus: "PAID" as const,
+      warehouseId: "warehouse-1"
+    };
+
+    expect(String(buildReportExportUrl(filters, "csv"))).toBe(
+      "/admin/reports/dashboard/export?dateFrom=2026-05-01&dateTo=2026-05-26&format=csv&nearExpiryDays=45&orderStatus=DELIVERED&paymentStatus=PAID&warehouseId=warehouse-1"
+    );
+    expect(dashboardReportDownloadFilename(filters, "pdf")).toBe(
+      "dashboard-report-2026-05-01-to-2026-05-26.pdf"
+    );
+  });
+
+  it("builds drill-down links into existing admin resources", () => {
+    const filters = {
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-26",
+      nearExpiryDays: "30",
+      orderStatus: "DELIVERED" as const,
+      paymentStatus: "PAID" as const,
+      warehouseId: "warehouse-1"
+    };
+
+    expect(buildReportDrilldownHref("orders", filters)).toBe(
+      "/orders?dateFrom=2026-05-01&dateTo=2026-05-26&paymentStatus=PAID&status=DELIVERED&warehouseId=warehouse-1"
+    );
+    expect(buildReportDrilldownHref("inventory-low-stock", filters, "warehouse-2")).toBe(
+      "/inventory?lowStock=true&warehouseId=warehouse-2"
+    );
+    expect(buildReportDrilldownHref("product", filters, "product-1")).toBe(
+      "/products/product-1/edit"
+    );
   });
 });

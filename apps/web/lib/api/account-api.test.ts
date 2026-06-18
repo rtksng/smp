@@ -19,6 +19,13 @@ import {
   reorderOrder,
   type Order
 } from "./orders";
+import {
+  acceptQuoteRequest,
+  convertQuoteToCart,
+  convertQuoteToOrder,
+  listCustomerQuoteRequests,
+  rejectQuoteRequest
+} from "./quote-requests";
 
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -54,7 +61,9 @@ describe("account API helpers", () => {
       name: "Dr Asha Rao"
     });
 
-    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])
+    ).toEqual([
       ["https://api.example.com/api/v1/me", undefined],
       ["https://api.example.com/api/v1/me", "PATCH"]
     ]);
@@ -97,7 +106,9 @@ describe("account API helpers", () => {
     await setDefaultCustomerAddress("address_1");
     await deleteCustomerAddress("address_1");
 
-    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])
+    ).toEqual([
       ["https://api.example.com/api/v1/me/addresses", undefined],
       ["https://api.example.com/api/v1/me/addresses", "POST"],
       ["https://api.example.com/api/v1/me/addresses/address_1", "PATCH"],
@@ -136,7 +147,9 @@ describe("account API helpers", () => {
       id: "order_1"
     });
 
-    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])
+    ).toEqual([
       ["https://api.example.com/api/v1/orders/my?limit=20&page=1", undefined],
       ["https://api.example.com/api/v1/orders/order_1", undefined]
     ]);
@@ -163,8 +176,136 @@ describe("account API helpers", () => {
 
     await expect(reorderOrder("order_1")).resolves.toEqual(cart);
 
-    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])).toEqual([
-      ["https://api.example.com/api/v1/orders/order_1/reorder", "POST"]
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method])
+    ).toEqual([["https://api.example.com/api/v1/orders/order_1/reorder", "POST"]]);
+  });
+
+  it("lists quote history, saves quote decisions, and converts accepted quotes to cart or order", async () => {
+    const quote = accountQuote();
+    const order = accountOrder({
+      paymentMethod: "ONLINE",
+      paymentStatus: "PENDING",
+      status: "CREATED"
+    });
+    const cart = {
+      id: "cart_1",
+      itemCount: 1,
+      items: [],
+      totalQuantity: 2,
+      totals: {
+        deliveryCharge: 0,
+        discount: 0,
+        grandTotal: 330.4,
+        subtotal: 280,
+        tax: 50.4
+      },
+      updatedAt: "2026-06-02T10:00:00.000Z"
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [quote],
+          pagination: {
+            hasNextPage: false,
+            hasPreviousPage: false,
+            limit: 20,
+            page: 1,
+            total: 1,
+            totalPages: 1
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...quote,
+          customerDecision: {
+            decidedAt: "2026-06-03T10:00:00.000Z",
+            note: null,
+            status: "ACCEPTED"
+          },
+          status: "ACCEPTED"
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...quote,
+          customerDecision: {
+            decidedAt: "2026-06-03T10:00:00.000Z",
+            note: "Too late",
+            status: "REJECTED"
+          },
+          status: "REJECTED"
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          order,
+          quote: {
+            ...quote,
+            convertedOrderId: "order_1",
+            status: "CONVERTED"
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          cart,
+          quote: {
+            ...quote,
+            convertedCartId: "cart_1",
+            status: "CONVERTED"
+          }
+        })
+      );
+
+    await expect(listCustomerQuoteRequests()).resolves.toMatchObject({
+      items: [{ id: "quote_1", status: "QUOTED" }]
+    });
+    await expect(acceptQuoteRequest("quote_1")).resolves.toMatchObject({
+      customerDecision: { status: "ACCEPTED" }
+    });
+    await expect(rejectQuoteRequest("quote_1", "Too late")).resolves.toMatchObject({
+      customerDecision: { note: "Too late", status: "REJECTED" }
+    });
+    await expect(convertQuoteToOrder("quote_1")).resolves.toMatchObject({
+      order: { id: "order_1" },
+      quote: { convertedOrderId: "order_1", status: "CONVERTED" }
+    });
+    await expect(convertQuoteToCart("quote_1")).resolves.toMatchObject({
+      cart: { id: "cart_1" },
+      quote: { status: "CONVERTED" }
+    });
+
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method, init?.body])
+    ).toEqual([
+      [
+        "https://api.example.com/api/v1/quote-requests/my?limit=20&page=1",
+        undefined,
+        undefined
+      ],
+      [
+        "https://api.example.com/api/v1/quote-requests/my/quote_1/decision",
+        "PATCH",
+        JSON.stringify({ decision: "ACCEPTED" })
+      ],
+      [
+        "https://api.example.com/api/v1/quote-requests/my/quote_1/decision",
+        "PATCH",
+        JSON.stringify({ decision: "REJECTED", note: "Too late" })
+      ],
+      [
+        "https://api.example.com/api/v1/quote-requests/my/quote_1/convert-to-order",
+        "POST",
+        undefined
+      ],
+      [
+        "https://api.example.com/api/v1/quote-requests/my/quote_1/convert-to-cart",
+        "POST",
+        undefined
+      ]
     ]);
   });
 
@@ -199,13 +340,13 @@ describe("account API helpers", () => {
     await expect(cancelOrder("order_1", "Needed later")).resolves.toMatchObject({
       status: "CANCELLED"
     });
-    await expect(
-      requestOrderReturn("order_1", "Wrong item")
-    ).resolves.toMatchObject({
+    await expect(requestOrderReturn("order_1", "Wrong item")).resolves.toMatchObject({
       refunds: [{ status: "PENDING" }]
     });
 
-    expect(fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method, init?.body])).toEqual([
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => [String(url), init?.method, init?.body])
+    ).toEqual([
       [
         "https://api.example.com/api/v1/orders/order_1/cancel",
         "POST",
@@ -352,6 +493,46 @@ function accountOrder({
     },
     updatedAt: "2026-05-25T10:00:00.000Z",
     warehouseId: null
+  };
+}
+
+function accountQuote() {
+  return {
+    convertedCartId: null,
+    createdAt: "2026-06-02T10:00:00.000Z",
+    customerDecision: null,
+    email: "asha@example.com",
+    id: "quote_1",
+    message: "Need forceps for Mumbai",
+    mobileNumber: "+919876543210",
+    name: "Dr Asha Rao",
+    organization: "Asha Surgical Clinic",
+    quotation: {
+      items: [
+        {
+          lineSubtotal: 280,
+          lineTotal: 330.4,
+          name: "Curved Artery Forceps",
+          productId: "product_1",
+          quantity: 2,
+          sku: "FORCEPS-001",
+          taxAmount: 50.4,
+          taxRate: 18,
+          unitPrice: 140,
+          variantId: null
+        }
+      ],
+      notes: "Prices valid for current stock.",
+      respondedAt: "2026-06-02T12:00:00.000Z",
+      totals: {
+        grandTotal: 330.4,
+        shippingTotal: 0,
+        subtotal: 280,
+        taxTotal: 50.4
+      },
+      validUntil: "2026-06-30"
+    },
+    status: "QUOTED"
   };
 }
 

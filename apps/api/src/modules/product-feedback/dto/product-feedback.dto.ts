@@ -13,6 +13,28 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 export const ADMIN_PRODUCT_FEEDBACK_TYPES = ["REVIEW", "QUESTION"] as const;
 export type AdminProductFeedbackType =
   (typeof ADMIN_PRODUCT_FEEDBACK_TYPES)[number];
+export const PRODUCT_REVIEW_MODERATION_STATUSES = [
+  "PENDING_REVIEW",
+  "PUBLISHED",
+  "REJECTED",
+  "HIDDEN"
+] as const;
+export const PRODUCT_QUESTION_MODERATION_STATUSES = [
+  "PENDING",
+  "HIDDEN"
+] as const;
+export const ADMIN_PRODUCT_FEEDBACK_STATUSES = [
+  "PENDING_REVIEW",
+  "PENDING",
+  "ANSWERED",
+  "PUBLISHED",
+  "REJECTED",
+  "HIDDEN"
+] as const;
+export type ProductReviewModerationStatus =
+  (typeof PRODUCT_REVIEW_MODERATION_STATUSES)[number];
+export type ProductQuestionModerationStatus =
+  (typeof PRODUCT_QUESTION_MODERATION_STATUSES)[number];
 
 export class CreateProductReviewDto {
   @ApiProperty({ example: 5, maximum: 5, minimum: 1 })
@@ -48,6 +70,42 @@ export class AnswerProductQuestionDto {
   answer!: string;
 }
 
+export class ModerateProductReviewDto {
+  @ApiProperty({
+    enum: PRODUCT_REVIEW_MODERATION_STATUSES,
+    example: "PUBLISHED"
+  })
+  @IsIn(PRODUCT_REVIEW_MODERATION_STATUSES)
+  status!: ProductReviewModerationStatus;
+
+  @ApiPropertyOptional({
+    example: "Verified purchase review and language is safe.",
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  moderationNote?: string | null;
+}
+
+export class ModerateProductQuestionDto {
+  @ApiProperty({
+    enum: PRODUCT_QUESTION_MODERATION_STATUSES,
+    example: "HIDDEN"
+  })
+  @IsIn(PRODUCT_QUESTION_MODERATION_STATUSES)
+  status!: ProductQuestionModerationStatus;
+
+  @ApiPropertyOptional({
+    example: "Question no longer applies to the current SKU.",
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  moderationNote?: string | null;
+}
+
 export class AdminProductFeedbackListQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1 })
   @Type(() => Number)
@@ -69,10 +127,9 @@ export class AdminProductFeedbackListQueryDto {
   @IsOptional()
   type?: AdminProductFeedbackType;
 
-  @ApiPropertyOptional({ example: "PENDING" })
+  @ApiPropertyOptional({ enum: ADMIN_PRODUCT_FEEDBACK_STATUSES, example: "PENDING" })
   @IsOptional()
-  @IsString()
-  @MaxLength(32)
+  @IsIn(ADMIN_PRODUCT_FEEDBACK_STATUSES)
   status?: string;
 
   @ApiPropertyOptional({ example: "product-id" })
@@ -172,6 +229,15 @@ export class AdminProductFeedbackItemDto {
     nullable: true
   })
   answer!: string | null;
+
+  @ApiProperty({
+    example: "Verified purchase review and language is safe.",
+    nullable: true
+  })
+  moderationNote!: string | null;
+
+  @ApiProperty({ example: "2026-06-15T10:00:00.000Z", nullable: true })
+  moderatedAt!: string | null;
 }
 
 export class AdminProductFeedbackPaginationDto {

@@ -7,10 +7,15 @@ import {
   type SendNearExpiryAlertJobData
 } from "@surgical/types";
 import type { Job } from "bullmq";
+import { NotificationLogRepository } from "../notifications/notification-log.repository";
 
 @Processor(QUEUE_NAMES.nearExpiryAlert)
 export class NearExpiryAlertProcessor extends WorkerHost {
   private readonly logger = new Logger(NearExpiryAlertProcessor.name);
+
+  constructor(private readonly notificationLogs: NotificationLogRepository) {
+    super();
+  }
 
   async process(
     job: Job<SendNearExpiryAlertJobData, void, NearExpiryAlertJobName>
@@ -19,8 +24,9 @@ export class NearExpiryAlertProcessor extends WorkerHost {
       throw new Error(`Unsupported near expiry alert job: ${job.name}`);
     }
 
+    await this.notificationLogs.createNearExpiryAlert(job.data);
     this.logger.log(
-      `Mock near expiry alert for batch ${job.data.batchNumber} at warehouse ${job.data.warehouseId}: expires ${job.data.expiryDate}`
+      `Persisted near expiry alert for batch ${job.data.batchNumber} at warehouse ${job.data.warehouseId}: expires ${job.data.expiryDate}`
     );
   }
 }

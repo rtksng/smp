@@ -1,7 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, RefreshCw, Search } from "lucide-react";
+import {
+  CheckCircle2,
+  EyeOff,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  XCircle
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
@@ -34,13 +41,18 @@ import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
   PRODUCT_FEEDBACK_STATUSES,
   PRODUCT_FEEDBACK_TYPES,
+  PRODUCT_QUESTION_MODERATION_STATUSES,
+  PRODUCT_REVIEW_MODERATION_STATUSES,
+  buildProductFeedbackModerationPayload,
   buildProductFeedbackQuery,
   createEmptyProductFeedbackFilters,
   formatSupportDateTime,
   formatSupportLabel,
+  getProductFeedbackStatusTone,
   type AdminProductFeedback,
   type PaginatedAdminResponse,
-  type ProductFeedbackFilters
+  type ProductFeedbackFilters,
+  type ProductFeedbackStatus
 } from "../../lib/support-management";
 
 const PAGE_SIZE = 20;
@@ -68,6 +80,7 @@ function ProductFeedbackContent() {
   const [page, setPage] = useState(1);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+  const [moderationDrafts, setModerationDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const feedbackQuery = useMemo(
     () => buildProductFeedbackQuery(appliedFilters, page, PAGE_SIZE),
@@ -93,6 +106,30 @@ function ProductFeedbackContent() {
         }
       )
   });
+  const moderationMutation = useMutation({
+    mutationFn: ({
+      id,
+      moderationNote,
+      status,
+      type
+    }: {
+      id: string;
+      moderationNote: string;
+      status: ProductFeedbackStatus;
+      type: AdminProductFeedback["type"];
+    }) =>
+      api.request<AdminProductFeedback>(
+        `/admin/product-feedback/${
+          type === "REVIEW" ? "reviews" : "questions"
+        }/${id}/moderation`,
+        {
+          body: JSON.stringify(
+            buildProductFeedbackModerationPayload(status, moderationNote)
+          ),
+          method: "PATCH"
+        }
+      )
+  });
   const feedback = useMemo(
     () => feedbackListQuery.data?.items ?? [],
     [feedbackListQuery.data?.items]
@@ -103,10 +140,13 @@ function ProductFeedbackContent() {
     (item) => item.type === "QUESTION"
   ).length;
   const pendingVisibleCount = feedback.filter(
-    (item) => item.status === "PENDING"
+    (item) => item.status === "PENDING" || item.status === "PENDING_REVIEW"
   ).length;
+  const hiddenVisibleCount = feedback.filter((item) => item.status === "HIDDEN").length;
   const error =
-    getErrorMessage(feedbackListQuery.error) ?? getErrorMessage(answerMutation.error);
+    getErrorMessage(feedbackListQuery.error) ??
+    getErrorMessage(answerMutation.error) ??
+    getErrorMessage(moderationMutation.error);
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,6 +172,13 @@ function ProductFeedbackContent() {
     }));
   }
 
+  function updateModerationDraft(id: string, note: string) {
+    setModerationDrafts((current) => ({
+      ...current,
+      [id]: note
+    }));
+  }
+
   async function saveAnswer(item: AdminProductFeedback) {
     const answer = (answerDrafts[item.id] ?? item.answer ?? "").trim();
 
@@ -154,6 +201,25 @@ function ProductFeedbackContent() {
     });
     setMessage("Product question answered.");
     setAnswerDrafts((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
+    await refreshFeedback();
+  }
+
+  async function moderateFeedback(
+    item: AdminProductFeedback,
+    status: ProductFeedbackStatus
+  ) {
+    await moderationMutation.mutateAsync({
+      id: item.id,
+      moderationNote: moderationDrafts[item.id] ?? "",
+      status,
+      type: item.type
+    });
+    setMessage(`${formatSupportLabel(item.type)} marked ${formatSupportLabel(status)}.`);
+    setModerationDrafts((current) => {
       const next = { ...current };
       delete next[item.id];
       return next;
@@ -195,6 +261,7 @@ function ProductFeedbackContent() {
             <MetricCard label="Reviews visible" value={reviewVisibleCount} />
             <MetricCard label="Questions visible" tone="primary" value={questionVisibleCount} />
             <MetricCard label="Pending visible" tone="warning" value={pendingVisibleCount} />
+            <MetricCard label="Hidden visible" value={hiddenVisibleCount} />
           </div>
         </CardContent>
       </Card>
@@ -294,8 +361,11 @@ function ProductFeedbackContent() {
               answerErrors={answerErrors}
               canAnswer={canAnswer}
               feedback={feedback}
-              isSaving={answerMutation.isPending}
+              isSaving={answerMutation.isPending || moderationMutation.isPending}
+              moderationDrafts={moderationDrafts}
               onAnswerChange={updateAnswerDraft}
+              onModerationChange={updateModerationDraft}
+              onModerate={moderateFeedback}
               onSaveAnswer={saveAnswer}
             />
           ) : null}
@@ -318,7 +388,10 @@ function ProductFeedbackTable({
   canAnswer,
   feedback,
   isSaving,
+  moderationDrafts,
   onAnswerChange,
+  onModerationChange,
+  onModerate,
   onSaveAnswer
 }: {
   answerDrafts: Record<string, string>;
@@ -326,7 +399,13 @@ function ProductFeedbackTable({
   canAnswer: boolean;
   feedback: AdminProductFeedback[];
   isSaving: boolean;
+  moderationDrafts: Record<string, string>;
   onAnswerChange: (id: string, answer: string) => void;
+  onModerationChange: (id: string, note: string) => void;
+  onModerate: (
+    item: AdminProductFeedback,
+    status: ProductFeedbackStatus
+  ) => Promise<void>;
   onSaveAnswer: (item: AdminProductFeedback) => Promise<void>;
 }) {
   return (
@@ -339,6 +418,7 @@ function ProductFeedbackTable({
             <TableHead>Feedback</TableHead>
             <TableHead>Answer</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Moderation</TableHead>
             <TableHead>Created</TableHead>
           </TableRow>
         </TableHeader>
@@ -381,7 +461,7 @@ function ProductFeedbackTable({
                     ) : null}
                     <Button
                       className="iconTextButton"
-                      disabled={isSaving}
+                      disabled={isSaving || item.status === "HIDDEN"}
                       type="submit"
                     >
                       <CheckCircle2 aria-hidden size={16} />
@@ -389,11 +469,47 @@ function ProductFeedbackTable({
                     </Button>
                   </form>
                 ) : (
-                  item.answer ?? "-"
+                  <em>{item.type === "QUESTION" ? item.answer ?? "-" : "-"}</em>
                 )}
               </TableCell>
               <TableCell>
-                <StatusBadge status={item.status} />
+                <StatusBadge status={getProductFeedbackStatusTone(item.status)} />
+                <em>{formatSupportLabel(item.status)}</em>
+                {item.moderatedAt ? (
+                  <em>Moderated {formatSupportDateTime(item.moderatedAt)}</em>
+                ) : null}
+                {item.moderationNote ? <em>{item.moderationNote}</em> : null}
+              </TableCell>
+              <TableCell>
+                {canAnswer ? (
+                  <div className="feedbackModerationPanel">
+                    <Textarea
+                      onChange={(event) =>
+                        onModerationChange(item.id, event.target.value)
+                      }
+                      placeholder="Moderation note"
+                      value={moderationDrafts[item.id] ?? ""}
+                    />
+                    <div className="feedbackActionGroup">
+                      {getModerationActions(item).map((status) => (
+                        <Button
+                          className="iconTextButton"
+                          disabled={isSaving || item.status === status}
+                          key={status}
+                          onClick={() => void onModerate(item, status)}
+                          size="sm"
+                          type="button"
+                          variant={status === "PUBLISHED" ? "default" : "outline"}
+                        >
+                          {getModerationIcon(status)}
+                          <span>{getModerationActionLabel(status)}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <em>{item.moderationNote ?? "-"}</em>
+                )}
               </TableCell>
               <TableCell>{formatSupportDateTime(item.createdAt)}</TableCell>
             </TableRow>
@@ -402,6 +518,52 @@ function ProductFeedbackTable({
       </Table>
     </div>
   );
+}
+
+function getModerationActions(item: AdminProductFeedback): ProductFeedbackStatus[] {
+  if (item.type === "REVIEW") {
+    return PRODUCT_REVIEW_MODERATION_STATUSES.filter(
+      (status) => status !== "PENDING_REVIEW"
+    );
+  }
+
+  return [...PRODUCT_QUESTION_MODERATION_STATUSES];
+}
+
+function getModerationActionLabel(status: ProductFeedbackStatus) {
+  if (status === "PUBLISHED") {
+    return "Approve";
+  }
+
+  if (status === "REJECTED") {
+    return "Reject";
+  }
+
+  if (status === "HIDDEN") {
+    return "Hide";
+  }
+
+  if (status === "PENDING") {
+    return "Reopen";
+  }
+
+  return formatSupportLabel(status);
+}
+
+function getModerationIcon(status: ProductFeedbackStatus) {
+  if (status === "PUBLISHED") {
+    return <CheckCircle2 aria-hidden size={14} />;
+  }
+
+  if (status === "REJECTED") {
+    return <XCircle aria-hidden size={14} />;
+  }
+
+  if (status === "HIDDEN") {
+    return <EyeOff aria-hidden size={14} />;
+  }
+
+  return <RotateCcw aria-hidden size={14} />;
 }
 
 function getErrorMessage(error: unknown) {

@@ -2,15 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   buildCouponPayload,
   buildCouponQuery,
+  buildProductFeedbackModerationPayload,
   buildProductFeedbackQuery,
   buildQuoteRequestQuery,
+  buildQuoteResponsePayload,
+  calculateQuoteResponseDraftTotals,
   couponToFormValues,
   createEmptyCouponFilters,
   createEmptyCouponFormValues,
   createEmptyProductFeedbackFilters,
   createEmptyQuoteRequestFilters,
+  createEmptyQuoteResponseDraft,
   formatSupportDateTime,
   formatSupportLabel,
+  getProductFeedbackStatusTone,
+  validateQuoteResponseDraft,
   type AdminCoupon
 } from "./support-management";
 
@@ -80,6 +86,49 @@ describe("admin support management helpers", () => {
     });
   });
 
+  it("normalizes quote response drafts into itemized quotation payloads", () => {
+    const draft = createEmptyQuoteResponseDraft();
+
+    draft.items = [
+      {
+        name: " Curved Artery Forceps ",
+        productId: " product-1 ",
+        quantity: "2",
+        sku: " FORCEPS-001 ",
+        taxRate: "18",
+        unitPrice: "140",
+        variantId: ""
+      }
+    ];
+    draft.notes = " Prices valid for current stock. ";
+    draft.shippingTotal = "50";
+    draft.validUntil = "2026-06-30";
+
+    expect(validateQuoteResponseDraft(draft)).toEqual([]);
+    expect(calculateQuoteResponseDraftTotals(draft)).toEqual({
+      grandTotal: 380.4,
+      shippingTotal: 50,
+      subtotal: 280,
+      taxTotal: 50.4
+    });
+    expect(buildQuoteResponsePayload(draft)).toEqual({
+      items: [
+        {
+          name: "Curved Artery Forceps",
+          productId: "product-1",
+          quantity: 2,
+          sku: "FORCEPS-001",
+          taxRate: 18,
+          unitPrice: 140,
+          variantId: null
+        }
+      ],
+      notes: "Prices valid for current stock.",
+      shippingTotal: 50,
+      validUntil: "2026-06-30"
+    });
+  });
+
   it("maps coupons back to editable form values and formats labels", () => {
     const coupon: AdminCoupon = {
       code: "SURGICAL10",
@@ -106,5 +155,22 @@ describe("admin support management helpers", () => {
     });
     expect(formatSupportLabel("PENDING_REVIEW")).toBe("Pending review");
     expect(formatSupportDateTime("2026-06-16T10:30:00.000Z")).toContain("2026");
+  });
+
+  it("builds product feedback moderation payloads and status tones", () => {
+    expect(
+      buildProductFeedbackModerationPayload("PUBLISHED", "  safe review  ")
+    ).toEqual({
+      moderationNote: "safe review",
+      status: "PUBLISHED"
+    });
+    expect(buildProductFeedbackModerationPayload("HIDDEN", " ")).toEqual({
+      moderationNote: undefined,
+      status: "HIDDEN"
+    });
+    expect(getProductFeedbackStatusTone("PUBLISHED")).toBe("PUBLISHED");
+    expect(getProductFeedbackStatusTone("PENDING_REVIEW")).toBe("PENDING");
+    expect(getProductFeedbackStatusTone("REJECTED")).toBe("REJECTED");
+    expect(getProductFeedbackStatusTone("HIDDEN")).toBe("HIDDEN");
   });
 });

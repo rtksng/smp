@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Eye, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "../admin-shell";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
@@ -59,11 +60,17 @@ export default function OrdersPage() {
 
 function OrdersContent() {
   const { api } = useAdminSession();
+  const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
+  const urlFilters = useMemo(
+    () => createOrderFiltersFromSearchParams(new URLSearchParams(searchKey)),
+    [searchKey]
+  );
   const [draftFilters, setDraftFilters] = useState<OrderFilters>(
-    createEmptyOrderFilters()
+    urlFilters
   );
   const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(
-    createEmptyOrderFilters()
+    urlFilters
   );
   const [page, setPage] = useState(1);
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -96,6 +103,13 @@ function OrdersContent() {
   const openOrders = orders.filter(
     (order) => !["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status)
   ).length;
+
+  useEffect(() => {
+    setFilterError(null);
+    setPage(1);
+    setDraftFilters(urlFilters);
+    setAppliedFilters(urlFilters);
+  }, [urlFilters]);
 
   function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -399,4 +413,27 @@ function OrdersTable({ orders }: { orders: AdminOrder[] }) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : null;
+}
+
+function createOrderFiltersFromSearchParams(searchParams: {
+  get: (key: string) => string | null;
+}) {
+  const filters = createEmptyOrderFilters();
+  const status = searchParams.get("status");
+  const paymentStatus = searchParams.get("paymentStatus");
+
+  return {
+    ...filters,
+    customerMobile: searchParams.get("customerMobile") ?? "",
+    dateFrom: searchParams.get("dateFrom") ?? "",
+    dateTo: searchParams.get("dateTo") ?? "",
+    orderNumber: searchParams.get("orderNumber") ?? "",
+    paymentStatus: (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus ?? "")
+      ? (paymentStatus as OrderFilters["paymentStatus"])
+      : "",
+    status: (ORDER_STATUSES as readonly string[]).includes(status ?? "")
+      ? (status as OrderFilters["status"])
+      : "",
+    warehouseId: searchParams.get("warehouseId") ?? ""
+  };
 }

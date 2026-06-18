@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AdminCustomersService } from "../../src/modules/customers/admin-customers.service";
+import { AdminCustomersController } from "../../src/modules/customers/admin-customers.controller";
+import { REQUIRED_PERMISSIONS_KEY } from "../../src/modules/auth/decorators/require-permission.decorator";
+import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import type { PrismaService } from "../../src/database/prisma.service";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
@@ -9,7 +12,9 @@ type CustomerRecord = {
   _count: {
     addresses: number;
     orders: number;
+    supportNotes?: number;
   };
+  addresses?: unknown[];
   businessName: string | null;
   createdAt: Date;
   deletedAt: Date | null;
@@ -20,6 +25,9 @@ type CustomerRecord = {
   isActive: boolean;
   lastName: string | null;
   mobileNumber: string;
+  orders?: unknown[];
+  status?: "ACTIVE" | "BLOCKED" | "INACTIVE";
+  supportNotes?: unknown[];
   updatedAt: Date;
 };
 
@@ -46,6 +54,7 @@ function customer(input: Partial<CustomerRecord> = {}): CustomerRecord {
     isActive: true,
     lastName: "Rao",
     mobileNumber: "+919876543210",
+    status: "ACTIVE",
     updatedAt: now,
     ...input
   };
@@ -96,6 +105,7 @@ test("listCustomers searches active non-deleted customers and serializes counts"
         mobileNumber: "+919876543210",
         name: "Asha Rao",
         orderCount: 3,
+        status: "ACTIVE",
         updatedAt: now
       }
     ],
@@ -130,6 +140,7 @@ test("listCustomers searches active non-deleted customers and serializes counts"
       isActive: true,
       lastName: true,
       mobileNumber: true,
+      status: true,
       updatedAt: true
     },
     skip: 10,
@@ -147,4 +158,302 @@ test("listCustomers searches active non-deleted customers and serializes counts"
       isActive: true
     }
   });
+});
+
+test("getCustomer returns profile, addresses, recent orders, and support notes", async () => {
+  const customerDetail = customer({
+    _count: {
+      addresses: 1,
+      orders: 1,
+      supportNotes: 1
+    },
+    addresses: [
+      {
+        city: "Mumbai",
+        country: "India",
+        fullName: "Asha Rao",
+        id: "address-1",
+        isDefault: true,
+        line1: "Clinic road",
+        line2: null,
+        mobileNumber: "+919876543210",
+        pincode: "400001",
+        state: "Maharashtra",
+        type: "SHIPPING"
+      }
+    ],
+    orders: [
+      {
+        createdAt: now,
+        grandTotal: 1250,
+        id: "order-1",
+        orderNumber: "ORD-20260525-ABCD1234",
+        paymentStatus: "PAID",
+        placedAt: now,
+        status: "DELIVERED"
+      }
+    ],
+    supportNotes: [
+      {
+        adminUser: {
+          firstName: "Support",
+          id: "admin-1",
+          lastName: "Agent"
+        },
+        createdAt: now,
+        id: "note-1",
+        note: "Customer asked for GST invoice copies."
+      }
+    ]
+  });
+  const calls: unknown[] = [];
+  const prisma = {
+    calls,
+    user: {
+      findFirst: async (args: unknown) => {
+        calls.push(args);
+        return customerDetail;
+      }
+    }
+  } as unknown as PrismaService & { calls: unknown[] };
+  const service = new AdminCustomersService(prisma);
+
+  const result = await service.getCustomer("customer-1");
+
+  assert.equal(result.id, "customer-1");
+  assert.equal(result.status, "ACTIVE");
+  assert.equal(result.addresses[0].pincode, "400001");
+  assert.equal(result.orders[0].orderNumber, "ORD-20260525-ABCD1234");
+  assert.equal(result.supportNotes[0].adminName, "Support Agent");
+  assert.deepEqual(calls[0], {
+    include: {
+      _count: {
+        select: {
+          addresses: {
+            where: {
+              deletedAt: null
+            }
+          },
+          orders: true,
+          supportNotes: true
+        }
+      },
+      addresses: {
+        orderBy: [
+          { isDefault: "desc" },
+          { createdAt: "desc" },
+          { id: "asc" }
+        ],
+        where: {
+          deletedAt: null
+        }
+      },
+      orders: {
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        select: {
+          createdAt: true,
+          grandTotal: true,
+          id: true,
+          orderNumber: true,
+          paymentStatus: true,
+          placedAt: true,
+          status: true
+        },
+        take: 20,
+        where: {
+          deletedAt: null
+        }
+      },
+      supportNotes: {
+        include: {
+          adminUser: {
+            select: {
+              firstName: true,
+              id: true,
+              lastName: true
+            }
+          }
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        take: 20
+      }
+    },
+    where: {
+      deletedAt: null,
+      id: "customer-1"
+    }
+  });
+});
+
+test("updateCustomerStatus blocks a customer, revokes sessions, and records a support note", async () => {
+  const calls: Record<string, unknown[]> = {
+    noteCreate: [],
+    sessionUpdateMany: [],
+    userFindFirst: [],
+    userUpdate: []
+  };
+  const tx = {
+    customerSupportNote: {
+      create: async (args: unknown) => {
+        calls.noteCreate.push(args);
+      }
+    },
+    user: {
+      findFirst: async (args: unknown) => {
+        calls.userFindFirst.push(args);
+        return customer({ id: "customer-1" });
+      },
+      update: async (args: unknown) => {
+        calls.userUpdate.push(args);
+        return customer({
+          id: "customer-1",
+          isActive: false,
+          status: "BLOCKED"
+        });
+      }
+    },
+    userSession: {
+      updateMany: async (args: unknown) => {
+        calls.sessionUpdateMany.push(args);
+      }
+    }
+  };
+  const prisma = {
+    $transaction: async <T>(handler: (client: typeof tx) => Promise<T>) =>
+      handler(tx)
+  } as unknown as PrismaService;
+  const service = new AdminCustomersService(prisma);
+
+  const result = await service.updateCustomerStatus(
+    "customer-1",
+    {
+      note: "Repeated failed payment abuse.",
+      status: "BLOCKED"
+    },
+    "admin-1"
+  );
+
+  assert.equal(result.status, "BLOCKED");
+  assert.equal(result.isActive, false);
+  assert.deepEqual(calls.userUpdate[0], {
+    data: {
+      isActive: false,
+      status: "BLOCKED"
+    },
+    where: {
+      id: "customer-1"
+    }
+  });
+  const sessionUpdate = calls.sessionUpdateMany[0] as {
+    data: { revokedAt: Date };
+    where: Record<string, unknown>;
+  };
+  assert.equal(sessionUpdate.data.revokedAt instanceof Date, true);
+  assert.deepEqual(sessionUpdate.where, {
+    revokedAt: null,
+    userId: "customer-1"
+  });
+  assert.deepEqual(calls.noteCreate[0], {
+    data: {
+      adminUserId: "admin-1",
+      customerId: "customer-1",
+      note: "Status changed to BLOCKED. Repeated failed payment abuse."
+    }
+  });
+});
+
+test("addSupportNote creates a customer note after verifying the customer exists", async () => {
+  const calls: Record<string, unknown[]> = {
+    noteCreate: [],
+    userFindFirst: []
+  };
+  const prisma = {
+    customerSupportNote: {
+      create: async (args: unknown) => {
+        calls.noteCreate.push(args);
+        return {
+          adminUser: {
+            firstName: "Support",
+            id: "admin-1",
+            lastName: "Agent"
+          },
+          createdAt: now,
+          id: "note-1",
+          note: "Customer requested a callback."
+        };
+      }
+    },
+    user: {
+      findFirst: async (args: unknown) => {
+        calls.userFindFirst.push(args);
+        return customer({ id: "customer-1" });
+      }
+    }
+  } as unknown as PrismaService;
+  const service = new AdminCustomersService(prisma);
+
+  const result = await service.addSupportNote(
+    "customer-1",
+    { note: "Customer requested a callback." },
+    "admin-1"
+  );
+
+  assert.equal(result.note, "Customer requested a callback.");
+  assert.equal(result.adminName, "Support Agent");
+  assert.deepEqual(calls.userFindFirst[0], {
+    select: {
+      id: true
+    },
+    where: {
+      deletedAt: null,
+      id: "customer-1"
+    }
+  });
+  assert.deepEqual(calls.noteCreate[0], {
+    data: {
+      adminUserId: "admin-1",
+      customerId: "customer-1",
+      note: "Customer requested a callback."
+    },
+    include: {
+      adminUser: {
+        select: {
+          firstName: true,
+          id: true,
+          lastName: true
+        }
+      }
+    }
+  });
+});
+
+test("admin customer controller methods declare customer read and update permissions", () => {
+  assert.deepEqual(
+    Reflect.getMetadata(
+      REQUIRED_PERMISSIONS_KEY,
+      AdminCustomersController.prototype.listCustomers
+    ),
+    [PermissionCode.UsersRead]
+  );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      REQUIRED_PERMISSIONS_KEY,
+      AdminCustomersController.prototype.getCustomer
+    ),
+    [PermissionCode.UsersRead]
+  );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      REQUIRED_PERMISSIONS_KEY,
+      AdminCustomersController.prototype.updateCustomerStatus
+    ),
+    [PermissionCode.UsersUpdate]
+  );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      REQUIRED_PERMISSIONS_KEY,
+      AdminCustomersController.prototype.addSupportNote
+    ),
+    [PermissionCode.UsersUpdate]
+  );
 });

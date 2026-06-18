@@ -1,18 +1,33 @@
-import { Controller, Get, Query, Req, UnauthorizedException, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards
+} from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import type { Response } from "express";
+import { API_RESPONSE_SKIP_HEADER } from "../../common/interceptors/api-response.interceptor";
 import { RequirePermission } from "../auth/decorators/require-permission.decorator";
 import type { AuthenticatedRequest } from "../auth/guards/authenticated-request";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { PermissionCode } from "../permissions/permissions.constants";
-import { DashboardReportQueryDto, DashboardReportResponseDto } from "./dto/reports.dto";
+import {
+  DashboardReportExportQueryDto,
+  DashboardReportQueryDto,
+  DashboardReportResponseDto
+} from "./dto/reports.dto";
 import { ReportsService } from "./reports.service";
 
 @ApiBearerAuth()
@@ -38,6 +53,39 @@ export class ReportsController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.reportsService.getDashboard(query, getAuth(request));
+  }
+
+  @Get("dashboard/export")
+  @RequirePermission(PermissionCode.ReportsRead)
+  @ApiOperation({
+    summary: "Export dashboard report data as CSV or PDF."
+  })
+  @ApiProduces("text/csv", "application/pdf")
+  @ApiOkResponse({
+    description: "Dashboard report export returned."
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks reports.read permission or warehouse assignment." })
+  async exportDashboard(
+    @Query() query: DashboardReportExportQueryDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const exported = await this.reportsService.exportDashboard(
+      query,
+      getAuth(request),
+      query.format ?? "csv"
+    );
+
+    response.setHeader(API_RESPONSE_SKIP_HEADER, "true");
+    response.setHeader("content-type", exported.contentType);
+    response.setHeader(
+      "content-disposition",
+      `attachment; filename="${exported.filename}"`
+    );
+    response.setHeader("content-length", String(exported.body.byteLength));
+
+    return exported.body;
   }
 }
 

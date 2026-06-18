@@ -870,6 +870,18 @@ h2 {
   min-width: min(100%, 280px);
 }
 
+.feedbackModerationPanel {
+  display: grid;
+  gap: 10px;
+  min-width: min(100%, 300px);
+}
+
+.feedbackActionGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .inlineForm {
   align-items: center;
   display: grid;
@@ -1058,6 +1070,18 @@ h2 {
   color: var(--primary);
   margin-right: 6px;
   vertical-align: -2px;
+}
+
+.tablePrimaryLink {
+  color: var(--text);
+  display: inline-block;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.tablePrimaryLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
 }
 
 .resourceTableHeader,
@@ -1428,6 +1452,12 @@ h2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.customerAddressGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .detailItem {
   background: var(--surface-muted);
   border: 1px solid var(--border);
@@ -1605,6 +1635,7 @@ h2 {
   gap: 6px;
 }
 
+.flagList a,
 .flagList b,
 .statusBadge {
   border-radius: 999px;
@@ -1614,6 +1645,7 @@ h2 {
   padding: 5px 8px;
 }
 
+.flagList a,
 .flagList b {
   background: #edf7ed;
   color: #23612b;
@@ -2271,6 +2303,35 @@ h2 {
   min-height: 124px;
 }
 
+.reportExportActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.reportMetricLink {
+  color: inherit;
+  display: block;
+  text-decoration: none;
+}
+
+.reportMetricLink .reportMetric,
+.reportDrilldownRow {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.reportMetricLink:hover .reportMetric,
+.reportDrilldownRow:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
 .reportMetricLabel {
   align-items: center;
   display: flex !important;
@@ -2307,6 +2368,15 @@ h2 {
   gap: 8px;
 }
 
+.reportDrilldownRow {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  margin: -6px;
+  padding: 6px;
+  text-decoration: none;
+}
+
 .barHeader {
   align-items: end;
   display: flex;
@@ -2334,9 +2404,37 @@ h2 {
 }
 
 .barHeader b {
+  align-items: center;
   color: var(--text);
+  display: inline-flex;
   flex: 0 0 auto;
   font-size: 13px;
+  gap: 5px;
+}
+
+.reportRowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reportRowActions a {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.reportRowActions a:hover,
+.flagList a:hover,
+.warehouseStockRow strong a:hover {
+  text-decoration: underline;
+}
+
+.warehouseStockRow strong a {
+  color: inherit;
+  text-decoration: none;
 }
 
 .barTrack,
@@ -2457,6 +2555,7 @@ h2 {
   .reportMetricGrid,
   .reportChartsGrid,
   .deliveryAssignmentFilters,
+  .customerAddressGrid,
   .orderActionsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2525,6 +2624,7 @@ h2 {
   .reportFilters,
   .reportMetricGrid,
   .reportChartsGrid,
+  .customerAddressGrid,
   .detailGrid,
   .orderActionsGrid,
   .warehouseStaffRow,

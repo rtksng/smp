@@ -57,9 +57,9 @@ function createReportsPrismaMock() {
 
   const prisma = {
     calls,
-    $queryRaw: async (query: unknown) => {
-      calls.queryRaw.push(query);
-      const index = calls.queryRaw.length;
+    $queryRaw: async (query: unknown, ...values: unknown[]) => {
+      calls.queryRaw.push({ query, values });
+      const index = ((calls.queryRaw.length - 1) % 5) + 1;
 
       if (index === 1) {
         return [{ date: "2026-05-01", orders: 2 }];
@@ -236,6 +236,75 @@ test("admin dashboard reports validate an explicit warehouse filter", async () =
   assert.equal(firstOrderCount.where.warehouseId, "warehouse-2");
 });
 
+test("admin dashboard reports apply order and payment status filters", async () => {
+  const prisma = createReportsPrismaMock();
+  const service = new ReportsService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService
+  );
+
+  const result = await service.getDashboard(
+    {
+      orderStatus: "DELIVERED",
+      paymentStatus: "PAID"
+    },
+    adminAuth()
+  );
+
+  assert.equal(result.filters.orderStatus, "DELIVERED");
+  assert.equal(result.filters.paymentStatus, "PAID");
+
+  const firstOrderCount = prisma.calls.orderCount[0] as {
+    where: {
+      paymentStatus: string;
+      status: string;
+      warehouseId: { in: string[] };
+    };
+  };
+  assert.equal(firstOrderCount.where.status, "DELIVERED");
+  assert.equal(firstOrderCount.where.paymentStatus, "PAID");
+
+  const topProductsQuery = prisma.calls.queryRaw[2];
+  assert.ok(rawQueryContains(topProductsQuery, "DELIVERED"));
+  assert.ok(rawQueryContains(topProductsQuery, "PAID"));
+});
+
+test("admin dashboard reports can be exported as CSV and PDF files", async () => {
+  const prisma = createReportsPrismaMock();
+  const service = new ReportsService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService
+  );
+
+  const csvExport = await service.exportDashboard(
+    {
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-26"
+    },
+    adminAuth(),
+    "csv"
+  );
+
+  assert.equal(csvExport.contentType, "text/csv; charset=utf-8");
+  assert.equal(csvExport.filename, "dashboard-report-2026-05-01-to-2026-05-26.csv");
+  assert.match(csvExport.body.toString(), /Dashboard report/);
+  assert.match(csvExport.body.toString(), /Top selling products/);
+  assert.match(csvExport.body.toString(), /Curved Forceps/);
+
+  const pdfExport = await service.exportDashboard(
+    {
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-26"
+    },
+    adminAuth(),
+    "pdf"
+  );
+
+  assert.equal(pdfExport.contentType, "application/pdf");
+  assert.equal(pdfExport.filename, "dashboard-report-2026-05-01-to-2026-05-26.pdf");
+  assert.match(pdfExport.body.toString("utf8", 0, 8), /^%PDF-1/);
+});
+
 test("admin dashboard stock reports pre-aggregate warehouse inventory and batches", async () => {
   const prisma = createReportsPrismaMock();
   const service = new ReportsService(
@@ -260,6 +329,10 @@ test("admin dashboard stock reports pre-aggregate warehouse inventory and batche
 });
 
 function getRawSql(query: unknown) {
+  if (query && typeof query === "object" && "query" in query) {
+    return getRawSql((query as { query: unknown }).query);
+  }
+
   if (Array.isArray(query)) {
     return query.join("?");
   }
@@ -269,4 +342,24 @@ function getRawSql(query: unknown) {
   }
 
   return String(query);
+}
+
+function rawQueryContains(value: unknown, expected: string): boolean {
+  if (value === expected) {
+    return true;
+  }
+
+  if (typeof value === "string") {
+    return value.includes(expected);
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => rawQueryContains(item, expected));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value).some((item) => rawQueryContains(item, expected));
+  }
+
+  return false;
 }

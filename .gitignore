@@ -3,6 +3,7 @@ dist/
 .next/
 .turbo/
 coverage/
+tmp/
 *.tsbuildinfo
 
 # Keep runtime environment files local. Example templates stay tracked.

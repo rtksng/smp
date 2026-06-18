@@ -14,6 +14,7 @@ export enum PermissionCode {
   DeliveryRead = "delivery.read",
   DeliveryAssign = "delivery.assign",
   UsersRead = "users.read",
+  UsersUpdate = "users.update",
   ReportsRead = "reports.read",
   SettingsManage = "settings.manage"
 }
@@ -99,6 +100,11 @@ export const DEFAULT_PERMISSIONS: PermissionSeed[] = [
     code: PermissionCode.UsersRead,
     description: "View customer and admin user records.",
     name: "Read users"
+  },
+  {
+    code: PermissionCode.UsersUpdate,
+    description: "Update customer account status and support notes.",
+    name: "Update users"
   },
   {
     code: PermissionCode.ReportsRead,

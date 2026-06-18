@@ -86,6 +86,7 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<
     PermissionCode.OrdersUpdate,
     PermissionCode.OrdersCancel,
     PermissionCode.UsersRead,
+    PermissionCode.UsersUpdate,
     PermissionCode.DeliveryRead,
     PermissionCode.ReportsRead
   ],
@@ -100,6 +101,7 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<
     PermissionCode.ProductsRead,
     PermissionCode.OrdersRead,
     PermissionCode.UsersRead,
+    PermissionCode.UsersUpdate,
     PermissionCode.DeliveryRead
   ]
 };

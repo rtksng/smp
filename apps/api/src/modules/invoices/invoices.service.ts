@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException
-} from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import {
   OrderStatus,
@@ -50,7 +46,10 @@ const INVOICEABLE_STATUSES = new Set<OrderStatus>([
   OrderStatus.RETURNED
 ]);
 
-type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type DecimalValue =
+  | number
+  | string
+  | { toNumber?: () => number; toString: () => string };
 type InvoiceOrder = Prisma.OrderGetPayload<{
   include: typeof INVOICE_ORDER_INCLUDE;
 }>;
@@ -70,7 +69,7 @@ type InvoiceDraftItem = {
   igstAmount: number;
   igstRate: number;
   orderItemId: string;
-  productId: string;
+  productId: string | null;
   quantity: number;
   sgstAmount: number;
   sgstRate: number;
@@ -314,21 +313,14 @@ export class InvoicesService {
     const customerName = formatCustomerName(order.user);
     const billingAddress = order.billingAddress ?? order.shippingAddress;
     const billingName = billingAddress?.fullName ?? customerName;
-    const destinationState = billingAddress?.state ?? order.shippingAddress?.state ?? "";
+    const destinationState =
+      billingAddress?.state ?? order.shippingAddress?.state ?? "";
     const sourceState = order.warehouse?.state ?? (destinationState || null);
-    const taxType = isSameState(sourceState, destinationState)
-      ? "CGST_SGST"
-      : "IGST";
+    const taxType = isSameState(sourceState, destinationState) ? "CGST_SGST" : "IGST";
     const items = order.items.map((item) => buildInvoiceItem(item, taxType));
-    const cgstTotal = roundMoney(
-      items.reduce((sum, item) => sum + item.cgstAmount, 0)
-    );
-    const sgstTotal = roundMoney(
-      items.reduce((sum, item) => sum + item.sgstAmount, 0)
-    );
-    const igstTotal = roundMoney(
-      items.reduce((sum, item) => sum + item.igstAmount, 0)
-    );
+    const cgstTotal = roundMoney(items.reduce((sum, item) => sum + item.cgstAmount, 0));
+    const sgstTotal = roundMoney(items.reduce((sum, item) => sum + item.sgstAmount, 0));
+    const igstTotal = roundMoney(items.reduce((sum, item) => sum + item.igstAmount, 0));
 
     return {
       billingAddress: billingAddress ? formatAddress(billingAddress) : "",
@@ -495,9 +487,7 @@ function buildInvoiceItem(
 
 function renderInvoiceHtml(invoice: InvoiceDraft) {
   const taxColumns =
-    invoice.taxType === "CGST_SGST"
-      ? "<th>CGST</th><th>SGST</th>"
-      : "<th>IGST</th>";
+    invoice.taxType === "CGST_SGST" ? "<th>CGST</th><th>SGST</th>" : "<th>IGST</th>";
   const rows = invoice.items
     .map((item) => {
       const taxCells =
@@ -595,19 +585,12 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-function formatAddress(
-  address: NonNullable<InvoiceOrder["billingAddress"]>
-) {
+function formatAddress(address: NonNullable<InvoiceOrder["billingAddress"]>) {
   const cityStatePincode = [address.city, address.state, address.pincode]
     .filter(Boolean)
     .join(" ");
 
-  return [
-    address.line1,
-    address.line2,
-    cityStatePincode,
-    address.country
-  ]
+  return [address.line1, address.line2, cityStatePincode, address.country]
     .filter(Boolean)
     .join(", ");
 }

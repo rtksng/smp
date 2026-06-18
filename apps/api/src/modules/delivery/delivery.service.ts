@@ -60,13 +60,13 @@ const ASSIGNMENT_STATUS_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = 
   [DeliveryStatus.DELIVERED]: [],
   [DeliveryStatus.FAILED]: [],
   [DeliveryStatus.OUT_FOR_DELIVERY]: [DeliveryStatus.DELIVERED, DeliveryStatus.FAILED],
-  [DeliveryStatus.PICKED_UP]: [
-    DeliveryStatus.OUT_FOR_DELIVERY,
-    DeliveryStatus.FAILED
-  ]
+  [DeliveryStatus.PICKED_UP]: [DeliveryStatus.OUT_FOR_DELIVERY, DeliveryStatus.FAILED]
 };
 
-type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
+type DecimalValue =
+  | number
+  | string
+  | { toNumber?: () => number; toString: () => string };
 type DeliveryClient =
   | Pick<
       Prisma.TransactionClient,
@@ -215,13 +215,9 @@ export class DeliveryService {
         );
       }
 
-      const deliveryPartner = await this.findPartnerById(
-        tx,
-        input.deliveryPartnerId,
-        {
-          requireActive: true
-        }
-      );
+      const deliveryPartner = await this.findPartnerById(tx, input.deliveryPartnerId, {
+        requireActive: true
+      });
       const pickupWarehouseId = input.pickupWarehouseId ?? order.warehouseId;
 
       if (pickupWarehouseId) {
@@ -272,15 +268,11 @@ export class DeliveryService {
         entityType: "DeliveryAssignment"
       });
 
-      return this.serializeAssignment(
-        await this.findAssignmentById(tx, assignment.id)
-      );
+      return this.serializeAssignment(await this.findAssignmentById(tx, assignment.id));
     });
   }
 
-  async listAdminDeliveryAssignments(
-    query: AdminDeliveryAssignmentListQueryDto = {}
-  ) {
+  async listAdminDeliveryAssignments(query: AdminDeliveryAssignmentListQueryDto = {}) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const warehouseFilter: Prisma.DeliveryAssignmentWhereInput | undefined =
@@ -354,10 +346,7 @@ export class DeliveryService {
     return this.serializePartner(partner);
   }
 
-  async addMyDocument(
-    deliveryPartnerId: string,
-    input: AddDeliveryPartnerDocumentDto
-  ) {
+  async addMyDocument(deliveryPartnerId: string, input: AddDeliveryPartnerDocumentDto) {
     await this.findPartnerById(this.prisma, deliveryPartnerId, {
       requireActive: true
     });
@@ -442,9 +431,7 @@ export class DeliveryService {
       });
       await this.syncOrderForDeliveryStatus(tx, assignment, input);
 
-      return this.serializeAssignment(
-        await this.findAssignmentById(tx, assignment.id)
-      );
+      return this.serializeAssignment(await this.findAssignmentById(tx, assignment.id));
     });
   }
 
@@ -467,10 +454,7 @@ export class DeliveryService {
       throw new NotFoundException("Delivery partner was not found.");
     }
 
-    if (
-      options.requireActive &&
-      partner.status !== DeliveryPartnerStatus.ACTIVE
-    ) {
+    if (options.requireActive && partner.status !== DeliveryPartnerStatus.ACTIVE) {
       throw new UnauthorizedException("Delivery partner is not active.");
     }
 
@@ -541,9 +525,7 @@ export class DeliveryService {
     }
   }
 
-  private buildAssignmentStatusUpdateData(
-    input: UpdateDeliveryAssignmentStatusDto
-  ) {
+  private buildAssignmentStatusUpdateData(input: UpdateDeliveryAssignmentStatusDto) {
     const data: Prisma.DeliveryAssignmentUpdateInput = {
       status: input.status
     };
@@ -615,6 +597,12 @@ export class DeliveryService {
         continue;
       }
 
+      if (!item.productId) {
+        throw new BadRequestException(
+          "Custom quote items are not linked to reserved inventory."
+        );
+      }
+
       const stockUpdate = await tx.inventoryStock.updateMany({
         data: {
           reservedQuantity: {
@@ -632,9 +620,7 @@ export class DeliveryService {
       });
 
       if (stockUpdate.count !== 1) {
-        throw new BadRequestException(
-          "Reserved inventory is no longer consistent."
-        );
+        throw new BadRequestException("Reserved inventory is no longer consistent.");
       }
     }
   }

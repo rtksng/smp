@@ -1,6 +1,19 @@
 import { Type } from "class-transformer";
-import { IsDateString, IsInt, IsOptional, IsUUID, Max, Min } from "class-validator";
+import {
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min
+} from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { OrderStatus, PaymentStatus } from "../../../generated/prisma/client";
+
+export const DASHBOARD_EXPORT_FORMATS = ["csv", "pdf"] as const;
+export type DashboardExportFormat = (typeof DASHBOARD_EXPORT_FORMATS)[number];
 
 export class DashboardReportQueryDto {
   @ApiPropertyOptional({ example: "2026-05-01" })
@@ -25,6 +38,23 @@ export class DashboardReportQueryDto {
   @IsOptional()
   @IsUUID()
   warehouseId?: string;
+
+  @ApiPropertyOptional({ enum: OrderStatus, example: OrderStatus.DELIVERED })
+  @IsEnum(OrderStatus)
+  @IsOptional()
+  orderStatus?: OrderStatus;
+
+  @ApiPropertyOptional({ enum: PaymentStatus, example: PaymentStatus.PAID })
+  @IsEnum(PaymentStatus)
+  @IsOptional()
+  paymentStatus?: PaymentStatus;
+}
+
+export class DashboardReportExportQueryDto extends DashboardReportQueryDto {
+  @ApiPropertyOptional({ default: "csv", enum: DASHBOARD_EXPORT_FORMATS })
+  @IsIn(DASHBOARD_EXPORT_FORMATS)
+  @IsOptional()
+  format?: DashboardExportFormat;
 }
 
 export class DashboardCardsResponseDto {
