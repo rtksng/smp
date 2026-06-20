@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveNullableCustomerUploadUrl } from "../media/upload-url";
 import { productBrandSchema, productCategorySchema } from "./schemas";
 import { requestCustomerApi } from "./customer-client";
 
@@ -23,7 +24,7 @@ export const cartItemSchema = z.object({
   category: productCategorySchema,
   createdAt: z.string(),
   id: z.string(),
-  imageUrl: z.string().nullable(),
+  imageUrl: z.string().nullable().transform(resolveNullableCustomerUploadUrl),
   isAvailable: z.boolean(),
   name: z.string(),
   productId: z.string(),

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { cartSchema } from "./cart";
 import {
   brandSchema,
   categorySchema,
@@ -6,7 +7,13 @@ import {
   productSchema
 } from "./schemas";
 
+const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
 describe("customer catalog schemas", () => {
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
+  });
+
   it("parses backend product list responses used by the homepage", () => {
     const product = {
       basePrice: 1000,
@@ -97,5 +104,145 @@ describe("customer catalog schemas", () => {
         slug: "acme-surgical"
       }).name
     ).toBe("Acme Surgical");
+  });
+
+  it("rewrites stale uploaded asset URLs to the configured API origin", () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com/api/v1";
+    const staleProductImageUrl =
+      "https://smp-production-b700.up.railway.app/uploads/catalog/products/images/forceps.png";
+    const staleCategoryImageUrl =
+      "https://smp-production-b700.up.railway.app/uploads/catalog/categories/images/or.png";
+    const staleBrandLogoUrl =
+      "https://smp-production-b700.up.railway.app/uploads/catalog/brands/logos/acme.png";
+
+    expect(
+      productSchema.parse({
+        basePrice: 1000,
+        brand: {
+          id: "brand-id",
+          name: "Acme Surgical",
+          slug: "acme-surgical"
+        },
+        brandId: "brand-id",
+        category: {
+          id: "category-id",
+          name: "Surgical Instruments",
+          slug: "surgical-instruments"
+        },
+        categoryId: "category-id",
+        createdAt: "2026-05-25T10:00:00.000Z",
+        description: "Reusable operating room instrument.",
+        disposable: false,
+        documents: [],
+        expirySensitive: false,
+        id: "product-id",
+        images: [
+          {
+            altText: null,
+            id: "image-id",
+            isPrimary: true,
+            sortOrder: 1,
+            url: staleProductImageUrl
+          }
+        ],
+        inStock: true,
+        material: "Stainless steel",
+        medicalSpecialty: "General Surgery",
+        metaDescription: null,
+        metaTitle: null,
+        mrp: 1400,
+        name: "Curved Artery Forceps",
+        packSize: "1 pc",
+        searchTags: ["forceps", "artery"],
+        sellingPrice: 1200,
+        shortDescription: "Curved artery forceps.",
+        sku: "FORCEPS-001",
+        slug: "curved-artery-forceps",
+        status: "ACTIVE",
+        sterile: true,
+        subcategory: null,
+        subcategoryId: null,
+        taxRate: 18,
+        unit: "piece",
+        updatedAt: "2026-05-25T10:00:00.000Z",
+        variants: []
+      }).images[0]?.url
+    ).toBe("https://api.example.com/uploads/catalog/products/images/forceps.png");
+
+    expect(
+      categorySchema.parse({
+        children: [],
+        description: "Operating room equipment.",
+        id: "category-id",
+        imageUrl: staleCategoryImageUrl,
+        isActive: true,
+        name: "Operating Room",
+        parentId: null,
+        slug: "operating-room",
+        sortOrder: 1
+      }).imageUrl
+    ).toBe("https://api.example.com/uploads/catalog/categories/images/or.png");
+
+    expect(
+      brandSchema.parse({
+        description: "Trusted surgical supplier.",
+        id: "brand-id",
+        isActive: true,
+        logoUrl: staleBrandLogoUrl,
+        name: "Acme Surgical",
+        slug: "acme-surgical"
+      }).logoUrl
+    ).toBe("https://api.example.com/uploads/catalog/brands/logos/acme.png");
+
+    expect(
+      cartSchema.parse({
+        id: "cart-id",
+        itemCount: 1,
+        items: [
+          {
+            availableQuantity: 12,
+            brand: {
+              id: "brand-id",
+              name: "Acme Surgical",
+              slug: "acme-surgical"
+            },
+            category: {
+              id: "category-id",
+              name: "Surgical Instruments",
+              slug: "surgical-instruments"
+            },
+            createdAt: "2026-05-25T10:00:00.000Z",
+            id: "cart-item-id",
+            imageUrl: staleProductImageUrl,
+            isAvailable: true,
+            name: "Curved Artery Forceps",
+            productId: "product-id",
+            productStatus: "ACTIVE",
+            quantity: 1,
+            sku: "FORCEPS-001",
+            slug: "curved-artery-forceps",
+            subcategory: null,
+            subtotal: 1200,
+            tax: 216,
+            taxRate: 18,
+            total: 1416,
+            unitPrice: 1200,
+            updatedAt: "2026-05-25T10:00:00.000Z",
+            variantId: null,
+            variantName: null,
+            variantStatus: null
+          }
+        ],
+        totalQuantity: 1,
+        totals: {
+          deliveryCharge: 0,
+          discount: 0,
+          grandTotal: 1416,
+          subtotal: 1200,
+          tax: 216
+        },
+        updatedAt: "2026-05-25T10:00:00.000Z"
+      }).items[0]?.imageUrl
+    ).toBe("https://api.example.com/uploads/catalog/products/images/forceps.png");
   });
 });

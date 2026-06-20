@@ -1,4 +1,14 @@
 import { z } from "zod";
+import {
+  resolveCustomerUploadUrl,
+  resolveNullableCustomerUploadUrl
+} from "../media/upload-url";
+
+const uploadUrlSchema = z.string().transform(resolveCustomerUploadUrl);
+const nullableUploadUrlSchema = z
+  .string()
+  .nullable()
+  .transform(resolveNullableCustomerUploadUrl);
 
 export const productStatusSchema = z.enum([
   "DRAFT",
@@ -12,7 +22,7 @@ export const productImageSchema = z.object({
   id: z.string(),
   isPrimary: z.boolean(),
   sortOrder: z.number(),
-  url: z.string()
+  url: uploadUrlSchema
 });
 
 export const productBrandSchema = z.object({
@@ -39,7 +49,7 @@ export const productVariantSchema = z.object({
 
 export const productDocumentSchema = z.object({
   fileKey: z.string(),
-  fileUrl: z.string(),
+  fileUrl: uploadUrlSchema,
   id: z.string(),
   title: z.string(),
   type: z.string()
@@ -98,7 +108,7 @@ export const productListSchema = z.object({
 const categoryBaseSchema = z.object({
   description: z.string().nullable(),
   id: z.string(),
-  imageUrl: z.string().nullable(),
+  imageUrl: nullableUploadUrlSchema,
   isActive: z.boolean(),
   name: z.string(),
   parentId: z.string().nullable(),
@@ -118,7 +128,7 @@ export const brandSchema = z.object({
   description: z.string().nullable(),
   id: z.string(),
   isActive: z.boolean(),
-  logoUrl: z.string().nullable(),
+  logoUrl: nullableUploadUrlSchema,
   name: z.string(),
   slug: z.string()
 });
