@@ -8,6 +8,7 @@ import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
+import { resolveStoredUploadUrl } from "../uploads/upload-url";
 import {
   FIXED_ROOT_CATEGORY_SLUGS,
   isFixedRootCategorySlug
@@ -416,7 +417,7 @@ export class CategoriesService {
       children: [],
       description: category.description,
       id: category.id,
-      imageUrl: category.imageUrl,
+      imageUrl: resolveStoredUploadUrl(category.imageUrl),
       isActive: category.isActive,
       name: category.name,
       parentId: category.parentId,

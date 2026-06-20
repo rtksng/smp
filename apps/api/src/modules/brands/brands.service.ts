@@ -3,6 +3,7 @@ import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
+import { resolveStoredUploadUrl } from "../uploads/upload-url";
 import type { CreateBrandDto } from "./dto/create-brand.dto";
 import type { UpdateBrandDto } from "./dto/update-brand.dto";
 import {
@@ -234,7 +235,7 @@ export class BrandsService {
       description: brand.description,
       id: brand.id,
       isActive: brand.isActive,
-      logoUrl: brand.logoUrl,
+      logoUrl: resolveStoredUploadUrl(brand.logoUrl),
       name: brand.name,
       slug: brand.slug
     };

@@ -13,6 +13,7 @@ import {
 } from "../../generated/prisma/client";
 import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
+import { resolveStoredUploadUrl } from "../uploads/upload-url";
 
 const CART_INCLUDE = {
   items: {
@@ -433,7 +434,7 @@ export class CartService {
       category: toProductReference(item.product.category),
       createdAt: item.createdAt,
       id: item.id,
-      imageUrl: productImage?.url ?? null,
+      imageUrl: resolveStoredUploadUrl(productImage?.url),
       isAvailable:
         item.product.deletedAt === null &&
         item.product.status === ProductStatus.ACTIVE &&

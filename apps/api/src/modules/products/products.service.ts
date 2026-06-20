@@ -13,6 +13,7 @@ import {
 } from "../../generated/prisma/client";
 import { FIXED_CATALOG_BRAND_SLUGS } from "../brands/fixed-catalog-brands";
 import { FIXED_ROOT_CATEGORY_SLUGS } from "../categories/fixed-catalog-taxonomy";
+import { resolveStoredUploadUrl } from "../uploads/upload-url";
 import type { CreateProductDto } from "./dto/create-product.dto";
 import type {
   ProductDocumentInputDto,
@@ -954,7 +955,7 @@ export class ProductsService {
       disposable: product.disposable,
       documents: product.documents.map((document) => ({
         fileKey: document.fileKey,
-        fileUrl: document.fileUrl,
+        fileUrl: resolveStoredUploadUrl(document.fileUrl) ?? document.fileUrl,
         id: document.id,
         title: document.title,
         type: document.type
@@ -966,7 +967,7 @@ export class ProductsService {
         id: image.id,
         isPrimary: image.isPrimary,
         sortOrder: image.sortOrder,
-        url: image.url
+        url: resolveStoredUploadUrl(image.url) ?? image.url
       })),
       inStock: this.productHasAvailableStock(product),
       material: product.material,
