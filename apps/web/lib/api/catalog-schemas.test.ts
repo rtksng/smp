@@ -167,7 +167,7 @@ describe("customer catalog schemas", () => {
         updatedAt: "2026-05-25T10:00:00.000Z",
         variants: []
       }).images[0]?.url
-    ).toBe("https://api.example.com/uploads/catalog/products/images/forceps.png");
+    ).toBe("/uploads/catalog/products/images/forceps.png");
 
     expect(
       categorySchema.parse({
@@ -181,7 +181,7 @@ describe("customer catalog schemas", () => {
         slug: "operating-room",
         sortOrder: 1
       }).imageUrl
-    ).toBe("https://api.example.com/uploads/catalog/categories/images/or.png");
+    ).toBe("/uploads/catalog/categories/images/or.png");
 
     expect(
       brandSchema.parse({
@@ -192,7 +192,7 @@ describe("customer catalog schemas", () => {
         name: "Acme Surgical",
         slug: "acme-surgical"
       }).logoUrl
-    ).toBe("https://api.example.com/uploads/catalog/brands/logos/acme.png");
+    ).toBe("/uploads/catalog/brands/logos/acme.png");
 
     expect(
       cartSchema.parse({
@@ -243,6 +243,6 @@ describe("customer catalog schemas", () => {
         },
         updatedAt: "2026-05-25T10:00:00.000Z"
       }).items[0]?.imageUrl
-    ).toBe("https://api.example.com/uploads/catalog/products/images/forceps.png");
+    ).toBe("/uploads/catalog/products/images/forceps.png");
   });
 });

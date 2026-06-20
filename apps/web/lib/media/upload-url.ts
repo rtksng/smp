@@ -6,12 +6,6 @@ const STALE_UPLOAD_HOSTS = new Set([
 ]);
 
 export function resolveCustomerUploadUrl(value: string) {
-  const apiOrigin = getConfiguredApiOrigin();
-
-  if (!apiOrigin) {
-    return value;
-  }
-
   try {
     const parsedUrl = new URL(value);
 
@@ -19,18 +13,24 @@ export function resolveCustomerUploadUrl(value: string) {
       return value;
     }
 
-    if (parsedUrl.origin === apiOrigin) {
+    if (!isKnownManagedUploadHost(parsedUrl.hostname)) {
       return value;
     }
 
-    if (!isKnownManagedUploadHost(parsedUrl.hostname)) {
+    if (isStaticUploadFallbackEnabled()) {
+      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+
+    const apiOrigin = getConfiguredApiOrigin();
+
+    if (!apiOrigin || parsedUrl.origin === apiOrigin) {
       return value;
     }
 
     return `${apiOrigin}${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
   } catch {
     if (value.startsWith("/uploads/")) {
-      return `${apiOrigin}${value}`;
+      return value;
     }
 
     return value;
@@ -57,6 +57,10 @@ function getConfiguredApiOrigin() {
 
 function isManagedUploadPath(pathname: string) {
   return pathname === "/uploads" || pathname.startsWith("/uploads/");
+}
+
+function isStaticUploadFallbackEnabled() {
+  return process.env.NEXT_PUBLIC_STATIC_UPLOAD_FALLBACK !== "false";
 }
 
 function isKnownManagedUploadHost(hostname: string) {
