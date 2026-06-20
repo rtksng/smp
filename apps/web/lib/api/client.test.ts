@@ -33,6 +33,19 @@ describe("web API client", () => {
     );
   });
 
+  it("routes browser calls for Railway API hosts through the same-origin proxy", () => {
+    process.env.NEXT_PUBLIC_API_URL =
+      "https://smp-production-b700.up.railway.app/api/v1";
+
+    const url = buildApiUrl("/products/demo-forceps/related", {
+      limit: 4
+    });
+
+    expect(url.toString()).toBe(
+      `${window.location.origin}/api/v1/products/demo-forceps/related?limit=4`
+    );
+  });
+
   it("parses successful API envelopes through the supplied Zod schema", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
