@@ -50,6 +50,13 @@ enum DeliveryStatus {
   CANCELLED
 }
 
+enum CashCollectionStatus {
+  NOT_REQUIRED
+  COLLECTED
+  SUBMITTED
+  SETTLED
+}
+
 enum StockMovementType {
   IN
   OUT
@@ -814,23 +821,27 @@ model DeliveryChargeRule {
 }
 
 model DeliveryPartner {
-  id            String                    @id @default(uuid())
-  mobileNumber  String                    @unique
-  email         String?                   @unique
-  passwordHash  String?
-  fullName      String
-  status        DeliveryPartnerStatus     @default(PENDING_VERIFICATION)
-  isOnline      Boolean                   @default(false)
-  lastSeenAt    DateTime?
-  vehicleNumber String?
-  walletBalance Decimal                   @default(0) @db.Decimal(12, 2)
-  totalEarnings Decimal                   @default(0) @db.Decimal(12, 2)
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
-  deletedAt     DateTime?
-  assignments   DeliveryAssignment[]
-  documents     DeliveryPartnerDocument[]
-  sessions      DeliveryPartnerSession[]
+  id             String                    @id @default(uuid())
+  mobileNumber   String                    @unique
+  email          String?                   @unique
+  passwordHash   String?
+  fullName       String
+  status         DeliveryPartnerStatus     @default(PENDING_VERIFICATION)
+  isOnline       Boolean                   @default(false)
+  lastLatitude   Decimal?                  @db.Decimal(10, 7)
+  lastLongitude  Decimal?                  @db.Decimal(10, 7)
+  lastLocationAt DateTime?
+  lastSeenAt     DateTime?
+  vehicleNumber  String?
+  walletBalance  Decimal                   @default(0) @db.Decimal(12, 2)
+  totalEarnings  Decimal                   @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  deletedAt      DateTime?
+  assignments    DeliveryAssignment[]
+  devices        DeliveryPartnerDevice[]
+  documents      DeliveryPartnerDocument[]
+  sessions       DeliveryPartnerSession[]
 
   @@index([mobileNumber])
   @@index([status])
@@ -853,6 +864,23 @@ model DeliveryPartnerSession {
   @@index([expiresAt])
 }
 
+model DeliveryPartnerDevice {
+  id                   String          @id @default(uuid())
+  deliveryPartnerId    String
+  platform             String
+  pushToken            String          @unique
+  notificationsEnabled Boolean         @default(true)
+  lastSeenAt           DateTime?
+  revokedAt            DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deliveryPartner      DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryPartnerId])
+  @@index([platform])
+  @@index([revokedAt])
+}
+
 model DeliveryPartnerDocument {
   id                String          @id @default(uuid())
   deliveryPartnerId String
@@ -870,23 +898,27 @@ model DeliveryPartnerDocument {
 }
 
 model DeliveryAssignment {
-  id                 String                  @id @default(uuid())
-  orderId            String
-  deliveryPartnerId  String
-  pickupWarehouseId  String?
-  status             DeliveryStatus          @default(ASSIGNED)
-  assignedAt         DateTime                @default(now())
-  pickedUpAt         DateTime?
-  deliveredAt        DateTime?
-  proofOfDeliveryUrl String?
-  proofOfDeliveryKey String?
-  failureReason      String?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  deliveryPartner    DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id])
-  order              Order                   @relation(fields: [orderId], references: [id])
-  pickupWarehouse    Warehouse?              @relation("DeliveryPickupWarehouse", fields: [pickupWarehouseId], references: [id])
-  statusHistory      DeliveryStatusHistory[]
+  id                   String                  @id @default(uuid())
+  orderId              String
+  deliveryPartnerId    String
+  pickupWarehouseId    String?
+  status               DeliveryStatus          @default(ASSIGNED)
+  assignedAt           DateTime                @default(now())
+  pickedUpAt           DateTime?
+  deliveredAt          DateTime?
+  proofOfDeliveryUrl   String?
+  proofOfDeliveryKey   String?
+  failureReason        String?
+  receiverName         String?
+  cashCollectedAmount  Decimal?                @db.Decimal(12, 2)
+  cashCollectedAt      DateTime?
+  cashSettlementStatus CashCollectionStatus    @default(NOT_REQUIRED)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  deliveryPartner      DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id])
+  order                Order                   @relation(fields: [orderId], references: [id])
+  pickupWarehouse      Warehouse?              @relation("DeliveryPickupWarehouse", fields: [pickupWarehouseId], references: [id])
+  statusHistory        DeliveryStatusHistory[]
 
   @@index([orderId])
   @@index([deliveryPartnerId])

@@ -6,6 +6,7 @@ export enum UploadImagePurpose {
 
 export enum UploadDocumentPurpose {
   CustomerDocument = "customer_document",
+  DeliveryProof = "delivery_proof",
   DeliveryPartnerDocument = "delivery_partner_document",
   ProductDocument = "product_document"
 }

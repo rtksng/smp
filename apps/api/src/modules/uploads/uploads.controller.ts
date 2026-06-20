@@ -23,6 +23,7 @@ import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import {
   AdminUploadDocumentDto,
   CustomerUploadDocumentDto,
+  DeliveryProofUploadDocumentDto,
   DeliveryPartnerUploadDocumentDto,
   UploadImageDto
 } from "./dto/upload-request.dto";
@@ -173,6 +174,34 @@ export class DeliveryPartnerUploadsController {
   ) {
     return this.uploadsService.uploadDocument(file, {
       purpose: UploadDocumentPurpose.DeliveryPartnerDocument
+    });
+  }
+
+  @Post("proof")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Upload delivery proof for a delivery assignment."
+  })
+  @ApiBody({
+    description: "Multipart upload for delivery proof photos or signatures.",
+    schema: {
+      ...fileUploadSchema,
+      required: ["file"]
+    }
+  })
+  @ApiCreatedResponse({
+    description: "Delivery proof uploaded.",
+    type: UploadResponseDto
+  })
+  @ApiBadRequestResponse({ description: "File type, extension, size, or payload is invalid." })
+  @ApiUnauthorizedResponse({ description: "Delivery partner access token is missing or invalid." })
+  uploadProof(
+    @UploadedFile() file: UploadedFilePayload | undefined,
+    @Body() _body: DeliveryProofUploadDocumentDto
+  ) {
+    return this.uploadsService.uploadDocument(file, {
+      purpose: UploadDocumentPurpose.DeliveryProof
     });
   }
 }

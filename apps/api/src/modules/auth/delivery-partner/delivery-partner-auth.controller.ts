@@ -11,6 +11,7 @@ import type { Request } from "express";
 import { getAuthRequestContext } from "../common/request-context";
 import {
   DeliveryPartnerRequestOtpDto,
+  DeliveryPartnerRegisterDto,
   DeliveryPartnerVerifyOtpDto
 } from "../dto/delivery-partner-login.dto";
 import { LogoutDto, RefreshTokenDto } from "../dto/session-token.dto";
@@ -32,6 +33,16 @@ export class DeliveryPartnerAuthController {
   @ApiResponse({ description: "OTP rate limit or cooldown exceeded.", status: 429 })
   requestOtp(@Body() dto: DeliveryPartnerRequestOtpDto) {
     return this.deliveryPartnerAuthService.requestOtp(dto);
+  }
+
+  @Post("register")
+  @ApiOperation({
+    summary: "Register a delivery partner application for admin approval."
+  })
+  @ApiOkResponse({ description: "Delivery partner application created." })
+  @ApiBadRequestResponse({ description: "Delivery partner is already registered." })
+  register(@Body() dto: DeliveryPartnerRegisterDto) {
+    return this.deliveryPartnerAuthService.registerPartner(dto);
   }
 
   @Post("verify-otp")

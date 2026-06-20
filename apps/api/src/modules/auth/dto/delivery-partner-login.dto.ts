@@ -1,6 +1,6 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
-import { IsString, Matches } from "class-validator";
+import { IsEmail, IsOptional, IsString, Matches } from "class-validator";
 
 export class DeliveryPartnerRequestOtpDto {
   @ApiProperty({
@@ -27,4 +27,35 @@ export class DeliveryPartnerVerifyOtpDto extends DeliveryPartnerRequestOtpDto {
   @IsString()
   @Matches(/^\d{6}$/)
   otp!: string;
+}
+
+export class DeliveryPartnerRegisterDto extends DeliveryPartnerRequestOtpDto {
+  @ApiProperty({
+    example: "Asha Driver"
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim() : value
+  )
+  @IsString()
+  fullName!: string;
+
+  @ApiPropertyOptional({
+    example: "driver@example.com"
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim().toLowerCase() : value
+  )
+  @IsEmail()
+  @IsOptional()
+  email?: string | null;
+
+  @ApiPropertyOptional({
+    example: "DL01AB1234"
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim().toUpperCase() : value
+  )
+  @IsString()
+  @IsOptional()
+  vehicleNumber?: string | null;
 }

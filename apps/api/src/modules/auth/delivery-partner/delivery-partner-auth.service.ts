@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException
+} from "@nestjs/common";
 import { PrismaService } from "../../../database/prisma.service";
 import { DeliveryPartnerStatus } from "../../../generated/prisma/enums";
 import {
@@ -11,6 +15,7 @@ import type { AuthRequestContext } from "../common/request-context";
 import { OtpPurpose, OtpService } from "../common/otp.service";
 import {
   DeliveryPartnerRequestOtpDto,
+  DeliveryPartnerRegisterDto,
   DeliveryPartnerVerifyOtpDto
 } from "../dto/delivery-partner-login.dto";
 import { LogoutDto, RefreshTokenDto } from "../dto/session-token.dto";
@@ -28,6 +33,49 @@ export class DeliveryPartnerAuthService {
       OtpPurpose.DeliveryPartner,
       dto.mobileNumber
     );
+  }
+
+  async registerPartner(dto: DeliveryPartnerRegisterDto) {
+    const mobileNumber = normalizeRequiredText(dto.mobileNumber, "Mobile number");
+    const email = normalizeNullableEmail(dto.email);
+    const existingPartner = await this.prisma.deliveryPartner.findFirst({
+      where: {
+        deletedAt: null,
+        OR: stripUndefined([
+          {
+            mobileNumber
+          },
+          email
+            ? {
+                email
+              }
+            : undefined
+        ])
+      }
+    });
+
+    if (existingPartner) {
+      throw new BadRequestException("Delivery partner is already registered.");
+    }
+
+    const deliveryPartner = await this.prisma.deliveryPartner.create({
+      data: {
+        email,
+        fullName: normalizeRequiredText(dto.fullName, "Full name"),
+        mobileNumber,
+        status: DeliveryPartnerStatus.PENDING_VERIFICATION,
+        vehicleNumber: normalizeNullableVehicle(dto.vehicleNumber)
+      }
+    });
+
+    return {
+      email: deliveryPartner.email,
+      fullName: deliveryPartner.fullName,
+      id: deliveryPartner.id,
+      mobileNumber: deliveryPartner.mobileNumber,
+      status: deliveryPartner.status,
+      vehicleNumber: deliveryPartner.vehicleNumber
+    };
   }
 
   async verifyOtp(
@@ -160,4 +208,30 @@ export class DeliveryPartnerAuthService {
       loggedOut: true
     };
   }
+}
+
+function normalizeRequiredText(value: string, label: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new BadRequestException(`${label} is required.`);
+  }
+
+  return trimmed;
+}
+
+function normalizeNullableEmail(value?: string | null) {
+  const trimmed = value?.trim().toLowerCase() ?? "";
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeNullableVehicle(value?: string | null) {
+  const trimmed = value?.trim().toUpperCase() ?? "";
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function stripUndefined<T>(items: Array<T | undefined>) {
+  return items.filter((item): item is T => item !== undefined);
 }

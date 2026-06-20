@@ -58,3 +58,13 @@ export class DeliveryPartnerUploadDocumentDto {
   @IsIn([UploadDocumentPurpose.DeliveryPartnerDocument])
   purpose?: UploadDocumentPurpose.DeliveryPartnerDocument;
 }
+
+export class DeliveryProofUploadDocumentDto {
+  @ApiPropertyOptional({
+    enum: [UploadDocumentPurpose.DeliveryProof],
+    example: UploadDocumentPurpose.DeliveryProof
+  })
+  @IsOptional()
+  @IsIn([UploadDocumentPurpose.DeliveryProof])
+  purpose?: UploadDocumentPurpose.DeliveryProof;
+}

@@ -31,6 +31,8 @@ import {
   DeliveryAssignmentListQueryDto,
   DeliveryAssignmentListResponseDto,
   DeliveryAssignmentResponseDto,
+  DeliveryPartnerDeviceDto,
+  DeliveryPartnerLocationDto,
   DeliveryPartnerOnlineStatusDto,
   DeliveryPartnerResponseDto,
   UpdateDeliveryAssignmentStatusDto
@@ -68,6 +70,37 @@ export class DeliveryController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.deliveryService.updateMyOnlineStatus(
+      getDeliveryPartnerId(request),
+      body
+    );
+  }
+
+  @Patch("me/device")
+  @ApiOperation({ summary: "Register or update the native app push device token." })
+  @ApiOkResponse({ description: "Delivery partner device token stored." })
+  @ApiUnauthorizedResponse({ description: "Delivery partner access token is missing or invalid." })
+  registerMyDevice(
+    @Body() body: DeliveryPartnerDeviceDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.registerMyDevice(
+      getDeliveryPartnerId(request),
+      body
+    );
+  }
+
+  @Post("me/location")
+  @ApiOperation({ summary: "Update the delivery partner last known GPS location." })
+  @ApiOkResponse({
+    description: "Delivery partner location updated.",
+    type: DeliveryPartnerResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Delivery partner access token is missing or invalid." })
+  updateMyLocation(
+    @Body() body: DeliveryPartnerLocationDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.updateMyLocation(
       getDeliveryPartnerId(request),
       body
     );

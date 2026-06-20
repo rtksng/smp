@@ -1,4 +1,6 @@
 node_modules/
+.p/
+.pnpm/
 dist/
 .next/
 .turbo/
@@ -21,3 +23,4 @@ prisma/dev.db
 apps/api/src/generated/
 storage/uploads/
 **/storage/uploads/
+.vercel

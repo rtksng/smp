@@ -124,6 +124,19 @@ test("uploadDocument rejects documents larger than the configured limit", async 
   );
 });
 
+test("uploadDocument stores delivery proof uploads under the delivery proof folder", async () => {
+  const service = new UploadsService(new MemoryStorageProvider(), {
+    documentMaxBytes: 10 * 1024 * 1024,
+    imageMaxBytes: 5 * 1024 * 1024
+  });
+
+  const result = await service.uploadDocument(fileFixture(), {
+    purpose: UploadDocumentPurpose.DeliveryProof
+  });
+
+  assert.match(result.key, /^delivery\/proofs\/[a-f0-9-]+\.png$/);
+});
+
 test("local storage provider writes files under the configured root", async () => {
   const root = await mkdtemp(join(tmpdir(), "smep-uploads-"));
   const provider = new LocalStorageProvider({

@@ -9,7 +9,11 @@ export default function AdminDashboardPage() {
   return (
     <AdminShell>
       <ProtectedRoute permission={ADMIN_PERMISSION.ReportsRead}>
-        <ReportsDashboard eyebrow="Dashboard" title="Admin dashboard" />
+        <ReportsDashboard
+          eyebrow="Dashboard"
+          hideSectionNavigation
+          title="Admin dashboard"
+        />
       </ProtectedRoute>
     </AdminShell>
   );

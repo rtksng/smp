@@ -55,6 +55,17 @@ describe("admin API client", () => {
     );
   });
 
+  it("routes browser requests for Railway API hosts through the admin app proxy", () => {
+    process.env.NEXT_PUBLIC_API_URL =
+      "https://smp-production-b700.up.railway.app/api/v1";
+
+    const url = buildAdminApiUrl("/auth/admin/login");
+
+    expect(url.toString()).toBe(
+      `${window.location.origin}/api/v1/auth/admin/login`
+    );
+  });
+
   it("adds the admin JWT and retries once with refreshed tokens after a 401", async () => {
     let currentSession = makeSession("expired-access-token");
     const fetchMock = vi

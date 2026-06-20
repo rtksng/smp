@@ -81,6 +81,8 @@ type AdminApiClientOptions = {
 };
 
 const REFRESH_SKEW_MS = 30_000;
+const BROWSER_API_PROXY_BASE_PATH = "/api/v1";
+const BROWSER_PROXY_HOST_SUFFIXES = [".up.railway.app"];
 
 export class AdminApiClientError extends Error {
   constructor(
@@ -126,7 +128,15 @@ export function getAdminApiBaseUrl() {
   }
 
   try {
-    return new URL(configuredUrl).toString().replace(/\/+$/, "");
+    const apiBaseUrl = new URL(configuredUrl).toString().replace(/\/+$/, "");
+
+    if (shouldUseBrowserApiProxy(apiBaseUrl)) {
+      return new URL(BROWSER_API_PROXY_BASE_PATH, window.location.origin)
+        .toString()
+        .replace(/\/+$/, "");
+    }
+
+    return apiBaseUrl;
   } catch {
     throw new AdminApiClientError(
       "NEXT_PUBLIC_API_URL must be a valid URL.",
@@ -294,6 +304,20 @@ async function fetchAdminApi(url: URL, init: RequestInit) {
       0,
       "NETWORK_ERROR"
     );
+  }
+}
+
+function shouldUseBrowserApiProxy(apiBaseUrl: string) {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    const hostname = new URL(apiBaseUrl).hostname;
+
+    return BROWSER_PROXY_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+  } catch {
+    return false;
   }
 }
 

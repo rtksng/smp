@@ -23,6 +23,7 @@ type SelectEntry =
       disabled?: boolean;
       key: string;
       kind: "item";
+      textValue?: string;
       value: string;
     }
   | {
@@ -90,6 +91,9 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
         children: props.children,
         className: props.className,
         disabled: props.disabled,
+        textValue:
+          props.textValue ??
+          (typeof props.children === "string" ? props.children : undefined),
         value: props.value
       });
       return;
@@ -210,6 +214,7 @@ function renderSelectEntries(entries: SelectEntry[]): ReactElement[] {
             )}
             data-slot="select-item"
             isDisabled={item.disabled}
+            textValue={item.textValue}
           >
             {item.children}
           </HeroSelectItem>
@@ -309,6 +314,7 @@ export function SelectLabel({ className, ...props }: ComponentProps<"div">) {
 
 type SelectItemProps = Omit<ComponentProps<"div">, "value"> & {
   disabled?: boolean;
+  textValue?: string;
   value: string;
 };
 

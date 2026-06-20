@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Surgical Delivery",
+    "slug": "surgical-delivery",
+    "scheme": "surgical-delivery",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "bundleIdentifier": "com.surgical.delivery",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera access is used to capture proof of delivery photos.",
+        "NSLocationWhenInUseUsageDescription": "Location access is used to attach GPS coordinates to delivery status updates.",
+        "NSPhotoLibraryUsageDescription": "Photo library access is used to attach an existing proof of delivery image."
+      }
+    },
+    "android": {
+      "package": "com.surgical.delivery",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Surgical Delivery to attach your location to delivery updates."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Surgical Delivery to attach proof photos from your library.",
+          "cameraPermission": "Allow Surgical Delivery to capture proof of delivery photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#155E63"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000/api/v1"
+    }
+  }
+}

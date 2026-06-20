@@ -2,7 +2,7 @@ import Image from "next/image";
 import { getBrands } from "../../lib/api/brands";
 import { getCategories } from "../../lib/api/categories";
 import { getProducts } from "../../lib/api/products";
-import type { Category, ProductList } from "../../lib/api/schemas";
+import type { ProductList } from "../../lib/api/schemas";
 import type { CategoryNavigationItem } from "../../lib/catalog/customer-navigation";
 import {
   getFeaturedCategorySectionLimit,
@@ -12,13 +12,13 @@ import {
   selectProductReadyFeaturedCategories,
   selectPreviewBrands
 } from "../../lib/catalog/storefront";
-import {
-  getBrandImageAlt,
-  getCategoryImageAlt
-} from "../../lib/seo/metadata";
+import { getBrandImageAlt, getCategoryImageAlt } from "../../lib/seo/metadata";
 import { Footer } from "../layout/footer";
 import { Header } from "../layout/header";
-import { MarketplaceBanner } from "../marketplace/marketplace-banner";
+import {
+  MarketplaceBanner,
+  MarketplaceProofStrip
+} from "../marketplace/marketplace-banner";
 import { Button } from "../ui/button";
 import { Container } from "../ui/container";
 import { EmptyState } from "../ui/empty-state";
@@ -26,7 +26,6 @@ import { ErrorState } from "../ui/error-state";
 import { ProductCard } from "../ui/product-card";
 import { SectionHeader } from "../ui/section-header";
 import { BulkQuoteForm } from "./bulk-quote-form";
-import { SearchForm } from "./search-form";
 
 export async function HomePage() {
   const [categories, brands, products] = await Promise.all([
@@ -39,12 +38,11 @@ export async function HomePage() {
       })
     )
   ]);
-  const banner = buildHomeBanner(categories);
+  const banner = buildHomeBanner();
   const landingCategories = selectLandingCategories(categories);
   const previewBrands = selectPreviewBrands(brands);
-  const featuredCategoryProducts = await loadFeaturedCategoryProducts(
-    landingCategories
-  );
+  const featuredCategoryProducts =
+    await loadFeaturedCategoryProducts(landingCategories);
   const featuredCategories = selectProductReadyFeaturedCategories(
     landingCategories,
     featuredCategoryProducts
@@ -54,7 +52,7 @@ export async function HomePage() {
     <>
       <Header />
       <main className="bg-[#f4f9ff]">
-        <section className="border-b border-[#d6e7f8] bg-[#f4f9ff] py-8 sm:py-10">
+        <section className="bg-[#f4f9ff] py-5 sm:py-7">
           <Container>
             <MarketplaceBanner
               ctaHref={banner.ctaHref}
@@ -67,11 +65,9 @@ export async function HomePage() {
               title={banner.title}
               tone="navy"
             />
-            <div className="mx-auto mt-6 max-w-3xl rounded-[1.5rem] border border-[#d6e7f8] bg-white p-2 shadow-sm shadow-[#0b5cab]/10 sm:rounded-full">
-              <SearchForm id="hero-search" placeholder="Search products, SKU, brand" />
-            </div>
           </Container>
         </section>
+        <MarketplaceProofStrip />
 
         <section className="py-16" id="categories">
           <Container>
@@ -152,18 +148,15 @@ export async function HomePage() {
             <div className="grid gap-4 md:grid-cols-3">
               {[
                 {
-                  body:
-                    "Browse departments, subcategories, brands, stock, and specialty filters without losing the current catalog context.",
+                  body: "Browse departments, subcategories, brands, stock, and specialty filters without losing the current catalog context.",
                   title: "Focused navigation"
                 },
                 {
-                  body:
-                    "Product cards surface MRP, hospital price, SKU, stock, GST, and sterile or disposable signals before checkout.",
+                  body: "Product cards surface MRP, hospital price, SKU, stock, GST, and sterile or disposable signals before checkout.",
                   title: "Procurement-ready details"
                 },
                 {
-                  body:
-                    "Bulk requests, GST-ready invoices, and saved catalog filters keep repeat orders simple for clinics and hospitals.",
+                  body: "Bulk requests, GST-ready invoices, and saved catalog filters keep repeat orders simple for clinics and hospitals.",
                   title: "Order support"
                 }
               ].map((item) => (
@@ -172,9 +165,7 @@ export async function HomePage() {
                   key={item.title}
                 >
                   <h3 className="text-lg font-bold text-[#12314f]">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[#52677f]">
-                    {item.body}
-                  </p>
+                  <p className="mt-3 text-sm leading-6 text-[#52677f]">{item.body}</p>
                 </article>
               ))}
             </div>
@@ -295,11 +286,7 @@ async function loadFeaturedCategoryProducts(categories: CategoryNavigationItem[]
   return Object.fromEntries(entries) as Record<string, ProductList | undefined>;
 }
 
-function LandingCategoryGrid({
-  categories
-}: {
-  categories: CategoryNavigationItem[];
-}) {
+function LandingCategoryGrid({ categories }: { categories: CategoryNavigationItem[] }) {
   return (
     <div
       className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
@@ -391,22 +378,16 @@ function FeaturedCategorySection({
   );
 }
 
-function buildHomeBanner(categories: Category[] | undefined) {
-  const firstCategory = categories?.[0];
-
+function buildHomeBanner() {
   return {
     ctaHref: "/products",
     ctaText: "Browse catalog",
-    imageAlt: firstCategory
-      ? `${firstCategory.name} medical procurement category`
-      : "Clinical equipment and supplies prepared for hospital procurement",
-    imageUrl:
-      firstCategory?.imageUrl ??
-      "https://images.unsplash.com/photo-1582719471384-894fbb16e074?auto=format&fit=crop&w=1200&q=80",
+    imageAlt: "Clinical supplies arranged for hospital procurement",
+    imageUrl: "/banner/banner.png",
     secondaryCtaHref: "#bulk",
     secondaryCtaText: "Bulk quote",
     subtitle:
-      "Shop verified surgical equipment, consumables, and diagnostics with GST-ready checkout.",
+      "Your one-stop shop for verified surgical equipment, consumables, and diagnostics with GST-ready checkout.",
     title: "Hospital supplies, ordered simply."
   };
 }

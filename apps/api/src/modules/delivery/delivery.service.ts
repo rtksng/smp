@@ -6,9 +6,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import {
+  CashCollectionStatus,
   DeliveryPartnerStatus,
   DeliveryStatus,
   OrderStatus,
+  PaymentMethod,
   WarehouseStatus
 } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
@@ -19,6 +21,8 @@ import type {
   AdminDeliveryAssignmentListQueryDto,
   AssignDeliveryDto,
   DeliveryAssignmentListQueryDto,
+  DeliveryPartnerDeviceDto,
+  DeliveryPartnerLocationDto,
   DeliveryPartnerListQueryDto,
   DeliveryPartnerOnlineStatusDto,
   UpdateDeliveryAssignmentStatusDto
@@ -39,10 +43,37 @@ const ASSIGNMENT_INCLUDE = {
       items: {
         orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
         select: {
+          id: true,
+          name: true,
           productId: true,
           quantity: true,
+          sku: true,
+          taxAmount: true,
+          total: true,
+          unitPrice: true,
           variantId: true,
           warehouseId: true
+        }
+      },
+      payments: {
+        orderBy: [{ createdAt: "desc" as const }, { id: "asc" as const }],
+        select: {
+          amount: true,
+          createdAt: true,
+          id: true,
+          method: true,
+          status: true
+        },
+        take: 1
+      },
+      shippingAddress: true,
+      user: {
+        select: {
+          businessName: true,
+          firstName: true,
+          id: true,
+          lastName: true,
+          mobileNumber: true
         }
       }
     }
@@ -73,6 +104,7 @@ type DeliveryClient =
       | "adminAuditLog"
       | "deliveryAssignment"
       | "deliveryPartner"
+      | "deliveryPartnerDevice"
       | "deliveryPartnerDocument"
       | "deliveryStatusHistory"
       | "inventoryStock"
@@ -346,6 +378,62 @@ export class DeliveryService {
     return this.serializePartner(partner);
   }
 
+  async registerMyDevice(
+    deliveryPartnerId: string,
+    input: DeliveryPartnerDeviceDto
+  ) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const now = new Date();
+    const device = await this.prisma.deliveryPartnerDevice.upsert({
+      create: {
+        deliveryPartnerId,
+        lastSeenAt: now,
+        notificationsEnabled: input.notificationsEnabled ?? true,
+        platform: input.platform,
+        pushToken: input.pushToken,
+        revokedAt: null
+      },
+      update: {
+        deliveryPartnerId,
+        lastSeenAt: now,
+        notificationsEnabled: input.notificationsEnabled ?? true,
+        platform: input.platform,
+        revokedAt: null
+      },
+      where: {
+        pushToken: input.pushToken
+      }
+    });
+
+    return this.serializeDevice(device);
+  }
+
+  async updateMyLocation(
+    deliveryPartnerId: string,
+    input: DeliveryPartnerLocationDto
+  ) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const now = new Date();
+    const partner = await this.prisma.deliveryPartner.update({
+      data: {
+        lastLatitude: input.latitude,
+        lastLocationAt: now,
+        lastLongitude: input.longitude,
+        lastSeenAt: now
+      },
+      include: PARTNER_INCLUDE,
+      where: {
+        id: deliveryPartnerId
+      }
+    });
+
+    return this.serializePartner(partner);
+  }
+
   async addMyDocument(deliveryPartnerId: string, input: AddDeliveryPartnerDocumentDto) {
     await this.findPartnerById(this.prisma, deliveryPartnerId, {
       requireActive: true
@@ -413,9 +501,10 @@ export class DeliveryService {
       );
 
       this.assertAllowedAssignmentTransition(assignment.status, input.status);
+      this.assertRequiredStatusPayload(assignment, input);
 
       await tx.deliveryAssignment.update({
-        data: this.buildAssignmentStatusUpdateData(input),
+        data: this.buildAssignmentStatusUpdateData(input, assignment),
         where: {
           id: assignment.id
         }
@@ -525,7 +614,10 @@ export class DeliveryService {
     }
   }
 
-  private buildAssignmentStatusUpdateData(input: UpdateDeliveryAssignmentStatusDto) {
+  private buildAssignmentStatusUpdateData(
+    input: UpdateDeliveryAssignmentStatusDto,
+    assignment: DeliveryAssignmentRecord
+  ) {
     const data: Prisma.DeliveryAssignmentUpdateInput = {
       status: input.status
     };
@@ -537,12 +629,61 @@ export class DeliveryService {
       data.deliveredAt = new Date();
       data.proofOfDeliveryKey = input.proofOfDeliveryKey;
       data.proofOfDeliveryUrl = input.proofOfDeliveryUrl;
+      data.receiverName = trimToUndefined(input.receiverName);
+      if (this.assignmentRequiresCodCollection(assignment)) {
+        data.cashCollectedAmount = input.cashCollectedAmount;
+        data.cashCollectedAt = new Date();
+        data.cashSettlementStatus = CashCollectionStatus.COLLECTED;
+      } else {
+        data.cashSettlementStatus = CashCollectionStatus.NOT_REQUIRED;
+      }
     }
     if (input.status === DeliveryStatus.FAILED) {
-      data.failureReason = input.failureReason ?? input.note;
+      data.failureReason = trimToUndefined(input.failureReason ?? input.note);
     }
 
     return data;
+  }
+
+  private assertRequiredStatusPayload(
+    assignment: DeliveryAssignmentRecord,
+    input: UpdateDeliveryAssignmentStatusDto
+  ) {
+    if (input.status === DeliveryStatus.DELIVERED) {
+      if (
+        !trimToUndefined(input.proofOfDeliveryKey) ||
+        !trimToUndefined(input.proofOfDeliveryUrl) ||
+        !trimToUndefined(input.receiverName)
+      ) {
+        throw new BadRequestException(
+          "Proof of delivery and receiver name are required before marking delivered."
+        );
+      }
+
+      if (this.assignmentRequiresCodCollection(assignment)) {
+        const collectedAmount = input.cashCollectedAmount;
+        const expectedAmount = decimalToNumber(assignment.order.grandTotal);
+
+        if (collectedAmount === undefined || collectedAmount < expectedAmount) {
+          throw new BadRequestException(
+            "COD deliveries require the collected cash amount before marking delivered."
+          );
+        }
+      }
+    }
+
+    if (
+      input.status === DeliveryStatus.FAILED &&
+      !trimToUndefined(input.failureReason ?? input.note)
+    ) {
+      throw new BadRequestException(
+        "A failure reason is required before marking failed."
+      );
+    }
+  }
+
+  private assignmentRequiresCodCollection(assignment: DeliveryAssignmentRecord) {
+    return assignment.order.payments[0]?.method === PaymentMethod.COD;
   }
 
   private async syncOrderForDeliveryStatus(
@@ -666,6 +807,14 @@ export class DeliveryService {
       fullName: partner.fullName,
       id: partner.id,
       isOnline: partner.isOnline,
+      lastKnownLocation:
+        partner.lastLatitude === null || partner.lastLongitude === null
+          ? null
+          : {
+              latitude: decimalToNumber(partner.lastLatitude),
+              longitude: decimalToNumber(partner.lastLongitude),
+              updatedAt: partner.lastLocationAt
+            },
       lastSeenAt: partner.lastSeenAt,
       mobileNumber: partner.mobileNumber,
       status: partner.status,
@@ -679,10 +828,44 @@ export class DeliveryService {
     };
   }
 
+  private serializeDevice(device: {
+    id: string;
+    deliveryPartnerId: string;
+    platform: string;
+    pushToken: string;
+    notificationsEnabled: boolean;
+    lastSeenAt: Date | null;
+    revokedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      createdAt: device.createdAt,
+      deliveryPartnerId: device.deliveryPartnerId,
+      id: device.id,
+      lastSeenAt: device.lastSeenAt,
+      notificationsEnabled: device.notificationsEnabled,
+      platform: device.platform,
+      pushToken: device.pushToken,
+      revokedAt: device.revokedAt,
+      updatedAt: device.updatedAt
+    };
+  }
+
   private serializeAssignment(assignment: DeliveryAssignmentRecord) {
+    const latestPayment = assignment.order.payments[0] ?? null;
+
     return {
       assignedAt: assignment.assignedAt,
       createdAt: assignment.createdAt,
+      customer: {
+        businessName: assignment.order.user.businessName,
+        fullName: [assignment.order.user.firstName, assignment.order.user.lastName]
+          .filter(Boolean)
+          .join(" "),
+        id: assignment.order.user.id,
+        mobileNumber: assignment.order.user.mobileNumber
+      },
       deliveredAt: assignment.deliveredAt,
       deliveryPartner: assignment.deliveryPartner
         ? this.serializePartner(assignment.deliveryPartner)
@@ -690,15 +873,40 @@ export class DeliveryService {
       deliveryPartnerId: assignment.deliveryPartnerId,
       failureReason: assignment.failureReason,
       id: assignment.id,
+      items: assignment.order.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        productId: item.productId,
+        quantity: item.quantity,
+        sku: item.sku,
+        variantId: item.variantId,
+        warehouseId: item.warehouseId
+      })),
       orderId: assignment.orderId,
+      orderNotes: assignment.order.notes,
       orderNumber: assignment.order.orderNumber,
+      payment: {
+        cashCollectedAmount: decimalToNumberOrNull(assignment.cashCollectedAmount),
+        cashCollectedAt: assignment.cashCollectedAt,
+        cashSettlementStatus: assignment.cashSettlementStatus,
+        codAmount:
+          latestPayment?.method === PaymentMethod.COD
+            ? decimalToNumber(assignment.order.grandTotal)
+            : 0,
+        method: latestPayment?.method ?? null,
+        status: latestPayment?.status ?? null
+      },
       pickedUpAt: assignment.pickedUpAt,
       pickupWarehouse: assignment.pickupWarehouse
         ? {
             address: assignment.pickupWarehouse.address,
             city: assignment.pickupWarehouse.city,
             code: assignment.pickupWarehouse.code,
+            contactNumber: assignment.pickupWarehouse.contactNumber,
+            contactPerson: assignment.pickupWarehouse.contactPerson,
             id: assignment.pickupWarehouse.id,
+            latitude: decimalToNumberOrNull(assignment.pickupWarehouse.latitude),
+            longitude: decimalToNumberOrNull(assignment.pickupWarehouse.longitude),
             name: assignment.pickupWarehouse.name,
             pincode: assignment.pickupWarehouse.pincode,
             state: assignment.pickupWarehouse.state
@@ -707,6 +915,25 @@ export class DeliveryService {
       pickupWarehouseId: assignment.pickupWarehouseId,
       proofOfDeliveryKey: assignment.proofOfDeliveryKey,
       proofOfDeliveryUrl: assignment.proofOfDeliveryUrl,
+      receiverName: assignment.receiverName,
+      shippingAddress: assignment.order.shippingAddress
+        ? {
+            city: assignment.order.shippingAddress.city,
+            country: assignment.order.shippingAddress.country,
+            fullName: assignment.order.shippingAddress.fullName,
+            id: assignment.order.shippingAddress.id,
+            landmark: assignment.order.shippingAddress.landmark,
+            latitude: decimalToNumberOrNull(assignment.order.shippingAddress.latitude),
+            line1: assignment.order.shippingAddress.line1,
+            line2: assignment.order.shippingAddress.line2,
+            longitude: decimalToNumberOrNull(
+              assignment.order.shippingAddress.longitude
+            ),
+            mobileNumber: assignment.order.shippingAddress.mobileNumber,
+            pincode: assignment.order.shippingAddress.pincode,
+            state: assignment.order.shippingAddress.state
+          }
+        : null,
       status: assignment.status,
       statusHistory: assignment.statusHistory.map((entry) => ({
         createdAt: entry.createdAt,
@@ -716,6 +943,13 @@ export class DeliveryService {
         note: entry.note,
         status: entry.status
       })),
+      totals: {
+        discountTotal: decimalToNumber(assignment.order.discountTotal),
+        grandTotal: decimalToNumber(assignment.order.grandTotal),
+        shippingTotal: decimalToNumber(assignment.order.shippingTotal),
+        subtotal: decimalToNumber(assignment.order.subtotal),
+        taxTotal: decimalToNumber(assignment.order.taxTotal)
+      },
       updatedAt: assignment.updatedAt
     };
   }
@@ -761,6 +995,12 @@ function stripUndefined<T extends Record<string, unknown>>(value: T) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined)
   ) as T;
+}
+
+function trimToUndefined(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed : undefined;
 }
 
 function toJsonValue(value: unknown) {

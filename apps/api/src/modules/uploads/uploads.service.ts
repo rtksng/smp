@@ -153,6 +153,8 @@ export class UploadsService {
     switch (purpose) {
       case UploadDocumentPurpose.CustomerDocument:
         return "customers/documents";
+      case UploadDocumentPurpose.DeliveryProof:
+        return "delivery/proofs";
       case UploadDocumentPurpose.DeliveryPartnerDocument:
         return "delivery-partners/documents";
       case UploadDocumentPurpose.ProductDocument:

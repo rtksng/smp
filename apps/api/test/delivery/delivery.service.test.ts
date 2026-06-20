@@ -46,6 +46,7 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
     deliveryAssignmentFindFirst: [],
     deliveryAssignmentFindMany: [],
     deliveryAssignmentUpdate: [],
+    deliveryPartnerDeviceUpsert: [],
     deliveryPartnerDocumentCreate: [],
     deliveryPartnerCount: [],
     deliveryPartnerFindFirst: [],
@@ -78,6 +79,9 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
     fullName: "Asha Driver",
     id: "partner-1",
     isOnline: false,
+    lastLatitude: null,
+    lastLocationAt: null,
+    lastLongitude: null,
     lastSeenAt: null,
     mobileNumber: "+919876543210",
     status: "ACTIVE",
@@ -90,26 +94,76 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
     address: "Warehouse Road",
     city: "Delhi",
     code: "DEL-01",
+    contactNumber: "+911145678900",
+    contactPerson: "Dispatch Desk",
     id: "warehouse-1",
+    latitude: "28.6139390",
+    longitude: "77.2090230",
     name: "Delhi warehouse",
     pincode: "110001",
     state: "Delhi"
   };
+  const shippingAddress = {
+    city: "Delhi",
+    country: "India",
+    fullName: "Dr. Nisha Rao",
+    id: "address-1",
+    landmark: "Near metro gate 2",
+    latitude: "28.6200000",
+    line1: "Clinic 12, Ring Road",
+    line2: "First floor",
+    longitude: "77.2200000",
+    mobileNumber: "+919999888877",
+    pincode: "110024",
+    state: "Delhi"
+  };
+  const customer = {
+    businessName: "Rao Surgical Clinic",
+    email: "nisha@example.com",
+    firstName: "Nisha",
+    id: "customer-1",
+    lastName: "Rao",
+    mobileNumber: "+919999888877"
+  };
   const order = {
     createdAt: now,
     deletedAt: null,
+    discountTotal: "25.00",
+    grandTotal: "1225.00",
     id: "order-1",
     items: [
       {
+        id: "item-1",
+        name: "Sterile gloves",
         productId: "product-1",
         quantity: 2,
+        sku: "GLV-100",
+        taxAmount: "100.00",
+        total: "1200.00",
+        unitPrice: "550.00",
         variantId: null,
         warehouseId: "warehouse-1"
       }
     ],
+    notes: "Call before delivery.",
     orderNumber: "ORD-20260525-000001",
+    paymentStatus: "PENDING",
+    payments: [
+      {
+        amount: "1225.00",
+        createdAt: now,
+        id: "payment-1",
+        method: "COD",
+        status: "PENDING"
+      }
+    ],
+    shippingAddress,
     status: input?.orderStatus ?? "PACKED",
+    subtotal: "1100.00",
+    taxTotal: "100.00",
+    shippingTotal: "50.00",
     updatedAt: now,
+    user: customer,
     warehouseId: "warehouse-1"
   };
   const statusHistory: Array<{
@@ -135,6 +189,10 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
     pickupWarehouseId: "warehouse-1",
     proofOfDeliveryKey: null as string | null,
     proofOfDeliveryUrl: null as string | null,
+    cashCollectedAmount: null as string | null,
+    cashCollectedAt: null as Date | null,
+    cashSettlementStatus: "NOT_REQUIRED",
+    receiverName: null as string | null,
     status: "ASSIGNED",
     statusHistory,
     updatedAt: now
@@ -198,6 +256,18 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
         calls.deliveryPartnerUpdate.push(args);
         Object.assign(deliveryPartner, args.data);
         return deliveryPartner;
+      }
+    },
+    deliveryPartnerDevice: {
+      upsert: async (args: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
+        calls.deliveryPartnerDeviceUpsert.push(args);
+        return {
+          id: "device-1",
+          createdAt: now,
+          updatedAt: now,
+          ...args.create,
+          ...args.update
+        };
       }
     },
     deliveryPartnerDocument: {
@@ -472,6 +542,57 @@ test("delivery partner can update online status and read assigned deliveries", a
   assert.equal(prisma.calls.deliveryAssignmentFindMany.length, 1);
 });
 
+test("delivery assignment payload includes customer, address, items, payment, totals, notes, and pickup contacts", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  const assignments = await service.listMyAssignments("partner-1");
+  const assignment = assignments.items[0];
+
+  assert.equal(assignment?.customer.fullName, "Nisha Rao");
+  assert.equal(assignment?.customer.mobileNumber, "+919999888877");
+  assert.equal(assignment?.customer.businessName, "Rao Surgical Clinic");
+  assert.equal(assignment?.shippingAddress?.line1, "Clinic 12, Ring Road");
+  assert.equal(assignment?.shippingAddress?.latitude, 28.62);
+  assert.equal(assignment?.items[0]?.sku, "GLV-100");
+  assert.equal(assignment?.items[0]?.name, "Sterile gloves");
+  assert.equal(assignment?.items[0]?.quantity, 2);
+  assert.equal(assignment?.payment.method, "COD");
+  assert.equal(assignment?.payment.codAmount, 1225);
+  assert.equal(assignment?.totals.grandTotal, 1225);
+  assert.equal(assignment?.orderNotes, "Call before delivery.");
+  assert.equal(assignment?.pickupWarehouse?.contactPerson, "Dispatch Desk");
+  assert.equal(assignment?.pickupWarehouse?.latitude, 28.613939);
+});
+
+test("delivery partner can register an iOS push device and update last known GPS location", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  const device = await service.registerMyDevice("partner-1", {
+    notificationsEnabled: true,
+    platform: "ios",
+    pushToken: "ExponentPushToken[delivery-ios]"
+  });
+  const profile = await service.updateMyLocation("partner-1", {
+    latitude: 28.613939,
+    longitude: 77.209023
+  });
+
+  assert.equal(device.platform, "ios");
+  assert.equal(device.pushToken, "ExponentPushToken[delivery-ios]");
+  assert.equal(profile.lastKnownLocation?.latitude, 28.613939);
+  assert.equal(profile.lastKnownLocation?.longitude, 77.209023);
+  assert.equal(prisma.calls.deliveryPartnerDeviceUpsert.length, 1);
+  assert.equal(prisma.calls.deliveryPartnerUpdate.length, 1);
+});
+
 test("delivery partner can store uploaded document metadata on the profile", async () => {
   const prisma = createDeliveryPrismaMock();
   const service = new DeliveryService(
@@ -507,9 +628,11 @@ test("delivery partner status updates store pickup and delivered timestamps with
     status: "OUT_FOR_DELIVERY"
   });
   const delivered = await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    cashCollectedAmount: 1225,
     note: "Received by clinic desk",
     proofOfDeliveryKey: "proofs/order-1.jpg",
     proofOfDeliveryUrl: "http://localhost/uploads/proofs/order-1.jpg",
+    receiverName: "Nisha Rao",
     status: "DELIVERED"
   });
 
@@ -517,10 +640,93 @@ test("delivery partner status updates store pickup and delivered timestamps with
   assert.ok(delivered.pickedUpAt);
   assert.ok(delivered.deliveredAt);
   assert.equal(delivered.proofOfDeliveryKey, "proofs/order-1.jpg");
+  assert.equal(delivered.receiverName, "Nisha Rao");
+  assert.equal(delivered.payment.cashCollectedAmount, 1225);
+  assert.equal(delivered.payment.cashSettlementStatus, "COLLECTED");
   assert.equal(prisma.calls.inventoryStockUpdateMany.length, 1);
   assert.equal(
     (prisma.calls.orderUpdate.at(-1) as { data: { status: string } }).data.status,
     "DELIVERED"
+  );
+});
+
+test("delivery partner must provide proof and receiver name before marking delivered", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "ACCEPTED"
+  });
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "PICKED_UP"
+  });
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "OUT_FOR_DELIVERY"
+  });
+
+  await assert.rejects(
+    () =>
+      service.updateAssignmentStatus("partner-1", "assignment-1", {
+        cashCollectedAmount: 1225,
+        proofOfDeliveryKey: "proofs/order-1.jpg",
+        status: "DELIVERED"
+      }),
+    BadRequestException
+  );
+});
+
+test("delivery partner must provide a failure reason before marking failed", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "ACCEPTED"
+  });
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "PICKED_UP"
+  });
+
+  await assert.rejects(
+    () =>
+      service.updateAssignmentStatus("partner-1", "assignment-1", {
+        status: "FAILED"
+      }),
+    BadRequestException
+  );
+});
+
+test("COD deliveries must include the collected amount before marking delivered", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "ACCEPTED"
+  });
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "PICKED_UP"
+  });
+  await service.updateAssignmentStatus("partner-1", "assignment-1", {
+    status: "OUT_FOR_DELIVERY"
+  });
+
+  await assert.rejects(
+    () =>
+      service.updateAssignmentStatus("partner-1", "assignment-1", {
+        proofOfDeliveryKey: "proofs/order-1.jpg",
+        proofOfDeliveryUrl: "http://localhost/uploads/proofs/order-1.jpg",
+        receiverName: "Nisha Rao",
+        status: "DELIVERED"
+      }),
+    BadRequestException
   );
 });
 

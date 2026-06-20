@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -15,6 +16,9 @@ import {
   DeliveryPartnerStatus,
   DeliveryStatus
 } from "../../../generated/prisma/enums";
+
+export const DELIVERY_DEVICE_PLATFORMS = ["ios", "android"] as const;
+export type DeliveryDevicePlatform = (typeof DELIVERY_DEVICE_PLATFORMS)[number];
 
 export class DeliveryPartnerListQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1 })
@@ -124,6 +128,42 @@ export class DeliveryPartnerOnlineStatusDto {
   isOnline!: boolean;
 }
 
+export class DeliveryPartnerDeviceDto {
+  @ApiProperty({
+    enum: DELIVERY_DEVICE_PLATFORMS,
+    example: "ios"
+  })
+  @IsIn(DELIVERY_DEVICE_PLATFORMS)
+  platform!: DeliveryDevicePlatform;
+
+  @ApiProperty({
+    example: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+  })
+  @IsString()
+  pushToken!: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsBoolean()
+  @IsOptional()
+  notificationsEnabled?: boolean;
+}
+
+export class DeliveryPartnerLocationDto {
+  @ApiProperty({ example: 28.613939, maximum: 90, minimum: -90 })
+  @Type(() => Number)
+  @IsNumber()
+  @Max(90)
+  @Min(-90)
+  latitude!: number;
+
+  @ApiProperty({ example: 77.209023, maximum: 180, minimum: -180 })
+  @Type(() => Number)
+  @IsNumber()
+  @Max(180)
+  @Min(-180)
+  longitude!: number;
+}
+
 export class AddDeliveryPartnerDocumentDto {
   @ApiProperty({
     example: "DRIVING_LICENSE"
@@ -198,6 +238,24 @@ export class UpdateDeliveryAssignmentStatusDto {
   proofOfDeliveryKey?: string;
 
   @ApiPropertyOptional({
+    example: "Dr. Nisha Rao"
+  })
+  @IsOptional()
+  @IsString()
+  receiverName?: string;
+
+  @ApiPropertyOptional({
+    description: "Cash collected from the customer for COD deliveries.",
+    example: 1225,
+    minimum: 0
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  cashCollectedAmount?: number;
+
+  @ApiPropertyOptional({
     example: "Clinic was closed at the delivery attempt."
   })
   @IsOptional()
@@ -239,6 +297,17 @@ export class DeliveryWalletResponseDto {
   totalEarnings!: number;
 }
 
+export class DeliveryPartnerLocationResponseDto {
+  @ApiProperty({ example: 28.613939, nullable: true })
+  latitude!: number | null;
+
+  @ApiProperty({ example: 77.209023, nullable: true })
+  longitude!: number | null;
+
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
+  updatedAt!: Date | null;
+}
+
 export class DeliveryPartnerResponseDto {
   @ApiProperty({ example: "partner-id" })
   id!: string;
@@ -263,6 +332,9 @@ export class DeliveryPartnerResponseDto {
 
   @ApiProperty({ example: "2026-05-25T10:00:00.000Z", nullable: true })
   lastSeenAt!: Date | null;
+
+  @ApiProperty({ type: DeliveryPartnerLocationResponseDto, nullable: true })
+  lastKnownLocation!: DeliveryPartnerLocationResponseDto | null;
 
   @ApiProperty({ type: DeliveryWalletResponseDto })
   wallet!: DeliveryWalletResponseDto;
@@ -303,6 +375,124 @@ export class DeliveryPickupWarehouseResponseDto {
 
   @ApiProperty({ example: "110001" })
   pincode!: string;
+
+  @ApiProperty({ example: "Dispatch Desk" })
+  contactPerson!: string;
+
+  @ApiProperty({ example: "+911145678900" })
+  contactNumber!: string;
+
+  @ApiProperty({ example: 28.613939, nullable: true })
+  latitude!: number | null;
+
+  @ApiProperty({ example: 77.209023, nullable: true })
+  longitude!: number | null;
+}
+
+export class DeliveryAssignmentCustomerResponseDto {
+  @ApiProperty({ example: "customer-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Nisha Rao" })
+  fullName!: string;
+
+  @ApiProperty({ example: "+919999888877" })
+  mobileNumber!: string;
+
+  @ApiProperty({ example: "Rao Surgical Clinic", nullable: true })
+  businessName!: string | null;
+}
+
+export class DeliveryAddressResponseDto {
+  @ApiProperty({ example: "Dr. Nisha Rao" })
+  fullName!: string;
+
+  @ApiProperty({ example: "+919999888877" })
+  mobileNumber!: string;
+
+  @ApiProperty({ example: "Clinic 12, Ring Road" })
+  line1!: string;
+
+  @ApiProperty({ example: "First floor", nullable: true })
+  line2!: string | null;
+
+  @ApiProperty({ example: "Near metro gate 2", nullable: true })
+  landmark!: string | null;
+
+  @ApiProperty({ example: "Delhi" })
+  city!: string;
+
+  @ApiProperty({ example: "Delhi" })
+  state!: string;
+
+  @ApiProperty({ example: "110024" })
+  pincode!: string;
+
+  @ApiProperty({ example: "India" })
+  country!: string;
+
+  @ApiProperty({ example: 28.62, nullable: true })
+  latitude!: number | null;
+
+  @ApiProperty({ example: 77.22, nullable: true })
+  longitude!: number | null;
+}
+
+export class DeliveryAssignmentItemResponseDto {
+  @ApiProperty({ example: "item-id" })
+  id!: string;
+
+  @ApiProperty({ example: "GLV-100" })
+  sku!: string;
+
+  @ApiProperty({ example: "Sterile gloves" })
+  name!: string;
+
+  @ApiProperty({ example: 2 })
+  quantity!: number;
+
+  @ApiProperty({ example: "product-id", nullable: true })
+  productId!: string | null;
+
+  @ApiProperty({ example: "variant-id", nullable: true })
+  variantId!: string | null;
+
+  @ApiProperty({ example: "warehouse-id", nullable: true })
+  warehouseId!: string | null;
+}
+
+export class DeliveryAssignmentPaymentResponseDto {
+  @ApiProperty({ example: "COD", nullable: true })
+  method!: string | null;
+
+  @ApiProperty({ example: "PENDING", nullable: true })
+  status!: string | null;
+
+  @ApiProperty({ example: 1225 })
+  codAmount!: number;
+
+  @ApiProperty({ example: 1225, nullable: true })
+  cashCollectedAmount!: number | null;
+
+  @ApiProperty({ example: "COLLECTED" })
+  cashSettlementStatus!: string;
+}
+
+export class DeliveryAssignmentTotalsResponseDto {
+  @ApiProperty({ example: 1100 })
+  subtotal!: number;
+
+  @ApiProperty({ example: 100 })
+  taxTotal!: number;
+
+  @ApiProperty({ example: 50 })
+  shippingTotal!: number;
+
+  @ApiProperty({ example: 25 })
+  discountTotal!: number;
+
+  @ApiProperty({ example: 1225 })
+  grandTotal!: number;
 }
 
 export class DeliveryAssignmentHistoryResponseDto {
@@ -344,6 +534,24 @@ export class DeliveryAssignmentResponseDto {
   @ApiProperty({ enum: DeliveryStatus })
   status!: DeliveryStatus;
 
+  @ApiProperty({ type: DeliveryAssignmentCustomerResponseDto })
+  customer!: DeliveryAssignmentCustomerResponseDto;
+
+  @ApiProperty({ type: DeliveryAddressResponseDto, nullable: true })
+  shippingAddress!: DeliveryAddressResponseDto | null;
+
+  @ApiProperty({ type: [DeliveryAssignmentItemResponseDto] })
+  items!: DeliveryAssignmentItemResponseDto[];
+
+  @ApiProperty({ type: DeliveryAssignmentPaymentResponseDto })
+  payment!: DeliveryAssignmentPaymentResponseDto;
+
+  @ApiProperty({ type: DeliveryAssignmentTotalsResponseDto })
+  totals!: DeliveryAssignmentTotalsResponseDto;
+
+  @ApiProperty({ example: "Call before delivery.", nullable: true })
+  orderNotes!: string | null;
+
   @ApiProperty({ example: "warehouse-id", nullable: true })
   pickupWarehouseId!: string | null;
 
@@ -367,6 +575,9 @@ export class DeliveryAssignmentResponseDto {
 
   @ApiProperty({ example: "Clinic was closed.", nullable: true })
   failureReason!: string | null;
+
+  @ApiProperty({ example: "Dr. Nisha Rao", nullable: true })
+  receiverName!: string | null;
 
   @ApiProperty({ type: [DeliveryAssignmentHistoryResponseDto] })
   statusHistory!: DeliveryAssignmentHistoryResponseDto[];
