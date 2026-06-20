@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
   buildCustomerApiProxyHeaders,
+  buildCustomerApiProxyResponse,
   buildCustomerApiProxyUrl
 } from "../../../../lib/api/proxy";
 
@@ -40,11 +41,7 @@ async function proxyCustomerApi(
     redirect: "manual"
   });
 
-  return new Response(upstreamResponse.body, {
-    headers: buildCustomerApiProxyHeaders(upstreamResponse.headers),
-    status: upstreamResponse.status,
-    statusText: upstreamResponse.statusText
-  });
+  return buildCustomerApiProxyResponse(upstreamResponse);
 }
 
 function getApiBaseUrl() {

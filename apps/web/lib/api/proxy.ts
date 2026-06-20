@@ -35,3 +35,13 @@ export function buildCustomerApiProxyHeaders(input: Headers) {
 
   return headers;
 }
+
+export async function buildCustomerApiProxyResponse(upstreamResponse: Response) {
+  const body = await upstreamResponse.arrayBuffer();
+
+  return new Response(body, {
+    headers: buildCustomerApiProxyHeaders(upstreamResponse.headers),
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText
+  });
+}

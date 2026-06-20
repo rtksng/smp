@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCustomerApiProxyHeaders,
+  buildCustomerApiProxyResponse,
   buildCustomerApiProxyUrl
 } from "./proxy";
 
@@ -35,5 +36,22 @@ describe("customer API proxy helpers", () => {
     expect(headers.has("Connection")).toBe(false);
     expect(headers.has("Content-Length")).toBe(false);
     expect(headers.has("Host")).toBe(false);
+  });
+
+  it("returns the upstream response body from the proxy response", async () => {
+    const response = await buildCustomerApiProxyResponse(
+      new Response(JSON.stringify({ success: true }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": "16"
+        },
+        status: 200
+      })
+    );
+
+    await expect(response.json()).resolves.toEqual({ success: true });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/json");
+    expect(response.headers.has("Content-Length")).toBe(false);
   });
 });
