@@ -180,7 +180,7 @@ export async function HomePage() {
                   className="rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-5 shadow-sm shadow-[#287c30]/5"
                   key={item.title}
                 >
-                  <h3 className="text-lg font-bold text-[#173b1d]">{item.title}</h3>
+                  <h3 className="text-lg font-semibold text-[#173b1d]">{item.title}</h3>
                   <p className="mt-3 text-sm leading-6 text-[#556b57]">{item.body}</p>
                 </article>
               ))}
@@ -236,11 +236,11 @@ export async function HomePage() {
                         />
                       </span>
                     ) : (
-                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#eaf7eb] text-sm font-bold text-[#287c30]">
+                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#eaf7eb] text-sm font-semibold text-[#287c30]">
                         {brand.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <h3 className="text-sm font-bold leading-5 text-[#173b1d]">
+                    <h3 className="text-sm font-semibold leading-5 text-[#173b1d]">
                       {brand.name}
                     </h3>
                   </a>
@@ -260,7 +260,7 @@ export async function HomePage() {
           <Container>
             <div className="grid gap-8 rounded-[2rem] bg-[#287c30] p-7 text-white shadow-xl shadow-[#287c30]/15 lg:grid-cols-[0.85fr_1.15fr] lg:items-start md:p-10">
               <div>
-                <h2 className="text-2xl font-bold sm:text-3xl">
+                <h2 className="text-2xl font-semibold sm:text-3xl">
                   Planning a bulk order?
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-white/75">
@@ -332,14 +332,14 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
                 unoptimized={category.imageUrl.startsWith("http://localhost")}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] text-4xl font-bold text-[#287c30]">
+              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] text-4xl font-semibold text-[#287c30]">
                 {category.label.slice(0, 1)}
               </div>
             )}
           </a>
           <div className="grid content-between gap-4 p-4">
             <div>
-              <h3 className="text-base font-bold leading-6 text-[#173b1d]">
+              <h3 className="text-base font-semibold leading-6 text-[#173b1d]">
                 <a href={category.href}>{category.label}</a>
               </h3>
               {category.description ? (
@@ -372,7 +372,7 @@ function FeaturedCategorySection({
     <section className="border-t border-[#cfe9d2] pt-8">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-xl font-bold leading-7 text-[#173b1d] sm:text-2xl">
+          <h3 className="text-xl font-semibold leading-7 text-[#173b1d] sm:text-2xl">
             {category.label}
           </h3>
           <p className="mt-2 text-sm leading-6 text-[#556b57]">

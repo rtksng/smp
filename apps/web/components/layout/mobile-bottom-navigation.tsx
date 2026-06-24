@@ -75,7 +75,7 @@ function BottomNavLink({
 }) {
   return (
     <Link
-      className="grid justify-items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-[#173b1d]"
+      className="grid justify-items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-[#173b1d]"
       href={href}
     >
       <BottomNavIcon Icon={Icon} />
@@ -100,7 +100,7 @@ function BottomNavAction({
   return (
     <a
       aria-label={`Open ${label.toLowerCase()}`}
-      className="relative z-10 grid min-h-14 w-full touch-manipulation justify-items-center gap-0.5 rounded-full bg-transparent px-1.5 py-0.5 text-[10px] font-bold text-[#173b1d]"
+      className="relative z-10 grid min-h-14 w-full touch-manipulation justify-items-center gap-0.5 rounded-full bg-transparent px-1.5 py-0.5 text-[10px] font-semibold text-[#173b1d]"
       href={fallbackHref}
       onClick={(event) => {
         event.preventDefault();
@@ -144,7 +144,7 @@ function CategorySheet({
       <div className="grid max-h-[62vh] gap-2 overflow-y-auto px-4 pb-5">
         {categories.map((category) => (
           <Link
-            className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[#cfe9d2] bg-[#f8fcf8] px-4 text-sm font-bold text-[#173b1d]"
+            className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[#cfe9d2] bg-[#f8fcf8] px-4 text-sm font-semibold text-[#173b1d]"
             href={category.href}
             key={category.id}
           >
@@ -171,7 +171,7 @@ function SearchSheet({
       onClose={onClose}
     >
       <form action="/products" className="grid gap-5 px-4 pb-6">
-        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
+        <label className="grid gap-2 text-sm font-semibold text-[#173b1d]">
           Search products or SKU
           <span className="grid min-h-12 grid-cols-[1fr_auto] items-center rounded-full border border-[#287c30] bg-white px-4">
             <input
@@ -192,13 +192,13 @@ function SearchSheet({
         </label>
         {categories.length > 0 ? (
           <div className="grid gap-2">
-            <p className="text-xs font-bold uppercase text-[#556b57]">
+            <p className="text-xs font-semibold uppercase text-[#556b57]">
               Browse categories
             </p>
             <div className="flex flex-wrap gap-2">
               {categories.slice(0, 6).map((category) => (
                 <Link
-                  className="rounded-full border border-[#cfe9d2] bg-[#f8fcf8] px-3 py-2 text-xs font-bold text-[#173b1d]"
+                  className="rounded-full border border-[#cfe9d2] bg-[#f8fcf8] px-3 py-2 text-xs font-semibold text-[#173b1d]"
                   href={category.href}
                   key={category.id}
                 >

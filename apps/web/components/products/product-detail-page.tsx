@@ -322,7 +322,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5] pb-28 md:pb-0">
+      <main className="bg-[#f4fbf5]">
         <Container className="py-4 sm:py-8">
           {productQuery.isLoading ? <ProductDetailSkeleton /> : null}
 
@@ -350,7 +350,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
               <div className="flex items-start gap-2 sm:items-center sm:gap-3">
                 <button
                   aria-label="Back"
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#cfe9d2] bg-white px-3 text-xs font-bold text-[#287c30] shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30] hover:bg-[#f4fbf5] focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 sm:min-h-9 sm:text-sm"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#cfe9d2] bg-white px-3 text-xs font-semibold text-[#287c30] shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30] hover:bg-[#f4fbf5] focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 sm:min-h-9 sm:text-sm"
                   onClick={() => router.back()}
                   type="button"
                 >
@@ -358,7 +358,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 </button>
                 <nav
                   aria-label="Product breadcrumbs"
-                  className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold text-[#687773] sm:gap-2 sm:text-sm"
+                  className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-semibold text-[#687773] sm:gap-2 sm:text-sm"
                 >
                   <Link className="hover:text-[#287c30]" href="/products">
                     Products
@@ -401,7 +401,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#eaf7eb,#eef3f1)] px-4 text-center text-[#287c30]">
                         <PackageCheck aria-hidden="true" className="h-20 w-20" />
-                        <span className="text-sm font-bold text-[#23702a]">
+                        <span className="text-sm font-semibold text-[#23702a]">
                           Product image unavailable
                         </span>
                       </div>
@@ -465,13 +465,13 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 </section>
 
                 <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-6">
-                  <p className="text-xs font-bold uppercase text-[#9b6a1e]">
+                  <p className="text-xs font-semibold uppercase text-[#9b6a1e]">
                     {product.brand.name}
                   </p>
-                  <h1 className="mt-2 text-lg font-bold leading-snug text-[#17211f] sm:text-3xl">
+                  <h1 className="mt-2 text-lg font-semibold leading-snug text-[#17211f] sm:text-3xl">
                     {product.name}
                   </h1>
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold text-[#31413d] sm:gap-2 sm:text-xs">
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#31413d] sm:gap-2 sm:text-xs">
                     <span className="rounded-full bg-[#eef3f1] px-3 py-1">
                       SKU {product.sku}
                     </span>
@@ -531,15 +531,15 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 </section>
 
                 <aside className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 xl:self-start">
-                  <p className="text-xs font-bold uppercase text-[#9b6a1e]">
+                  <p className="text-xs font-semibold uppercase text-[#9b6a1e]">
                     Purchase panel
                   </p>
                   <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
-                    <p className="text-xs font-bold text-[#687773]">Hospital price</p>
-                    <p className="mt-1 text-xl font-bold tabular-nums text-[#17211f] sm:text-2xl">
+                    <p className="text-xs font-semibold text-[#687773]">Hospital price</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-[#17211f] sm:text-2xl">
                       {formatRupees(product.sellingPrice)}
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-bold">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
                       <span className="text-[#687773]">
                         MRP {formatRupees(product.mrp)}
                       </span>
@@ -551,7 +551,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-2 text-sm font-bold text-[#31413d]">
+                  <div className="mt-5 grid gap-2 text-sm font-semibold text-[#31413d]">
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-2 shadow-sm shadow-[#287c30]/5">
                       <span>Quantity</span>
                       <div className="inline-flex h-11 items-center justify-between overflow-hidden rounded-lg border border-[#cfdcda] bg-white">
@@ -563,7 +563,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         >
                           <Minus aria-hidden="true" className="h-4 w-4" />
                         </button>
-                        <span className="min-w-10 text-center font-bold text-[#17211f]">
+                        <span className="min-w-10 text-center font-semibold text-[#17211f]">
                           {quantity}
                         </span>
                         <button
@@ -629,12 +629,12 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   </div>
 
                   {!product.inStock ? (
-                    <p className="mt-4 rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                    <p className="mt-4 rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
                       {stockErrorMessage()}
                     </p>
                   ) : null}
                   {actionMessage ? (
-                    <p className="mt-4 rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-bold text-[#287c30]">
+                    <p className="mt-4 rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-semibold text-[#287c30]">
                       {actionMessage}
                     </p>
                   ) : null}
@@ -711,7 +711,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
 
               {wishlistToast ? (
                 <div
-                  className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#bfe7d1] bg-white px-4 py-2 text-sm font-bold text-[#0a7f32] shadow-lg shadow-[#287c30]/15 md:bottom-8"
+                  className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#bfe7d1] bg-white px-4 py-2 text-sm font-semibold text-[#0a7f32] shadow-lg shadow-[#287c30]/15 md:bottom-8"
                   role="status"
                 >
                   {wishlistToast}
@@ -748,10 +748,10 @@ function ProductSignal({
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#eaf7eb] text-[#287c30] sm:h-8 sm:w-8">
         <Icon aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </span>
-      <p className="mt-1.5 text-[11px] font-bold text-[#17211f] sm:mt-2 sm:text-xs">
+      <p className="mt-1.5 text-[11px] font-semibold text-[#17211f] sm:mt-2 sm:text-xs">
         {title}
       </p>
-      <p className="mt-1 text-[11px] font-bold leading-4 text-[#687773]">
+      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#687773]">
         {value}
       </p>
     </div>
@@ -761,11 +761,11 @@ function ProductSignal({
 function ProductSummary({ description }: { description: string }) {
   return (
     <>
-      <div className="mt-5 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-3.5 shadow-sm shadow-[#287c30]/5 sm:hidden">
+      <div className="mt-5 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3.5 shadow-sm shadow-[#287c30]/5 sm:hidden">
         <details className="group" data-testid="mobile-product-summary">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-            <span className="text-sm font-bold text-[#17211f]">Product summary</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#687773]">
+            <span className="text-sm font-semibold text-[#17211f]">Product summary</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#687773]">
               <span
                 className="group-open:hidden"
                 data-testid="mobile-product-summary-ellipsis"
@@ -799,7 +799,7 @@ function ProductSummary({ description }: { description: string }) {
         className="mt-5 hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5 sm:block"
         data-testid="desktop-product-summary"
       >
-        <h2 className="text-base font-bold text-[#17211f]">Product summary</h2>
+        <h2 className="text-base font-semibold text-[#17211f]">Product summary</h2>
         <div
           className="productDescriptionRichText mt-2 text-sm leading-6 text-[#687773]"
           data-testid="desktop-product-summary-body"
@@ -834,7 +834,7 @@ function ProductFacts({ product }: { product: Product }) {
           className="flex items-start justify-between gap-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#287c30]/5"
           key={fact.label}
         >
-          <span className="text-sm font-bold text-[#687773]">{fact.label}</span>
+          <span className="text-sm font-semibold text-[#687773]">{fact.label}</span>
           <strong className="min-w-0 break-words text-right text-sm text-[#17211f]">
             {fact.value}
           </strong>
@@ -864,23 +864,23 @@ function ProductVariants({ product }: { product: Product }) {
                 <Boxes aria-hidden="true" className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <h3 className="text-sm font-bold leading-5 text-[#17211f]">
+                <h3 className="text-sm font-semibold leading-5 text-[#17211f]">
                   {variant.name}
                 </h3>
-                <p className="mt-0.5 text-[11px] font-bold uppercase text-[#687773]">
+                <p className="mt-0.5 text-[11px] font-semibold uppercase text-[#687773]">
                   SKU {variant.sku}
                 </p>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-base font-bold tabular-nums text-[#17211f]">
+              <span className="text-base font-semibold tabular-nums text-[#17211f]">
                 {formatRupees(variant.sellingPrice)}
               </span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#31413d]">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#31413d]">
                 {variant.status.replaceAll("_", " ")}
               </span>
             </div>
-            <p className="mt-1 text-xs font-bold text-[#687773]">
+            <p className="mt-1 text-xs font-semibold text-[#687773]">
               MRP {formatRupees(variant.mrp)}
             </p>
           </article>
@@ -922,7 +922,7 @@ function ProductDocuments({ product }: { product: Product }) {
                 </span>
                 <span>
                   <strong className="block text-[#17211f] text-sm sm:text-normal">{document.title}</strong>
-                  <span className="text-sm font-bold text-[#687773]">
+                  <span className="text-sm font-semibold text-[#687773]">
                     {documentTypeLabel(document.type)}
                   </span>
                 </span>
@@ -977,7 +977,7 @@ function ProductFeedbackSection({
       />
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className="grid gap-4">
-          <h3 className="text-sm font-bold text-[#17211f]">Reviews</h3>
+          <h3 className="text-sm font-semibold text-[#17211f]">Reviews</h3>
           <div className="grid gap-3">
             {reviews.length > 0 ? (
               reviews.slice(0, 4).map((review) => (
@@ -985,14 +985,14 @@ function ProductFeedbackSection({
                   className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={review.id}
                 >
-                  <p className="text-sm font-bold text-[#17211f]">
+                  <p className="text-sm font-semibold text-[#17211f]">
                     Rating {review.rating}/5 |{" "}
                     {review.title ?? "Customer review"}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[#687773]">
                     {review.comment}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-[#687773]">
+                  <p className="mt-2 text-xs font-semibold text-[#687773]">
                     {review.customerName}
                   </p>
                 </article>
@@ -1003,10 +1003,10 @@ function ProductFeedbackSection({
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 md:rounded-lg md:border md:border-[#cfe9d2] md:bg-[#f8fbfa] md:p-4">
             <select
               aria-label="Review rating"
-              className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-bold text-[#17211f]"
+              className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f]"
               onChange={(event) => setReviewRating(Number(event.target.value))}
               value={reviewRating}
             >
@@ -1033,7 +1033,7 @@ function ProductFeedbackSection({
           </div>
         </div>
         <div className="grid gap-4">
-          <h3 className="text-sm font-bold text-[#17211f]">Questions</h3>
+          <h3 className="text-sm font-semibold text-[#17211f]">Questions</h3>
           <div className="grid gap-3">
             {questions.length > 0 ? (
               questions.slice(0, 4).map((entry) => (
@@ -1041,13 +1041,13 @@ function ProductFeedbackSection({
                   className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={entry.id}
                 >
-                  <p className="text-sm font-bold text-[#17211f]">
+                  <p className="text-sm font-semibold text-[#17211f]">
                     {entry.question}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[#687773]">
                     {entry.answer ?? "Awaiting answer."}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-[#687773]">
+                  <p className="mt-2 text-xs font-semibold text-[#687773]">
                     {entry.customerName}
                   </p>
                 </article>
@@ -1058,7 +1058,7 @@ function ProductFeedbackSection({
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 md:rounded-lg md:border md:border-[#cfe9d2] md:bg-[#f8fbfa] md:p-4">
             <textarea
               aria-label="Product question"
               className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"

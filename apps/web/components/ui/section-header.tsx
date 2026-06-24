@@ -29,7 +29,7 @@ export function SectionHeader({
           <p
             className={[
               isCompact ? "mb-1 text-[11px]" : "mb-2 text-xs",
-              "font-bold uppercase text-[#287c30]"
+              "font-semibold uppercase text-[#287c30]"
             ].join(" ")}
           >
             {eyebrow}
@@ -38,7 +38,7 @@ export function SectionHeader({
         <h2
           className={[
             isCompact ? "text-lg sm:text-xl" : "text-2xl sm:text-3xl",
-            "font-bold leading-tight text-[#173b1d]"
+            "font-semibold leading-tight text-[#173b1d]"
           ].join(" ")}
         >
           {title}

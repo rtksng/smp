@@ -3,7 +3,10 @@ import { HeroUIProvider } from "@heroui/system";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Brand, Category, Product, ProductList } from "../../lib/api/schemas";
-import { ProductListingPage } from "./product-listing-page";
+import {
+  filterSelectPopoverProps,
+  ProductListingPage
+} from "./product-listing-page";
 
 const routerPush = vi.fn();
 let pathname = "/products";
@@ -221,15 +224,32 @@ describe("ProductListingPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open filters" }));
 
     const dialog = screen.getByRole("dialog", { name: "Product filters" });
+    const sheetHeader = within(dialog).getByTestId("mobile-filter-sheet-header");
     const filterFields = within(dialog).getByTestId("filter-fields-scroll");
     const applyButton = within(dialog).getByRole("button", {
       name: "Apply Filters"
     });
+    const headerClearLink = within(sheetHeader).getByRole("link", {
+      name: "Clear"
+    });
 
     expect(dialog).toHaveClass("overflow-hidden");
+    expect(sheetHeader).toHaveClass("justify-between");
+    expect(headerClearLink).toHaveAttribute("href", "/products");
+    expect(within(dialog).getAllByRole("link", { name: "Clear" }))
+      .toHaveLength(1);
     expect(filterFields).toHaveClass("overflow-y-auto", "pb-6");
     expect(filterFields).toHaveClass("[scrollbar-width:thin]");
     expect(applyButton).toHaveClass("sticky", "bottom-0");
+  });
+
+  it("allows mobile filter dropdown popovers to flip within the viewport", () => {
+    expect(filterSelectPopoverProps).toMatchObject({
+      offset: 6,
+      placement: "bottom-start",
+      shouldBlockScroll: false,
+      shouldFlip: true
+    });
   });
 
   it("renders compact active filter badges after sheet selections", () => {

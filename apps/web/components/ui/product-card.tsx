@@ -29,12 +29,16 @@ type ProductCardProps = {
   compact?: boolean;
   minimal?: boolean;
   product: Product;
+  showDescription?: boolean;
+  showServiceBadges?: boolean;
 };
 
 export function ProductCard({
   compact = false,
   minimal = false,
-  product
+  product,
+  showDescription = true,
+  showServiceBadges = true
 }: ProductCardProps) {
   const queryClient = useQueryClient();
   const [actionMessage, setActionMessage] = useState<{
@@ -121,14 +125,14 @@ export function ProductCard({
               aria-hidden="true"
               className={compact ? "h-9 w-9 sm:h-12 sm:w-12" : "h-14 w-14"}
             />
-            <span className="text-xs font-bold text-[#173b1d]">
+            <span className="text-xs font-semibold text-[#173b1d]">
               Product image unavailable
             </span>
           </div>
         )}
         <span
           className={[
-            "absolute left-3 top-3 rounded-full bg-white font-bold text-[#287c30] shadow-sm",
+            "absolute left-3 top-3 rounded-full bg-white font-semibold text-[#287c30] shadow-sm",
             compact
               ? "hidden px-2 py-0.5 text-[10px] sm:block"
               : "px-3 py-1 text-xs"
@@ -139,7 +143,7 @@ export function ProductCard({
         {savings ? (
           <span
             className={[
-              "absolute right-3 top-3 rounded-full bg-[#0a7f32] font-bold text-white shadow-sm",
+              "absolute right-3 top-3 rounded-full bg-[#0a7f32] font-semibold text-white shadow-sm",
               compact
                 ? "hidden px-2 py-0.5 text-[10px] sm:block"
                 : "px-3 py-1 text-xs"
@@ -151,7 +155,7 @@ export function ProductCard({
         {compact && !recommendationCard ? (
           <a
             aria-label={`View ${product.name}`}
-            className="absolute bottom-2 right-2 rounded-lg border border-[#287c30] bg-white px-3 py-1 text-[11px] font-bold text-[#287c30] shadow-sm sm:hidden"
+            className="absolute bottom-2 right-2 rounded-lg border border-[#287c30] bg-white px-3 py-1 text-[11px] font-semibold text-[#287c30] shadow-sm sm:hidden"
             href={`/products/${product.slug}`}
           >
             View
@@ -172,10 +176,10 @@ export function ProductCard({
           <div
             className={
               recommendationCard
-                ? "flex flex-wrap items-center gap-1.5 text-[11px] font-bold"
+                ? "flex flex-wrap items-center gap-1.5 text-[11px] font-semibold"
                 : compact
-                  ? "flex flex-wrap items-center gap-1.5 text-[11px] font-semibold sm:text-xs sm:font-bold"
-                  : "flex flex-wrap items-center gap-2 text-xs font-bold"
+                  ? "flex flex-wrap items-center gap-1.5 text-[11px] font-semibold sm:text-xs sm:font-semibold"
+                  : "flex flex-wrap items-center gap-2 text-xs font-semibold"
             }
           >
             <a
@@ -207,15 +211,15 @@ export function ProductCard({
             className={[
               "line-clamp-2 text-[#173b1d]",
               recommendationCard
-                ? "mt-2 text-sm font-bold leading-5"
+                ? "mt-2 text-sm font-semibold leading-5"
                 : compact
-                  ? "min-h-9 text-xs font-semibold leading-[1.15rem] sm:mt-2 sm:min-h-0 sm:text-base sm:font-bold sm:leading-5"
-                  : "mt-2 text-lg font-bold leading-6"
+                  ? "min-h-9 text-xs font-semibold leading-[1.15rem] sm:mt-2 sm:min-h-0 sm:text-base sm:font-semibold sm:leading-5"
+                  : "mt-2 text-lg font-semibold leading-6"
             ].join(" ")}
           >
             {product.name}
           </h3>
-          {!compact ? (
+          {!compact && showDescription ? (
             <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#556b57]">
               {product.shortDescription}
             </p>
@@ -223,7 +227,7 @@ export function ProductCard({
         </div>
 
         {!compact ? (
-          <div className="flex flex-wrap gap-2 text-xs font-bold text-[#173b1d]">
+          <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#173b1d]">
             <span className="rounded-full bg-[#eaf7eb] px-3 py-1">
               SKU {product.sku}
             </span>
@@ -259,7 +263,7 @@ export function ProductCard({
           }
         >
           {!compact ? (
-            <p className="text-xs font-bold uppercase text-[#556b57]">
+            <p className="text-xs font-semibold uppercase text-[#556b57]">
               Hospital price
             </p>
           ) : null}
@@ -273,10 +277,10 @@ export function ProductCard({
             <p
               className={[
                 recommendationCard
-                  ? "font-bold tabular-nums text-[#173b1d] text-lg"
+                  ? "font-semibold tabular-nums text-[#173b1d] text-lg"
                   : compact
-                    ? "tabular-nums text-base font-black leading-5 text-[#111827] sm:text-xl sm:font-bold sm:leading-normal sm:text-[#173b1d]"
-                    : "font-bold tabular-nums text-[#173b1d] text-2xl"
+                    ? "tabular-nums text-base font-black leading-5 text-[#111827] sm:text-xl sm:font-semibold sm:leading-normal sm:text-[#173b1d]"
+                    : "font-semibold tabular-nums text-[#173b1d] text-2xl"
               ].join(" ")}
             >
               {formatRupees(product.sellingPrice)}
@@ -284,14 +288,14 @@ export function ProductCard({
             <span
               className={[
                 compact
-                  ? "text-[11px] font-semibold text-[#556b57] sm:pb-1 sm:text-xs sm:font-bold"
-                  : "pb-1 text-xs font-bold text-[#556b57]"
+                  ? "text-[11px] font-semibold text-[#556b57] sm:pb-1 sm:text-xs sm:font-semibold"
+                  : "pb-1 text-xs font-semibold text-[#556b57]"
               ].join(" ")}
             >
               <span
                 className={
                   compact
-                    ? "line-through text-[11px] font-semibold text-[#556b57] sm:no-underline sm:text-xs sm:font-bold"
+                    ? "line-through text-[11px] font-semibold text-[#556b57] sm:no-underline sm:text-xs sm:font-semibold"
                     : undefined
                 }
               >
@@ -305,7 +309,7 @@ export function ProductCard({
             </span>
           </div>
           {!compact ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
               {savings ? (
                 <span className="rounded-full bg-[#eaf7ee] px-2 py-1 text-[#0a7f32]">
                   Save {formatRupees(savings.amount)}
@@ -315,8 +319,8 @@ export function ProductCard({
           ) : null}
         </div>
 
-        {!compact ? (
-          <div className="grid gap-2 text-xs font-bold text-[#173b1d] sm:grid-cols-2">
+        {!compact && showServiceBadges ? (
+          <div className="grid gap-2 text-xs font-semibold text-[#173b1d] sm:grid-cols-2">
             <span className="inline-flex items-center gap-2 rounded-[1rem] bg-[#eaf7eb] px-3 py-2">
               <FileText aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
               GST invoice ready
@@ -373,14 +377,14 @@ export function ProductCard({
         </div>
 
         {!recommendationCard && !product.inStock ? (
-          <p className="rounded-lg bg-[#fff5f5] px-3 py-2 text-xs font-bold text-[#7a271a]">
+          <p className="rounded-lg bg-[#fff5f5] px-3 py-2 text-xs font-semibold text-[#7a271a]">
             {stockErrorMessage()}
           </p>
         ) : null}
         {!recommendationCard && actionMessage ? (
           <p
             className={[
-              "rounded-lg px-3 py-2 text-xs font-bold",
+              "rounded-lg px-3 py-2 text-xs font-semibold",
               actionMessage.tone === "error"
                 ? "bg-[#fff5f5] text-[#7a271a]"
                 : "bg-[#eaf7eb] text-[#287c30]"

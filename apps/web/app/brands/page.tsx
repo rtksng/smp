@@ -45,7 +45,7 @@ export default async function BrandsPage() {
         <section className="border-b border-[#cfe9d2] bg-white py-10 sm:py-12">
           <Container className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <div className="max-w-3xl">
-              <h1 className="text-3xl font-bold leading-tight text-[#173b1d] sm:text-5xl">
+              <h1 className="text-3xl font-semibold leading-tight text-[#173b1d] sm:text-5xl">
                 Browse trusted medical brands
               </h1>
               <p className="mt-4 text-base leading-7 text-[#556b57] sm:text-lg">

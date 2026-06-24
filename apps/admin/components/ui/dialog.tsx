@@ -209,7 +209,7 @@ export function DialogTitle({ className, id, ...props }: ComponentProps<"h2">) {
 
   return (
     <h2
-      className={cn("text-xl font-bold text-foreground", className)}
+      className={cn("text-xl font-semibold text-foreground", className)}
       data-slot="dialog-title"
       id={id ?? contentContext?.titleId}
       {...props}

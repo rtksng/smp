@@ -42,7 +42,7 @@ export function TableBody({ className, ...props }: ComponentProps<"tbody">) {
 export function TableFooter({ className, ...props }: ComponentProps<"tfoot">) {
   return (
     <tfoot
-      className={cn(tableSlots.tfoot(), "border-t bg-muted font-bold", className)}
+      className={cn(tableSlots.tfoot(), "border-t bg-muted font-semibold", className)}
       data-slot="table-footer"
       {...props}
     />
@@ -68,7 +68,7 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
     <th
       className={cn(
         tableSlots.th(),
-        "adminTableColumn h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-bold text-foreground",
+        "adminTableColumn h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-semibold text-foreground",
         className
       )}
       data-slot="table-head"

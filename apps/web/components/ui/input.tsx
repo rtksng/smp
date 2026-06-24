@@ -10,7 +10,7 @@ export function Input({ className, error, icon, id, label, ...props }: InputProp
   const inputId = id ?? props.name;
 
   return (
-    <label className="grid gap-2 text-sm font-bold text-[#173b1d]" htmlFor={inputId}>
+    <label className="grid gap-2 text-sm font-semibold text-[#173b1d]" htmlFor={inputId}>
       {label ? <span>{label}</span> : null}
       <span className="relative block">
         {icon ? (

@@ -309,7 +309,7 @@ export function SelectGroup({ children }: { children?: ReactNode }) {
 export function SelectLabel({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("px-2 py-1.5 text-xs font-bold text-muted-foreground", className)}
+      className={cn("px-2 py-1.5 text-xs font-semibold text-muted-foreground", className)}
       data-slot="select-label"
       {...props}
     />

@@ -446,7 +446,7 @@ export function MetricCard({ label, value, tone = "neutral" }: MetricCardProps) 
   return (
     <Card className={cn("min-h-[132px] border-t-4", toneClassName[tone])}>
       <CardContent className="p-5">
-        <span className="block text-sm font-bold text-muted-foreground">{label}</span>
+        <span className="block text-sm font-semibold text-muted-foreground">{label}</span>
         <strong className="mt-5 block text-3xl text-foreground">{value}</strong>
       </CardContent>
     </Card>

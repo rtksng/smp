@@ -190,7 +190,7 @@ export function createRemoveCartItemMutation({
   setCartSummary: CartSummarySetter;
 }) {
   return {
-    mutationFn: removeCartItem,
+    mutationFn: (itemId: string) => removeCartItem(itemId),
     onSuccess: async (cart: Cart, _variables?: string) => {
       syncCartCache(queryClient, setCartSummary, cart);
       await onSuccess?.(cart);

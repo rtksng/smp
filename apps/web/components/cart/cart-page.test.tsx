@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cart } from "../../lib/api/cart";
@@ -83,6 +89,50 @@ describe("CartPage", () => {
     ).toBeGreaterThan(0);
 
     resolveUpdate(cartWithItem(3));
+  });
+
+  it("uses compact delete controls and shows a removal notification", async () => {
+    mocks.removeCartItem.mockResolvedValue(emptyCart());
+
+    renderCart();
+
+    expect(await screen.findByText("Curved Artery Forceps")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /clear cart/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Remove")).not.toBeInTheDocument();
+
+    const deleteButton = screen.getByRole("button", {
+      name: "Delete Curved Artery Forceps from cart"
+    });
+    const cartCard = deleteButton.closest("article");
+
+    expect(deleteButton).toHaveAttribute("data-cart-delete-button", "true");
+    expect(deleteButton.parentElement).toBe(cartCard);
+    expect(cartCard).toHaveClass("relative");
+    expect(deleteButton).toHaveClass("absolute", "right-3", "top-3");
+    expect(screen.getByTestId("cart-item-image")).toHaveClass(
+      "h-24",
+      "w-24",
+      "sm:h-28",
+      "sm:w-28"
+    );
+
+    const pricingGrid = screen.getByTestId("cart-item-pricing-grid");
+    expect(pricingGrid.parentElement).toHaveClass("col-span-2");
+    expect(pricingGrid).toHaveClass("grid-cols-3");
+    expect(
+      within(pricingGrid).getByText("Subtotal").closest("div")
+    ).not.toHaveClass("col-span-2");
+
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(mocks.removeCartItem).toHaveBeenCalledWith("cart_item_1");
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Item removed from cart"
+    );
   });
 
   it("renders the empty cart state with a shopping CTA", async () => {

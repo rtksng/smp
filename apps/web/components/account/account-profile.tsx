@@ -205,13 +205,13 @@ export function AccountProfile() {
               </div>
 
               {submitError ? (
-                <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
                   {submitError}
                 </p>
               ) : null}
 
               {successMessage ? (
-                <p className="rounded-lg bg-[#edf7f4] px-4 py-3 text-sm font-bold text-[#0f6b50]">
+                <p className="rounded-lg bg-[#edf7f4] px-4 py-3 text-sm font-semibold text-[#0f6b50]">
                   {successMessage}
                 </p>
               ) : null}

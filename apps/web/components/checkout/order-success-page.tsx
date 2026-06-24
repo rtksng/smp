@@ -112,10 +112,10 @@ function OrderConfirmation({ order }: { order: Order }) {
               <CheckCircle2 aria-hidden="true" className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase text-[#0f6b50]">
+              <p className="text-xs font-semibold uppercase text-[#0f6b50]">
                 Order placed
               </p>
-              <h1 className="mt-1 text-2xl font-bold leading-tight text-[#17211f] sm:text-3xl">
+              <h1 className="mt-1 text-2xl font-semibold leading-tight text-[#17211f] sm:text-3xl">
                 Order confirmed
               </h1>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#687773]">
@@ -176,18 +176,18 @@ function OrderItems({ order }: { order: Order }) {
             key={item.id}
           >
             <div className="min-w-0">
-              <h3 className="break-words text-sm font-bold text-[#17211f]">
+              <h3 className="break-words text-sm font-semibold text-[#17211f]">
                 {item.name}
               </h3>
-              <p className="mt-1 text-xs font-bold leading-5 text-[#687773]">
+              <p className="mt-1 text-xs font-semibold leading-5 text-[#687773]">
                 SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
               </p>
             </div>
             <div className="text-left sm:text-right">
-              <p className="text-xs font-bold text-[#687773]">
+              <p className="text-xs font-semibold text-[#687773]">
                 {priceFormatter.format(item.unitPrice)} each
               </p>
-              <p className="mt-1 text-base font-bold text-[#17211f]">
+              <p className="mt-1 text-base font-semibold text-[#17211f]">
                 {priceFormatter.format(item.total)}
               </p>
             </div>
@@ -211,7 +211,7 @@ function DeliveryDetails({ order }: { order: Order }) {
 
       {address ? (
         <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
-          <p className="text-sm font-bold text-[#17211f]">
+          <p className="text-sm font-semibold text-[#17211f]">
             {address.fullName}
           </p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#687773]">
@@ -225,7 +225,7 @@ function DeliveryDetails({ order }: { order: Order }) {
           </p>
         </div>
       ) : (
-        <p className="mt-4 rounded-lg bg-[#fff5f5] p-4 text-sm font-bold text-[#7a271a]">
+        <p className="mt-4 rounded-lg bg-[#fff5f5] p-4 text-sm font-semibold text-[#7a271a]">
           Delivery address is not available for this order.
         </p>
       )}
@@ -262,10 +262,10 @@ function StatusTimeline({ order }: { order: Order }) {
               <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <div>
-              <p className="text-sm font-bold text-[#17211f]">
+              <p className="text-sm font-semibold text-[#17211f]">
                 {formatOrderStatus(entry.status)}
               </p>
-              <p className="mt-1 text-xs font-bold text-[#687773]">
+              <p className="mt-1 text-xs font-semibold text-[#687773]">
                 {formatDate(entry.createdAt)}
               </p>
               {entry.note ? (
@@ -315,7 +315,7 @@ function PaymentSummary({ order }: { order: Order }) {
           label="Tax/GST"
           value={priceFormatter.format(order.totals.tax)}
         />
-        <div className="mt-2 flex items-center justify-between gap-4 border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#17211f]">
+        <div className="mt-2 flex items-center justify-between gap-4 border-t border-[#cfe9d2] pt-4 text-base font-semibold text-[#17211f]">
           <dt>Total</dt>
           <dd>{priceFormatter.format(order.totals.grandTotal)}</dd>
         </div>
@@ -364,10 +364,10 @@ function SectionHeading({
         {icon}
       </span>
       <div>
-        <h2 className="text-base font-bold leading-snug text-[#17211f]">
+        <h2 className="text-base font-semibold leading-snug text-[#17211f]">
           {title}
         </h2>
-        <p className="mt-1 text-xs font-bold leading-5 text-[#687773]">
+        <p className="mt-1 text-xs font-semibold leading-5 text-[#687773]">
           {description}
         </p>
       </div>
@@ -378,10 +378,10 @@ function SectionHeading({
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
-      <dt className="text-[0.7rem] font-bold uppercase text-[#687773]">
+      <dt className="text-[0.7rem] font-semibold uppercase text-[#687773]">
         {label}
       </dt>
-      <dd className="mt-1 break-words text-sm font-bold text-[#17211f]">
+      <dd className="mt-1 break-words text-sm font-semibold text-[#17211f]">
         {value}
       </dd>
     </div>
@@ -392,7 +392,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <dt className="text-[#687773]">{label}</dt>
-      <dd className="text-right font-bold text-[#17211f]">{value}</dd>
+      <dd className="text-right font-semibold text-[#17211f]">{value}</dd>
     </div>
   );
 }
@@ -412,8 +412,8 @@ function StatusRow({
         {icon}
       </span>
       <div>
-        <p className="text-xs font-bold text-[#687773]">{label}</p>
-        <p className="text-sm font-bold text-[#17211f]">{value}</p>
+        <p className="text-xs font-semibold text-[#687773]">{label}</p>
+        <p className="text-sm font-semibold text-[#17211f]">{value}</p>
       </div>
     </div>
   );

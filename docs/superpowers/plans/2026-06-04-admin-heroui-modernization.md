@@ -343,7 +343,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 [&_span]:!text-current [&_svg]:!text-current [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60 [&_span]:!text-current [&_svg]:!text-current [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",
@@ -567,7 +567,7 @@ export function CardHeader({ className, ...props }: ComponentProps<typeof HeroCa
 }
 
 export function CardTitle({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("text-lg font-bold text-foreground", className)} {...props} />;
+  return <div className={cn("text-lg font-semibold text-foreground", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<"div">) {
@@ -606,7 +606,7 @@ const badgeClassNames: Record<BadgeVariant, string> = {
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
   return (
     <Chip
-      className={cn("h-6 rounded-md px-2 text-xs font-bold", badgeClassNames[variant], className)}
+      className={cn("h-6 rounded-md px-2 text-xs font-semibold", badgeClassNames[variant], className)}
       radius="sm"
       size="sm"
       variant="flat"
@@ -690,7 +690,7 @@ export function DialogFooter({ className, ...props }: ComponentProps<typeof Moda
 }
 
 export function DialogTitle({ className, ...props }: ComponentProps<"h2">) {
-  return <h2 className={cn("text-xl font-bold text-foreground", className)} {...props} />;
+  return <h2 className={cn("text-xl font-semibold text-foreground", className)} {...props} />;
 }
 
 export function DialogDescription({ className, ...props }: ComponentProps<typeof ModalBody>) {
@@ -867,7 +867,7 @@ export function Table({ className, ...props }: ComponentProps<typeof HeroTable>)
         base: "overflow-auto",
         table: "min-w-full border-collapse text-sm",
         wrapper: "rounded-lg border border-border bg-card p-0 shadow-none",
-        th: "bg-muted px-4 py-3 text-xs font-bold text-foreground",
+        th: "bg-muted px-4 py-3 text-xs font-semibold text-foreground",
         td: "px-4 py-3 text-muted-foreground",
         tr: "border-b border-border"
       }}
@@ -885,7 +885,7 @@ export const TableCell = HeroTableCell;
 export const TableHead = TableColumn;
 
 export function TableFooter({ className, ...props }: ComponentProps<"tfoot">) {
-  return <tfoot className={cn("border-t bg-muted font-bold", className)} {...props} />;
+  return <tfoot className={cn("border-t bg-muted font-semibold", className)} {...props} />;
 }
 
 export function TableCaption({ className, ...props }: ComponentProps<"caption">) {

@@ -79,6 +79,7 @@ h6 {
   font-family: var(--font-display) !important;
   letter-spacing: 0;
   text-wrap: balance;
+  font-weight: 600;
 }
 
 .font-heading {

@@ -75,7 +75,11 @@ export function AccountWishlist() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((product) => (
               <div className="grid gap-3" key={product.id}>
-                <ProductCard product={product} />
+                <ProductCard
+                  product={product}
+                  showDescription={false}
+                  showServiceBadges={false}
+                />
                 <Button
                   disabled={removeMutation.isPending}
                   onClick={() => removeMutation.mutate(product.id)}

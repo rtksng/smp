@@ -437,7 +437,7 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                     Back to orders
                   </Button>
                   {reorderMutation.isError ? (
-                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
                       {getFriendlyApiErrorMessage(
                         reorderMutation.error,
                         "Unable to prepare reorder cart."
@@ -445,17 +445,17 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                     </p>
                   ) : null}
                   {actionMessage ? (
-                    <p className="rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-bold text-[#287c30]">
+                    <p className="rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-semibold text-[#287c30]">
                       {actionMessage}
                     </p>
                   ) : null}
                   {actionError ? (
-                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
                       {actionError}
                     </p>
                   ) : null}
                   {invoiceError ? (
-                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+                    <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
                       {invoiceError}
                     </p>
                   ) : null}
@@ -481,12 +481,12 @@ function OrderList({ orders }: { orders: Order[] }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  className="break-words text-sm font-bold text-[#287c30] hover:text-[#23702a]"
+                  className="break-words text-sm font-semibold text-[#287c30] hover:text-[#23702a]"
                   href={`/account/orders/${order.id}`}
                 >
                   {order.orderNumber}
                 </Link>
-                <p className="mt-1 text-xs font-bold text-[#556b57]">
+                <p className="mt-1 text-xs font-semibold text-[#556b57]">
                   {formatDate(order.placedAt ?? order.createdAt)}
                 </p>
               </div>
@@ -515,12 +515,12 @@ function OrderList({ orders }: { orders: Order[] }) {
         <table className="w-full min-w-[760px] border-collapse bg-white text-left">
           <thead className="bg-[#f4fbf5] text-xs uppercase text-[#556b57]">
             <tr>
-              <th className="px-4 py-3 font-bold">Order</th>
-              <th className="px-4 py-3 font-bold">Date</th>
-              <th className="px-4 py-3 font-bold">Status</th>
-              <th className="px-4 py-3 font-bold">Payment</th>
-              <th className="px-4 py-3 text-right font-bold">Total</th>
-              <th className="px-4 py-3 font-bold">Action</th>
+              <th className="px-4 py-3 font-semibold">Order</th>
+              <th className="px-4 py-3 font-semibold">Date</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Payment</th>
+              <th className="px-4 py-3 text-right font-semibold">Total</th>
+              <th className="px-4 py-3 font-semibold">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#cfe9d2]">
@@ -528,7 +528,7 @@ function OrderList({ orders }: { orders: Order[] }) {
               <tr key={order.id}>
                 <td className="px-4 py-4">
                   <Link
-                    className="font-bold text-[#287c30] hover:text-[#23702a]"
+                    className="font-semibold text-[#287c30] hover:text-[#23702a]"
                     href={`/account/orders/${order.id}`}
                   >
                     {order.orderNumber}
@@ -545,7 +545,7 @@ function OrderList({ orders }: { orders: Order[] }) {
                     {formatPaymentStatus(order.paymentStatus)}
                   </AccountStatusBadge>
                 </td>
-                <td className="px-4 py-4 text-right text-sm font-bold text-[#173b1d]">
+                <td className="px-4 py-4 text-right text-sm font-semibold text-[#173b1d]">
                   {priceFormatter.format(order.totals.grandTotal)}
                 </td>
                 <td className="px-4 py-4">
@@ -577,16 +577,16 @@ function OrderItems({ order }: { order: Order }) {
             key={item.id}
           >
             <div>
-              <p className="text-sm font-bold text-[#173b1d]">{item.name}</p>
-              <p className="mt-1 text-xs font-bold text-[#556b57]">
+              <p className="text-sm font-semibold text-[#173b1d]">{item.name}</p>
+              <p className="mt-1 text-xs font-semibold text-[#556b57]">
                 SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
               </p>
             </div>
             <div className="text-left md:text-right">
-              <p className="text-xs font-bold text-[#556b57]">
+              <p className="text-xs font-semibold text-[#556b57]">
                 {priceFormatter.format(item.unitPrice)} each
               </p>
-              <p className="mt-1 text-base font-bold text-[#173b1d]">
+              <p className="mt-1 text-base font-semibold text-[#173b1d]">
                 {priceFormatter.format(item.total)}
               </p>
             </div>
@@ -614,7 +614,7 @@ function DeliveryAddress({ order }: { order: Order }) {
               <MapPin aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-bold text-[#173b1d]">{address.fullName}</p>
+              <p className="text-sm font-semibold text-[#173b1d]">{address.fullName}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#556b57]">
                 {address.line1}
                 {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
@@ -627,7 +627,7 @@ function DeliveryAddress({ order }: { order: Order }) {
           </div>
         </div>
       ) : (
-        <p className="mt-4 rounded-lg bg-[#fff5f5] p-4 text-sm font-bold text-[#7a271a]">
+        <p className="mt-4 rounded-lg bg-[#fff5f5] p-4 text-sm font-semibold text-[#7a271a]">
           Delivery address is not available for this order.
         </p>
       )}
@@ -657,7 +657,7 @@ function DeliveryTracking({ order }: { order: Order }) {
                 <Truck aria-hidden="true" className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-[#173b1d]">
+                <p className="text-sm font-semibold text-[#173b1d]">
                   {formatDeliveryStatus(tracking.status)}
                 </p>
                 {tracking.deliveryPartnerName ? (
@@ -678,10 +678,10 @@ function DeliveryTracking({ order }: { order: Order }) {
                 <div className="flex gap-3" key={entry.id}>
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#287c30]" />
                   <div>
-                    <p className="text-xs font-bold text-[#173b1d]">
+                    <p className="text-xs font-semibold text-[#173b1d]">
                       {formatDeliveryStatus(entry.status)}
                     </p>
-                    <p className="mt-1 text-xs font-bold text-[#556b57]">
+                    <p className="mt-1 text-xs font-semibold text-[#556b57]">
                       {formatDate(entry.createdAt)}
                       {entry.latitude !== null && entry.longitude !== null
                         ? ` | ${entry.latitude.toFixed(4)}, ${entry.longitude.toFixed(4)}`
@@ -729,7 +729,7 @@ function PaymentDetails({ order }: { order: Order }) {
           value={priceFormatter.format(order.totals.deliveryCharge)}
         />
         <InfoRow label="Tax/GST" value={priceFormatter.format(order.totals.tax)} />
-        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#173b1d]">
+        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-semibold text-[#173b1d]">
           <dt>Total</dt>
           <dd>{priceFormatter.format(order.totals.grandTotal)}</dd>
         </div>
@@ -753,7 +753,7 @@ function RefundDetails({ refund }: { refund: Order["refunds"][number] }) {
       {refund.reason ? (
         <div className="grid gap-1 border-t border-[#cfe9d2] pt-2">
           <dt className="text-[#556b57]">Reason</dt>
-          <dd className="font-bold leading-6 text-[#173b1d]">{refund.reason}</dd>
+          <dd className="font-semibold leading-6 text-[#173b1d]">{refund.reason}</dd>
         </div>
       ) : null}
     </div>
@@ -787,10 +787,10 @@ function StatusTimeline({ order }: { order: Order }) {
               <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <div>
-              <p className="text-sm font-bold text-[#173b1d]">
+              <p className="text-sm font-semibold text-[#173b1d]">
                 {formatOrderStatus(entry.status)}
               </p>
-              <p className="mt-1 text-xs font-bold text-[#556b57]">
+              <p className="mt-1 text-xs font-semibold text-[#556b57]">
                 {formatDate(entry.createdAt)}
               </p>
               {entry.note ? (
@@ -841,7 +841,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <dt className="text-[#556b57]">{label}</dt>
-      <dd className="text-right font-bold text-[#173b1d]">{value}</dd>
+      <dd className="text-right font-semibold text-[#173b1d]">{value}</dd>
     </div>
   );
 }

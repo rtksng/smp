@@ -61,7 +61,7 @@ describe("MarketplaceBanner", () => {
     });
 
     expect(heading).toBeInTheDocument();
-    expect(heading).toHaveClass("font-bold", "sm:text-5xl");
+    expect(heading).toHaveClass("font-semibold", "sm:text-5xl");
     expect(heading).not.toHaveClass("font-black", "xl:text-[4.8rem]");
     expect(screen.getByRole("link", { name: /Browse catalog/i })).toHaveAttribute(
       "href",

@@ -23,20 +23,20 @@ export function CategoryCard({ category }: CategoryCardProps) {
             unoptimized={category.imageUrl.startsWith("http://localhost")}
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#f7e9c8)] text-3xl font-bold text-[#287c30]">
+          <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#f7e9c8)] text-3xl font-semibold text-[#287c30]">
             {category.name.slice(0, 1)}
           </div>
         )}
       </div>
       <div className="p-5">
-        <p className="mb-2 text-xs font-bold uppercase text-[#9b6a1e]">
+        <p className="mb-2 text-xs font-semibold uppercase text-[#9b6a1e]">
           Department
         </p>
-        <h3 className="text-lg font-bold text-[#17211f]">{category.name}</h3>
+        <h3 className="text-lg font-semibold text-[#17211f]">{category.name}</h3>
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#687773]">
           {category.description ?? "Explore surgical and medical products in this category."}
         </p>
-        <p className="mt-4 text-sm font-bold text-[#287c30]">
+        <p className="mt-4 text-sm font-semibold text-[#287c30]">
           Browse catalog
           {category.children.length > 0 ? ` - ${category.children.length} subcategories` : ""}
         </p>

@@ -91,7 +91,7 @@ export function MarketplaceBanner({
 
       <div className="relative z-10 flex min-h-[34rem] flex-col px-5 py-8 sm:px-8 sm:py-10 md:min-h-[32rem] md:px-10 md:py-12 lg:min-h-[36rem] lg:px-16 lg:py-14">
         <div className="max-w-[48rem] md:max-w-[44rem] lg:max-w-[50rem]">
-          <h1 className="max-w-4xl text-4xl font-bold leading-[1.04] text-[#0d2f12] sm:text-5xl lg:text-[4.25rem]">
+          <h1 className="max-w-4xl text-4xl font-semibold leading-[1.04] text-[#0d2f12] sm:text-5xl lg:text-[4.25rem]">
             <HighlightedTitle title={title} />
           </h1>
 
@@ -170,7 +170,7 @@ export function MarketplaceProofStrip() {
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 border-white text-white">
                 <Icon aria-hidden="true" className="h-7 w-7" strokeWidth={2.4} />
               </span>
-              <p className="text-base font-bold leading-6">
+              <p className="text-base font-semibold leading-6">
                 {value ? (
                   <span className="block text-xl font-black">{value}</span>
                 ) : null}

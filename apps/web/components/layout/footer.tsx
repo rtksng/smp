@@ -43,7 +43,7 @@ export function Footer() {
               <span className="grid h-10 w-10 place-items-center rounded-full bg-white/12">
                 <ShieldCheck aria-hidden="true" className="h-5 w-5" />
               </span>
-              <span className="text-base font-bold md:text-lg">
+              <span className="text-base font-semibold md:text-lg">
                 {APP_NAMES.customerWeb}
               </span>
             </div>
@@ -75,7 +75,7 @@ export function Footer() {
           >
             {footerLinkGroups.map((group) => (
               <section className="grid content-start gap-3" key={group.title}>
-                <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-white">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-white">
                   {group.title}
                 </h2>
                 <div className="grid gap-2.5 text-sm font-semibold text-white/72">
@@ -93,7 +93,7 @@ export function Footer() {
             ))}
 
             <section className="grid content-start gap-3">
-              <h2 className="text-sm font-bold uppercase tracking-[0.08em] text-white">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-white">
                 Procurement
               </h2>
               <div className="grid gap-2.5 text-sm font-semibold text-white/72">

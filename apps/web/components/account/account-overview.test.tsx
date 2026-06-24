@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CustomerAddress, CustomerProfileDetails } from "../../lib/api/customer-profile";
 import type { Order } from "../../lib/api/orders";
 import { AccountOverview } from "./account-overview";
 
@@ -82,33 +81,6 @@ vi.mock("../../lib/api/orders", async () => {
   };
 });
 
-const profile: CustomerProfileDetails = {
-  businessName: "Rao Medical Supplies",
-  email: "billing@example.com",
-  gstNumber: "27ABCDE1234F1Z5",
-  id: "customer_1",
-  mobileNumber: "+919876543210",
-  name: "Dr Asha Rao"
-};
-
-const address: CustomerAddress = {
-  addressLine1: "12 Surgical Street",
-  addressLine2: "Suite 4",
-  city: "Mumbai",
-  createdAt: "2026-06-01T00:00:00.000Z",
-  fullName: "Asha Clinic",
-  id: "address_1",
-  isDefault: true,
-  landmark: "Near metro",
-  latitude: null,
-  longitude: null,
-  phone: "+919876543210",
-  pincode: "400001",
-  state: "Maharashtra",
-  type: "CLINIC",
-  updatedAt: "2026-06-01T00:00:00.000Z"
-};
-
 const order: Order = {
   createdAt: "2026-06-02T10:00:00.000Z",
   deliveryTracking: [],
@@ -164,8 +136,6 @@ describe("AccountOverview", () => {
     mocks.listCustomerAddresses.mockReset();
     mocks.listCustomerOrders.mockReset();
     mocks.logout.mockReset();
-    mocks.getCustomerProfile.mockResolvedValue(profile);
-    mocks.listCustomerAddresses.mockResolvedValue([address]);
     mocks.listCustomerOrders.mockResolvedValue({
       items: [order],
       pagination: {
@@ -179,27 +149,38 @@ describe("AccountOverview", () => {
     });
   });
 
-  it("renders dynamic account, address, and order summaries with compact hierarchy", async () => {
+  it("keeps the account landing page focused on recent orders", async () => {
     renderAccountOverview();
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Account overview" })
     ).toHaveClass("text-2xl");
-    expect((await screen.findAllByText("Dr Asha Rao")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Rao Medical Supplies")).toBeInTheDocument();
-    expect(screen.getByText("1 saved address")).toBeInTheDocument();
-    expect(screen.getByText("Asha Clinic")).toBeInTheDocument();
-    expect(screen.getByText("ORD-20260602-ABC12345")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Recent orders" })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("ORD-20260602-ABC12345")
+    ).toBeInTheDocument();
     expect(screen.getByText("Confirmed")).toBeInTheDocument();
-    expect(screen.getByText("₹380.40")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage addresses" })).toHaveAttribute(
-      "href",
-      "/account/addresses"
-    );
+    expect(screen.getByText(/380\.40/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View all orders" })).toHaveAttribute(
       "href",
       "/account/orders"
     );
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Profile" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Default address" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Edit profile" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Manage addresses" })
+    ).not.toBeInTheDocument();
+    expect(mocks.getCustomerProfile).not.toHaveBeenCalled();
+    expect(mocks.listCustomerAddresses).not.toHaveBeenCalled();
   });
 });
 

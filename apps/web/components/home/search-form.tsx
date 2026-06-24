@@ -154,8 +154,8 @@ export function SearchForm({
           aria-label={isTyping ? "Search suggestions" : "Recent searches"}
           className={
             compact
-              ? "absolute left-0 right-0 top-full z-50 mt-2 grid gap-1 overflow-hidden rounded-2xl border border-[#cfe9d2] bg-white p-2 text-sm font-bold text-[#173b1d] shadow-2xl shadow-[#287c30]/15"
-              : "flex flex-wrap items-center gap-2 text-xs font-bold text-[#173b1d]"
+              ? "absolute left-0 right-0 top-full z-50 mt-2 grid gap-1 overflow-hidden rounded-2xl border border-[#cfe9d2] bg-white p-2 text-sm font-semibold text-[#173b1d] shadow-2xl shadow-[#287c30]/15"
+              : "flex flex-wrap items-center gap-2 text-xs font-semibold text-[#173b1d]"
           }
           data-testid="search-suggestions"
         >

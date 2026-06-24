@@ -9,7 +9,7 @@ export function LoadingSpinner({ className, label = "Loading" }: LoadingSpinnerP
   return (
     <div
       className={[
-        "flex min-h-48 items-center justify-center gap-3 rounded-[1.25rem] border border-[#cfe9d2] bg-white p-8 text-sm font-bold text-[#556b57] shadow-sm shadow-[#287c30]/5",
+        "flex min-h-48 items-center justify-center gap-3 rounded-[1.25rem] border border-[#cfe9d2] bg-white p-8 text-sm font-semibold text-[#556b57] shadow-sm shadow-[#287c30]/5",
         className
       ]
         .filter(Boolean)

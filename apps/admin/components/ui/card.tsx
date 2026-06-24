@@ -45,7 +45,7 @@ export function CardHeader({ className, ...props }: DivProps) {
 export function CardTitle({ className, ...props }: DivProps) {
   return (
     <div
-      className={cn("text-2xl font-bold leading-none text-foreground", className)}
+      className={cn("text-2xl font-semibold leading-none text-foreground", className)}
       data-slot="card-title"
       {...props}
     />

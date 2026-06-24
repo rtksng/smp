@@ -110,10 +110,10 @@ export function BulkQuoteForm() {
         value={form.message}
       />
       {errors.message ? (
-        <p className="text-sm font-bold text-white">{errors.message}</p>
+        <p className="text-sm font-semibold text-white">{errors.message}</p>
       ) : null}
       {quoteMutation.isError ? (
-        <p className="rounded-lg bg-white px-4 py-3 text-sm font-bold text-[#7a271a]">
+        <p className="rounded-lg bg-white px-4 py-3 text-sm font-semibold text-[#7a271a]">
           {getFriendlyApiErrorMessage(
             quoteMutation.error,
             "Unable to submit quote request."
@@ -121,7 +121,7 @@ export function BulkQuoteForm() {
         </p>
       ) : null}
       {successMessage ? (
-        <p className="rounded-lg bg-white px-4 py-3 text-sm font-bold text-[#287c30]">
+        <p className="rounded-lg bg-white px-4 py-3 text-sm font-semibold text-[#287c30]">
           {successMessage}
         </p>
       ) : null}

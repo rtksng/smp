@@ -41,7 +41,7 @@ export function CategoryShowcase({
               />
             ) : (
               <div className="flex h-full items-center justify-between bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] px-5 text-[#287c30]">
-                <span className="text-4xl font-bold">
+                <span className="text-4xl font-semibold">
                   {category.label.slice(0, 1)}
                 </span>
                 <Layers3 aria-hidden="true" className="h-12 w-12 opacity-70" />
@@ -51,7 +51,7 @@ export function CategoryShowcase({
           <div className="grid content-between gap-4 p-5">
             <div>
               <a
-                className="text-lg font-bold leading-6 text-[#173b1d] hover:text-[#287c30]"
+                className="text-lg font-semibold leading-6 text-[#173b1d] hover:text-[#287c30]"
                 href={category.href}
               >
                 {category.label}
@@ -63,7 +63,7 @@ export function CategoryShowcase({
                   <div className="flex flex-wrap gap-2">
                     {category.children.slice(0, 2).map((subcategory) => (
                       <a
-                        className="rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-3 py-1.5 text-xs font-bold text-[#173b1d] transition hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+                        className="rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-3 py-1.5 text-xs font-semibold text-[#173b1d] transition hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
                         href={subcategory.href}
                         key={subcategory.id}
                       >
@@ -74,7 +74,7 @@ export function CategoryShowcase({
                 ) : null}
                 {showActionLink ? (
                   <a
-                    className="inline-flex min-h-10 items-center gap-2 text-sm font-bold text-[#287c30]"
+                    className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-[#287c30]"
                     href={category.href}
                   >
                     Browse

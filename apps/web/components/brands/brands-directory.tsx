@@ -33,7 +33,7 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
   return (
     <div className="grid gap-7">
       <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 md:grid-cols-[minmax(0,1fr)_240px] md:items-end">
-        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
+        <label className="grid gap-2 text-sm font-semibold text-[#173b1d]">
           <span>Search brands</span>
           <span className="relative">
             <Search
@@ -51,7 +51,7 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
           </span>
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
+        <label className="grid gap-2 text-sm font-semibold text-[#173b1d]">
           <span className="inline-flex items-center gap-2">
             <SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
             Filter
@@ -97,14 +97,14 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
                       width={420}
                     />
                   ) : (
-                    <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-bold text-[#287c30] shadow-sm shadow-[#287c30]/10">
+                    <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-semibold text-[#287c30] shadow-sm shadow-[#287c30]/10">
                       {brand.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                 </a>
 
                 <div className="min-w-0">
-                  <h2 className="text-xl font-bold leading-7 text-[#173b1d]">
+                  <h2 className="text-xl font-semibold leading-7 text-[#173b1d]">
                     {brand.name}
                   </h2>
                   <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#556b57]">
@@ -153,7 +153,7 @@ function BrandProductPreview({ products }: { products?: ProductList }) {
 
   return (
     <div className="grid gap-3 border-t border-[#cfe9d2] pt-4">
-      <h3 className="text-sm font-bold uppercase text-[#287c30]">
+      <h3 className="text-sm font-semibold uppercase text-[#287c30]">
         Latest brand products
       </h3>
       <div className="grid gap-2">
@@ -163,7 +163,7 @@ function BrandProductPreview({ products }: { products?: ProductList }) {
             href={`/products/${product.slug}`}
             key={product.id}
           >
-            <h4 className="line-clamp-1 text-sm font-bold text-[#173b1d]">
+            <h4 className="line-clamp-1 text-sm font-semibold text-[#173b1d]">
               {product.name}
             </h4>
             <span className="text-xs font-semibold text-[#556b57]">

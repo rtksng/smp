@@ -3,26 +3,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  CreditCard,
-  FileText,
   Layers3,
   Minus,
   PackageCheck,
   Plus,
-  ShieldCheck,
   ShoppingBag,
   Tag,
   Trash2
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCart, type Cart, type CartItem } from "../../lib/api/cart";
 import {
   getFriendlyApiErrorMessage,
   stockErrorMessage
 } from "../../lib/api/error-messages";
 import {
-  createClearCartMutation,
   createRemoveCartItemMutation,
   createUpdateCartItemMutation
 } from "../../lib/api/mutation-helpers";
@@ -63,6 +59,10 @@ export function CartPage() {
 function CartContent() {
   const queryClient = useQueryClient();
   const setCartSummary = useCartStore((state) => state.setSummary);
+  const [removeToast, setRemoveToast] = useState<string | null>(null);
+  const removeToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const cartQuery = useQuery({
     queryFn: () => getCart(),
     queryKey: customerQueryKeys.cart()
@@ -82,12 +82,7 @@ function CartContent() {
   );
   const removeMutation = useMutation(
     createRemoveCartItemMutation({
-      queryClient,
-      setCartSummary
-    })
-  );
-  const clearMutation = useMutation(
-    createClearCartMutation({
+      onSuccess: () => showRemoveToast(),
       queryClient,
       setCartSummary
     })
@@ -97,42 +92,31 @@ function CartContent() {
     cart?.items.some(
       (item) => !item.isAvailable || item.quantity > item.availableQuantity
     ) ?? false;
-  const isMutating =
-    updateMutation.isPending || removeMutation.isPending || clearMutation.isPending;
-  const cartActionError =
-    updateMutation.error ?? removeMutation.error ?? clearMutation.error;
+  const isMutating = updateMutation.isPending || removeMutation.isPending;
+  const cartActionError = updateMutation.error ?? removeMutation.error;
+
+  useEffect(() => {
+    return () => {
+      if (removeToastTimeoutRef.current) {
+        clearTimeout(removeToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function showRemoveToast() {
+    if (removeToastTimeoutRef.current) {
+      clearTimeout(removeToastTimeoutRef.current);
+    }
+
+    setRemoveToast("Item removed from cart");
+    removeToastTimeoutRef.current = setTimeout(() => {
+      setRemoveToast(null);
+      removeToastTimeoutRef.current = null;
+    }, 2200);
+  }
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase text-[#9b6a1e]">
-              Customer cart
-            </p>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-[#17211f]">
-              Cart
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#687773]">
-              Review product availability, quantity, GST, and delivery charges before
-              checkout.
-            </p>
-          </div>
-          {cart && cart.items.length > 0 ? (
-            <Button
-              className="w-full sm:w-auto"
-              disabled={clearMutation.isPending}
-              onClick={() => clearMutation.mutate()}
-              variant="outline"
-            >
-              <Trash2 aria-hidden="true" className="h-4 w-4" />
-              {clearMutation.isPending ? "Clearing..." : "Clear cart"}
-            </Button>
-          ) : null}
-        </div>
-        <CartAssuranceStrip />
-      </div>
-
       {cartQuery.isLoading ? <SectionLoader label="Loading cart" /> : null}
 
       {cartQuery.isError ? (
@@ -194,34 +178,17 @@ function CartContent() {
           />
         </div>
       ) : null}
+
+      {removeToast ? (
+        <div
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#bfe7d1] bg-white px-4 py-2 text-sm font-semibold text-[#0a7f32] shadow-lg shadow-[#287c30]/15"
+          role="status"
+        >
+          {removeToast}
+        </div>
+      ) : null}
     </section>
-  );
-}
-
-function CartAssuranceStrip() {
-  const items = [
-    { icon: PackageCheck, label: "Stock checked before checkout" },
-    { icon: FileText, label: "GST and invoice totals visible" },
-    { icon: CreditCard, label: "COD and online payment ready" },
-    { icon: ShieldCheck, label: "Authenticated customer flow" }
-  ] as const;
-
-  return (
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map((item) => {
-        const Icon = item.icon;
-
-        return (
-          <div
-            className="flex min-h-14 items-center gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3 py-2 text-xs font-bold text-[#31413d] shadow-sm shadow-[#287c30]/5"
-            key={item.label}
-          >
-            <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-[#287c30]" />
-            {item.label}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 
@@ -244,12 +211,12 @@ function CartItemCard({
     !item.isAvailable || item.quantity > item.availableQuantity;
 
   return (
-    <article className="grid gap-4 rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start sm:p-4">
+    <article className="relative grid grid-cols-[96px_minmax(0,1fr)] gap-3 rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start sm:p-4">
       <CartItemImage item={item} priority={priorityImage} />
-      <div className="min-w-0">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 pr-10 sm:pr-12">
+        <div className="flex flex-col gap-3">
           <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-[#287c30]">
+            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[#287c30]">
               <a className="hover:underline" href={`/brands/${item.brand.slug}`}>
                 {item.brand.name}
               </a>
@@ -262,12 +229,12 @@ function CartItemCard({
               </a>
             </div>
             <a
-              className="line-clamp-2 text-base font-bold leading-6 text-[#17211f] hover:text-[#287c30]"
+              className="line-clamp-2 text-base font-semibold leading-6 text-[#17211f] hover:text-[#287c30]"
               href={`/products/${item.slug}`}
             >
               {item.name}
             </a>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-[#687773]">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#687773]">
               <span className="inline-flex items-center gap-1 rounded-lg bg-[#f8fbfa] px-2 py-1">
                 <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[#287c30]" />
                 SKU {item.sku}
@@ -288,45 +255,48 @@ function CartItemCard({
               ) : null}
             </div>
           </div>
-          <button
-            aria-label={`Remove ${item.name}`}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] px-3 text-xs font-bold text-[#b42318] disabled:opacity-50 sm:min-w-24"
-            disabled={isMutating}
-            onClick={onRemove}
-            type="button"
-          >
-            <Trash2 aria-hidden="true" className="h-4 w-4" />
-            Remove
-          </button>
-        </div>
-
-        {stockWarning ? (
-          <div className="mt-3 flex gap-2 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] p-3 text-sm font-bold text-[#7a271a]">
-            <AlertTriangle
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0"
-            />
-            <span>{stockErrorMessage(item.availableQuantity)}</span>
-          </div>
-        ) : null}
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)] lg:items-start">
-          <QuantityStepper
-            disabled={isMutating}
-            item={item}
-            onDecrease={onDecrease}
-            onIncrease={onIncrease}
-          />
-          <div className="grid gap-2 sm:grid-cols-3">
-            <CartMetric label="Price" value={priceFormatter.format(item.unitPrice)} />
-            <CartMetric label="GST" value={priceFormatter.format(item.tax)} />
-            <CartMetric
-              label="Subtotal"
-              value={priceFormatter.format(item.subtotal)}
-            />
-          </div>
         </div>
       </div>
+
+      {stockWarning ? (
+        <div className="col-span-2 flex gap-2 rounded-lg border border-[#f4c7c3] bg-[#fff5f5] p-3 text-sm font-semibold text-[#7a271a]">
+          <AlertTriangle
+            aria-hidden="true"
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>{stockErrorMessage(item.availableQuantity)}</span>
+        </div>
+      ) : null}
+
+      <div className="col-span-2 grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
+        <QuantityStepper
+          disabled={isMutating}
+          item={item}
+          onDecrease={onDecrease}
+          onIncrease={onIncrease}
+        />
+        <div
+          className="grid grid-cols-3 gap-2"
+          data-testid="cart-item-pricing-grid"
+        >
+          <CartMetric label="Price" value={priceFormatter.format(item.unitPrice)} />
+          <CartMetric label="GST" value={priceFormatter.format(item.tax)} />
+          <CartMetric
+            label="Subtotal"
+            value={priceFormatter.format(item.subtotal)}
+          />
+        </div>
+      </div>
+      <button
+        aria-label={`Delete ${item.name} from cart`}
+        className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full border border-[#f4c7c3] bg-white/95 text-[#b42318] shadow-md shadow-[#17211f]/10 transition hover:-translate-y-0.5 hover:bg-[#fff5f5] focus:outline-none focus:ring-2 focus:ring-[#b42318] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:right-4 sm:top-4"
+        data-cart-delete-button="true"
+        disabled={isMutating}
+        onClick={onRemove}
+        type="button"
+      >
+        <Trash2 aria-hidden="true" className="h-4 w-4" />
+      </button>
     </article>
   );
 }
@@ -341,27 +311,32 @@ function CartItemImage({
   const [imageFailed, setImageFailed] = useState(false);
 
   return (
-    <a
-      className="relative aspect-square overflow-hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] shadow-sm shadow-[#287c30]/5 sm:h-28 sm:w-28"
-      href={`/products/${item.slug}`}
+    <div
+      className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28"
+      data-testid="cart-item-image"
     >
-      {item.imageUrl && !imageFailed ? (
-        <Image
-          alt={getProductImageAlt(item.name, null)}
-          className="object-cover"
-          fill
-          onError={() => setImageFailed(true)}
-          priority={priority}
-          sizes="112px"
-          src={item.imageUrl}
-          unoptimized
-        />
-      ) : (
-        <span className="grid h-full place-items-center text-[#287c30]">
-          <PackageCheck aria-hidden="true" className="h-10 w-10" />
-        </span>
-      )}
-    </a>
+      <a
+        className="relative block h-full overflow-hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] shadow-sm shadow-[#287c30]/5"
+        href={`/products/${item.slug}`}
+      >
+        {item.imageUrl && !imageFailed ? (
+          <Image
+            alt={getProductImageAlt(item.name, null)}
+            className="object-cover"
+            fill
+            onError={() => setImageFailed(true)}
+            priority={priority}
+            sizes="112px"
+            src={item.imageUrl}
+            unoptimized
+          />
+        ) : (
+          <span className="grid h-full place-items-center text-[#287c30]">
+            <PackageCheck aria-hidden="true" className="h-9 w-9" />
+          </span>
+        )}
+      </a>
+    </div>
   );
 }
 
@@ -387,7 +362,7 @@ function QuantityStepper({
       >
         <Minus aria-hidden="true" className="h-4 w-4" />
       </button>
-      <span className="min-w-10 text-center text-sm font-bold text-[#17211f]">
+      <span className="min-w-10 text-center text-sm font-semibold text-[#17211f]">
         {item.quantity}
       </span>
       <button
@@ -403,13 +378,28 @@ function QuantityStepper({
   );
 }
 
-function CartMetric({ label, value }: { label: string; value: string }) {
+function CartMetric({
+  className,
+  label,
+  value
+}: {
+  className?: string;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3 py-2 shadow-sm shadow-[#287c30]/5">
-      <span className="block text-[11px] font-bold uppercase text-[#687773]">
+    <div
+      className={[
+        "rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3 py-2 shadow-sm shadow-[#287c30]/5",
+        className
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className="block text-[11px] font-semibold uppercase text-[#687773]">
         {label}
       </span>
-      <strong className="mt-0.5 block break-words text-sm font-bold text-[#17211f]">
+      <strong className="mt-0.5 block break-words text-sm font-semibold text-[#17211f]">
         {value}
       </strong>
     </div>
@@ -432,8 +422,8 @@ function CartSummary({
           <ShoppingBag aria-hidden="true" className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-lg font-bold text-[#17211f]">Price summary</h2>
-          <p className="text-sm font-bold text-[#687773]">
+          <h2 className="text-lg font-semibold text-[#17211f]">Price summary</h2>
+          <p className="text-sm font-semibold text-[#687773]">
             {cart.totalQuantity} item{cart.totalQuantity === 1 ? "" : "s"}
           </p>
         </div>
@@ -447,7 +437,7 @@ function CartSummary({
         />
         <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
         <SummaryRow label="Tax/GST" value={cart.totals.tax} />
-        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#17211f]">
+        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-semibold text-[#17211f]">
           <span>Grand total</span>
           <span>{priceFormatter.format(cart.totals.grandTotal)}</span>
         </div>
@@ -455,7 +445,7 @@ function CartSummary({
 
       <div className="mt-6 grid gap-3">
         {hasBlockingStockIssue ? (
-          <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+          <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
             Resolve stock warnings to continue checkout.
           </p>
         ) : null}

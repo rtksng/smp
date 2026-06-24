@@ -212,7 +212,7 @@ export function AccountAddresses() {
       ) : null}
 
       {mutationError ? (
-        <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-bold text-[#7a271a]">
+        <p className="rounded-lg bg-[#fff5f5] px-4 py-3 text-sm font-semibold text-[#7a271a]">
           {mutationError}
         </p>
       ) : null}
@@ -310,7 +310,7 @@ function AddressCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-bold text-[#173b1d]">{address.fullName}</h3>
+            <h3 className="font-semibold text-[#173b1d]">{address.fullName}</h3>
             <AccountStatusBadge>{formatAddressType(address.type)}</AccountStatusBadge>
             {address.isDefault ? (
               <AccountStatusBadge tone="success">Default</AccountStatusBadge>
@@ -455,7 +455,7 @@ function AddressForm({
             onChange={(event) => onChange("pincode", event.target.value)}
             value={addressForm.pincode}
           />
-          <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
+          <label className="grid gap-2 text-sm font-semibold text-[#173b1d]">
             <span>Address type</span>
             <select
               className="min-h-12 rounded-full border border-[#a9ddae] bg-white px-5 text-sm font-semibold text-[#173b1d] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20"

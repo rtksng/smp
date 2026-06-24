@@ -119,7 +119,7 @@ export function Header() {
             </span>
           </Link>
           <Link
-            className="inline-flex min-h-8 max-w-[9.5rem] items-center gap-1 rounded-full bg-[#f4fbf5] px-3 text-[10px] font-bold text-[#173b1d]"
+            className="inline-flex min-h-8 max-w-[9.5rem] items-center gap-1 rounded-full bg-[#f4fbf5] px-3 text-[10px] font-semibold text-[#173b1d]"
             href="/products"
           >
             <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#287c30]" />
@@ -166,7 +166,7 @@ export function Header() {
           >
             <ShoppingCart aria-hidden="true" className="h-5 w-5" />
             {itemCount > 0 ? (
-              <span className="absolute right-0 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#287c30] px-1 text-[9px] font-bold text-white">
+              <span className="absolute right-0 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#287c30] px-1 text-[9px] font-semibold text-white">
                 {itemCount}
               </span>
             ) : null}
@@ -181,7 +181,7 @@ export function Header() {
               <ShieldCheck aria-hidden="true" className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-[#173b1d] sm:text-base">
+              <span className="block truncate text-sm font-semibold text-[#173b1d] sm:text-base">
                 {APP_NAMES.customerWeb}
               </span>
             </span>
@@ -267,7 +267,7 @@ export function Header() {
                   <ShieldCheck aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold text-[#173b1d]">
+                  <span className="block truncate text-sm font-semibold text-[#173b1d]">
                     {APP_NAMES.customerWeb}
                   </span>
                 </span>
@@ -291,7 +291,7 @@ export function Header() {
             </div>
 
             <nav
-              className="mt-5 grid gap-2 text-sm font-bold text-[#173b1d]"
+              className="mt-5 grid gap-2 text-sm font-semibold text-[#173b1d]"
               aria-label="Mobile navigation links"
             >
               {mobileNavItems.map((item) => (
@@ -316,7 +316,7 @@ export function Header() {
               </Link>
             </nav>
 
-            <div className="mt-5 grid gap-2 border-t border-[#cfe9d2] pt-4 text-sm font-bold">
+            <div className="mt-5 grid gap-2 border-t border-[#cfe9d2] pt-4 text-sm font-semibold">
               {session ? (
                 <>
                   <Link
@@ -369,7 +369,7 @@ function CategoryMenu({
 }) {
   return (
     <details className="group relative hidden lg:block">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-4 text-sm font-bold text-[#287c30] transition duration-200 hover:border-[#287c30] hover:bg-[#eaf7eb]">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-4 text-sm font-semibold text-[#287c30] transition duration-200 hover:border-[#287c30] hover:bg-[#eaf7eb]">
         <Grid2X2 aria-hidden="true" className="h-4 w-4" />
         Categories
         <ChevronDown
@@ -380,13 +380,13 @@ function CategoryMenu({
       <div className="absolute left-0 top-14 z-50 w-[min(78vw,900px)] overflow-hidden rounded-[1.25rem] border border-[#cfe9d2] bg-white shadow-2xl shadow-[#287c30]/10">
         <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[240px_1fr]">
           <div className="border-r border-[#cfe9d2] bg-[#f4fbf5] p-3">
-            <p className="mb-2 px-2 text-xs font-bold uppercase text-[#287c30]">
+            <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#287c30]">
               Departments
             </p>
             <div className="grid gap-1">
               {categoryNavigation.slice(0, 10).map((category) => (
                 <Link
-                  className="rounded-full px-3 py-2 text-sm font-bold text-[#173b1d] hover:bg-white hover:text-[#287c30]"
+                  className="rounded-full px-3 py-2 text-sm font-semibold text-[#173b1d] hover:bg-white hover:text-[#287c30]"
                   href={category.href}
                   key={category.id}
                 >
@@ -403,7 +403,7 @@ function CategoryMenu({
                     aria-hidden="true"
                     className="mx-auto h-8 w-8 text-[#287c30]"
                   />
-                  <p className="mt-3 text-sm font-bold text-[#173b1d]">
+                  <p className="mt-3 text-sm font-semibold text-[#173b1d]">
                     Category navigation loads from the catalog API.
                   </p>
                 </div>
@@ -416,7 +416,7 @@ function CategoryMenu({
                     key={category.id}
                   >
                     <Link
-                      className="font-bold text-[#173b1d] hover:text-[#287c30]"
+                      className="font-semibold text-[#173b1d] hover:text-[#287c30]"
                       href={category.href}
                     >
                       {category.label}
@@ -425,7 +425,7 @@ function CategoryMenu({
                       <div className="mt-3 grid gap-1">
                         {category.children.slice(0, 3).map((subcategory) => (
                           <Link
-                            className="rounded-full px-2 py-1.5 text-xs font-bold text-[#556b57] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+                            className="rounded-full px-2 py-1.5 text-xs font-semibold text-[#556b57] hover:bg-[#eaf7eb] hover:text-[#287c30]"
                             href={subcategory.href}
                             key={subcategory.id}
                           >
