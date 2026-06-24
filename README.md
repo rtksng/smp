@@ -8,9 +8,8 @@ Production-ready pnpm monorepo for a surgical and medical equipment commerce pla
 - Admin dashboard: `apps/admin`
 - Backend API: `apps/api`
 - Background worker: `apps/worker`
+- Delivery partner mobile app: `apps/delivery`
 - Shared UI, types, and config packages
-
-This phase intentionally does not include a delivery partner web app, customer mobile app, or delivery mobile app.
 
 ## Tech Stack
 
@@ -18,25 +17,38 @@ This phase intentionally does not include a delivery partner web app, customer m
 - Next.js and TypeScript for customer and admin frontends
 - NestJS and TypeScript for the backend API
 - NestJS, BullMQ, and Redis for background jobs
+- Expo, React Native, and Expo Router for the delivery partner app
 - PostgreSQL with Prisma ORM
 - Shared packages for UI, types, and config
 
 ## Setup
 
-1. Install pnpm using Corepack if pnpm is not already available:
+Use this when setting the project up on a new local machine from Git. The
+commands below assume a terminal at the repository root.
+
+### Prerequisites
+
+- Git
+- Node.js 20 or newer
+- Docker Desktop
+- Corepack-enabled pnpm `9.15.4`
+
+Install pnpm through Corepack if pnpm is not already available:
 
    ```bash
    corepack enable
    corepack prepare pnpm@9.15.4 --activate
    ```
 
-2. Install dependencies:
+### Fresh Local Setup
+
+1. Install dependencies:
 
    ```bash
-   pnpm install
+   corepack pnpm install
    ```
 
-3. Copy app environment examples:
+2. Copy environment files:
 
    ```bash
    cp .env.example .env
@@ -46,6 +58,44 @@ This phase intentionally does not include a delivery partner web app, customer m
    cp apps/worker/.env.example apps/worker/.env
    ```
 
+   PowerShell equivalent:
+
+   ```powershell
+   Copy-Item .env.example .env
+   Copy-Item apps/web/.env.example apps/web/.env.local
+   Copy-Item apps/admin/.env.example apps/admin/.env.local
+   Copy-Item apps/api/.env.example apps/api/.env
+   Copy-Item apps/worker/.env.example apps/worker/.env
+   ```
+
+3. Review local ports and env URLs.
+
+   By default the examples use PostgreSQL on host port `5432`:
+
+   ```bash
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/surgical_platform?schema=public
+   ```
+
+   If another PostgreSQL server is already using `5432`, set this project to
+   `5433` in `.env`, `apps/api/.env`, and `apps/worker/.env`:
+
+   ```bash
+   POSTGRES_PORT=5433
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5433/surgical_platform?schema=public
+   ```
+
+   Keep these values aligned across the root, API, and worker env files:
+
+   - `POSTGRES_USER`
+   - `POSTGRES_PASSWORD`
+   - `POSTGRES_PORT`
+   - `DATABASE_URL`
+   - `REDIS_URL`
+   - `REDIS_QUEUE_PREFIX`
+   - `JWT_ACCESS_SECRET`
+   - `JWT_REFRESH_SECRET`
+   - `RAZORPAY_*` values
+
 4. Start local infrastructure:
 
    ```bash
@@ -53,7 +103,7 @@ This phase intentionally does not include a delivery partner web app, customer m
    ```
 
    Local services:
-   - PostgreSQL: `localhost:5432`
+   - PostgreSQL: `localhost:${POSTGRES_PORT}` (`5432` by default, `5433` if you changed it)
    - Redis: `redis://localhost:6379`
    - Adminer: `http://localhost:8080`
 
@@ -64,26 +114,22 @@ This phase intentionally does not include a delivery partner web app, customer m
    - Username: `POSTGRES_USER`
    - Password: `POSTGRES_PASSWORD`
 
-   The API and worker examples both use:
-   - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/surgical_platform?schema=public`
-   - `REDIS_URL=redis://localhost:6379`
-
 5. Generate the Prisma client:
 
    ```bash
-   pnpm --filter @surgical/api prisma:generate
+   corepack pnpm --filter @surgical/api prisma:generate
    ```
 
 6. Apply Prisma migrations:
 
    ```bash
-   pnpm --filter @surgical/api exec prisma migrate dev --schema ./prisma/schema.prisma
+   corepack pnpm --filter @surgical/api exec prisma migrate dev --schema ./prisma/schema.prisma
    ```
 
 7. Seed default access control, the fixed product category tree, and fixed brands:
 
    ```bash
-   pnpm --filter @surgical/api seed
+   corepack pnpm --filter @surgical/api seed
    ```
 
    The catalog seed creates the fixed top-level categories and their
@@ -96,7 +142,7 @@ This phase intentionally does not include a delivery partner web app, customer m
 8. Run development services:
 
    ```bash
-   pnpm dev
+   corepack pnpm dev
    ```
 
    The root dev command starts the API and worker first, waits for
@@ -104,20 +150,77 @@ This phase intentionally does not include a delivery partner web app, customer m
    website and admin dashboard. This keeps the customer catalogue pages and
    admin login from rendering before the backend is ready.
 
+   Local app URLs:
+
+   - Customer web: `http://localhost:3000`
+   - Admin dashboard: `http://localhost:3001`
+   - API: `http://localhost:4000/api/v1`
+   - API docs: `http://localhost:4000/api/docs`
+   - Adminer: `http://localhost:8080`
+
+   Seeded admin login email:
+
+   - `superadmin@admin.com`
+
+   The password comes from `SEED_SUPER_ADMIN_PASSWORD` in `apps/api/.env`.
+
+### Clone With Existing Database And Uploaded Images
+
+Use this path when you want the new machine to have the same products,
+customers, orders, catalog images, and uploaded documents as the old machine.
+Git alone moves code; it does not move PostgreSQL rows or ignored upload files.
+
+Copy three things to the new machine:
+
+1. Git code from this repository.
+2. A PostgreSQL dump from the old machine.
+3. The runtime upload folder from the old machine:
+
+   ```text
+   apps/api/storage/uploads
+   ```
+
+On the old machine, create a database dump from the running Docker container:
+
+```powershell
+docker exec surgical-platform-postgres pg_dump -U postgres -d surgical_platform --format=custom --file=/tmp/surgical_platform.dump
+docker cp surgical-platform-postgres:/tmp/surgical_platform.dump .\surgical_platform.dump
+```
+
+Copy `surgical_platform.dump` and `apps/api/storage/uploads` to the new
+machine. After cloning the code and starting Docker on the new machine, restore
+the database:
+
+```powershell
+docker cp .\surgical_platform.dump surgical-platform-postgres:/tmp/surgical_platform.dump
+docker exec surgical-platform-postgres pg_restore -U postgres -d surgical_platform --clean --if-exists /tmp/surgical_platform.dump
+```
+
+Then copy the upload folder into the same path on the new machine:
+
+```powershell
+robocopy .\uploads .\apps\api\storage\uploads /MIR
+```
+
+After a restore, run Prisma generate and start the app. Do not run the seed
+script over a restored production-like database unless you intentionally want to
+add or repair seed records.
+
 ## Common Commands
 
 ```bash
-pnpm dev
-pnpm dev:parallel
-pnpm dev:web
-pnpm dev:admin
-pnpm dev:api
-pnpm dev:worker
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm format
+corepack pnpm dev
+corepack pnpm dev:parallel
+corepack pnpm dev:web
+corepack pnpm dev:admin
+corepack pnpm dev:api
+corepack pnpm dev:worker
+corepack pnpm --filter @surgical/delivery dev
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm -r --sort --if-present test
+corepack pnpm build
+corepack pnpm format
 ```
 
 ## Quality and Testing
@@ -172,6 +275,9 @@ STORAGE_PUBLIC_BASE_URL=http://localhost:4000/uploads
 STORAGE_IMAGE_MAX_BYTES=5242880
 STORAGE_DOCUMENT_MAX_BYTES=10485760
 ```
+
+If `POSTGRES_PORT=5433` is used in the root `.env`, update `DATABASE_URL` here
+and in `apps/worker/.env` to use `localhost:5433`.
 
 Useful API routes:
 
@@ -277,7 +383,7 @@ Useful API routes:
 Run only the API:
 
 ```bash
-pnpm dev:api
+corepack pnpm dev:api
 ```
 
 ## Worker Local Setup
@@ -287,7 +393,7 @@ The NestJS worker in `apps/worker` consumes BullMQ jobs from Redis. Use the same
 Run only the worker:
 
 ```bash
-pnpm dev:worker
+corepack pnpm dev:worker
 ```
 
 Queues currently registered in `packages/config`:
