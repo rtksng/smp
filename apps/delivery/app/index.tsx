@@ -8,7 +8,7 @@ export default function IndexRoute() {
   if (!isReady) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#155E63" />
+        <ActivityIndicator color="#287c30" />
       </View>
     );
   }

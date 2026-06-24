@@ -161,7 +161,7 @@ export function AccountOverview() {
               />
             ) : null}
             {recentOrders.length > 0 ? (
-              <div className="mt-4 divide-y divide-[#d6e7f8]">
+              <div className="mt-4 divide-y divide-[#cfe9d2]">
                 {recentOrders.map((order) => (
                   <RecentOrderRow key={order.id} order={order} />
                 ))}
@@ -216,12 +216,12 @@ function OverviewDetail({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5">
-      <p className="flex items-center gap-2 text-xs font-bold uppercase text-[#52677f]">
+    <div className="rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5">
+      <p className="flex items-center gap-2 text-xs font-bold uppercase text-[#556b57]">
         {icon}
         {label}
       </p>
-      <p className="mt-2 break-words text-sm font-bold text-[#12314f]">
+      <p className="mt-2 break-words text-sm font-bold text-[#173b1d]">
         {value}
       </p>
     </div>
@@ -235,10 +235,10 @@ function RecentOrderRow({ order }: { order: Order }) {
       href={`/account/orders/${order.id}`}
     >
       <div className="min-w-0">
-        <p className="break-words text-sm font-bold text-[#0b5cab]">
+        <p className="break-words text-sm font-bold text-[#287c30]">
           {order.orderNumber}
         </p>
-        <p className="mt-1 text-xs font-bold text-[#52677f]">
+        <p className="mt-1 text-xs font-bold text-[#556b57]">
           Placed {formatDate(order.placedAt ?? order.createdAt)}
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ function RecentOrderRow({ order }: { order: Order }) {
           <AccountStatusBadge>{formatPaymentStatus(order.paymentStatus)}</AccountStatusBadge>
         </div>
       </div>
-      <p className="text-sm font-bold text-[#12314f]">
+      <p className="text-sm font-bold text-[#173b1d]">
         {priceFormatter.format(order.totals.grandTotal)}
       </p>
     </a>
@@ -257,24 +257,24 @@ function RecentOrderRow({ order }: { order: Order }) {
 
 function DefaultAddress({ address }: { address: CustomerAddress }) {
   return (
-    <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5">
+    <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5">
       <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
           <MapPin aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="break-words text-sm font-bold text-[#12314f]">
+            <p className="break-words text-sm font-bold text-[#173b1d]">
               {address.fullName}
             </p>
             <AccountStatusBadge tone="success">Default</AccountStatusBadge>
           </div>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#52677f]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#556b57]">
             {address.addressLine1}
             {address.addressLine2 ? `, ${address.addressLine2}` : ""},{" "}
             {address.city}, {address.state} {address.pincode}
           </p>
-          <p className="mt-1 text-sm font-semibold text-[#52677f]">
+          <p className="mt-1 text-sm font-semibold text-[#556b57]">
             {address.phone}
           </p>
         </div>

@@ -34,7 +34,7 @@ export default function ProfileScreen() {
   if (profileQuery.isLoading) {
     return (
       <Screen scroll={false} style={styles.center}>
-        <ActivityIndicator color="#155E63" />
+        <ActivityIndicator color="#287c30" />
       </Screen>
     );
   }
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
           <Switch
             ios_backgroundColor="#CBD5E1"
             onValueChange={(value) => onlineMutation.mutate(value)}
-            trackColor={{ false: "#CBD5E1", true: "#99F6E4" }}
+            trackColor={{ false: "#CBD5E1", true: "#9fe4a4" }}
             value={profile.isOnline}
           />
         </View>

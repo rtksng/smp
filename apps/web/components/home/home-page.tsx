@@ -26,6 +26,10 @@ import { ErrorState } from "../ui/error-state";
 import { ProductCard } from "../ui/product-card";
 import { SectionHeader } from "../ui/section-header";
 import { BulkQuoteForm } from "./bulk-quote-form";
+import { MobileCommerceHome } from "./mobile-commerce-home";
+
+const highlightedLandingButtonClassName =
+  "whitespace-nowrap !border-[#a9ddae] !bg-[#eaf7eb] shadow-md shadow-[#287c30]/10";
 
 export async function HomePage() {
   const [categories, brands, products] = await Promise.all([
@@ -51,8 +55,16 @@ export async function HomePage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
-        <section className="bg-[#f4f9ff] py-5 sm:py-7">
+      <main className="bg-[#f4fbf5]">
+        <MobileCommerceHome
+          brands={brands ?? []}
+          categories={categories ?? []}
+          featuredCategories={featuredCategories}
+          featuredCategoryProducts={featuredCategoryProducts}
+          products={products?.items ?? []}
+        />
+        <div className="hidden md:block">
+        <section className="bg-[#f4fbf5] pb-5 sm:pb-7">
           <Container>
             <MarketplaceBanner
               ctaHref={banner.ctaHref}
@@ -63,7 +75,7 @@ export async function HomePage() {
               secondaryCtaText={banner.secondaryCtaText}
               subtitle={banner.subtitle}
               title={banner.title}
-              tone="navy"
+              tone="forest"
             />
           </Container>
         </section>
@@ -105,7 +117,11 @@ export async function HomePage() {
                 description={`The first ${getFeaturedCategorySectionLimit()} main category previews each highlight ${getLandingProductLimit()} products and link directly into filtered catalog results.`}
                 title="Featured products by category"
                 action={
-                  <Button href="/products" variant="outline">
+                  <Button
+                    className={highlightedLandingButtonClassName}
+                    href="/products"
+                    variant="outline"
+                  >
                     View all products
                   </Button>
                 }
@@ -161,11 +177,11 @@ export async function HomePage() {
                 }
               ].map((item) => (
                 <article
-                  className="rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-5 shadow-sm shadow-[#0b5cab]/5"
+                  className="rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-5 shadow-sm shadow-[#287c30]/5"
                   key={item.title}
                 >
-                  <h3 className="text-lg font-bold text-[#12314f]">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[#52677f]">{item.body}</p>
+                  <h3 className="text-lg font-bold text-[#173b1d]">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#556b57]">{item.body}</p>
                 </article>
               ))}
             </div>
@@ -178,7 +194,11 @@ export async function HomePage() {
               description="Browse verified manufacturers and suppliers, then open their dedicated product listings."
               title="Trusted brands"
               action={
-                <Button href="/brands" variant="outline">
+                <Button
+                  className={highlightedLandingButtonClassName}
+                  href="/brands"
+                  variant="outline"
+                >
                   View all brands
                 </Button>
               }
@@ -199,7 +219,7 @@ export async function HomePage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                 {previewBrands.map((brand) => (
                   <a
-                    className="grid min-h-32 content-center justify-items-center gap-3 rounded-lg border border-[#d6e7f8] bg-white px-4 py-5 text-center shadow-sm shadow-[#0b5cab]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0b5cab] hover:shadow-lg hover:shadow-[#0b5cab]/10"
+                    className="grid min-h-32 content-center justify-items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-4 py-5 text-center shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
                     href={`/brands/${brand.slug}`}
                     key={brand.id}
                   >
@@ -216,11 +236,11 @@ export async function HomePage() {
                         />
                       </span>
                     ) : (
-                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#edf6ff] text-sm font-bold text-[#0b5cab]">
+                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#eaf7eb] text-sm font-bold text-[#287c30]">
                         {brand.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <h3 className="text-sm font-bold leading-5 text-[#12314f]">
+                    <h3 className="text-sm font-bold leading-5 text-[#173b1d]">
                       {brand.name}
                     </h3>
                   </a>
@@ -228,7 +248,7 @@ export async function HomePage() {
               </div>
             ) : null}
             {brands && previewBrands.length > 0 ? (
-              <p className="mt-5 text-sm font-semibold text-[#52677f]">
+              <p className="mt-5 text-sm font-semibold text-[#556b57]">
                 Showing {Math.min(previewBrands.length, getHomeBrandPreviewLimit())}{" "}
                 brand partners on the landing page.
               </p>
@@ -238,7 +258,7 @@ export async function HomePage() {
 
         <section className="py-16" id="bulk">
           <Container>
-            <div className="grid gap-8 rounded-[2rem] bg-[#0b4f9f] p-7 text-white shadow-xl shadow-[#0b5cab]/15 lg:grid-cols-[0.85fr_1.15fr] lg:items-start md:p-10">
+            <div className="grid gap-8 rounded-[2rem] bg-[#287c30] p-7 text-white shadow-xl shadow-[#287c30]/15 lg:grid-cols-[0.85fr_1.15fr] lg:items-start md:p-10">
               <div>
                 <h2 className="text-2xl font-bold sm:text-3xl">
                   Planning a bulk order?
@@ -255,6 +275,7 @@ export async function HomePage() {
             </div>
           </Container>
         </section>
+        </div>
       </main>
       <Footer />
     </>
@@ -294,11 +315,11 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
     >
       {categories.map((category) => (
         <article
-          className="group grid min-h-72 overflow-hidden rounded-lg border border-[#d6e7f8] bg-white shadow-sm shadow-[#0b5cab]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0b5cab] hover:shadow-lg hover:shadow-[#0b5cab]/10"
+          className="group grid min-h-72 overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
           key={category.id}
         >
           <a
-            className="relative block h-32 overflow-hidden bg-[#edf6ff]"
+            className="relative block h-32 overflow-hidden bg-[#eaf7eb]"
             href={category.href}
           >
             {category.imageUrl ? (
@@ -311,23 +332,26 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
                 unoptimized={category.imageUrl.startsWith("http://localhost")}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#edf6ff,#ffffff)] text-4xl font-bold text-[#0b5cab]">
+              <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] text-4xl font-bold text-[#287c30]">
                 {category.label.slice(0, 1)}
               </div>
             )}
           </a>
           <div className="grid content-between gap-4 p-4">
             <div>
-              <h3 className="text-base font-bold leading-6 text-[#12314f]">
+              <h3 className="text-base font-bold leading-6 text-[#173b1d]">
                 <a href={category.href}>{category.label}</a>
               </h3>
               {category.description ? (
-                <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#52677f]">
+                <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#556b57]">
                   {category.description}
                 </p>
               ) : null}
             </div>
-            <Button className="w-full !min-h-10 !px-3 text-xs" href={category.href}>
+            <Button
+              className="w-full whitespace-nowrap !min-h-10 !px-3 text-xs shadow-md shadow-[#287c30]/15 ring-1 ring-[#287c30]/15"
+              href={category.href}
+            >
               Open Catalog
             </Button>
           </div>
@@ -345,19 +369,23 @@ function FeaturedCategorySection({
   products?: ProductList;
 }) {
   return (
-    <section className="border-t border-[#d6e7f8] pt-8">
+    <section className="border-t border-[#cfe9d2] pt-8">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-xl font-bold leading-7 text-[#12314f] sm:text-2xl">
+          <h3 className="text-xl font-bold leading-7 text-[#173b1d] sm:text-2xl">
             {category.label}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-[#52677f]">
+          <p className="mt-2 text-sm leading-6 text-[#556b57]">
             {products
               ? `${products.pagination.total} catalog items available in this category.`
               : "Category products are unavailable right now."}
           </p>
         </div>
-        <Button href={category.href} variant="outline">
+        <Button
+          className={highlightedLandingButtonClassName}
+          href={category.href}
+          variant="outline"
+        >
           Open Catalog
         </Button>
       </div>

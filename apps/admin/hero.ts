@@ -20,15 +20,15 @@ export default heroui({
         background: "#eef3f1",
         foreground: "#17211f",
         primary: {
-          DEFAULT: "#006d77",
+          DEFAULT: "#287c30",
           foreground: "#ffffff"
         },
         secondary: {
-          DEFAULT: "#233d4d",
+          DEFAULT: "#243d29",
           foreground: "#ffffff"
         },
         success: {
-          DEFAULT: "#2d6a4f",
+          DEFAULT: "#287c30",
           foreground: "#ffffff"
         },
         warning: {
@@ -55,7 +55,7 @@ export default heroui({
           DEFAULT: "#d8e2df",
           foreground: "#17211f"
         },
-        focus: "#006d77"
+        focus: "#3cb043"
       }
     }
   }

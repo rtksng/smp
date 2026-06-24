@@ -48,7 +48,7 @@ export function CartPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
+      <main className="bg-[#f4fbf5]">
         <Container className="py-8">
           <ProtectedCustomerRoute>
             <CartContent />
@@ -104,7 +104,7 @@ function CartContent() {
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+      <div className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase text-[#9b6a1e]">
@@ -213,10 +213,10 @@ function CartAssuranceStrip() {
 
         return (
           <div
-            className="flex min-h-14 items-center gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] px-3 py-2 text-xs font-bold text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
+            className="flex min-h-14 items-center gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3 py-2 text-xs font-bold text-[#31413d] shadow-sm shadow-[#287c30]/5"
             key={item.label}
           >
-            <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-[#006d77]" />
+            <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-[#287c30]" />
             {item.label}
           </div>
         );
@@ -244,43 +244,43 @@ function CartItemCard({
     !item.isAvailable || item.quantity > item.availableQuantity;
 
   return (
-    <article className="grid gap-4 rounded-lg border border-[#d6e7f8] bg-white p-3 shadow-sm shadow-[#0b5cab]/5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start sm:p-4">
+    <article className="grid gap-4 rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-start sm:p-4">
       <CartItemImage item={item} priority={priorityImage} />
       <div className="min-w-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-[#006d77]">
+            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-[#287c30]">
               <a className="hover:underline" href={`/brands/${item.brand.slug}`}>
                 {item.brand.name}
               </a>
               <span className="text-[#a3b1ad]">/</span>
               <a
-                className="text-[#687773] hover:text-[#006d77] hover:underline"
+                className="text-[#687773] hover:text-[#287c30] hover:underline"
                 href={`/categories/${item.category.slug}`}
               >
                 {item.category.name}
               </a>
             </div>
             <a
-              className="line-clamp-2 text-base font-bold leading-6 text-[#17211f] hover:text-[#006d77]"
+              className="line-clamp-2 text-base font-bold leading-6 text-[#17211f] hover:text-[#287c30]"
               href={`/products/${item.slug}`}
             >
               {item.name}
             </a>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-[#687773]">
               <span className="inline-flex items-center gap-1 rounded-lg bg-[#f8fbfa] px-2 py-1">
-                <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[#006d77]" />
+                <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[#287c30]" />
                 SKU {item.sku}
               </span>
               {item.variantName ? (
-                <span className="inline-flex items-center gap-1 rounded-lg bg-[#e7f3f2] px-2 py-1 text-[#006d77]">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-[#eaf7eb] px-2 py-1 text-[#287c30]">
                   <Layers3 aria-hidden="true" className="h-3.5 w-3.5" />
                   {item.variantName}
                 </span>
               ) : null}
               {item.subcategory ? (
                 <a
-                  className="rounded-lg bg-[#f8fbfa] px-2 py-1 hover:text-[#006d77] hover:underline"
+                  className="rounded-lg bg-[#f8fbfa] px-2 py-1 hover:text-[#287c30] hover:underline"
                   href={`/categories/${item.category.slug}?subcategory=${item.subcategory.slug}`}
                 >
                   {item.subcategory.name}
@@ -342,7 +342,7 @@ function CartItemImage({
 
   return (
     <a
-      className="relative aspect-square overflow-hidden rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] shadow-sm shadow-[#0b5cab]/5 sm:h-28 sm:w-28"
+      className="relative aspect-square overflow-hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] shadow-sm shadow-[#287c30]/5 sm:h-28 sm:w-28"
       href={`/products/${item.slug}`}
     >
       {item.imageUrl && !imageFailed ? (
@@ -357,7 +357,7 @@ function CartItemImage({
           unoptimized
         />
       ) : (
-        <span className="grid h-full place-items-center text-[#006d77]">
+        <span className="grid h-full place-items-center text-[#287c30]">
           <PackageCheck aria-hidden="true" className="h-10 w-10" />
         </span>
       )}
@@ -405,7 +405,7 @@ function QuantityStepper({
 
 function CartMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] px-3 py-2 shadow-sm shadow-[#0b5cab]/5">
+    <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3 py-2 shadow-sm shadow-[#287c30]/5">
       <span className="block text-[11px] font-bold uppercase text-[#687773]">
         {label}
       </span>
@@ -426,9 +426,9 @@ function CartSummary({
   isMutating: boolean;
 }) {
   return (
-    <aside className="h-fit rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 lg:sticky lg:top-28">
+    <aside className="h-fit rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 lg:sticky lg:top-28">
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+        <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
           <ShoppingBag aria-hidden="true" className="h-5 w-5" />
         </span>
         <div>
@@ -447,7 +447,7 @@ function CartSummary({
         />
         <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
         <SummaryRow label="Tax/GST" value={cart.totals.tax} />
-        <div className="mt-2 flex items-center justify-between border-t border-[#d6e7f8] pt-4 text-base font-bold text-[#17211f]">
+        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#17211f]">
           <span>Grand total</span>
           <span>{priceFormatter.format(cart.totals.grandTotal)}</span>
         </div>

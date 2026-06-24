@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     opacity: 0.82
   },
   primary: {
-    backgroundColor: "#155E63"
+    backgroundColor: "#287c30"
   },
   secondary: {
     backgroundColor: "#E2E8F0"

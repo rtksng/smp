@@ -96,7 +96,7 @@ export function CheckoutPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
+      <main className="bg-[#f4fbf5]">
         <Container className="py-8">
           <ProtectedCustomerRoute>
             <CheckoutContent />
@@ -433,22 +433,22 @@ function CheckoutContent() {
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 sm:p-6">
+      <div className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold leading-tight text-[#12314f] sm:text-3xl">
+            <h1 className="text-2xl font-bold leading-tight text-[#173b1d] sm:text-3xl">
               Checkout
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#52677f]">
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#556b57]">
               Review cart items, choose delivery, confirm payment, and place the order.
             </p>
           </div>
           {cart ? (
-            <div className="rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] px-4 py-3 shadow-sm shadow-[#0b5cab]/5">
-              <p className="text-xs font-bold uppercase text-[#52677f]">
+            <div className="rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] px-4 py-3 shadow-sm shadow-[#287c30]/5">
+              <p className="text-xs font-bold uppercase text-[#556b57]">
                 Amount payable
               </p>
-              <p className="mt-1 text-xl font-bold text-[#12314f]">
+              <p className="mt-1 text-xl font-bold text-[#173b1d]">
                 {priceFormatter.format(cart.totals.grandTotal)}
               </p>
             </div>
@@ -612,24 +612,24 @@ function CheckoutStepStrip({
             className={[
               "flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2",
               step.active
-                ? "border-[#b9d6f2] bg-[#f4f9ff]"
-                : "border-[#d6e7f8] bg-white"
+                ? "border-[#a9ddae] bg-[#f4fbf5]"
+                : "border-[#cfe9d2] bg-white"
             ].join(" ")}
             key={step.label}
           >
             <span
               className={[
                 "grid h-10 w-10 shrink-0 place-items-center rounded-lg",
-                step.active ? "bg-white text-[#0b5cab]" : "bg-[#f4f9ff] text-[#52677f]"
+                step.active ? "bg-white text-[#287c30]" : "bg-[#f4fbf5] text-[#556b57]"
               ].join(" ")}
             >
               <Icon aria-hidden="true" className="h-5 w-5" />
             </span>
             <span>
-              <span className="block text-xs font-bold uppercase text-[#52677f]">
+              <span className="block text-xs font-bold uppercase text-[#556b57]">
                 {step.label}
               </span>
-              <strong className="mt-1 block text-sm leading-5 text-[#12314f]">
+              <strong className="mt-1 block text-sm leading-5 text-[#173b1d]">
                 {step.value}
               </strong>
             </span>
@@ -642,7 +642,7 @@ function CheckoutStepStrip({
 
 function CartReview({ cart }: { cart: Cart }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5">
       <SectionHeading
         description={`${cart.itemCount} product${cart.itemCount === 1 ? "" : "s"} / ${cart.totalQuantity} unit${cart.totalQuantity === 1 ? "" : "s"}`}
         icon={<ShoppingBag aria-hidden="true" className="h-5 w-5" />}
@@ -655,7 +655,7 @@ function CartReview({ cart }: { cart: Cart }) {
         ))}
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 border-t border-[#d6e7f8] pt-4 text-sm font-semibold text-[#52677f] sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-4 flex flex-col gap-2 border-t border-[#cfe9d2] pt-4 text-sm font-semibold text-[#556b57] sm:flex-row sm:items-center sm:justify-between">
         <span>Need to change quantities or remove items?</span>
         <Button className="w-full sm:w-auto" href="/cart" variant="outline">
           Back to cart
@@ -670,9 +670,9 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
   const stockWarning = !item.isAvailable || item.quantity > item.availableQuantity;
 
   return (
-    <article className="grid grid-cols-[72px_1fr] gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-3 shadow-sm shadow-[#0b5cab]/5 sm:grid-cols-[84px_minmax(0,1fr)_auto] sm:items-center">
+    <article className="grid grid-cols-[72px_1fr] gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-3 shadow-sm shadow-[#287c30]/5 sm:grid-cols-[84px_minmax(0,1fr)_auto] sm:items-center">
       <a
-        className="relative aspect-square overflow-hidden rounded-lg border border-[#d6e7f8] bg-white shadow-sm shadow-[#0b5cab]/5"
+        className="relative aspect-square overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5"
         href={`/products/${item.slug}`}
       >
         {item.imageUrl && !imageFailed ? (
@@ -686,19 +686,19 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
             unoptimized
           />
         ) : (
-          <span className="grid h-full place-items-center text-[#0b5cab]">
+          <span className="grid h-full place-items-center text-[#287c30]">
             <PackageCheck aria-hidden="true" className="h-8 w-8" />
           </span>
         )}
       </a>
       <div className="min-w-0">
         <a
-          className="line-clamp-2 text-sm font-bold leading-5 text-[#12314f] hover:text-[#0b5cab] sm:text-base"
+          className="line-clamp-2 text-sm font-bold leading-5 text-[#173b1d] hover:text-[#287c30] sm:text-base"
           href={`/products/${item.slug}`}
         >
           {item.name}
         </a>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-[#52677f]">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-[#556b57]">
           <span>SKU {item.sku}</span>
           {item.variantName ? <span>{item.variantName}</span> : null}
           <span>Qty {item.quantity}</span>
@@ -722,11 +722,11 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
 
 function CartLineMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#d6e7f8] bg-white px-3 py-2 shadow-sm shadow-[#0b5cab]/5">
-      <span className="block text-[11px] font-bold uppercase text-[#52677f]">
+    <div className="rounded-lg border border-[#cfe9d2] bg-white px-3 py-2 shadow-sm shadow-[#287c30]/5">
+      <span className="block text-[11px] font-bold uppercase text-[#556b57]">
         {label}
       </span>
-      <strong className="mt-0.5 block break-words text-xs font-bold text-[#12314f]">
+      <strong className="mt-0.5 block break-words text-xs font-bold text-[#173b1d]">
         {value}
       </strong>
     </div>
@@ -753,7 +753,7 @@ function AddressSelection({
   setSelectedAddressId: (addressId: string) => void;
 }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <SectionHeading
           description="Choose a saved address or add a new one."
@@ -796,24 +796,24 @@ function AddressSelection({
         <div className="mt-4 grid gap-3">
           {addresses.map((address) => (
             <div
-              className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-3 shadow-sm shadow-[#0b5cab]/5 data-[checked=true]:border-[#0b5cab] data-[checked=true]:bg-[#f4f9ff] sm:grid-cols-[1fr_auto] sm:items-start"
+              className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-3 shadow-sm shadow-[#287c30]/5 data-[checked=true]:border-[#287c30] data-[checked=true]:bg-[#f4fbf5] sm:grid-cols-[1fr_auto] sm:items-start"
               data-checked={selectedAddressId === address.id}
               key={address.id}
             >
               <label className="flex cursor-pointer gap-3">
                 <input
                   checked={selectedAddressId === address.id}
-                  className="mt-1 h-4 w-4 shrink-0 accent-[#0b5cab]"
+                  className="mt-1 h-4 w-4 shrink-0 accent-[#287c30]"
                   name="shippingAddress"
                   onChange={() => setSelectedAddressId(address.id)}
                   type="radio"
                 />
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
-                    <strong className="text-sm font-bold text-[#12314f]">
+                    <strong className="text-sm font-bold text-[#173b1d]">
                       {address.fullName}
                     </strong>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase text-[#52677f]">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase text-[#556b57]">
                       {formatAddressType(address.type)}
                     </span>
                     {address.isDefault ? (
@@ -822,15 +822,15 @@ function AddressSelection({
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-1 block text-sm font-semibold leading-5 text-[#52677f]">
+                  <span className="mt-1 block text-sm font-semibold leading-5 text-[#556b57]">
                     {formatAddress(address)}
                   </span>
                   {address.landmark ? (
-                    <span className="mt-1 block text-xs font-bold text-[#52677f]">
+                    <span className="mt-1 block text-xs font-bold text-[#556b57]">
                       Landmark: {address.landmark}
                     </span>
                   ) : null}
-                  <span className="mt-1 block text-xs font-bold text-[#52677f]">
+                  <span className="mt-1 block text-xs font-bold text-[#556b57]">
                     {address.phone}
                   </span>
                 </span>
@@ -878,7 +878,7 @@ function AddressForm({
 }) {
   return (
     <form
-      className="grid gap-5 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5"
+      className="grid gap-5 rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5"
       onSubmit={onSubmit}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -957,10 +957,10 @@ function AddressForm({
           onChange={(event) => onChange("pincode", event.target.value)}
           value={addressForm.pincode}
         />
-        <label className="grid gap-2 text-sm font-bold text-[#12314f]">
+        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
           <span>Address type</span>
           <select
-            className="min-h-12 rounded-full border border-[#b9d6f2] bg-white px-5 text-base text-[#12314f] outline-none transition focus:border-[#0b5cab] focus:ring-2 focus:ring-[#0b5cab]/20"
+            className="min-h-12 rounded-full border border-[#a9ddae] bg-white px-5 text-base text-[#173b1d] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20"
             onChange={(event) =>
               onChange("type", event.target.value as CreateCustomerAddressInput["type"])
             }
@@ -999,7 +999,7 @@ function PaymentMethodSelection({
   setPaymentMethod: (method: PaymentMethod) => void;
 }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5">
       <SectionHeading
         description="Choose COD or online Razorpay payment."
         icon={<CreditCard aria-hidden="true" className="h-5 w-5" />}
@@ -1016,10 +1016,10 @@ function PaymentMethodSelection({
             <button
               aria-pressed={paymentMethod === method}
               className={[
-                "min-h-24 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-4 text-left shadow-sm shadow-[#0b5cab]/5 transition data-[checked=true]:border-[#0b5cab] data-[checked=true]:bg-[#f4f9ff]",
+                "min-h-24 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-4 text-left shadow-sm shadow-[#287c30]/5 transition data-[checked=true]:border-[#287c30] data-[checked=true]:bg-[#f4fbf5]",
                 onlineDisabled
                   ? "cursor-not-allowed opacity-75"
-                  : "hover:border-[#0b5cab]"
+                  : "hover:border-[#287c30]"
               ].join(" ")}
               data-checked={paymentMethod === method}
               disabled={onlineDisabled}
@@ -1028,18 +1028,18 @@ function PaymentMethodSelection({
               type="button"
             >
               <span className="flex items-center justify-between gap-3">
-                <span className="font-bold text-[#12314f]">
+                <span className="font-bold text-[#173b1d]">
                   {method === "COD" ? "Cash on delivery" : "Online payment"}
                 </span>
                 {onlineDisabled ? (
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase text-[#52677f]">
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase text-[#556b57]">
                     {disabledLabel}
                   </span>
                 ) : paymentMethod === method ? (
                   <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-[#0f6b50]" />
                 ) : null}
               </span>
-              <span className="mt-2 block text-sm font-semibold leading-5 text-[#52677f]">
+              <span className="mt-2 block text-sm font-semibold leading-5 text-[#556b57]">
                 {method === "COD"
                   ? "Pay after delivery is accepted by your team."
                   : onlineDisabled
@@ -1089,20 +1089,20 @@ function OrderSummary({
   const grandTotal = Math.max(0, cart.totals.grandTotal - discount);
 
   return (
-    <aside className="h-fit rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 xl:sticky xl:top-28">
+    <aside className="h-fit rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 xl:sticky xl:top-28">
       <SectionHeading
         description={`${cart.totalQuantity} unit${cart.totalQuantity === 1 ? "" : "s"} ready for confirmation.`}
         icon={<ShieldCheck aria-hidden="true" className="h-5 w-5" />}
         title="Order summary"
       />
 
-      <div className="mt-5 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] p-4 shadow-sm shadow-[#0b5cab]/5">
-        <div className="flex items-center gap-2 text-sm font-bold text-[#12314f]">
-          <Truck aria-hidden="true" className="h-4 w-4 text-[#0b5cab]" />
+      <div className="mt-5 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] p-4 shadow-sm shadow-[#287c30]/5">
+        <div className="flex items-center gap-2 text-sm font-bold text-[#173b1d]">
+          <Truck aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
           Delivery
         </div>
         {selectedAddress ? (
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#52677f]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#556b57]">
             {selectedAddress.fullName}, {formatAddress(selectedAddress)}
           </p>
         ) : (
@@ -1112,9 +1112,9 @@ function OrderSummary({
         )}
       </div>
 
-      <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5">
-        <div className="flex items-center gap-2 text-sm font-bold text-[#12314f]">
-          <BadgePercent aria-hidden="true" className="h-4 w-4 text-[#0b5cab]" />
+      <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5">
+        <div className="flex items-center gap-2 text-sm font-bold text-[#173b1d]">
+          <BadgePercent aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
           Promo code
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -1141,7 +1141,7 @@ function OrderSummary({
           )}
         </div>
         {appliedCoupon ? (
-          <p className="mt-2 rounded-lg bg-[#e7f3f2] px-3 py-2 text-sm font-bold text-[#006d77]">
+          <p className="mt-2 rounded-lg bg-[#eaf7eb] px-3 py-2 text-sm font-bold text-[#287c30]">
             {appliedCoupon.message}
           </p>
         ) : null}
@@ -1155,23 +1155,23 @@ function OrderSummary({
         ) : null}
       </div>
 
-      <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5">
-        <p className="text-xs font-bold uppercase text-[#52677f]">Price details</p>
+      <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5">
+        <p className="text-xs font-bold uppercase text-[#556b57]">Price details</p>
         <div className="mt-3 grid gap-2 text-sm text-[#31413d]">
           <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
           <SummaryRow label="Discount" value={discount > 0 ? -discount : 0} />
           <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
           <SummaryRow label="Tax/GST" value={cart.totals.tax} />
-          <div className="mt-2 flex items-center justify-between border-t border-[#d6e7f8] pt-4 text-base font-bold text-[#12314f]">
+          <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#173b1d]">
             <span>Total payable</span>
             <span>{priceFormatter.format(grandTotal)}</span>
           </div>
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] px-4 py-3 text-sm font-semibold text-[#52677f] shadow-sm shadow-[#0b5cab]/5">
+      <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] px-4 py-3 text-sm font-semibold text-[#556b57] shadow-sm shadow-[#287c30]/5">
         Payment:{" "}
-        <strong className="text-[#12314f]">
+        <strong className="text-[#173b1d]">
           {paymentMethod === "COD" ? "Cash on delivery" : "Online payment"}
         </strong>
       </div>
@@ -1213,8 +1213,8 @@ function OrderSummary({
 function SummaryRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-[#52677f]">{label}</span>
-      <strong className="text-right font-bold text-[#12314f]">
+      <span className="text-[#556b57]">{label}</span>
+      <strong className="text-right font-bold text-[#173b1d]">
         {priceFormatter.format(value)}
       </strong>
     </div>
@@ -1232,14 +1232,14 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#f4f9ff] text-[#0b5cab]">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#f4fbf5] text-[#287c30]">
         {icon}
       </span>
       <div>
-        <h2 className="text-base font-bold leading-6 text-[#12314f] sm:text-lg">
+        <h2 className="text-base font-bold leading-6 text-[#173b1d] sm:text-lg">
           {title}
         </h2>
-        <p className="mt-0.5 text-sm font-semibold leading-5 text-[#52677f]">
+        <p className="mt-0.5 text-sm font-semibold leading-5 text-[#556b57]">
           {description}
         </p>
       </div>

@@ -2,15 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   BadgeCheck,
   Building2,
   Boxes,
+  ChevronDown,
   ChevronRight,
   CreditCard,
   Download,
   FileText,
   Heart,
-  HeartOff,
   Minus,
   PackageCheck,
   Plus,
@@ -23,7 +24,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getFriendlyApiErrorMessage,
   isNotFoundApiError,
@@ -81,9 +82,13 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   const [selectedImageId, setSelectedImageId] = useState<string | undefined>();
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set());
   const [actionMessage, setActionMessage] = useState<string | undefined>();
+  const [wishlistToast, setWishlistToast] = useState<string | undefined>();
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [question, setQuestion] = useState("");
+  const wishlistToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const setCartSummary = useCartStore((state) => state.setSummary);
   const promptLogin = useCustomerAuthStore((state) => state.promptLogin);
   const session = useCustomerAuthStore((state) => state.session);
@@ -178,6 +183,26 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   const wishlistPending =
     addWishlistMutation.isPending || removeWishlistMutation.isPending;
 
+  useEffect(() => {
+    return () => {
+      if (wishlistToastTimeoutRef.current) {
+        clearTimeout(wishlistToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function showWishlistToast(message: string) {
+    if (wishlistToastTimeoutRef.current) {
+      clearTimeout(wishlistToastTimeoutRef.current);
+    }
+
+    setWishlistToast(message);
+    wishlistToastTimeoutRef.current = setTimeout(() => {
+      setWishlistToast(undefined);
+      wishlistToastTimeoutRef.current = null;
+    }, 1600);
+  }
+
   function handleImageError(imageId: string) {
     setFailedImageIds((current) => {
       const next = new Set(current);
@@ -252,7 +277,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
         setActionMessage("Removed from wishlist.");
       } else {
         await addWishlistMutation.mutateAsync({ productId: product.id });
-        setActionMessage("Saved to wishlist.");
+        showWishlistToast("Added to wishlist");
       }
     } catch (error) {
       setActionMessage(
@@ -297,8 +322,8 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
-        <Container className="py-8">
+      <main className="bg-[#f4fbf5] pb-28 md:pb-0">
+        <Container className="py-4 sm:py-8">
           {productQuery.isLoading ? <ProductDetailSkeleton /> : null}
 
           {productQuery.isError && isNotFoundApiError(productQuery.error) ? (
@@ -321,32 +346,51 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
           ) : null}
 
           {product ? (
-            <div className="grid gap-6">
-              <nav
-                aria-label="Product breadcrumbs"
-                className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#687773]"
-              >
-                <Link className="hover:text-[#006d77]" href="/products">
-                  Products
-                </Link>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 text-[#a3b1ad]" />
-                <Link
-                  className="hover:text-[#006d77]"
-                  href={`/categories/${product.category.slug}`}
+            <div className="grid gap-5 sm:gap-6">
+              <div className="flex items-start gap-2 sm:items-center sm:gap-3">
+                <button
+                  aria-label="Back"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#cfe9d2] bg-white px-3 text-xs font-bold text-[#287c30] shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30] hover:bg-[#f4fbf5] focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 sm:min-h-9 sm:text-sm"
+                  onClick={() => router.back()}
+                  type="button"
                 >
-                  {product.category.name}
-                </Link>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 text-[#a3b1ad]" />
-                <span className="text-[#17211f]">{product.name}</span>
-              </nav>
+                  <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                </button>
+                <nav
+                  aria-label="Product breadcrumbs"
+                  className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold text-[#687773] sm:gap-2 sm:text-sm"
+                >
+                  <Link className="hover:text-[#287c30]" href="/products">
+                    Products
+                  </Link>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="h-4 w-4 text-[#a3b1ad]"
+                  />
+                  <Link
+                    className="hover:text-[#287c30]"
+                    href={`/categories/${product.category.slug}`}
+                  >
+                    {product.category.name}
+                  </Link>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="h-4 w-4 text-[#a3b1ad]"
+                  />
+                  <span className="text-[#17211f]">{product.name}</span>
+                </nav>
+              </div>
 
-              <div className="grid gap-8 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)_360px]">
-                <section className="grid gap-4 xl:self-start">
-                  <div className="relative aspect-square overflow-hidden rounded-lg border border-[#d6e7f8] bg-white shadow-sm shadow-[#0b5cab]/5">
+              <div className="grid gap-5 sm:gap-8 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)_360px]">
+                <section className="grid gap-3 sm:gap-4 xl:self-start">
+                  <div
+                    className="relative aspect-square overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5"
+                    data-testid="product-main-image-panel"
+                  >
                     {selectedImage && !selectedImageFailed ? (
                       <Image
                         alt={getProductImageAlt(product.name, selectedImage.altText)}
-                        className="object-contain p-6"
+                        className="object-contain p-4 sm:p-6"
                         fill
                         onError={() => handleImageError(selectedImage.id)}
                         priority
@@ -355,13 +399,34 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         unoptimized
                       />
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#e7f3f2,#eef3f1)] px-4 text-center text-[#006d77]">
+                      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#eaf7eb,#eef3f1)] px-4 text-center text-[#287c30]">
                         <PackageCheck aria-hidden="true" className="h-20 w-20" />
-                        <span className="text-sm font-bold text-[#084c61]">
+                        <span className="text-sm font-bold text-[#23702a]">
                           Product image unavailable
                         </span>
                       </div>
                     )}
+                    <button
+                      aria-label={isSaved ? "Remove from wishlist" : "Add to wishlist"}
+                      aria-pressed={isSaved}
+                      className={[
+                        "absolute bottom-3 right-3 z-10 grid h-11 w-11 place-items-center rounded-full border bg-white/95 shadow-lg shadow-[#287c30]/15 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+                        isSaved
+                          ? "border-[#ffd4d0] text-[#d92d20]"
+                          : "border-[#cfe9d2] text-[#173b1d]"
+                      ].join(" ")}
+                      disabled={wishlistPending}
+                      onClick={handleWishlistToggle}
+                      type="button"
+                    >
+                      <Heart
+                        aria-hidden="true"
+                        className={[
+                          "h-5 w-5",
+                          isSaved ? "fill-current" : "fill-transparent"
+                        ].join(" ")}
+                      />
+                    </button>
                   </div>
 
                   {product.images.length > 0 ? (
@@ -372,14 +437,14 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                       {product.images.map((image) => (
                         <button
                           aria-current={image.id === selectedImage?.id}
-                          className="relative h-20 w-20 shrink-0 snap-start overflow-hidden rounded-lg border border-[#d6e7f8] bg-white shadow-sm shadow-[#0b5cab]/5 data-[active=true]:border-[#006d77] data-[active=true]:ring-2 data-[active=true]:ring-[#006d77]/20 sm:h-auto sm:w-auto sm:aspect-square"
+                          className="relative h-20 w-20 shrink-0 snap-start overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 data-[active=true]:border-[#287c30] data-[active=true]:ring-2 data-[active=true]:ring-[#287c30]/20 sm:h-auto sm:w-auto sm:aspect-square"
                           data-active={image.id === selectedImage?.id}
                           key={image.id}
                           onClick={() => setSelectedImageId(image.id)}
                           type="button"
                         >
                           {failedImageIds.has(image.id) ? (
-                            <div className="flex h-full w-full items-center justify-center bg-[#e7f3f2] text-[#006d77]">
+                            <div className="flex h-full w-full items-center justify-center bg-[#eaf7eb] text-[#287c30]">
                               <PackageCheck aria-hidden="true" className="h-6 w-6" />
                             </div>
                           ) : (
@@ -399,26 +464,26 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   ) : null}
                 </section>
 
-                <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 sm:p-6">
+                <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-6">
                   <p className="text-xs font-bold uppercase text-[#9b6a1e]">
                     {product.brand.name}
                   </p>
-                  <h1 className="mt-3 text-xl font-bold leading-snug text-[#17211f] sm:text-3xl">
+                  <h1 className="mt-2 text-lg font-bold leading-snug text-[#17211f] sm:text-3xl">
                     {product.name}
                   </h1>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-[#31413d]">
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold text-[#31413d] sm:gap-2 sm:text-xs">
                     <span className="rounded-full bg-[#eef3f1] px-3 py-1">
                       SKU {product.sku}
                     </span>
                   <Link
-                    className="rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]"
+                    className="rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]"
                     href={`/categories/${product.category.slug}`}
                   >
                     {product.category.name}
                   </Link>
                   {product.subcategory ? (
                     <Link
-                      className="rounded-full bg-[#e7f3f2] px-3 py-1 text-[#006d77]"
+                      className="rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]"
                       href={`/categories/${product.category.slug}?subcategory=${product.subcategory.slug}`}
                     >
                       {product.subcategory.name}
@@ -429,11 +494,11 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     </span>
                   </div>
 
-                  <p className="mt-4 text-sm leading-6 text-[#687773]">
+                  <p className="mt-3 text-[13px] leading-5 text-[#687773] sm:text-sm sm:leading-6">
                     {product.shortDescription}
                   </p>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3">
                     <ProductSignal
                       icon={FileText}
                       title="GST invoice"
@@ -462,24 +527,16 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     />
                   </div>
 
-                  <div className="mt-6 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5">
-                    <h2 className="text-base font-bold text-[#17211f]">
-                      Product summary
-                    </h2>
-                    <div
-                      className="productDescriptionRichText mt-2 text-sm leading-6 text-[#687773]"
-                      dangerouslySetInnerHTML={{ __html: product.description }}
-                    />
-                  </div>
+                  <ProductSummary description={product.description} />
                 </section>
 
-                <aside className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 xl:self-start">
+                <aside className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 xl:self-start">
                   <p className="text-xs font-bold uppercase text-[#9b6a1e]">
                     Purchase panel
                   </p>
-                  <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5">
+                  <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
                     <p className="text-xs font-bold text-[#687773]">Hospital price</p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums text-[#17211f]">
+                    <p className="mt-1 text-xl font-bold tabular-nums text-[#17211f] sm:text-2xl">
                       {formatRupees(product.sellingPrice)}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -495,7 +552,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   </div>
 
                   <div className="mt-5 grid gap-2 text-sm font-bold text-[#31413d]">
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#d6e7f8] bg-white px-3 py-2 shadow-sm shadow-[#0b5cab]/5">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-2 shadow-sm shadow-[#287c30]/5">
                       <span>Quantity</span>
                       <div className="inline-flex h-11 items-center justify-between overflow-hidden rounded-lg border border-[#cfdcda] bg-white">
                         <button
@@ -519,44 +576,31 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-[#d6e7f8] bg-white px-3 py-3 shadow-sm shadow-[#0b5cab]/5">
+                    <div className="flex items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-3 shadow-sm shadow-[#287c30]/5">
                       <CreditCard
                         aria-hidden="true"
-                        className="h-4 w-4 text-[#006d77]"
+                        className="h-4 w-4 text-[#287c30]"
                       />
                       COD and online payment at checkout
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-[#d6e7f8] bg-white px-3 py-3 shadow-sm shadow-[#0b5cab]/5">
+                    <div className="flex items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-3 shadow-sm shadow-[#287c30]/5">
                       <Building2
                         aria-hidden="true"
-                        className="h-4 w-4 text-[#006d77]"
+                        className="h-4 w-4 text-[#287c30]"
                       />
                       Bulk price support for quantity orders
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3">
-                    <Button
-                      className="w-full"
-                      disabled={wishlistPending}
-                      onClick={handleWishlistToggle}
-                      variant="outline"
-                    >
-                      {isSaved ? (
-                        <HeartOff aria-hidden="true" className="h-4 w-4" />
-                      ) : (
-                        <Heart aria-hidden="true" className="h-4 w-4" />
-                      )}
-                      {wishlistPending
-                        ? "Updating..."
-                        : isSaved
-                          ? "Remove from wishlist"
-                          : "Save for later"}
-                    </Button>
+                  <div
+                    className="mt-5 hidden gap-3 md:grid"
+                    data-testid="desktop-purchase-actions"
+                  >
                     <Button
                       className="w-full"
                       disabled={cartActionPending || !product.inStock}
                       onClick={() => handleAddToCart()}
+                      variant="outline"
                     >
                       <ShoppingCart aria-hidden="true" className="h-4 w-4" />
                       {addCartMutation.isPending
@@ -574,7 +618,6 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                           redirectToCheckout: true
                         })
                       }
-                      variant="secondary"
                     >
                       <Zap aria-hidden="true" className="h-4 w-4" />
                       {buyNowMutation.isPending
@@ -591,13 +634,13 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     </p>
                   ) : null}
                   {actionMessage ? (
-                    <p className="mt-4 rounded-lg bg-[#e7f3f2] px-4 py-3 text-sm font-bold text-[#006d77]">
+                    <p className="mt-4 rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-bold text-[#287c30]">
                       {actionMessage}
                     </p>
                   ) : null}
                 </aside>
 
-                <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 xl:col-span-3">
+                <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
                   <SectionHeader
                     description="Technical details stay structured for clinical review and purchase approval."
                     eyebrow="Product information"
@@ -626,6 +669,54 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   onReviewSubmit={handleReviewSubmit}
                 />
               </div>
+
+              <div
+                aria-label="Product purchase actions"
+                className="fixed inset-x-0 bottom-0 z-40 border-t border-[#cfe9d2] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-10px_24px_rgba(40,124,48,0.14)] backdrop-blur md:hidden"
+                data-testid="mobile-sticky-product-actions"
+              >
+                <div className="mx-auto grid max-w-screen-sm grid-cols-2 gap-3">
+                  <Button
+                    className="w-full px-3 text-sm"
+                    disabled={cartActionPending || !product.inStock}
+                    onClick={() => handleAddToCart()}
+                    variant="outline"
+                  >
+                    <ShoppingCart aria-hidden="true" className="h-4 w-4" />
+                    {addCartMutation.isPending
+                      ? "Adding..."
+                      : product.inStock
+                        ? "Add to cart"
+                        : "Out of stock"}
+                  </Button>
+                  <Button
+                    className="w-full px-3 text-sm"
+                    disabled={cartActionPending || !product.inStock}
+                    onClick={() =>
+                      handleAddToCart({
+                        message: "Prepared for checkout.",
+                        redirectToCheckout: true
+                      })
+                    }
+                  >
+                    <Zap aria-hidden="true" className="h-4 w-4" />
+                    {buyNowMutation.isPending
+                      ? "Preparing..."
+                      : product.inStock
+                        ? "Buy now"
+                        : "Unavailable"}
+                  </Button>
+                </div>
+              </div>
+
+              {wishlistToast ? (
+                <div
+                  className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#bfe7d1] bg-white px-4 py-2 text-sm font-bold text-[#0a7f32] shadow-lg shadow-[#287c30]/15 md:bottom-8"
+                  role="status"
+                >
+                  {wishlistToast}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -653,13 +744,69 @@ function ProductSignal({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-3 shadow-sm shadow-[#0b5cab]/5">
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#e7f3f2] text-[#006d77]">
-        <Icon aria-hidden="true" className="h-4 w-4" />
+    <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-2.5 shadow-sm shadow-[#287c30]/5 sm:p-3">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#eaf7eb] text-[#287c30] sm:h-8 sm:w-8">
+        <Icon aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </span>
-      <p className="mt-2 text-xs font-bold text-[#17211f]">{title}</p>
-      <p className="mt-1 text-xs font-bold leading-4 text-[#687773]">{value}</p>
+      <p className="mt-1.5 text-[11px] font-bold text-[#17211f] sm:mt-2 sm:text-xs">
+        {title}
+      </p>
+      <p className="mt-1 text-[11px] font-bold leading-4 text-[#687773]">
+        {value}
+      </p>
     </div>
+  );
+}
+
+function ProductSummary({ description }: { description: string }) {
+  return (
+    <>
+      <div className="mt-5 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-3.5 shadow-sm shadow-[#287c30]/5 sm:hidden">
+        <details className="group" data-testid="mobile-product-summary">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <span className="text-sm font-bold text-[#17211f]">Product summary</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#687773]">
+              <span
+                className="group-open:hidden"
+                data-testid="mobile-product-summary-ellipsis"
+              >
+                ...
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className="h-4 w-4 text-[#287c30] transition group-open:rotate-180"
+              />
+            </span>
+          </summary>
+          <div
+            className="mt-2 grid gap-1 group-open:hidden"
+            data-testid="mobile-product-summary-preview"
+          >
+            <div
+              className="line-clamp-2 text-[13px] leading-5 text-[#687773]"
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
+          </div>
+          <div
+            className="productDescriptionRichText mt-2 hidden text-[13px] leading-5 text-[#687773] group-open:block"
+            data-testid="mobile-product-summary-full"
+            dangerouslySetInnerHTML={{ __html: description }}
+          />
+        </details>
+      </div>
+
+      <div
+        className="mt-5 hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5 sm:block"
+        data-testid="desktop-product-summary"
+      >
+        <h2 className="text-base font-bold text-[#17211f]">Product summary</h2>
+        <div
+          className="productDescriptionRichText mt-2 text-sm leading-6 text-[#687773]"
+          data-testid="desktop-product-summary-body"
+          dangerouslySetInnerHTML={{ __html: description }}
+        />
+      </div>
+    </>
   );
 }
 
@@ -684,7 +831,7 @@ function ProductFacts({ product }: { product: Product }) {
     <div className="grid gap-3 md:grid-cols-2">
       {facts.map((fact) => (
         <div
-          className="flex items-start justify-between gap-4 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#0b5cab]/5"
+          className="flex items-start justify-between gap-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#287c30]/5"
           key={fact.label}
         >
           <span className="text-sm font-bold text-[#687773]">{fact.label}</span>
@@ -699,7 +846,7 @@ function ProductFacts({ product }: { product: Product }) {
 
 function ProductVariants({ product }: { product: Product }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
       <SectionHeader
         description="Available pack, size, or SKU options from the product catalog."
         eyebrow="Variants"
@@ -709,11 +856,11 @@ function ProductVariants({ product }: { product: Product }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {product.variants.map((variant) => (
           <article
-            className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-3 shadow-sm shadow-[#0b5cab]/5"
+            className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-3 shadow-sm shadow-[#287c30]/5"
             key={variant.id}
           >
             <div className="flex items-start gap-2.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#e7f3f2] text-[#006d77]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#eaf7eb] text-[#287c30]">
                 <Boxes aria-hidden="true" className="h-4 w-4" />
               </span>
               <div className="min-w-0">
@@ -747,7 +894,7 @@ function ProductDocuments({ product }: { product: Product }) {
   const documents = getVisibleProductDocuments(product.documents);
 
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
       <SectionHeader
         description="Customer-visible certificates, manuals, warranty, and compliance files."
         eyebrow="Documents"
@@ -763,18 +910,18 @@ function ProductDocuments({ product }: { product: Product }) {
         <div className="grid gap-4 md:grid-cols-2">
           {documents.map((document) => (
             <a
-              className="flex items-center justify-between gap-4 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5 transition hover:border-[#006d77]"
+              className="flex items-center justify-between gap-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30]"
               href={document.fileUrl}
               key={document.id}
               rel="noreferrer"
               target="_blank"
             >
               <span className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
                   <FileText aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span>
-                  <strong className="block text-[#17211f]">{document.title}</strong>
+                  <strong className="block text-[#17211f] text-sm sm:text-normal">{document.title}</strong>
                   <span className="text-sm font-bold text-[#687773]">
                     {documentTypeLabel(document.type)}
                   </span>
@@ -782,7 +929,7 @@ function ProductDocuments({ product }: { product: Product }) {
               </span>
               <Download
                 aria-hidden="true"
-                className="h-5 w-5 shrink-0 text-[#006d77]"
+                className="h-5 w-5 shrink-0 text-[#287c30]"
               />
             </a>
           ))}
@@ -821,7 +968,7 @@ function ProductFeedbackSection({
   const questions = feedback?.questions ?? [];
 
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
       <SectionHeader
         description="Customer reviews and product questions stay attached to the catalog item."
         eyebrow="Customer feedback"
@@ -835,7 +982,7 @@ function ProductFeedbackSection({
             {reviews.length > 0 ? (
               reviews.slice(0, 4).map((review) => (
                 <article
-                  className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4"
+                  className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={review.id}
                 >
                   <p className="text-sm font-bold text-[#17211f]">
@@ -851,12 +998,12 @@ function ProductFeedbackSection({
                 </article>
               ))
             ) : (
-              <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+              <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
                 No reviews yet.
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
             <select
               aria-label="Review rating"
               className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-bold text-[#17211f]"
@@ -891,7 +1038,7 @@ function ProductFeedbackSection({
             {questions.length > 0 ? (
               questions.slice(0, 4).map((entry) => (
                 <article
-                  className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4"
+                  className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={entry.id}
                 >
                   <p className="text-sm font-bold text-[#17211f]">
@@ -906,12 +1053,12 @@ function ProductFeedbackSection({
                 </article>
               ))
             ) : (
-              <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+              <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
                 No questions yet.
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
             <textarea
               aria-label="Product question"
               className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
@@ -974,9 +1121,9 @@ function RelatedSections({
           />
         ) : null}
         {related && related.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {related.map((product) => (
-              <ProductCard compact key={product.id} minimal product={product} />
+              <ProductCard compact key={product.id} product={product} />
             ))}
           </div>
         ) : null}
@@ -1000,9 +1147,9 @@ function RelatedSections({
           />
         ) : null}
         {similar && similar.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {similar.map((product) => (
-              <ProductCard compact key={product.id} minimal product={product} />
+              <ProductCard compact key={product.id} product={product} />
             ))}
           </div>
         ) : null}

@@ -839,12 +839,11 @@ function ProductTable({
                           key="edit"
                           as={Link}
                           href={buildProductEditPath(product.id)}
-                          textValue="Edit product"
                         >
                           Edit
                         </DropdownItem>
                       ) : (
-                        <DropdownItem key="edit-disabled" isDisabled textValue="Edit product">
+                        <DropdownItem key="edit-disabled" isDisabled>
                           Edit
                         </DropdownItem>
                       )}
@@ -853,7 +852,6 @@ function ProductTable({
                           key="activate"
                           isDisabled={isMutating}
                           onPress={() => onActivate(product)}
-                          textValue="Activate product"
                         >
                           Activate
                         </DropdownItem>
@@ -863,7 +861,6 @@ function ProductTable({
                           key="deactivate"
                           isDisabled={isMutating}
                           onPress={() => onDeactivate(product)}
-                          textValue="Deactivate product"
                         >
                           Deactivate
                         </DropdownItem>
@@ -875,7 +872,6 @@ function ProductTable({
                           color="danger"
                           isDisabled={isMutating}
                           onPress={() => onDelete(product)}
-                          textValue="Delete product"
                         >
                           Delete
                         </DropdownItem>

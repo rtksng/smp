@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cart } from "../../lib/api/cart";
@@ -9,6 +16,7 @@ import { useCustomerAuthStore } from "../../lib/stores/auth-store";
 import { ProductDetailPage } from "./product-detail-page";
 
 const routerPush = vi.fn();
+const routerBack = vi.fn();
 const cartMocks = vi.hoisted(() => ({
   addCartItem: vi.fn(),
   buyNowCartItem: vi.fn()
@@ -26,6 +34,7 @@ const feedbackMocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
+    back: routerBack,
     push: routerPush
   })
 }));
@@ -237,6 +246,7 @@ const preparedCart: Cart = {
 describe("ProductDetailPage", () => {
   beforeEach(() => {
     routerPush.mockClear();
+    routerBack.mockClear();
     cartMocks.addCartItem.mockReset();
     cartMocks.buyNowCartItem.mockReset();
     wishlistMocks.addWishlistItem.mockReset();
@@ -326,7 +336,7 @@ describe("ProductDetailPage", () => {
     expect(variantCard?.className).not.toContain("p-4");
   });
 
-  it("uses a compact product detail typography hierarchy", () => {
+  it("uses a tighter mobile product detail typography and spacing hierarchy", () => {
     renderWithQueryClient(
       <ProductDetailPage initialProduct={product} slug={product.slug} />
     );
@@ -338,37 +348,99 @@ describe("ProductDetailPage", () => {
     const shortDescription = screen.getByText(
       "Precision forceps for hospital and clinic purchase lists."
     );
-    const summaryHeading = screen.getByRole("heading", {
+    const desktopSummary = screen.getByTestId("desktop-product-summary");
+    const summaryHeading = within(desktopSummary).getByRole("heading", {
       level: 2,
       name: "Product summary"
     });
-    const summaryBody = screen
-      .getByText("Reusable forceps for operating rooms.")
-      .closest(".productDescriptionRichText");
+    const summaryBody = within(desktopSummary).getByTestId(
+      "desktop-product-summary-body"
+    );
+    const mobileSummaryBody = screen.getByTestId("mobile-product-summary-full");
     const purchasePrice = screen.getByText("₹9,600");
     const signalTitle = screen.getByText("GST invoice");
     const signalValue = screen.getByText("12% tax rate");
+    const signalCard = signalTitle.closest("div");
+    const detailPanel = title.closest("section");
     const medicalDetails = screen.getByRole("heading", {
       level: 2,
       name: "Medical details"
     });
 
-    expect(title.className).toContain("text-xl");
+    expect(detailPanel?.className).toContain("p-4");
+    expect(detailPanel?.className).toContain("sm:p-6");
+    expect(title.className).toContain("mt-2");
+    expect(title.className).toContain("text-lg");
     expect(title.className).toContain("sm:text-3xl");
+    expect(title.className).not.toContain("text-xl");
     expect(title.className).not.toContain("sm:text-4xl");
-    expect(shortDescription.className).toContain("text-sm");
+    expect(shortDescription.className).toContain("mt-3");
+    expect(shortDescription.className).toContain("text-[13px]");
+    expect(shortDescription.className).toContain("leading-5");
+    expect(shortDescription.className).toContain("sm:text-sm");
+    expect(shortDescription.className).toContain("sm:leading-6");
     expect(shortDescription.className).not.toContain("text-base");
     expect(summaryHeading.className).toContain("text-base");
     expect(summaryBody?.className).toContain("text-sm");
     expect(summaryBody?.className).toContain("leading-6");
-    expect(purchasePrice.className).toContain("text-2xl");
+    expect(mobileSummaryBody.className).toContain("text-[13px]");
+    expect(mobileSummaryBody.className).toContain("leading-5");
+    expect(purchasePrice.className).toContain("text-xl");
+    expect(purchasePrice.className).toContain("sm:text-2xl");
     expect(purchasePrice.className).not.toContain("text-3xl");
-    expect(signalTitle.className).toContain("text-xs");
-    expect(signalValue.className).toContain("text-xs");
+    expect(signalCard?.className).toContain("p-2.5");
+    expect(signalCard?.className).toContain("sm:p-3");
+    expect(signalTitle.className).toContain("text-[11px]");
+    expect(signalTitle.className).toContain("sm:text-xs");
+    expect(signalValue.className).toContain("text-[11px]");
+    expect(signalValue.className).toContain("leading-4");
     expect(medicalDetails.className).toContain("text-lg");
   });
 
-  it("loads dynamic related and similar products with compact recommendation cards", async () => {
+  it("shows a back button before product breadcrumbs and returns to the previous page", () => {
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    const backButton = screen.getByRole("button", { name: "Back" });
+    const breadcrumbs = screen.getByRole("navigation", {
+      name: "Product breadcrumbs"
+    });
+
+    expect(backButton.compareDocumentPosition(breadcrumbs)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+
+    fireEvent.click(backButton);
+
+    expect(routerBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapses the product summary into a mobile dropdown preview", () => {
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    const mobileSummary = screen.getByTestId("mobile-product-summary");
+    const preview = screen.getByTestId("mobile-product-summary-preview");
+    const fullSummary = screen.getByTestId("mobile-product-summary-full");
+
+    expect(mobileSummary).not.toHaveAttribute("open");
+    expect(within(mobileSummary).getByText("Product summary")).toBeInTheDocument();
+    expect(preview).toHaveClass("group-open:hidden");
+    expect(preview).toHaveTextContent("Reusable forceps for operating rooms.");
+    expect(screen.getByTestId("mobile-product-summary-ellipsis")).toHaveTextContent(
+      "..."
+    );
+    expect(fullSummary).toHaveClass("hidden", "group-open:block");
+    expect(fullSummary).toHaveTextContent("Reusable forceps for operating rooms.");
+
+    fireEvent.click(within(mobileSummary).getByText("Product summary"));
+
+    expect(mobileSummary).toHaveAttribute("open");
+  });
+
+  it("loads dynamic related and similar products in two-column landing-style cards", async () => {
     renderWithQueryClient(
       <ProductDetailPage initialProduct={product} slug={product.slug} />
     );
@@ -386,20 +458,22 @@ describe("ProductDetailPage", () => {
     expect(getSimilarProducts).toHaveBeenCalledWith(product.slug, { limit: 4 });
     expect(relatedSection).not.toBeNull();
     expect(similarSection).not.toBeNull();
-    expect(within(relatedSection as HTMLElement).queryByText("Hospital price"))
-      .not.toBeInTheDocument();
-    expect(within(relatedSection as HTMLElement).queryByText("GST invoice ready"))
-      .not.toBeInTheDocument();
-    expect(within(relatedSection as HTMLElement).queryByText("12% GST"))
-      .not.toBeInTheDocument();
-    expect(within(relatedSection as HTMLElement).queryByText("Add to cart"))
-      .not.toBeInTheDocument();
-    expect(within(similarSection as HTMLElement).queryByText("Hospital price"))
-      .not.toBeInTheDocument();
-    expect(within(similarSection as HTMLElement).queryByText("Add to cart"))
-      .not.toBeInTheDocument();
-    expect(within(similarSection as HTMLElement).getByRole("link", { name: "View" }))
-      .toBeInTheDocument();
+    const relatedCard = within(relatedSection as HTMLElement)
+      .getByRole("heading", { name: "Related Surgical Clamp" })
+      .closest("article");
+    const similarCard = within(similarSection as HTMLElement)
+      .getByRole("heading", { name: "Similar Category Scissor" })
+      .closest("article");
+    const relatedGrid = relatedCard?.parentElement;
+    const similarGrid = similarCard?.parentElement;
+    const relatedImagePanel = relatedCard?.firstElementChild;
+
+    expect(relatedGrid).toHaveClass("grid-cols-2", "gap-3", "sm:gap-4");
+    expect(similarGrid).toHaveClass("grid-cols-2", "gap-3", "sm:gap-4");
+    expect(relatedCard).toHaveClass("min-h-[14.3rem]", "rounded-xl");
+    expect(similarCard).toHaveClass("min-h-[14.3rem]", "rounded-xl");
+    expect(relatedImagePanel).toHaveClass("h-24", "sm:h-36");
+    expect(relatedImagePanel).not.toHaveClass("h-28");
   });
 
   it("prepares a one-product cart before routing buy now checkout", async () => {
@@ -407,7 +481,11 @@ describe("ProductDetailPage", () => {
       <ProductDetailPage initialProduct={product} slug={product.slug} />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Buy now" }));
+    fireEvent.click(
+      within(screen.getByTestId("desktop-purchase-actions")).getByRole("button", {
+        name: "Buy now"
+      })
+    );
 
     await waitFor(() => {
       expect(cartMocks.buyNowCartItem).toHaveBeenCalled();
@@ -419,6 +497,67 @@ describe("ProductDetailPage", () => {
     });
     expect(cartMocks.addCartItem).not.toHaveBeenCalled();
     expect(routerPush).toHaveBeenCalledWith("/checkout");
+  });
+
+  it("keeps product purchase actions sticky at the bottom on mobile", () => {
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    const stickyActions = screen.getByTestId("mobile-sticky-product-actions");
+    const desktopActions = screen.getByTestId("desktop-purchase-actions");
+    const addToCartButton = within(stickyActions).getByRole("button", {
+      name: "Add to cart"
+    });
+    const buyNowButton = within(stickyActions).getByRole("button", {
+      name: "Buy now"
+    });
+
+    expect(stickyActions).toHaveClass("fixed", "bottom-0", "md:hidden");
+    expect(desktopActions).toHaveClass("hidden", "md:grid");
+    expect(addToCartButton).toBeEnabled();
+    expect(addToCartButton).toHaveClass("bg-white", "!text-[#287c30]");
+    expect(buyNowButton).toBeEnabled();
+    expect(buyNowButton).toHaveClass("bg-[#287c30]", "text-white");
+  });
+
+  it("moves wishlist to a heart overlay on the product image and shows an auto-hiding toast", async () => {
+    vi.useFakeTimers();
+
+    try {
+      renderWithQueryClient(
+        <ProductDetailPage initialProduct={product} slug={product.slug} />
+      );
+
+      expect(
+        screen.queryByRole("button", { name: "Save for later" })
+      ).not.toBeInTheDocument();
+
+      const heartButton = screen.getByRole("button", { name: "Add to wishlist" });
+      const imagePanel = screen.getByTestId("product-main-image-panel");
+
+      expect(imagePanel).toContainElement(heartButton);
+      expect(heartButton).toHaveClass("absolute", "bottom-3", "right-3");
+
+      await act(async () => {
+        fireEvent.click(heartButton);
+      });
+
+      expect(wishlistMocks.addWishlistItem.mock.calls[0]?.[0]).toEqual({
+        productId: product.id
+      });
+      expect(heartButton).toHaveAttribute("aria-pressed", "true");
+      expect(heartButton).toHaveClass("text-[#d92d20]");
+      expect(screen.getByRole("status")).toHaveTextContent("Added to wishlist");
+
+      act(() => {
+        vi.advanceTimersByTime(1800);
+      });
+
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

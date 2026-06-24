@@ -196,64 +196,104 @@ export function ProductListingPage({
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
-        <section className="border-b border-[#d6e7f8] bg-[#f4f9ff] py-5 sm:py-6">
-          <Container className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-2xl">
-              <h1 className="text-2xl font-bold leading-tight text-[#12314f] sm:text-3xl">
-                {pageHeading}
-              </h1>
-              <p className="mt-2 text-sm font-semibold leading-5 text-[#52677f]">
-                {pageDescription}
-              </p>
+      <main className="bg-[#f4fbf5]">
+        <section className="border-b border-[#cfe9d2] bg-[#f4fbf5] py-5 sm:py-6 lg:py-7">
+          <Container>
+            <div
+              className="grid gap-5 lg:grid-cols-[minmax(18rem,0.42fr)_minmax(0,1fr)] lg:items-start"
+              data-testid="catalog-hero"
+            >
+              <div className="max-w-2xl lg:max-w-md">
+                <h1 className="text-2xl font-bold leading-tight text-[#173b1d] sm:text-3xl lg:text-4xl">
+                  {pageHeading}
+                </h1>
+                <p className="mt-2 max-w-md text-sm font-semibold leading-5 text-[#556b57] sm:text-base sm:leading-6">
+                  {pageDescription}
+                </p>
+              </div>
+              <div
+                className="grid gap-4 lg:justify-items-end"
+                data-testid="catalog-hero-action-panel"
+              >
+                <div
+                  className="hidden flex-wrap gap-3 md:flex lg:justify-end"
+                  data-testid="desktop-catalog-hero-actions"
+                >
+                  <Button className="whitespace-nowrap" href={availableHref}>
+                    In-stock only
+                  </Button>
+                  <Button
+                    className="whitespace-nowrap"
+                    href={pathname}
+                    variant="outline"
+                  >
+                    Reset filters
+                  </Button>
+                </div>
+                {(context.type === "category" || context.type === "subcategory") &&
+                categoryQuery.data ? (
+                  <SubcategoryNav
+                    category={categoryQuery.data}
+                    filters={filters}
+                    lockedFilters={lockedFilters}
+                  />
+                ) : null}
+              </div>
+              {categoryQuery.isError ? (
+                <div className="lg:col-span-2">
+                  <ErrorState
+                    action={<RetryButton onRetry={() => categoryQuery.refetch()} />}
+                    message={getFriendlyApiErrorMessage(
+                      categoryQuery.error,
+                      "Unable to load this category."
+                    )}
+                    title="Unable to load category"
+                  />
+                </div>
+              ) : null}
+              {brandQuery.isError ? (
+                <div className="lg:col-span-2">
+                  <ErrorState
+                    action={<RetryButton onRetry={() => brandQuery.refetch()} />}
+                    message={getFriendlyApiErrorMessage(
+                      brandQuery.error,
+                      "Unable to load this brand."
+                    )}
+                    title="Unable to load brand"
+                  />
+                </div>
+              ) : null}
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button href={availableHref}>In-stock only</Button>
-              <Button href={pathname} variant="outline">
-                Reset filters
-              </Button>
-            </div>
-            {categoryQuery.isError ? (
-              <ErrorState
-                action={<RetryButton onRetry={() => categoryQuery.refetch()} />}
-                message={getFriendlyApiErrorMessage(
-                  categoryQuery.error,
-                  "Unable to load this category."
-                )}
-                title="Unable to load category"
-              />
-            ) : null}
-            {brandQuery.isError ? (
-              <ErrorState
-                action={<RetryButton onRetry={() => brandQuery.refetch()} />}
-                message={getFriendlyApiErrorMessage(
-                  brandQuery.error,
-                  "Unable to load this brand."
-                )}
-                title="Unable to load brand"
-              />
-            ) : null}
-            {(context.type === "category" || context.type === "subcategory") &&
-            categoryQuery.data ? (
-              <SubcategoryNav
-                category={categoryQuery.data}
-                filters={filters}
-                lockedFilters={lockedFilters}
-              />
-            ) : null}
           </Container>
         </section>
 
         <Container className="grid gap-5 py-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6 lg:py-6">
-          <div className="lg:hidden">
-            <Button
-              className="w-full"
-              onClick={() => setFiltersOpen(true)}
-              variant="secondary"
+          <div
+            className="grid grid-cols-[minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2 lg:hidden"
+            data-testid="mobile-catalog-controls"
+          >
+            <a
+              aria-label="Show in-stock products"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-[#287c30] px-4 text-xs font-bold text-white shadow-sm shadow-[#287c30]/20"
+              href={availableHref}
             >
-              <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-              Filters and sort
-            </Button>
+              In-stock only
+            </a>
+            <button
+              aria-label="Open filters"
+              className={mobileCatalogIconButtonClassName}
+              onClick={() => setFiltersOpen(true)}
+              type="button"
+            >
+              <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <a
+              aria-label="Clear catalog filters"
+              className={mobileCatalogIconButtonClassName}
+              href={pathname}
+            >
+              <RotateCcw aria-hidden="true" className="h-5 w-5" />
+            </a>
           </div>
 
           <aside
@@ -278,14 +318,14 @@ export function ProductListingPage({
             className="min-h-0"
             data-testid="product-results-panel"
           >
-            <div className="mb-4 grid shrink-0 gap-2 border-b border-[#d6e7f8] bg-white pb-3">
+            <div className="mb-4 grid shrink-0 gap-2 border-b border-[#cfe9d2] bg-white pb-3">
               <div>
-                <p className="text-base font-bold text-[#12314f]">
+                <p className="text-base font-bold text-[#173b1d]">
                   {productsQuery.data
                     ? `${productsQuery.data.pagination.total} results`
                     : "Loading products"}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-[#52677f]">
+                <p className="mt-1 text-xs font-semibold text-[#556b57]">
                   Filter by department, brand, stock, price, and clinical use.
                 </p>
               </div>
@@ -323,7 +363,10 @@ export function ProductListingPage({
 
               {productsQuery.isSuccess && productsQuery.data.items.length > 0 ? (
                 <>
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  <div
+                    className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    data-testid="product-results-grid"
+                  >
                     {productsQuery.data.items.map((product) => (
                       <ProductCard compact key={product.id} product={product} />
                     ))}
@@ -353,14 +396,14 @@ export function ProductListingPage({
               className={mobileBottomSheetPanelClassName}
               role="dialog"
             >
-              <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#d6e7f8] pb-3">
+              <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#cfe9d2] pb-3">
                 <h2 className="flex items-center gap-2 text-base font-bold text-[#17211f]">
                   <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
                   Filters and sort
                 </h2>
                 <button
                   aria-label="Close filters"
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-[#d6e7f8] bg-white text-[#17211f] shadow-sm shadow-[#0b5cab]/5"
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-[#cfe9d2] bg-white text-[#17211f] shadow-sm shadow-[#287c30]/5"
                   onClick={() => setFiltersOpen(false)}
                   type="button"
                 >
@@ -372,12 +415,14 @@ export function ProductListingPage({
                 brands={brandsQuery.data}
                 categories={categoriesQuery.data}
                 categoryName={categoryQuery.data?.name}
-                className="grid min-h-0 flex-1 gap-3 overflow-visible"
-                fieldsClassName="grid gap-3 overflow-visible pb-1 pr-1"
+                className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+                fieldsClassName="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto pb-6 pr-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#a9ddae] [&::-webkit-scrollbar-track]:bg-[#eaf7eb]"
                 filters={filters}
                 lockedFilters={lockedFilters}
                 onFiltersChange={handleFiltersChange}
+                onApply={() => setFiltersOpen(false)}
                 pathname={pathname}
+                showApplyButton
                 showTitle={false}
                 subcategoryName={subcategoryName}
               />
@@ -395,12 +440,14 @@ function FiltersForm({
   brands,
   categories,
   categoryName,
-  className = "grid gap-3 overflow-visible rounded-lg border border-[#d6e7f8] bg-white p-3 shadow-sm shadow-[#0b5cab]/5",
+  className = "grid gap-3 overflow-visible rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5",
   fieldsClassName = "grid gap-3 overflow-visible pb-1 pr-1",
   filters,
   lockedFilters,
   onFiltersChange,
+  onApply,
   pathname,
+  showApplyButton = false,
   showTitle = true,
   subcategoryName
 }: {
@@ -412,8 +459,10 @@ function FiltersForm({
   fieldsClassName?: string;
   filters: ProductFilters;
   lockedFilters: ProductFilterOverrides;
+  onApply?: () => void;
   onFiltersChange: (filters: ProductFilters) => void;
   pathname: string;
+  showApplyButton?: boolean;
   showTitle?: boolean;
   subcategoryName?: string;
 }) {
@@ -691,6 +740,16 @@ function FiltersForm({
           />
         </Field>
       </div>
+
+      {showApplyButton ? (
+        <Button
+          className="sticky bottom-0 z-10 mt-1 w-full !min-h-11 rounded-full text-sm shadow-[0_-8px_18px_rgba(40,124,48,0.12)]"
+          onClick={onApply}
+          type="button"
+        >
+          Apply Filters
+        </Button>
+      ) : null}
     </form>
   );
 }
@@ -698,7 +757,7 @@ function FiltersForm({
 function ClearFiltersLink({ pathname }: { pathname: string }) {
   return (
     <a
-      className="inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[#006d77]"
+      className="inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[#287c30]"
       href={pathname}
     >
       <RotateCcw aria-hidden="true" className="h-4 w-4" />
@@ -721,14 +780,17 @@ function SubcategoryNav({
   }
 
   return (
-    <nav className="mt-6" aria-label={`${category.name} subcategories`}>
-      <div className="flex flex-wrap gap-2">
+    <nav
+      className="max-w-full overflow-hidden lg:max-w-[68rem]"
+      aria-label={`${category.name} subcategories`}
+    >
+      <div className="flex max-w-full flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
         <a
           className={[
-            "rounded-full border px-3 py-2 text-sm font-bold transition",
+            "shrink-0 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-bold transition",
             filters.subcategory
-              ? "border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
-              : "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
+              ? "border-[#cfe9d2] bg-white text-[#31413d] shadow-sm shadow-[#287c30]/5"
+              : "border-[#287c30] bg-[#eaf7eb] text-[#287c30]"
           ].join(" ")}
           href={productFiltersToHref(
             `/categories/${category.slug}`,
@@ -745,10 +807,10 @@ function SubcategoryNav({
         {category.children.map((subcategory) => (
           <a
             className={[
-              "rounded-full border px-3 py-2 text-sm font-bold transition",
+              "shrink-0 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-bold transition",
               filters.subcategory === subcategory.slug
-                ? "border-[#006d77] bg-[#e7f3f2] text-[#006d77]"
-                : "border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
+                ? "border-[#287c30] bg-[#eaf7eb] text-[#287c30]"
+                : "border-[#cfe9d2] bg-white text-[#31413d] shadow-sm shadow-[#287c30]/5"
             ].join(" ")}
             href={productFiltersToHref(
               `/categories/${category.slug}/${subcategory.slug}`,
@@ -782,7 +844,7 @@ function LockedField({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid gap-1.5 text-xs font-bold text-[#31413d]">
       <span>{label}</span>
-      <span className="rounded-lg border border-[#d6e7f8] bg-[#eef3f1] px-3 py-2 text-sm text-[#084c61] shadow-sm shadow-[#0b5cab]/5">
+      <span className="rounded-lg border border-[#cfe9d2] bg-[#eef3f1] px-3 py-2 text-sm text-[#23702a] shadow-sm shadow-[#287c30]/5">
         {value}
       </span>
     </div>
@@ -805,7 +867,7 @@ function Checkbox({
   return (
     <label className="flex min-h-8 items-center gap-2 text-xs font-bold text-[#31413d]">
       <input
-        className="h-4 w-4 rounded border-[#cfdcda] accent-[#006d77]"
+        className="h-4 w-4 rounded border-[#cfdcda] accent-[#287c30]"
         defaultChecked={defaultChecked}
         name={name}
         onChange={(event) => onChange?.(event.target.checked)}
@@ -833,19 +895,22 @@ function ActiveFilterSummary({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-bold uppercase text-[#9b6a1e]">
+    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <span className="text-[10px] font-bold uppercase leading-3 text-[#9b6a1e] sm:text-xs sm:leading-4">
         Active filters
       </span>
       {chips.map((chip) => (
         <span
-          className="rounded-full border border-[#d6e7f8] bg-[#f8fbfa] px-3 py-1.5 text-xs font-bold text-[#31413d] shadow-sm shadow-[#0b5cab]/5"
+          className="rounded-full border border-[#cfe9d2] bg-[#f8fbfa] px-2 py-1 text-[10px] font-bold leading-3 text-[#31413d] shadow-sm shadow-[#287c30]/5 sm:px-3 sm:py-1.5 sm:text-xs sm:leading-4"
           key={chip}
         >
           {chip}
         </span>
       ))}
-      <a className="text-xs font-bold text-[#006d77]" href={pathname}>
+      <a
+        className="text-[10px] font-bold leading-3 text-[#287c30] sm:text-xs sm:leading-4"
+        href={pathname}
+      >
         Clear
       </a>
     </div>
@@ -1038,15 +1103,18 @@ function findSubcategoryName(
 }
 
 const inputClassName =
-  "min-h-10 w-full rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20";
+  "min-h-10 w-full rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20";
+
+const mobileCatalogIconButtonClassName =
+  "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#a9ddae] bg-white text-[#287c30] shadow-sm shadow-[#287c30]/5 transition active:scale-95";
 
 const heroSelectClassNames = {
   base: "w-full min-w-0",
   listbox: "p-1",
   popoverContent: "z-[80] rounded-lg border border-[#cfdcda] bg-white shadow-lg",
-  selectorIcon: "pointer-events-none end-3 h-4 w-4 text-[#006d77] opacity-100",
+  selectorIcon: "pointer-events-none end-3 h-4 w-4 text-[#287c30] opacity-100",
   trigger:
-    "min-h-10 rounded-lg border border-[#cfdcda] bg-white px-3 pr-10 text-sm font-semibold text-[#17211f] shadow-none data-[focus=true]:border-[#006d77] data-[focus=true]:ring-2 data-[focus=true]:ring-[#006d77]/20",
+    "min-h-10 rounded-lg border border-[#cfdcda] bg-white px-3 pr-10 text-sm font-semibold text-[#17211f] shadow-none data-[focus=true]:border-[#287c30] data-[focus=true]:ring-2 data-[focus=true]:ring-[#287c30]/20",
   value: "text-sm text-[#17211f] group-data-[has-value=false]:text-[#687773]"
 };
 
@@ -1164,7 +1232,7 @@ function HeroFilterSelect({
       selectorIcon={
         <ChevronDown
           aria-hidden="true"
-          className="h-4 w-4 text-[#006d77] opacity-100"
+          className="h-4 w-4 text-[#287c30] opacity-100"
           data-testid={`${name}-filter-select-arrow`}
         />
       }
@@ -1182,7 +1250,7 @@ function renderFilterSelectOption(option: FilterSelectOption) {
   return (
     <HeroSelectItem
       key={optionKey}
-      className="rounded-md text-sm text-[#17211f] data-[hover=true]:bg-[#e7f3f2]"
+      className="rounded-md text-sm text-[#17211f] data-[hover=true]:bg-[#eaf7eb]"
       isDisabled={option.disabled}
       textValue={option.label}
     >

@@ -61,19 +61,19 @@ export function CustomerAccountShell({
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
+      <main className="bg-[#f4fbf5]">
         <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
             <div className="grid gap-5 lg:grid-cols-[244px_minmax(0,1fr)] lg:gap-6">
-              <aside className="grid gap-4 self-start rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 sm:p-5 lg:sticky lg:top-24">
+              <aside className="grid gap-4 self-start rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 lg:sticky lg:top-24">
                 <div>
-                  <p className="text-xs font-bold uppercase text-[#0b5cab]">
+                  <p className="text-xs font-bold uppercase text-[#287c30]">
                     Customer account
                   </p>
-                  <p className="mt-2 text-base font-bold text-[#12314f]">
+                  <p className="mt-2 text-base font-bold text-[#173b1d]">
                     {session?.customer.firstName ?? "Customer"}
                   </p>
-                  <p className="mt-1 break-words text-xs font-bold text-[#52677f]">
+                  <p className="mt-1 break-words text-xs font-bold text-[#556b57]">
                     {session?.customer.mobileNumber}
                   </p>
                 </div>
@@ -108,11 +108,11 @@ export function CustomerAccountShell({
               </aside>
 
               <section className="grid min-w-0 gap-5">
-                <div className="border-b border-[#d6e7f8] pb-4">
-                  <h1 className="text-2xl font-bold leading-tight text-[#12314f] sm:text-3xl">
+                <div className="border-b border-[#cfe9d2] pb-4">
+                  <h1 className="text-2xl font-bold leading-tight text-[#173b1d] sm:text-3xl">
                     {title}
                   </h1>
-                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#52677f]">
+                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#556b57]">
                     {description}
                   </p>
                 </div>
@@ -136,13 +136,13 @@ export function AccountInfoGrid({
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
         <div
-          className="rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5"
+          className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5"
           key={item.label}
         >
-          <p className="text-xs font-bold uppercase text-[#52677f]">
+          <p className="text-xs font-bold uppercase text-[#556b57]">
             {item.label}
           </p>
-          <p className="mt-2 break-words text-sm font-bold text-[#12314f]">
+          <p className="mt-2 break-words text-sm font-bold text-[#173b1d]">
             {item.value}
           </p>
         </div>
@@ -161,9 +161,9 @@ export function PrivateEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-[#d6e7f8] bg-white p-6 text-center shadow-sm shadow-[#0b5cab]/5">
-      <h2 className="text-base font-bold text-[#12314f]">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#52677f]">
+    <div className="rounded-lg border border-dashed border-[#cfe9d2] bg-white p-6 text-center shadow-sm shadow-[#287c30]/5">
+      <h2 className="text-base font-bold text-[#173b1d]">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#556b57]">
         {description}
       </p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
@@ -181,7 +181,7 @@ export function AccountSection({
   return (
     <section
       className={[
-        "rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5",
+        "rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5",
         className
       ]
         .filter(Boolean)
@@ -204,11 +204,11 @@ export function AccountSectionHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h2 className="text-base font-bold leading-snug text-[#12314f]">
+        <h2 className="text-base font-bold leading-snug text-[#173b1d]">
           {title}
         </h2>
         {description ? (
-          <p className="mt-1 text-sm font-semibold leading-5 text-[#52677f]">
+          <p className="mt-1 text-sm font-semibold leading-5 text-[#556b57]">
             {description}
           </p>
         ) : null}
@@ -231,7 +231,7 @@ export function AccountStatusBadge({
         "inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-bold",
         tone === "success"
           ? "bg-[#edf7f4] text-[#0f6b50]"
-          : "bg-[#edf6ff] text-[#12314f]"
+          : "bg-[#eaf7eb] text-[#173b1d]"
       ].join(" ")}
     >
       {children}
@@ -245,7 +245,7 @@ function accountLinkClass(href: string, activePath: string | undefined) {
   return [
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 text-center text-sm font-bold transition lg:justify-start lg:text-left",
     isActive
-      ? "border-[#0b5cab] bg-[#0b5cab] text-white shadow-sm shadow-[#0b5cab]/20"
-      : "border-[#d6e7f8] bg-[#f4f9ff] text-[#12314f] hover:border-[#0b5cab] hover:bg-[#edf6ff] hover:text-[#0b5cab]"
+      ? "border-[#287c30] bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20"
+      : "border-[#cfe9d2] bg-[#f4fbf5] text-[#173b1d] hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
   ].join(" ");
 }

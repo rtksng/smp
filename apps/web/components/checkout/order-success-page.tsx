@@ -42,7 +42,7 @@ export function OrderSuccessPage({ orderId }: { orderId: string }) {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
+      <main className="bg-[#f4fbf5]">
         <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
             <OrderSuccessContent orderId={orderId} />
@@ -105,10 +105,10 @@ function OrderConfirmation({ order }: { order: Order }) {
 
   return (
     <section className="grid gap-5 text-sm text-[#31413d]">
-      <article className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 sm:p-6">
+      <article className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex gap-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
               <CheckCircle2 aria-hidden="true" className="h-6 w-6" />
             </span>
             <div>
@@ -162,14 +162,14 @@ function OrderConfirmation({ order }: { order: Order }) {
 
 function OrderItems({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
       <SectionHeading
         description={`${formatItemCount(order)} confirmed in this order.`}
         icon={<Package aria-hidden="true" className="h-5 w-5" />}
         title="Order items"
       />
 
-      <div className="mt-4 divide-y divide-[#d6e7f8]">
+      <div className="mt-4 divide-y divide-[#cfe9d2]">
         {order.items.map((item) => (
           <div
             className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto]"
@@ -202,7 +202,7 @@ function DeliveryDetails({ order }: { order: Order }) {
   const address = order.shippingAddress;
 
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
       <SectionHeading
         description="Destination captured when the order was placed."
         icon={<MapPin aria-hidden="true" className="h-5 w-5" />}
@@ -210,7 +210,7 @@ function DeliveryDetails({ order }: { order: Order }) {
       />
 
       {address ? (
-        <div className="mt-4 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5">
+        <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
           <p className="text-sm font-bold text-[#17211f]">
             {address.fullName}
           </p>
@@ -248,7 +248,7 @@ function StatusTimeline({ order }: { order: Order }) {
         ];
 
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
       <SectionHeading
         description="Latest status changes for this order."
         icon={<RefreshCcw aria-hidden="true" className="h-5 w-5" />}
@@ -283,7 +283,7 @@ function StatusTimeline({ order }: { order: Order }) {
 
 function PaymentSummary({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
       <SectionHeading
         description="Final amount saved for this order."
         icon={<ReceiptText aria-hidden="true" className="h-5 w-5" />}
@@ -315,7 +315,7 @@ function PaymentSummary({ order }: { order: Order }) {
           label="Tax/GST"
           value={priceFormatter.format(order.totals.tax)}
         />
-        <div className="mt-2 flex items-center justify-between gap-4 border-t border-[#d6e7f8] pt-4 text-base font-bold text-[#17211f]">
+        <div className="mt-2 flex items-center justify-between gap-4 border-t border-[#cfe9d2] pt-4 text-base font-bold text-[#17211f]">
           <dt>Total</dt>
           <dd>{priceFormatter.format(order.totals.grandTotal)}</dd>
         </div>
@@ -326,7 +326,7 @@ function PaymentSummary({ order }: { order: Order }) {
 
 function OrderStatusCard({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
       <SectionHeading
         description="Current order and payment state."
         icon={<Truck aria-hidden="true" className="h-5 w-5" />}
@@ -360,7 +360,7 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
         {icon}
       </span>
       <div>
@@ -377,7 +377,7 @@ function SectionHeading({
 
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5">
+    <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
       <dt className="text-[0.7rem] font-bold uppercase text-[#687773]">
         {label}
       </dt>
@@ -407,8 +407,8 @@ function StatusRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0b5cab]/5">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#006d77]">
+    <div className="flex items-center gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#287c30]">
         {icon}
       </span>
       <div>
@@ -426,7 +426,7 @@ function OrderConfirmationSkeleton() {
       className="grid gap-5"
       role="status"
     >
-      <div className="rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 sm:p-6">
+      <div className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex gap-4">
             <Skeleton className="h-11 w-11" />

@@ -204,7 +204,7 @@ function showError(error: unknown) {
 
 const styles = StyleSheet.create({
   brand: {
-    color: "#155E63",
+    color: "#287c30",
     fontSize: 15,
     fontWeight: "800"
   },

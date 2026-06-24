@@ -58,6 +58,8 @@ class FakeOtpQueue {
 }
 
 test("requestOtp stores an OTP and blocks immediate resend during cooldown", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
   const cache = new InMemoryOtpCache(() => Date.now());
   const service = new OtpService(cache, {
     cooldownSeconds: 30,
@@ -67,25 +69,33 @@ test("requestOtp stores an OTP and blocks immediate resend during cooldown", asy
     rateWindowSeconds: 3600
   });
 
-  const response = await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+  try {
+    const response = await service.requestOtp(
+      OtpPurpose.Customer,
+      "+919876543210"
+    );
 
-  assert.deepEqual(response, {
-    expiresInSeconds: 300,
-    mobileNumber: "+919876543210",
-    resendAfterSeconds: 30
-  });
-  await assert.rejects(
-    () => service.requestOtp(OtpPurpose.Customer, "+919876543210"),
-    /wait before requesting another OTP/i
-  );
-  assert.equal(
-    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
-    true
-  );
-  assert.equal(
-    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
-    false
-  );
+    assert.deepEqual(response, {
+      devOtp: "123456",
+      expiresInSeconds: 300,
+      mobileNumber: "+919876543210",
+      resendAfterSeconds: 30
+    });
+    await assert.rejects(
+      () => service.requestOtp(OtpPurpose.Customer, "+919876543210"),
+      /wait before requesting another OTP/i
+    );
+    assert.equal(
+      await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+      true
+    );
+    assert.equal(
+      await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+      false
+    );
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
 });
 
 test("requestOtp enqueues the generated OTP for async delivery", async () => {
@@ -124,6 +134,62 @@ test("requestOtp enqueues the generated OTP for async delivery", async () => {
   assert.ok(
     Date.parse((queue.otpJobs[0] as { requestedAt: string }).requestedAt)
   );
+});
+
+test("requestOtp hides the generated OTP in production responses", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+
+  try {
+    const cache = new InMemoryOtpCache(() => Date.now());
+    const service = new OtpService(cache, {
+      cooldownSeconds: 30,
+      generator: () => "123456",
+      otpTtlSeconds: 300,
+      rateLimit: 5,
+      rateWindowSeconds: 3600
+    });
+
+    assert.deepEqual(
+      await service.requestOtp(OtpPurpose.Customer, "+919876543210"),
+      {
+        expiresInSeconds: 300,
+        mobileNumber: "+919876543210",
+        resendAfterSeconds: 30
+      }
+    );
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
+test("requestOtp can expose the generated OTP when explicitly enabled in production", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+
+  try {
+    const cache = new InMemoryOtpCache(() => Date.now());
+    const service = new OtpService(cache, {
+      cooldownSeconds: 30,
+      exposeOtpInResponse: true,
+      generator: () => "123456",
+      otpTtlSeconds: 300,
+      rateLimit: 5,
+      rateWindowSeconds: 3600
+    });
+
+    assert.deepEqual(
+      await service.requestOtp(OtpPurpose.Customer, "+919876543210"),
+      {
+        devOtp: "123456",
+        expiresInSeconds: 300,
+        mobileNumber: "+919876543210",
+        resendAfterSeconds: 30
+      }
+    );
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
 });
 
 test("requestOtp enforces a Redis-backed request rate limit", async () => {

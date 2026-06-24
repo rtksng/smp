@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useCatalogStore } from "../../lib/stores/catalog-store";
 import { SearchForm } from "./search-form";
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +23,10 @@ vi.mock("../../lib/api/products", () => ({
 describe("SearchForm", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    useCatalogStore.setState({
+      searchInput: "",
+      submittedSearch: ""
+    });
     mocks.getProducts.mockReset();
     mocks.getProducts.mockResolvedValue({
       items: [],
@@ -37,13 +42,17 @@ describe("SearchForm", () => {
     mocks.routerPush.mockReset();
   });
 
-  it("renders procurement shortcut links when suggestions are provided", () => {
+  it("shows procurement shortcut links after the search input is focused", () => {
     renderSearchForm(
       <SearchForm
         id="search"
         suggestions={["Sutures", "Pulse oximeter", "Sterile gloves"]}
       />
     );
+
+    expect(screen.queryByRole("link", { name: "Sutures" })).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByLabelText("Search products, SKU, or brand"));
 
     expect(screen.getByRole("link", { name: "Sutures" })).toHaveAttribute(
       "href",
@@ -53,6 +62,83 @@ describe("SearchForm", () => {
       "href",
       "/products?q=Pulse+oximeter"
     );
+  });
+
+  it("starts empty even when a previous search is stored in catalog state", () => {
+    useCatalogStore.setState({
+      searchInput: "cat",
+      submittedSearch: "cat"
+    });
+
+    renderSearchForm(<SearchForm id="search" />);
+
+    expect(screen.getByLabelText("Search products, SKU, or brand")).toHaveValue("");
+  });
+
+  it("shows recent searches on focus before the user types", () => {
+    window.localStorage.setItem(
+      "surgical.customer.recent-searches",
+      JSON.stringify(["cat", "forceps"])
+    );
+
+    renderSearchForm(<SearchForm id="search" />);
+
+    fireEvent.focus(screen.getByLabelText("Search products, SKU, or brand"));
+
+    expect(screen.getByRole("link", { name: "cat" })).toHaveAttribute(
+      "href",
+      "/products?q=cat"
+    );
+    expect(screen.getByRole("link", { name: "forceps" })).toHaveAttribute(
+      "href",
+      "/products?q=forceps"
+    );
+  });
+
+  it("replaces recent searches with product suggestions after typing", async () => {
+    window.localStorage.setItem(
+      "surgical.customer.recent-searches",
+      JSON.stringify(["cat"])
+    );
+    mocks.getProducts.mockResolvedValue({
+      items: [{ name: "Sterile Gloves", sku: "GLV-100" }],
+      pagination: {
+        hasNextPage: false,
+        hasPreviousPage: false,
+        limit: 5,
+        page: 1,
+        total: 1,
+        totalPages: 1
+      }
+    });
+
+    renderSearchForm(<SearchForm id="search" />);
+
+    const input = screen.getByLabelText("Search products, SKU, or brand");
+
+    fireEvent.focus(input);
+    expect(screen.getByRole("link", { name: "cat" })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "glov" } });
+
+    expect(screen.queryByRole("link", { name: "cat" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Sterile Gloves" })).toBeInTheDocument()
+    );
+    expect(screen.getByRole("link", { name: "GLV-100" })).toBeInTheDocument();
+  });
+
+  it("renders compact suggestions in an overlay so the header row stays stable", () => {
+    window.localStorage.setItem(
+      "surgical.customer.recent-searches",
+      JSON.stringify(["cat"])
+    );
+
+    renderSearchForm(<SearchForm compact id="search" />);
+
+    fireEvent.focus(screen.getByLabelText("Search products, SKU, or brand"));
+
+    expect(screen.getByTestId("search-suggestions")).toHaveClass("absolute");
   });
 
   it("stores submitted searches as recent suggestions", async () => {

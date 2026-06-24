@@ -1,10 +1,33 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-strong: var(--brand-primary-strong);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-soft: var(--brand-primary-soft);
+  --color-brand-primary-border: var(--brand-primary-border);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-background: var(--page-background);
+  --color-foreground: var(--text-strong);
+  --color-muted-foreground: var(--text-muted);
+  --color-border: var(--brand-primary-border);
+  --color-ring: var(--brand-primary);
+}
+
 :root {
   --font-sans:
     var(--font-open-sans), "Open Sans", Inter, Aptos, "Segoe UI Variable", "Segoe UI",
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: var(--font-montserrat), Montserrat, "Open Sans", Arial, sans-serif;
+  --brand-primary: #3cb043;
+  --brand-primary-foreground: #0d2f12;
+  --brand-primary-strong: #287c30;
+  --brand-primary-hover: #23702a;
+  --brand-primary-soft: #eaf7eb;
+  --brand-primary-border: #cfe9d2;
+  --page-background: #f4fbf5;
+  --text-strong: #173b1d;
+  --text-muted: #556b57;
 }
 
 * {
@@ -12,17 +35,20 @@
 }
 
 html {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
-  background: #f4f9ff;
-  color: #12314f;
+  background: var(--page-background);
+  color: var(--text-strong);
   font-family: var(--font-sans);
   font-feature-settings: "kern";
   -webkit-font-smoothing: antialiased;
   letter-spacing: 0;
   margin: 0;
+  max-width: 100%;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
 }
@@ -64,8 +90,35 @@ p {
 }
 
 ::selection {
-  background: #cfe4f8;
-  color: #12314f;
+  background: #c7eacb;
+  color: var(--text-strong);
+}
+
+@keyframes route-progress-sweep {
+  0% {
+    transform: translateX(-78%) scaleX(0.22);
+  }
+
+  45% {
+    transform: translateX(-10%) scaleX(0.62);
+  }
+
+  100% {
+    transform: translateX(104%) scaleX(0.28);
+  }
+}
+
+.route-progress-bar {
+  animation: route-progress-sweep 1.05s cubic-bezier(0.22, 0.61, 0.36, 1)
+    infinite;
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress-bar {
+    animation: none;
+    transform: translateX(0) scaleX(1);
+  }
 }
 
 .productDescriptionRichText h1,
@@ -74,7 +127,7 @@ p {
 .productDescriptionRichText h4,
 .productDescriptionRichText h5,
 .productDescriptionRichText h6 {
-  color: #12314f;
+  color: var(--text-strong);
   font-weight: 900;
   line-height: 1.25;
   margin: 1rem 0 0.5rem;
@@ -111,7 +164,7 @@ p {
 }
 
 .productDescriptionRichText a {
-  color: #0b5cab;
+  color: var(--brand-primary-strong);
   font-weight: 800;
   text-decoration: underline;
 }

@@ -58,6 +58,19 @@ test("loadApiEnvironment allows localhost and loopback frontend origins by defau
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001"
   ]);
+  assert.equal(environment.otpExposeInResponse, true);
+});
+
+test("loadApiEnvironment hides OTP responses by default in production", () => {
+  setRequiredApiEnv({
+    CORS_ORIGINS: "https://shop.example.com",
+    NODE_ENV: "production",
+    OTP_EXPOSE_IN_RESPONSE: undefined
+  });
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.otpExposeInResponse, false);
 });
 
 test("loadApiEnvironment parses production security and monitoring settings", () => {
@@ -66,6 +79,7 @@ test("loadApiEnvironment parses production security and monitoring settings", ()
     ERROR_MONITORING_DSN: "https://monitoring.example.com/project",
     ERROR_MONITORING_ENABLED: "true",
     NODE_ENV: "production",
+    OTP_EXPOSE_IN_RESPONSE: "true",
     RATE_LIMIT_BLOCK_MS: "120000",
     RATE_LIMIT_TTL_MS: "30000",
     TRUST_PROXY: "1"
@@ -82,6 +96,7 @@ test("loadApiEnvironment parses production security and monitoring settings", ()
     "https://monitoring.example.com/project"
   );
   assert.equal(environment.errorMonitoringEnabled, true);
+  assert.equal(environment.otpExposeInResponse, true);
   assert.equal(environment.throttleBlockMs, 120000);
   assert.equal(environment.throttleTtlMs, 30000);
   assert.equal(environment.trustProxy, 1);

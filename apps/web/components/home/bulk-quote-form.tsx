@@ -104,7 +104,7 @@ export function BulkQuoteForm() {
       </div>
       <textarea
         aria-label="Bulk quote details"
-        className="min-h-28 rounded-lg border border-white/25 bg-white px-4 py-3 text-sm font-semibold text-[#12314f] outline-none transition placeholder:text-[#52677f] focus:border-white focus:ring-2 focus:ring-white/30"
+        className="min-h-28 rounded-lg border border-white/25 bg-white px-4 py-3 text-sm font-semibold text-[#173b1d] outline-none transition placeholder:text-[#556b57] focus:border-white focus:ring-2 focus:ring-white/30"
         onChange={(event) => updateForm("message", event.target.value)}
         placeholder="SKUs, quantities, city, and delivery timeline"
         value={form.message}
@@ -121,12 +121,12 @@ export function BulkQuoteForm() {
         </p>
       ) : null}
       {successMessage ? (
-        <p className="rounded-lg bg-white px-4 py-3 text-sm font-bold text-[#006d77]">
+        <p className="rounded-lg bg-white px-4 py-3 text-sm font-bold text-[#287c30]">
           {successMessage}
         </p>
       ) : null}
       <Button
-        className="w-full bg-white !text-[#0b4f9f] hover:bg-[#edf6ff] sm:w-fit"
+        className="w-full bg-white !text-[#287c30] hover:bg-[#eaf7eb] sm:w-fit"
         disabled={quoteMutation.isPending}
         type="submit"
         variant="outline"

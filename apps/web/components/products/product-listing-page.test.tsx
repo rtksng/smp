@@ -169,6 +169,10 @@ describe("ProductListingPage", () => {
   it("renders listing products with compact card content", () => {
     renderListing();
 
+    expect(screen.getByTestId("product-results-grid")).toHaveClass(
+      "grid-cols-2",
+      "items-stretch"
+    );
     expect(
       screen.getByRole("heading", { name: "SurgiPro Artery Forceps" })
     ).toBeInTheDocument();
@@ -176,9 +180,76 @@ describe("ProductListingPage", () => {
       "href",
       "/products/surgipro-artery-forceps"
     );
+    expect(
+      screen.getByRole("link", { name: "View SurgiPro Artery Forceps" })
+    ).toHaveClass("sm:hidden");
+    expect(
+      screen.getByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })
+    ).toHaveClass("hidden", "sm:inline-flex");
     expect(screen.queryByText("Hospital price")).not.toBeInTheDocument();
     expect(screen.queryByText("GST invoice ready")).not.toBeInTheDocument();
     expect(screen.queryByText("12% GST")).not.toBeInTheDocument();
+  });
+
+  it("places mobile in-stock, filter, and reset controls in one row", () => {
+    renderListing();
+
+    const controls = screen.getByTestId("mobile-catalog-controls");
+    const stockLink = screen.getByRole("link", {
+      name: "Show in-stock products"
+    });
+    const filterButton = screen.getByRole("button", { name: "Open filters" });
+    const resetLink = screen.getByRole("link", {
+      name: "Clear catalog filters"
+    });
+
+    expect(controls).toHaveClass(
+      "grid-cols-[minmax(0,1fr)_2.75rem_2.75rem]"
+    );
+    expect(stockLink).toHaveAttribute("href", "/products?availability=available");
+    expect(filterButton).toHaveClass("h-11", "w-11", "rounded-full");
+    expect(resetLink).toHaveClass("h-11", "w-11", "rounded-full");
+    expect(screen.queryByRole("button", { name: "Open sort" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Filters and sort" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("keeps mobile filter fields scrollable with a sticky apply action", () => {
+    renderListing();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open filters" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Product filters" });
+    const filterFields = within(dialog).getByTestId("filter-fields-scroll");
+    const applyButton = within(dialog).getByRole("button", {
+      name: "Apply Filters"
+    });
+
+    expect(dialog).toHaveClass("overflow-hidden");
+    expect(filterFields).toHaveClass("overflow-y-auto", "pb-6");
+    expect(filterFields).toHaveClass("[scrollbar-width:thin]");
+    expect(applyButton).toHaveClass("sticky", "bottom-0");
+  });
+
+  it("renders compact active filter badges after sheet selections", () => {
+    searchParams = new URLSearchParams({
+      category: "dental",
+      stock: "in_stock"
+    });
+
+    renderListing();
+
+    const categoryBadge = screen.getByText("Category: dental");
+    const stockBadge = screen
+      .getAllByText("In stock")
+      .find((element) => element.className.includes("rounded-full"));
+
+    expect(stockBadge).toBeDefined();
+
+    expect(categoryBadge).toHaveClass("px-2", "py-1", "text-[10px]");
+    expect(stockBadge).toHaveClass("px-2", "py-1", "text-[10px]");
+    expect(screen.getByText("Active filters")).toHaveClass("text-[10px]");
   });
 
   it("resets filters without leaving the current category route", () => {
@@ -198,6 +269,42 @@ describe("ProductListingPage", () => {
     for (const resetLink of screen.getAllByRole("link", { name: "Reset filters" })) {
       expect(resetLink).toHaveAttribute("href", "/categories/dental");
     }
+  });
+
+  it("groups the desktop category hero actions and chips into a tidy right panel", () => {
+    pathname = "/categories/dental";
+
+    renderListing({
+      context: {
+        slug: "dental",
+        type: "category"
+      },
+      initialData: {
+        category: categories[1]
+      }
+    });
+
+    const hero = screen.getByTestId("catalog-hero");
+    const actionPanel = screen.getByTestId("catalog-hero-action-panel");
+    const desktopActions = screen.getByTestId("desktop-catalog-hero-actions");
+    const subcategoryNav = screen.getByRole("navigation", {
+      name: "Dental subcategories"
+    });
+
+    expect(hero).toHaveClass(
+      "lg:grid-cols-[minmax(18rem,0.42fr)_minmax(0,1fr)]",
+      "lg:items-start"
+    );
+    expect(actionPanel).toHaveClass("lg:justify-items-end");
+    expect(desktopActions).toHaveClass("lg:justify-end");
+    expect(screen.getByRole("link", { name: "In-stock only" })).toHaveClass(
+      "whitespace-nowrap"
+    );
+    expect(screen.getByRole("link", { name: "Reset filters" })).toHaveClass(
+      "whitespace-nowrap"
+    );
+    expect(subcategoryNav).toHaveClass("lg:max-w-[68rem]");
+    expect(subcategoryNav).not.toHaveClass("mt-6");
   });
 
   it("locks subcategory routes while preserving category navigation", () => {
@@ -226,6 +333,22 @@ describe("ProductListingPage", () => {
     expect(screen.getByRole("link", { name: "All Dental" })).toHaveAttribute(
       "href",
       "/categories/dental"
+    );
+    const subcategoryNav = screen.getByRole("navigation", {
+      name: "Dental subcategories"
+    });
+    const subcategoryRail = subcategoryNav.firstElementChild;
+
+    expect(subcategoryNav).toHaveClass("max-w-full", "overflow-hidden");
+    expect(subcategoryRail).toHaveClass(
+      "flex-nowrap",
+      "overflow-x-auto",
+      "sm:flex-wrap",
+      "[scrollbar-width:none]"
+    );
+    expect(screen.getByRole("link", { name: "All Dental" })).toHaveClass(
+      "shrink-0",
+      "whitespace-nowrap"
     );
     expect(screen.getAllByRole("link", { name: "Reset filters" })[0])
       .toHaveAttribute("href", "/categories/dental/endodontics");
@@ -326,7 +449,7 @@ describe("ProductListingPage", () => {
     renderListing();
 
     expect(screen.getByTestId("category-filter-select-arrow"))
-      .toHaveClass("text-[#006d77]");
+      .toHaveClass("text-[#287c30]");
     expect(getHeroFilterTrigger("Category")).toHaveClass("pr-10");
   });
 

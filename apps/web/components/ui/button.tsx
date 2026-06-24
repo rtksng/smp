@@ -22,13 +22,13 @@ type ButtonAsButtonProps = ButtonBaseProps &
 export type ButtonProps = ButtonAsLinkProps | ButtonAsButtonProps;
 
 const variantClasses: Record<ButtonVariant, string> = {
-  ghost: "bg-transparent text-[#12314f] hover:bg-[#edf6ff]",
+  ghost: "bg-transparent text-[#173b1d] hover:bg-[#eaf7eb]",
   outline:
-    "border-[#b9d6f2] bg-white !text-[#0b5cab] shadow-sm shadow-[#0b5cab]/5 hover:border-[#0b5cab] hover:bg-[#f4f9ff] hover:shadow-md hover:shadow-[#0b5cab]/10",
+    "border-[#a9ddae] bg-white !text-[#287c30] shadow-sm shadow-[#287c30]/5 hover:border-[#287c30] hover:bg-[#f4fbf5] hover:shadow-md hover:shadow-[#287c30]/10",
   primary:
-    "bg-[#0b5cab] text-white shadow-sm shadow-[#0b5cab]/20 hover:bg-[#094f94] hover:shadow-md hover:shadow-[#0b5cab]/25",
+    "bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20 hover:bg-[#23702a] hover:shadow-md hover:shadow-[#287c30]/25",
   secondary:
-    "border-[#cfe4f8] bg-[#eaf4ff] text-[#0b5cab] shadow-sm shadow-[#0b5cab]/5 hover:bg-[#dcedff] hover:shadow-md hover:shadow-[#0b5cab]/10"
+    "border-[#c7eacb] bg-[#e7f6e9] text-[#287c30] shadow-sm shadow-[#287c30]/5 hover:bg-[#ddf2e0] hover:shadow-md hover:shadow-[#287c30]/10"
 };
 
 export function Button(props: ButtonProps) {
@@ -63,7 +63,7 @@ export function Button(props: ButtonProps) {
 
 function buttonClassName(variant: ButtonVariant, className?: string) {
   return [
-    "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-5 py-2 text-sm font-bold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#0b5cab] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0",
+    "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-5 py-2 text-sm font-bold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0",
     variantClasses[variant],
     className
   ]

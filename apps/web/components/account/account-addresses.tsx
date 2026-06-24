@@ -303,30 +303,30 @@ function AddressCard({
   onSetDefault: () => void;
 }) {
   return (
-    <article className="grid gap-4 rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4 shadow-sm shadow-[#0b5cab]/5">
+    <article className="grid gap-4 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf6ff] text-[#0b5cab]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
           <MapPin aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-bold text-[#12314f]">{address.fullName}</h3>
+            <h3 className="font-bold text-[#173b1d]">{address.fullName}</h3>
             <AccountStatusBadge>{formatAddressType(address.type)}</AccountStatusBadge>
             {address.isDefault ? (
               <AccountStatusBadge tone="success">Default</AccountStatusBadge>
             ) : null}
           </div>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#52677f]">
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#556b57]">
             {address.addressLine1}
             {address.addressLine2 ? `, ${address.addressLine2}` : ""},{" "}
             {address.city}, {address.state} {address.pincode}
           </p>
           {address.landmark ? (
-            <p className="mt-1 text-sm font-semibold text-[#52677f]">
+            <p className="mt-1 text-sm font-semibold text-[#556b57]">
               Landmark: {address.landmark}
             </p>
           ) : null}
-          <p className="mt-1 text-sm font-semibold text-[#52677f]">
+          <p className="mt-1 text-sm font-semibold text-[#556b57]">
             {address.phone}
           </p>
         </div>
@@ -455,10 +455,10 @@ function AddressForm({
             onChange={(event) => onChange("pincode", event.target.value)}
             value={addressForm.pincode}
           />
-          <label className="grid gap-2 text-sm font-bold text-[#12314f]">
+          <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
             <span>Address type</span>
             <select
-              className="min-h-12 rounded-full border border-[#b9d6f2] bg-white px-5 text-sm font-semibold text-[#12314f] outline-none transition focus:border-[#0b5cab] focus:ring-2 focus:ring-[#0b5cab]/20"
+              className="min-h-12 rounded-full border border-[#a9ddae] bg-white px-5 text-sm font-semibold text-[#173b1d] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20"
               onChange={(event) =>
                 onChange("type", event.target.value as CustomerAddressType)
               }

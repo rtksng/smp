@@ -88,6 +88,42 @@ describe("ProductCard", () => {
 
     expect(screen.getByText("Product image unavailable")).toBeInTheDocument();
   });
+
+  it("matches the landing-page mobile card spacing when compact", () => {
+    renderWithQueryClient(<ProductCard compact product={product} />);
+
+    const title = screen.getByRole("heading", {
+      name: "SurgiPro Artery Forceps"
+    });
+    const article = title.closest("article");
+    const imagePanel = article?.firstElementChild;
+    const contentPanel = article?.children[1];
+
+    expect(article).toHaveClass("min-h-[14.3rem]", "rounded-xl");
+    expect(imagePanel).toHaveClass("h-24", "sm:h-36");
+    expect(contentPanel).toHaveClass("gap-1", "p-3", "sm:gap-3", "sm:p-4");
+    expect(screen.getByRole("link", { name: "SurgiPro" })).toHaveClass(
+      "text-[#556b57]"
+    );
+    expect(title).toHaveClass(
+      "min-h-9",
+      "text-xs",
+      "font-semibold",
+      "leading-[1.15rem]"
+    );
+    expect(title).not.toHaveClass("mt-2");
+    expect(screen.getByText(/9,600/)).toHaveClass(
+      "text-base",
+      "font-black",
+      "leading-5",
+      "text-[#111827]"
+    );
+    expect(screen.getByText(/MRP/)).toHaveClass(
+      "text-[11px]",
+      "font-semibold",
+      "text-[#556b57]"
+    );
+  });
 });
 
 function renderWithQueryClient(children: ReactNode) {

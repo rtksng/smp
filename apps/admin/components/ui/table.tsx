@@ -7,7 +7,7 @@ const tableSlots = heroTable({ radius: "sm", shadow: "none" });
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
     <div
-      className={cn(tableSlots.base(), "relative w-full overflow-auto")}
+      className={cn(tableSlots.base(), "relative w-full overflow-auto adminTableViewport")}
       data-slot="table-container"
     >
       <table
@@ -68,7 +68,7 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
     <th
       className={cn(
         tableSlots.th(),
-        "h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-bold text-foreground",
+        "adminTableColumn h-11 whitespace-nowrap bg-muted px-4 text-left align-middle text-xs font-bold text-foreground",
         className
       )}
       data-slot="table-head"
@@ -80,7 +80,11 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
 export function TableCell({ className, ...props }: ComponentProps<"td">) {
   return (
     <td
-      className={cn(tableSlots.td(), "px-4 py-3 align-middle text-muted-foreground", className)}
+      className={cn(
+        tableSlots.td(),
+        "adminTableColumn px-4 py-3 align-middle text-muted-foreground",
+        className
+      )}
       data-slot="table-cell"
       {...props}
     />

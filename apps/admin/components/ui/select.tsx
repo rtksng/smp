@@ -245,16 +245,20 @@ export function Select({
       aria-labelledby={ariaLabelledBy}
       classNames={{
         base: "w-full min-w-0",
+        innerWrapper: "min-w-0 flex-1",
         listbox: "adminSelectListbox",
+        listboxWrapper: "adminSelectListboxWrapper",
         mainWrapper: "w-full min-w-0",
         popoverContent: "adminSelectPopover z-[70]",
+        selectorIcon: "right-3 size-4 shrink-0 opacity-70 pointer-events-none",
         trigger: cn(
-          "flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground outline-none transition-colors shadow-none",
+          "relative flex min-h-10 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 py-2 pr-10 text-sm text-foreground outline-none transition-colors shadow-none",
           "data-[focus=true]:border-ring data-[focus=true]:ring-2 data-[focus=true]:ring-ring/20",
           "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60",
           data.triggerClassName
         ),
-        value: "text-foreground group-data-[has-value=false]:text-muted-foreground"
+        value:
+          "min-w-0 flex-1 truncate pr-1 text-left text-foreground group-data-[has-value=false]:text-muted-foreground"
       }}
       data-slot="select"
       isDisabled={disabled}
@@ -272,7 +276,7 @@ export function Select({
       placeholder={data.placeholder}
       radius="sm"
       selectedKeys={value ? new Set([value]) : new Set()}
-      selectorIcon={<ChevronDown aria-hidden className="size-4 opacity-70" />}
+      selectorIcon={<ChevronDown aria-hidden className="size-4 shrink-0 opacity-70" />}
       variant="bordered"
     >
       {selectChildren}

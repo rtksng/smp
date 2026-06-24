@@ -83,7 +83,7 @@ export default function AssignmentDetailScreen() {
   if (assignmentsQuery.isLoading) {
     return (
       <Screen scroll={false} style={styles.center}>
-        <ActivityIndicator color="#155E63" />
+        <ActivityIndicator color="#287c30" />
       </Screen>
     );
   }

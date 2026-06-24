@@ -44,7 +44,7 @@ describe("MarketplaceBanner", () => {
         secondaryCtaText="Bulk quote"
         subtitle="Your one-stop shop for verified surgical equipment, consumables, and diagnostics with GST-ready checkout."
         title="Hospital supplies, ordered simply."
-        tone="navy"
+        tone="forest"
       />
     );
 

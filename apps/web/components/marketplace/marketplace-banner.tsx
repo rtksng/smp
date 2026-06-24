@@ -24,7 +24,7 @@ type MarketplaceBannerProps = {
   secondaryCtaText?: string;
   subtitle: string;
   title: string;
-  tone?: "teal" | "navy" | "white";
+  tone?: "green" | "forest" | "white";
 };
 
 const heroFeatures: Array<{
@@ -60,7 +60,7 @@ export function MarketplaceBanner({
 }: MarketplaceBannerProps) {
   return (
     <section
-      className="relative isolate overflow-hidden rounded-[1.75rem] border border-[#cfe4f8] bg-[linear-gradient(180deg,#ffffff_0%,#f1f8ff_100%)] shadow-xl shadow-[#0b5cab]/10"
+      className="relative isolate overflow-hidden rounded-[1.75rem] border border-[#c7eacb] bg-[linear-gradient(180deg,#ffffff_0%,#f1faf2_100%)] shadow-xl shadow-[#287c30]/10"
       data-testid="customer-hero"
     >
       {imageUrl ? (
@@ -81,23 +81,23 @@ export function MarketplaceBanner({
           />
         </>
       ) : (
-        <div className="absolute inset-0 hidden bg-[linear-gradient(135deg,#ffffff,#d8ebff)] md:block" />
+        <div className="absolute inset-0 hidden bg-[linear-gradient(135deg,#ffffff,#d8f1da)] md:block" />
       )}
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 hidden w-[66%] bg-[linear-gradient(90deg,rgba(248,252,255,0.98)_0%,rgba(248,252,255,0.94)_62%,rgba(248,252,255,0)_100%)] md:block"
+        className="absolute inset-y-0 left-0 hidden w-[66%] bg-[linear-gradient(90deg,rgba(248,252,248,0.98)_0%,rgba(248,252,248,0.94)_62%,rgba(248,252,248,0)_100%)] md:block"
         style={{ clipPath: "polygon(0 0, 82% 0, 100% 100%, 0 100%)" }}
       />
 
       <div className="relative z-10 flex min-h-[34rem] flex-col px-5 py-8 sm:px-8 sm:py-10 md:min-h-[32rem] md:px-10 md:py-12 lg:min-h-[36rem] lg:px-16 lg:py-14">
         <div className="max-w-[48rem] md:max-w-[44rem] lg:max-w-[50rem]">
-          <h1 className="max-w-4xl text-4xl font-bold leading-[1.04] text-[#082e5d] sm:text-5xl lg:text-[4.25rem]">
+          <h1 className="max-w-4xl text-4xl font-bold leading-[1.04] text-[#0d2f12] sm:text-5xl lg:text-[4.25rem]">
             <HighlightedTitle title={title} />
           </h1>
 
-          <div className="mt-6 h-1.5 w-24 rounded-full bg-[#0d74e6]" />
+          <div className="mt-6 h-1.5 w-24 rounded-full bg-[#3cb043]" />
 
-          <p className="mt-6 max-w-[42rem] text-base font-semibold leading-7 text-[#455d78] sm:text-xl sm:leading-8">
+          <p className="mt-6 max-w-[42rem] text-base font-semibold leading-7 text-[#556b57] sm:text-xl sm:leading-8">
             {subtitle}
           </p>
 
@@ -105,16 +105,16 @@ export function MarketplaceBanner({
             {heroFeatures.map(({ Icon, label }, index) => (
               <div
                 className={[
-                  "relative flex flex-col items-center gap-3 px-2 text-[#082e5d]",
+                  "relative flex flex-col items-center gap-3 px-2 text-[#0d2f12]",
                   index < heroFeatures.length - 1
-                    ? "sm:after:absolute sm:after:right-0 sm:after:top-8 sm:after:h-16 sm:after:w-px sm:after:bg-[#cfe4f8]"
+                    ? "sm:after:absolute sm:after:right-0 sm:after:top-8 sm:after:h-16 sm:after:w-px sm:after:bg-[#c7eacb]"
                     : ""
                 ]
                   .filter(Boolean)
                   .join(" ")}
                 key={label}
               >
-                <span className="grid h-16 w-16 place-items-center rounded-full bg-[#ddecff] text-[#0b66ca]">
+                <span className="grid h-16 w-16 place-items-center rounded-full bg-[#ddf2e0] text-[#3cb043]">
                   <Icon aria-hidden="true" className="h-8 w-8" strokeWidth={2.4} />
                 </span>
                 <span className="max-w-36 text-sm font-black leading-5 sm:text-base">
@@ -135,7 +135,7 @@ export function MarketplaceBanner({
             </Button>
             {secondaryCtaHref && secondaryCtaText ? (
               <Button
-                className="min-h-14 w-full !border-[#0b66ca] !bg-white/80 !px-8 text-base sm:w-auto"
+                className="min-h-14 w-full !border-[#3cb043] !bg-white/80 !px-8 text-base sm:w-auto"
                 href={secondaryCtaHref}
                 variant="outline"
               >
@@ -154,12 +154,12 @@ export function MarketplaceProofStrip() {
   return (
     <section
       aria-label="Marketplace trust metrics"
-      className="bg-[#f4f9ff] pb-8 sm:pb-10"
+      className="bg-[#f4fbf5] pb-8 sm:pb-10"
       data-testid="hero-proof-section"
     >
       <Container>
         <div
-          className="grid gap-4 rounded-[1.35rem] bg-[linear-gradient(90deg,#064fa8_0%,#0874e4_100%)] p-5 text-white shadow-xl shadow-[#0b5cab]/20 sm:grid-cols-2 md:grid-cols-4 md:items-center md:gap-0 md:p-5"
+          className="grid gap-4 rounded-[1.35rem] bg-[linear-gradient(90deg,#287c30_0%,#3cb043_100%)] p-5 text-white shadow-xl shadow-[#287c30]/20 sm:grid-cols-2 md:grid-cols-4 md:items-center md:gap-0 md:p-5"
           data-testid="hero-proof-strip"
         >
           {heroProof.map(({ Icon, label, value }) => (
@@ -195,7 +195,7 @@ function HighlightedTitle({ title }: { title: string }) {
   return (
     <>
       {title.slice(0, highlightedIndex)}
-      <span className="text-[#0d74e6]">{title.slice(highlightedIndex)}</span>
+      <span className="text-[#3cb043]">{title.slice(highlightedIndex)}</span>
     </>
   );
 }

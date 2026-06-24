@@ -3,11 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { FormEvent } from "react";
+import type { FocusEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { getProducts } from "../../lib/api/products";
-import { useCatalogStore } from "../../lib/stores/catalog-store";
+import { productSearchSchema, useCatalogStore } from "../../lib/stores/catalog-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
@@ -25,12 +25,13 @@ export function SearchForm({
   suggestions = []
 }: SearchFormProps) {
   const router = useRouter();
-  const searchInput = useCatalogStore((state) => state.searchInput);
-  const setSearchInput = useCatalogStore((state) => state.setSearchInput);
-  const submitSearch = useCatalogStore((state) => state.submitSearch);
   const [error, setError] = useState<string | undefined>();
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [query, setQuery] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const trimmedSearchInput = searchInput.trim();
+  const trimmedSearchInput = query.trim();
+  const isTyping = trimmedSearchInput.length > 0;
+  const suggestionLimit = compact ? 5 : 8;
   const autocompleteQuery = useQuery({
     enabled: trimmedSearchInput.length >= 2,
     queryFn: () =>
@@ -41,18 +42,33 @@ export function SearchForm({
     queryKey: ["search-autocomplete", trimmedSearchInput],
     staleTime: 30_000
   });
-  const dynamicSuggestions = useMemo(
-    () =>
-      uniqueSuggestions([
+  const typedSuggestions = useMemo(
+    () => {
+      const staticMatches = suggestions.filter((suggestion) =>
+        suggestion.toLowerCase().includes(trimmedSearchInput.toLowerCase())
+      );
+
+      return uniqueSuggestions([
         ...(autocompleteQuery.data?.items.flatMap((product) => [
           product.name,
           product.sku
         ]) ?? []),
-        ...recentSearches,
-        ...suggestions
-      ]).slice(0, compact ? 5 : 8),
-    [autocompleteQuery.data?.items, compact, recentSearches, suggestions]
+        ...staticMatches
+      ]).slice(0, suggestionLimit);
+    },
+    [
+      autocompleteQuery.data?.items,
+      suggestionLimit,
+      suggestions,
+      trimmedSearchInput
+    ]
   );
+  const idleSuggestions = useMemo(
+    () => uniqueSuggestions([...recentSearches, ...suggestions]).slice(0, suggestionLimit),
+    [recentSearches, suggestionLimit, suggestions]
+  );
+  const visibleSuggestions = isTyping ? typedSuggestions : idleSuggestions;
+  const shouldShowSuggestions = isSearchActive && visibleSuggestions.length > 0;
 
   useEffect(() => {
     setRecentSearches(readRecentSearches());
@@ -62,7 +78,7 @@ export function SearchForm({
     event.preventDefault();
 
     try {
-      const search = submitSearch();
+      const search = productSearchSchema.parse(query);
       const params = new URLSearchParams();
 
       if (search) {
@@ -70,7 +86,11 @@ export function SearchForm({
       }
 
       setError(undefined);
+      recordSubmittedSearch(search);
       rememberSearch(search);
+      setRecentSearches(readRecentSearches());
+      setQuery("");
+      setIsSearchActive(false);
       router.push(params.toString() ? `/products?${params.toString()}` : "/products");
     } catch (issue) {
       if (issue instanceof z.ZodError) {
@@ -81,13 +101,28 @@ export function SearchForm({
     }
   }
 
+  function handleBlur(event: FocusEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setIsSearchActive(false);
+  }
+
   function handleSuggestionClick(suggestion: string) {
-    setSearchInput(suggestion);
+    recordSubmittedSearch(suggestion);
     rememberSearch(suggestion);
+    setRecentSearches(readRecentSearches());
+    setQuery("");
+    setIsSearchActive(false);
   }
 
   return (
-    <div className="grid gap-3">
+    <div
+      className="relative grid gap-3"
+      onBlur={handleBlur}
+      onFocus={() => setIsSearchActive(true)}
+    >
       <form
         className={
           compact
@@ -101,9 +136,9 @@ export function SearchForm({
           error={error}
           icon={<Search aria-hidden="true" className="h-5 w-5" />}
           id={id}
-          onChange={(event) => setSearchInput(event.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder={placeholder}
-          value={searchInput}
+          value={query}
         />
         <Button
           aria-label={compact ? "Search catalog" : undefined}
@@ -114,11 +149,23 @@ export function SearchForm({
           <span className={compact ? "sr-only" : ""}>Search</span>
         </Button>
       </form>
-      {dynamicSuggestions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#12314f]">
-          {dynamicSuggestions.map((suggestion) => (
+      {shouldShowSuggestions ? (
+        <div
+          aria-label={isTyping ? "Search suggestions" : "Recent searches"}
+          className={
+            compact
+              ? "absolute left-0 right-0 top-full z-50 mt-2 grid gap-1 overflow-hidden rounded-2xl border border-[#cfe9d2] bg-white p-2 text-sm font-bold text-[#173b1d] shadow-2xl shadow-[#287c30]/15"
+              : "flex flex-wrap items-center gap-2 text-xs font-bold text-[#173b1d]"
+          }
+          data-testid="search-suggestions"
+        >
+          {visibleSuggestions.map((suggestion) => (
             <a
-              className="rounded-full border border-[#d6e7f8] bg-white px-3 py-1.5 text-[#0b5cab] transition hover:border-[#0b5cab] hover:bg-[#edf6ff]"
+              className={
+                compact
+                  ? "block rounded-xl px-3 py-2 text-[#287c30] transition hover:bg-[#eaf7eb]"
+                  : "rounded-full border border-[#cfe9d2] bg-white px-3 py-1.5 text-[#287c30] transition hover:border-[#287c30] hover:bg-[#eaf7eb]"
+              }
               href={`/products?${new URLSearchParams({ q: suggestion }).toString()}`}
               key={suggestion}
               onClick={() => handleSuggestionClick(suggestion)}
@@ -130,6 +177,13 @@ export function SearchForm({
       ) : null}
     </div>
   );
+}
+
+function recordSubmittedSearch(value: string) {
+  useCatalogStore.setState({
+    searchInput: "",
+    submittedSearch: value
+  });
 }
 
 function uniqueSuggestions(values: string[]) {

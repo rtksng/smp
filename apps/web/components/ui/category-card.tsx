@@ -9,10 +9,10 @@ type CategoryCardProps = {
 export function CategoryCard({ category }: CategoryCardProps) {
   return (
     <a
-      className="group grid min-h-48 overflow-hidden rounded-lg border border-[#d6e7f8] bg-white shadow-sm shadow-[#0b5cab]/5 transition hover:-translate-y-0.5 hover:border-[#0b5cab] hover:shadow-lg hover:shadow-[#0b5cab]/10"
+      className="group grid min-h-48 overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
       href={`/categories/${category.slug}`}
     >
-      <div className="relative h-32 overflow-hidden bg-[#e7f3f2]">
+      <div className="relative h-32 overflow-hidden bg-[#eaf7eb]">
         {category.imageUrl ? (
           <Image
             alt={getCategoryImageAlt(category.name)}
@@ -23,7 +23,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
             unoptimized={category.imageUrl.startsWith("http://localhost")}
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#e7f3f2,#f7e9c8)] text-3xl font-bold text-[#006d77]">
+          <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#f7e9c8)] text-3xl font-bold text-[#287c30]">
             {category.name.slice(0, 1)}
           </div>
         )}
@@ -36,7 +36,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
         <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#687773]">
           {category.description ?? "Explore surgical and medical products in this category."}
         </p>
-        <p className="mt-4 text-sm font-bold text-[#006d77]">
+        <p className="mt-4 text-sm font-bold text-[#287c30]">
           Browse catalog
           {category.children.length > 0 ? ` - ${category.children.length} subcategories` : ""}
         </p>

@@ -17,9 +17,13 @@ const toneClassName = {
 export function MetricCard({ label, tone = "neutral", value }: MetricCardProps) {
   return (
     <Card className={cn("min-h-[132px] border-t-4", toneClassName[tone])}>
-      <CardContent className="p-5 metricCardContent">
-        <span className="block text-sm font-bold text-muted-foreground">{label}</span>
-        <strong className="mt-5 block text-3xl text-foreground">{value}</strong>
+      <CardContent className="flex flex-col items-start p-5 text-left metricCardContent">
+        <span className="block text-left text-sm font-bold text-muted-foreground">
+          {label}
+        </span>
+        <strong className="mt-5 block self-start text-left text-3xl text-foreground">
+          {value}
+        </strong>
       </CardContent>
     </Card>
   );

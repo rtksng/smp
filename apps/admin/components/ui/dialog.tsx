@@ -146,12 +146,13 @@ export function DialogContent({
   return (
     <HeroModal
       classNames={{
-        backdrop: "z-40 bg-black/45",
+        backdrop: "z-40 bg-black/45 adminDialogBackdrop",
         base: cn(
-          "z-50 grid w-[calc(100%-32px)] max-w-[520px] gap-4 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-2xl outline-none",
+          "z-50 grid w-[calc(100%-32px)] max-w-[520px] gap-4 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-2xl outline-none adminDialogPanel",
           className
         ),
-        closeButton: "hidden"
+        closeButton: "hidden",
+        wrapper: "adminDialogWrapper"
       }}
       data-slot="dialog-content"
       hideCloseButton

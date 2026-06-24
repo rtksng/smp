@@ -86,6 +86,7 @@ export type ApiEnvironment = {
   jwtAccessTtlSeconds: number;
   jwtRefreshSecret: string;
   jwtRefreshTtlSeconds: number;
+  otpExposeInResponse: boolean;
   otpRateLimit: number;
   otpRateWindowSeconds: number;
   otpResendCooldownSeconds: number;
@@ -126,6 +127,10 @@ export function loadApiEnvironment(): ApiEnvironment {
     jwtAccessTtlSeconds: Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
     jwtRefreshSecret: required("JWT_REFRESH_SECRET"),
     jwtRefreshTtlSeconds: Number(process.env.JWT_REFRESH_TTL_SECONDS ?? 2592000),
+    otpExposeInResponse: parseBoolean(
+      process.env.OTP_EXPOSE_IN_RESPONSE,
+      environment !== "production"
+    ),
     otpRateLimit: Number(process.env.OTP_RATE_LIMIT ?? 5),
     otpRateWindowSeconds: Number(process.env.OTP_RATE_WINDOW_SECONDS ?? 3600),
     otpResendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS ?? 60),

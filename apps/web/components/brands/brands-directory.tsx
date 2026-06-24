@@ -32,17 +32,17 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
 
   return (
     <div className="grid gap-7">
-      <div className="grid gap-3 rounded-lg border border-[#d6e7f8] bg-white p-4 shadow-sm shadow-[#0b5cab]/5 md:grid-cols-[minmax(0,1fr)_240px] md:items-end">
-        <label className="grid gap-2 text-sm font-bold text-[#12314f]">
+      <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 md:grid-cols-[minmax(0,1fr)_240px] md:items-end">
+        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
           <span>Search brands</span>
           <span className="relative">
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0b5cab]"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#287c30]"
             />
             <input
               aria-label="Search brands"
-              className="min-h-11 w-full rounded-lg border border-[#cfdcda] bg-white px-4 pl-10 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20"
+              className="min-h-11 w-full rounded-lg border border-[#cfdcda] bg-white px-4 pl-10 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by brand, use case, or slug"
               type="search"
@@ -51,14 +51,14 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
           </span>
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-[#12314f]">
+        <label className="grid gap-2 text-sm font-bold text-[#173b1d]">
           <span className="inline-flex items-center gap-2">
-            <SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-[#0b5cab]" />
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
             Filter
           </span>
           <select
             aria-label="Brand logo filter"
-            className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#006d77] focus:ring-2 focus:ring-[#006d77]/20"
+            className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20"
             onChange={(event) => setLogoFilter(event.target.value as BrandLogoFilter)}
             value={logoFilter}
           >
@@ -78,12 +78,12 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
         <div className="grid gap-5 lg:grid-cols-2">
           {filteredBrands.map((brand) => (
             <article
-              className="grid gap-5 rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-sm shadow-[#0b5cab]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0b5cab] hover:shadow-lg hover:shadow-[#0b5cab]/10"
+              className="grid gap-5 rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
               key={brand.id}
             >
               <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
                 <a
-                  className="flex min-h-28 items-center justify-center rounded-lg border border-[#d6e7f8] bg-[#f4f9ff] p-4"
+                  className="flex min-h-28 items-center justify-center rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4"
                   href={`/brands/${brand.slug}`}
                 >
                   {brand.logoUrl ? (
@@ -97,17 +97,17 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
                       width={420}
                     />
                   ) : (
-                    <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-bold text-[#0b5cab] shadow-sm shadow-[#0b5cab]/10">
+                    <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-xl font-bold text-[#287c30] shadow-sm shadow-[#287c30]/10">
                       {brand.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                 </a>
 
                 <div className="min-w-0">
-                  <h2 className="text-xl font-bold leading-7 text-[#12314f]">
+                  <h2 className="text-xl font-bold leading-7 text-[#173b1d]">
                     {brand.name}
                   </h2>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#52677f]">
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#556b57]">
                     {brand.description ??
                       "Browse verified surgical and medical products from this brand."}
                   </p>
@@ -137,7 +137,7 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
 function BrandProductPreview({ products }: { products?: ProductList }) {
   if (!products) {
     return (
-      <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f4f9ff] px-4 py-3 text-sm font-semibold text-[#52677f]">
+      <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f4fbf5] px-4 py-3 text-sm font-semibold text-[#556b57]">
         Product preview is unavailable right now.
       </p>
     );
@@ -145,28 +145,28 @@ function BrandProductPreview({ products }: { products?: ProductList }) {
 
   if (products.items.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-[#d6e7f8] bg-[#f4f9ff] px-4 py-3 text-sm font-semibold text-[#52677f]">
+      <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f4fbf5] px-4 py-3 text-sm font-semibold text-[#556b57]">
         No active products are listed for this brand yet.
       </p>
     );
   }
 
   return (
-    <div className="grid gap-3 border-t border-[#d6e7f8] pt-4">
-      <h3 className="text-sm font-bold uppercase text-[#0b5cab]">
+    <div className="grid gap-3 border-t border-[#cfe9d2] pt-4">
+      <h3 className="text-sm font-bold uppercase text-[#287c30]">
         Latest brand products
       </h3>
       <div className="grid gap-2">
         {products.items.slice(0, 4).map((product) => (
           <a
-            className="grid gap-1 rounded-lg border border-[#d6e7f8] bg-[#f8fbff] px-4 py-3 transition hover:border-[#0b5cab] hover:bg-[#edf6ff]"
+            className="grid gap-1 rounded-lg border border-[#cfe9d2] bg-[#f8fcf8] px-4 py-3 transition hover:border-[#287c30] hover:bg-[#eaf7eb]"
             href={`/products/${product.slug}`}
             key={product.id}
           >
-            <h4 className="line-clamp-1 text-sm font-bold text-[#12314f]">
+            <h4 className="line-clamp-1 text-sm font-bold text-[#173b1d]">
               {product.name}
             </h4>
-            <span className="text-xs font-semibold text-[#52677f]">
+            <span className="text-xs font-semibold text-[#556b57]">
               {product.category.name} - {formatRupees(product.sellingPrice)}
             </span>
           </a>

@@ -21,6 +21,7 @@ export const customerProfileSchema = z.object({
 });
 
 export const customerOtpRequestSchema = z.object({
+  devOtp: z.string().regex(/^\d{6}$/).optional(),
   expiresInSeconds: z.number(),
   mobileNumber: z.string(),
   resendAfterSeconds: z.number()

@@ -41,14 +41,14 @@ export default async function BrandsPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
-        <section className="border-b border-[#d6e7f8] bg-white py-10 sm:py-12">
+      <main className="bg-[#f4fbf5]">
+        <section className="border-b border-[#cfe9d2] bg-white py-10 sm:py-12">
           <Container className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <div className="max-w-3xl">
-              <h1 className="text-3xl font-bold leading-tight text-[#12314f] sm:text-5xl">
+              <h1 className="text-3xl font-bold leading-tight text-[#173b1d] sm:text-5xl">
                 Browse trusted medical brands
               </h1>
-              <p className="mt-4 text-base leading-7 text-[#52677f] sm:text-lg">
+              <p className="mt-4 text-base leading-7 text-[#556b57] sm:text-lg">
                 Search supplier and manufacturer catalogs, compare brand ranges,
                 and open filtered product listings for faster procurement.
               </p>

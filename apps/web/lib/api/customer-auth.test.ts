@@ -21,6 +21,7 @@ describe("customer auth API", () => {
       new Response(
         JSON.stringify({
           data: {
+            devOtp: "123456",
             expiresInSeconds: 300,
             mobileNumber: "+919876543210",
             resendAfterSeconds: 60
@@ -37,6 +38,7 @@ describe("customer auth API", () => {
     );
 
     await expect(requestCustomerOtp("98765 43210")).resolves.toEqual({
+      devOtp: "123456",
       expiresInSeconds: 300,
       mobileNumber: "+919876543210",
       resendAfterSeconds: 60

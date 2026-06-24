@@ -7,7 +7,7 @@ import { PageLoader, SectionLoader } from "./loading-spinner";
 import { ProductGridSkeleton, TableSkeleton } from "./skeleton";
 
 describe("shared feedback states", () => {
-  it("renders full-page and section loading states with accessible labels", () => {
+  it("renders page loading as a non-blocking top progress bar", () => {
     render(
       createElement(
         Fragment,
@@ -17,7 +17,10 @@ describe("shared feedback states", () => {
       )
     );
 
-    expect(screen.getByText("Loading catalog")).toBeInTheDocument();
+    const pageLoader = screen.getByRole("status", { name: "Loading catalog" });
+
+    expect(pageLoader).toHaveClass("fixed", "top-0", "pointer-events-none");
+    expect(pageLoader).not.toHaveClass("min-h-[60vh]", "place-items-center");
     expect(screen.getByText("Loading orders")).toBeInTheDocument();
   });
 

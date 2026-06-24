@@ -77,7 +77,7 @@ export default function AssignmentsScreen() {
       <FlatList
         ListEmptyComponent={
           assignmentsQuery.isLoading ? (
-            <ActivityIndicator color="#155E63" style={styles.loader} />
+            <ActivityIndicator color="#287c30" style={styles.loader} />
           ) : (
             <View style={styles.empty}>
               <Ionicons color="#64748B" name="cube-outline" size={28} />
@@ -99,7 +99,7 @@ export default function AssignmentsScreen() {
               <Switch
                 ios_backgroundColor="#CBD5E1"
                 onValueChange={(value) => onlineMutation.mutate(value)}
-                trackColor={{ false: "#CBD5E1", true: "#99F6E4" }}
+                trackColor={{ false: "#CBD5E1", true: "#9fe4a4" }}
                 value={profileQuery.data?.isOnline ?? false}
               />
             </View>
@@ -133,7 +133,7 @@ export default function AssignmentsScreen() {
               void assignmentsQuery.refetch();
             }}
             refreshing={isRefreshing}
-            tintColor="#155E63"
+            tintColor="#287c30"
           />
         }
         renderItem={({ item }) => <AssignmentCard assignment={item} />}

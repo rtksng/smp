@@ -15,7 +15,7 @@ export function NotFoundPage({ action, message, title }: NotFoundPageProps) {
   return (
     <>
       <Header />
-      <main className="bg-[#f4f9ff]">
+      <main className="bg-[#f4fbf5]">
         <Container className="grid min-h-[60vh] place-items-center py-8">
           <ErrorState
             action={action ?? <Button href="/products">Browse products</Button>}

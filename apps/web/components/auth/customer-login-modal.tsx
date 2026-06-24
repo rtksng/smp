@@ -39,10 +39,10 @@ export function CustomerLoginModal() {
       className="fixed inset-0 z-50 grid place-items-center bg-[#17211f]/55 px-4 py-6 backdrop-blur-sm"
       role="dialog"
     >
-      <div className="relative w-full max-w-md rounded-lg border border-[#d6e7f8] bg-white p-5 shadow-2xl shadow-[#0b5cab]/15 sm:p-6">
+      <div className="relative w-full max-w-md rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-2xl shadow-[#287c30]/15 sm:p-6">
         <button
           aria-label="Close login"
-          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-lg border border-[#d6e7f8] bg-white text-[#31413d] shadow-sm shadow-[#0b5cab]/5 hover:bg-[#eef3f1]"
+          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-lg border border-[#cfe9d2] bg-white text-[#31413d] shadow-sm shadow-[#287c30]/5 hover:bg-[#eef3f1]"
           onClick={closeLogin}
           type="button"
         >

@@ -18,6 +18,7 @@ export enum OtpPurpose {
 }
 
 export type OtpRequestResult = {
+  devOtp?: string;
   expiresInSeconds: number;
   mobileNumber: string;
   resendAfterSeconds: number;
@@ -32,6 +33,7 @@ export type OtpCache = {
 
 export type OtpServiceOptions = {
   cooldownSeconds: number;
+  exposeOtpInResponse?: boolean;
   generator: () => string;
   otpTtlSeconds: number;
   rateLimit: number;
@@ -104,6 +106,9 @@ export class OtpService {
     this.options = {
       cooldownSeconds:
         configService?.get<number>("otpResendCooldownSeconds") ?? 60,
+      exposeOtpInResponse:
+        configService?.get<boolean>("otpExposeInResponse") ??
+        (process.env.NODE_ENV !== "production"),
       generator: defaultOtpGenerator,
       otpTtlSeconds: configService?.get<number>("otpTtlSeconds") ?? 300,
       rateLimit: configService?.get<number>("otpRateLimit") ?? 5,
@@ -162,7 +167,12 @@ export class OtpService {
       );
     }
 
+    const shouldExposeOtp =
+      this.options.exposeOtpInResponse ??
+      (process.env.NODE_ENV !== "production");
+
     return {
+      ...(shouldExposeOtp ? { devOtp: otp } : {}),
       expiresInSeconds: this.options.otpTtlSeconds,
       mobileNumber: normalizedMobileNumber,
       resendAfterSeconds: this.options.cooldownSeconds

@@ -51,6 +51,7 @@ export function CustomerLoginForm({
     pendingMobileNumber ? "verify" : "request"
   );
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canRequestOtp = useMemo(
     () => isValidIndianMobileNumber(mobileNumber),
@@ -64,6 +65,7 @@ export function CustomerLoginForm({
         setSentMobileNumber(otpRequest.mobileNumber);
         setMobileNumber(otpRequest.mobileNumber);
         setCooldownSeconds(otpRequest.resendAfterSeconds);
+        setDevOtp(otpRequest.devOtp ?? null);
         setOtp("");
         setStep("verify");
       }
@@ -92,6 +94,7 @@ export function CustomerLoginForm({
   async function handleRequestOtp(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setError(null);
+    setDevOtp(null);
 
     if (!canRequestOtp) {
       setError("Enter a valid 10-digit Indian mobile number.");
@@ -132,7 +135,7 @@ export function CustomerLoginForm({
   return (
     <section className={["grid gap-6", className].filter(Boolean).join(" ")}>
       <div className="grid gap-3">
-        <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#e7f3f2] text-[#006d77]">
+        <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
           <ShieldCheck aria-hidden="true" className="h-5 w-5" />
         </span>
         <div>
@@ -176,13 +179,22 @@ export function CustomerLoginForm({
         </form>
       ) : (
         <form className="grid gap-4" onSubmit={handleVerifyOtp}>
-          <div className="rounded-lg border border-[#d6e7f8] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#0b5cab]/5">
+          <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#287c30]/5">
             <p className="text-xs font-bold uppercase text-[#687773]">
               OTP sent to
             </p>
             <p className="mt-1 text-sm font-bold text-[#17211f]">
               {sentMobileNumber}
             </p>
+            {devOtp ? (
+              <span
+                aria-label={`Development OTP ${devOtp}`}
+                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full border border-[#a9ddae] bg-[#eaf7eb] px-3 py-1 text-xs font-black text-[#287c30] shadow-sm shadow-[#287c30]/10"
+              >
+                <span className="uppercase">Dev OTP</span>
+                <span className="font-mono text-sm">{devOtp}</span>
+              </span>
+            ) : null}
           </div>
           <Input
             autoComplete="one-time-code"
@@ -205,9 +217,10 @@ export function CustomerLoginForm({
           </Button>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#006d77]"
+              className="inline-flex items-center gap-2 text-sm font-bold text-[#287c30]"
               onClick={() => {
                 setError(null);
+                setDevOtp(null);
                 setOtp("");
                 setStep("request");
               }}
@@ -217,7 +230,7 @@ export function CustomerLoginForm({
               Change number
             </button>
             <button
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#006d77] disabled:cursor-not-allowed disabled:text-[#8da19c]"
+              className="inline-flex items-center gap-2 text-sm font-bold text-[#287c30] disabled:cursor-not-allowed disabled:text-[#8da19c]"
               disabled={cooldownSeconds > 0 || isSubmitting}
               onClick={handleResendOtp}
               type="button"
