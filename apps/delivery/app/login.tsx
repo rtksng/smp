@@ -29,7 +29,8 @@ export default function LoginScreen() {
   async function submitOtpRequest() {
     setLoading(true);
     try {
-      await requestOtp(mobileNumber.trim());
+      const otpRequest = await requestOtp(mobileNumber.trim());
+      setOtp(otpRequest.devOtp ?? "");
       setOtpRequested(true);
     } catch (error) {
       showError(error);

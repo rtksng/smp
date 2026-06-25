@@ -8,6 +8,7 @@ import {
   type PropsWithChildren
 } from "react";
 import {
+  type DeliveryOtpRequest,
   logoutDeliverySession,
   requestDeliveryOtp,
   verifyDeliveryOtp
@@ -22,7 +23,7 @@ import {
 type AuthContextValue = {
   accessToken: string | null;
   isReady: boolean;
-  requestOtp: (mobileNumber: string) => Promise<void>;
+  requestOtp: (mobileNumber: string) => Promise<DeliveryOtpRequest>;
   session: DeliverySession | null;
   signInWithOtp: (input: { mobileNumber: string; otp: string }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const requestOtp = useCallback(async (mobileNumber: string) => {
-    await requestDeliveryOtp(mobileNumber);
+    return requestDeliveryOtp(mobileNumber);
   }, []);
 
   const signInWithOtp = useCallback(

@@ -62,6 +62,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  Controller,
   useFieldArray,
   useForm,
   type FieldErrors,
@@ -888,7 +889,7 @@ function ProductTable({
   );
 }
 
-function ProductForm({
+export function ProductForm({
   brands,
   canSave,
   categories,
@@ -929,9 +930,12 @@ function ProductForm({
   const [uploadingDocumentIndex, setUploadingDocumentIndex] = useState<number | null>(
     null
   );
+  const slugManuallyEditedRef = useRef(false);
   const errors = form.formState.errors;
+  const nameValue = form.watch("name");
   const selectedCategoryId = form.watch("categoryId");
   const descriptionValue = form.watch("description");
+  const slugValue = form.watch("slug");
   const subcategories = useMemo(
     () =>
       selectedCategoryId
@@ -941,12 +945,28 @@ function ProductForm({
   );
 
   useEffect(() => {
+    slugManuallyEditedRef.current = Boolean(editingProduct);
     form.reset(
       editingProduct
         ? productToFormValues(editingProduct)
         : createEmptyProductFormValues()
     );
   }, [editingProduct, form]);
+
+  useEffect(() => {
+    if (editingProduct || slugManuallyEditedRef.current) {
+      return;
+    }
+
+    const nextSlug = slugifyProductName(nameValue);
+
+    if (slugValue !== nextSlug) {
+      form.setValue("slug", nextSlug, {
+        shouldDirty: nextSlug !== "",
+        shouldValidate: false
+      });
+    }
+  }, [editingProduct, form, nameValue, slugValue]);
 
   useEffect(() => {
     const selectedSubcategoryId = form.getValues("subcategoryId");
@@ -1034,17 +1054,16 @@ function ProductForm({
   function generateSlug() {
     const nextSlug = slugifyProductName(form.getValues("name"));
 
-    if (nextSlug) {
-      form.setValue("slug", nextSlug, {
-        shouldDirty: true,
-        shouldValidate: true
-      });
-    }
+    slugManuallyEditedRef.current = false;
+    form.setValue("slug", nextSlug, {
+      shouldDirty: true,
+      shouldValidate: true
+    });
   }
 
   return (
     <form className="formStack productForm" onSubmit={form.handleSubmit(submit)}>
-      <Card className="formSection">
+      <Card className="formSection border-0">
         <h3>Core details</h3>
         <div className="formGrid">
           <TextField
@@ -1053,10 +1072,27 @@ function ProductForm({
             registration={form.register("name")}
           />
           <div className="slugField">
-            <TextField
-              error={errors.slug?.message}
-              label="Slug"
-              registration={form.register("slug")}
+            <Controller
+              control={form.control}
+              name="slug"
+              render={({ field }) => (
+                <Label>
+                  Slug
+                  <Input
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    onChange={(event) => {
+                      slugManuallyEditedRef.current = true;
+                      field.onChange(slugifyProductName(event.target.value));
+                    }}
+                    ref={field.ref}
+                    value={field.value}
+                  />
+                  {errors.slug?.message ? (
+                    <span className="fieldError">{errors.slug.message}</span>
+                  ) : null}
+                </Label>
+              )}
             />
             <Button onClick={generateSlug} type="button" variant="outline">
               Generate
@@ -1152,7 +1188,7 @@ function ProductForm({
         />
       </Card>
 
-      <Card className="formSection">
+      <Card className="formSection border-0">
         <h3>Pricing and classification</h3>
         <div className="formGrid">
           <TextField
@@ -1240,7 +1276,7 @@ function ProductForm({
         </div>
       </Card>
 
-      <Card className="formSection">
+      <Card className="formSection border-0">
         <h3>SEO and search</h3>
         <div className="formGrid">
           <TextField
@@ -1327,7 +1363,7 @@ function ImageFields({
   uploadingIndex: number | null;
 }) {
   return (
-    <Card className="formSection">
+    <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product images</h3>
         <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
@@ -1384,6 +1420,7 @@ function ImageFields({
             <span>Primary</span>
           </Label>
           <FileUploadButton
+            className="fileUploadButton rowActionControl"
             inputProps={{
               accept: "image/*",
               disabled: uploadingIndex !== null,
@@ -1395,6 +1432,7 @@ function ImageFields({
           </FileUploadButton>
           <Button
             aria-label="Remove image"
+            className="rowIconButton"
             size="icon"
             onClick={() => onRemove(index)}
             type="button"
@@ -1422,7 +1460,7 @@ function VariantFields({
   onRemove: (index: number) => void;
 }) {
   return (
-    <Card className="formSection">
+    <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product variants</h3>
         <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
@@ -1478,7 +1516,7 @@ function VariantFields({
             registration={form.register(`variants.${index}.attributesText` as const)}
           />
           <Button
-            className="iconTextButton"
+            className="iconTextButton rowActionControl"
             onClick={() => onRemove(index)}
             type="button"
             variant="outline"
@@ -1510,7 +1548,7 @@ function DocumentFields({
   uploadingIndex: number | null;
 }) {
   return (
-    <Card className="formSection">
+    <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product documents</h3>
         <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
@@ -1558,6 +1596,7 @@ function DocumentFields({
             registration={form.register(`documents.${index}.fileUrl` as const)}
           />
           <FileUploadButton
+            className="fileUploadButton rowActionControl"
             inputProps={{
               accept: ".pdf,.doc,.docx,.xls,.xlsx,.csv,image/*",
               disabled: uploadingIndex !== null,
@@ -1569,6 +1608,7 @@ function DocumentFields({
           </FileUploadButton>
           <Button
             aria-label="Remove document"
+            className="rowIconButton"
             size="icon"
             onClick={() => onRemove(index)}
             type="button"
@@ -1719,27 +1759,29 @@ function RichTextToolbar() {
 
   return (
     <div className="richTextToolbar" aria-label="Description formatting tools">
-      <Select
-        aria-label="Block format"
-        onValueChange={(value) => {
-          if (value !== RICH_TEXT_FORMAT_VALUE) {
-            formatBlock(value as RichTextBlockFormat);
-          }
-        }}
-        value={RICH_TEXT_FORMAT_VALUE}
-      >
-        <SelectTrigger className="richTextFormatSelect">
-          <SelectValue placeholder="Format" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={RICH_TEXT_FORMAT_VALUE}>Format</SelectItem>
-          <SelectItem value="paragraph">Paragraph</SelectItem>
-          <SelectItem value="h1">Heading 1</SelectItem>
-          <SelectItem value="h2">Heading 2</SelectItem>
-          <SelectItem value="h3">Heading 3</SelectItem>
-          <SelectItem value="h4">Heading 4</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="richTextFormatControl">
+        <Select
+          aria-label="Block format"
+          onValueChange={(value) => {
+            if (value !== RICH_TEXT_FORMAT_VALUE) {
+              formatBlock(value as RichTextBlockFormat);
+            }
+          }}
+          value={RICH_TEXT_FORMAT_VALUE}
+        >
+          <SelectTrigger className="richTextFormatSelect">
+            <SelectValue placeholder="Format" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={RICH_TEXT_FORMAT_VALUE}>Format</SelectItem>
+            <SelectItem value="paragraph">Paragraph</SelectItem>
+            <SelectItem value="h1">Heading 1</SelectItem>
+            <SelectItem value="h2">Heading 2</SelectItem>
+            <SelectItem value="h3">Heading 3</SelectItem>
+            <SelectItem value="h4">Heading 4</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <EditorButton icon={Bold} label="Bold" onClick={() => formatText("bold")} />
       <EditorButton
         icon={Italic}

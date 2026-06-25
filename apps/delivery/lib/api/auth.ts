@@ -3,8 +3,10 @@ import { apiRequest } from "./client";
 import { deliverySessionSchema, tokenPairSchema } from "./schemas";
 
 const requestOtpSchema = z.object({
-  expiresAt: z.string().optional(),
-  message: z.string().optional()
+  devOtp: z.string().regex(/^\d{6}$/).optional(),
+  expiresInSeconds: z.number(),
+  mobileNumber: z.string(),
+  resendAfterSeconds: z.number()
 });
 
 const registrationSchema = z.object({
@@ -15,6 +17,8 @@ const registrationSchema = z.object({
   status: z.string(),
   vehicleNumber: z.string().nullable()
 });
+
+export type DeliveryOtpRequest = z.infer<typeof requestOtpSchema>;
 
 export function requestDeliveryOtp(mobileNumber: string) {
   return apiRequest("/auth/delivery/request-otp", requestOtpSchema, {

@@ -2080,7 +2080,7 @@ h2 {
 }
 
 .richTextToolbar {
-  align-items: center;
+  align-items: flex-start;
   background: #f7faf9;
   border-bottom: 1px solid #d9e4e0;
   display: flex;
@@ -2089,10 +2089,32 @@ h2 {
   padding: 9px;
 }
 
-.richTextToolbar [data-slot="select"] {
-  flex: 0 1 180px;
+.richTextFormatControl {
+  align-self: flex-start;
+  display: block;
+  flex: 0 0 180px;
+  height: 38px;
+  max-width: 100%;
+  min-height: 38px;
   min-width: 160px;
-  width: auto;
+  width: 180px;
+}
+
+.richTextFormatControl [data-slot="select"],
+.richTextFormatControl [data-slot="select"] > *,
+.richTextFormatControl button {
+  height: 38px !important;
+  max-height: 38px !important;
+  min-height: 38px !important;
+}
+
+.richTextFormatControl [data-slot="select"] {
+  width: 100% !important;
+}
+
+.richTextFormatControl button,
+.richTextFormatSelect {
+  padding-block: 0 !important;
 }
 
 .richTextButton {
@@ -2643,29 +2665,78 @@ h2 {
 }
 
 .rowCheck {
-  align-self: end;
+  align-self: start;
 }
 
 .assetRow,
 .documentRow,
 .variantRow {
-  align-items: end;
+  align-items: start;
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
   min-width: 0;
   padding: 14px;
+}
+
+.assetRow {
+  grid-template-columns:
+    minmax(150px, 1.2fr)
+    minmax(150px, 1.2fr)
+    minmax(120px, 0.8fr)
+    minmax(130px, 0.8fr)
+    minmax(130px, 0.9fr)
+    40px;
+}
+
+.documentRow {
+  grid-template-columns:
+    minmax(150px, 1.1fr)
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    minmax(150px, 1fr)
+    minmax(130px, 0.9fr)
+    40px;
+}
+
+.variantRow {
+  grid-template-columns:
+    repeat(5, minmax(112px, 1fr))
+    minmax(150px, 1.1fr)
+    minmax(140px, auto);
+}
+
+.assetRow > *,
+.documentRow > *,
+.variantRow > * {
+  min-width: 0;
 }
 
 .singleAssetRow {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.rowActionControl,
+.rowIconButton,
+.rowCheck {
+  align-self: start;
+  margin-top: 24px;
+}
+
+.rowActionControl {
+  justify-self: stretch;
+  min-height: 40px;
+  width: 100%;
+}
+
+.rowIconButton {
+  justify-self: start;
+}
+
 .fileUploadButton {
-  align-self: end;
+  align-self: start;
   background: #243d29;
   border: 0;
   border-radius: 8px;
@@ -2676,6 +2747,28 @@ h2 {
   min-height: 40px;
   padding: 10px 12px;
   position: relative;
+}
+
+@media (max-width: 1040px) {
+  .assetRow,
+  .documentRow,
+  .variantRow {
+    grid-template-columns: repeat(2, minmax(min(100%, 180px), 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .assetRow,
+  .documentRow,
+  .variantRow {
+    grid-template-columns: 1fr;
+  }
+
+  .rowActionControl,
+  .rowIconButton,
+  .rowCheck {
+    margin-top: 0;
+  }
 }
 
 .fileUploadButton input {

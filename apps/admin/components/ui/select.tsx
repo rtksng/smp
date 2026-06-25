@@ -54,6 +54,32 @@ type SelectProps = {
   value?: string;
 };
 
+function getTextValue(children: ReactNode): string | undefined {
+  const parts: string[] = [];
+
+  function visit(node: ReactNode) {
+    if (typeof node === "string" || typeof node === "number") {
+      parts.push(String(node));
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+
+    if (isValidElement<{ children?: ReactNode }>(node)) {
+      visit(node.props.children);
+    }
+  }
+
+  visit(children);
+
+  const textValue = parts.join("").replace(/\s+/g, " ").trim();
+
+  return textValue || undefined;
+}
+
 function collectSelectData(children: ReactNode, data: SelectContextData) {
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) {
@@ -91,9 +117,7 @@ function collectSelectData(children: ReactNode, data: SelectContextData) {
         children: props.children,
         className: props.className,
         disabled: props.disabled,
-        textValue:
-          props.textValue ??
-          (typeof props.children === "string" ? props.children : undefined),
+        textValue: props.textValue ?? getTextValue(props.children),
         value: props.value
       });
       return;

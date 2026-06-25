@@ -70,25 +70,25 @@ const productFeedbackSections: Array<{
   id: ProductFeedbackView;
   title: string;
 }> = [
-  {
-    description: "Feedback metrics and shortcuts into moderation queues.",
-    href: "/product-feedback",
-    id: "overview",
-    title: "Overview"
-  },
-  {
-    description: "Approve, reject, hide, and audit product reviews.",
-    href: "/product-feedback/reviews",
-    id: "reviews",
-    title: "Reviews"
-  },
-  {
-    description: "Answer customer questions and manage question visibility.",
-    href: "/product-feedback/questions",
-    id: "questions",
-    title: "Questions"
-  }
-];
+    {
+      description: "Feedback metrics and shortcuts into moderation queues.",
+      href: "/product-feedback",
+      id: "overview",
+      title: "Overview"
+    },
+    {
+      description: "Approve, reject, hide, and audit product reviews.",
+      href: "/product-feedback/reviews",
+      id: "reviews",
+      title: "Reviews"
+    },
+    {
+      description: "Answer customer questions and manage question visibility.",
+      href: "/product-feedback/questions",
+      id: "questions",
+      title: "Questions"
+    }
+  ];
 
 const productFeedbackCopy: Record<
   ProductFeedbackView,
@@ -183,8 +183,7 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
       type: AdminProductFeedback["type"];
     }) =>
       api.request<AdminProductFeedback>(
-        `/admin/product-feedback/${
-          type === "REVIEW" ? "reviews" : "questions"
+        `/admin/product-feedback/${type === "REVIEW" ? "reviews" : "questions"
         }/${id}/moderation`,
         {
           body: JSON.stringify(
@@ -384,8 +383,8 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
             <LoadingState label={`Loading product ${view}...`} />
           ) : null}
           {!feedbackListQuery.isLoading &&
-          !feedbackListQuery.isError &&
-          feedback.length === 0 ? (
+            !feedbackListQuery.isError &&
+            feedback.length === 0 ? (
             <EmptyState
               body={`No product ${view} match the selected filters.`}
               title={`No ${view} found`}
@@ -522,7 +521,9 @@ function ProductFeedbackFilterForm({
           value={filters.productId}
         />
       </label>
-      <Select
+      <label >
+        Status
+        <Select
         aria-label="Feedback status"
         onValueChange={(value) =>
           onChange({
@@ -543,7 +544,7 @@ function ProductFeedbackFilterForm({
             </SelectItem>
           ))}
         </SelectContent>
-      </Select>
+      </Select></label>
       <div className="productFilterActions">
         <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />

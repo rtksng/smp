@@ -53,7 +53,11 @@ describe("admin layout styles", () => {
   });
 
   it("lets dense catalog and inventory controls reflow on narrow screens", () => {
-    expect(globalsCss).toMatch(/\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*160px\),\s*1fr\)\);/s);
+    expect(globalsCss).toMatch(/\.assetRow\s*{[^}]*grid-template-columns:\s*minmax\(150px,\s*1\.2fr\)\s+minmax\(150px,\s*1\.2fr\)\s+minmax\(120px,\s*0\.8fr\)\s+minmax\(130px,\s*0\.8fr\)\s+minmax\(130px,\s*0\.9fr\)\s+40px;/s);
+    expect(globalsCss).toMatch(/\.documentRow\s*{[^}]*grid-template-columns:\s*minmax\(150px,\s*1\.1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(130px,\s*0\.9fr\)\s+40px;/s);
+    expect(globalsCss).toMatch(/\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(112px,\s*1fr\)\)\s+minmax\(150px,\s*1\.1fr\)\s+minmax\(140px,\s*auto\);/s);
+    expect(globalsCss).toMatch(/\.rowActionControl,[\s\S]*?\.rowIconButton,[\s\S]*?\.rowCheck\s*{[^}]*align-self:\s*start;[^}]*margin-top:\s*24px;/s);
+    expect(globalsCss).toMatch(/@media \(max-width:\s*1040px\)[\s\S]*?\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(min\(100%,\s*180px\),\s*1fr\)\);/s);
     expect(globalsCss).toMatch(/@media \(max-width:\s*640px\)[\s\S]*?\.productFilters,[\s\S]*?\.inventoryFilters,[\s\S]*?grid-template-columns:\s*1fr;/s);
   });
 
@@ -86,6 +90,17 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/\.searchInput svg\s*{[^}]*position:\s*absolute;/s);
     expect(globalsCss).toMatch(
       /\.searchInput \[data-slot="input-wrapper"\]\s*{[^}]*padding-left:\s*40px !important;/s
+    );
+  });
+
+  it("keeps the rich text format select compact inside the editor toolbar", () => {
+    expect(globalsCss).toMatch(/\.richTextFormatControl\s*{[^}]*flex:\s*0 0 180px;/s);
+    expect(globalsCss).toMatch(/\.richTextFormatControl\s*{[^}]*height:\s*38px;/s);
+    expect(globalsCss).toMatch(
+      /\.richTextFormatControl \[data-slot="select"\],[\s\S]*?\.richTextFormatControl \[data-slot="select"\] > \*,[\s\S]*?\.richTextFormatControl button\s*{[^}]*height:\s*38px !important;[\s\S]*?max-height:\s*38px !important;[\s\S]*?min-height:\s*38px !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.richTextFormatControl button,[\s\S]*?\.richTextFormatSelect\s*{[^}]*padding-block:\s*0 !important;/s
     );
   });
 

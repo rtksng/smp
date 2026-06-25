@@ -39,6 +39,9 @@ describe("product management route flow", () => {
     expect(productManagementSource).toContain("LinkNode");
     expect(productManagementSource).toContain('data-editor="lexical"');
     expect(productManagementSource).toContain("lexicalEditorFrame");
+    expect(productManagementSource).toContain("richTextFormatControl");
+    expect(productManagementSource).toContain("rowActionControl");
+    expect(productManagementSource).toContain("rowIconButton");
     expect(productManagementSource).toContain("useId");
     expect(productManagementSource).toContain("aria-labelledby={labelId}");
     expect(productManagementSource).not.toContain(
