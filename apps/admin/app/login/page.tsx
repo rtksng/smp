@@ -81,7 +81,11 @@ function AdminLoginForm() {
               value={password}
             />
           </label>
-          {error ? <p className="formError">{error}</p> : null}
+          {error ? (
+            <p className="formError" role="alert">
+              {error}
+            </p>
+          ) : null}
           <Button disabled={isSubmitting} type="submit">
             {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>

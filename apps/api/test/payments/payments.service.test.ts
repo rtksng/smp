@@ -845,6 +845,7 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
       rawBodyBase64: (queue.paymentWebhookJobs[0] as { rawBodyBase64: string })
         .rawBodyBase64,
       signature: (queue.paymentWebhookJobs[0] as { signature: string }).signature,
+      webhookId: (queue.paymentWebhookJobs[0] as { webhookId: string }).webhookId,
       version: (queue.paymentWebhookJobs[0] as { version: number }).version
     },
     {
@@ -852,6 +853,7 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
       providerEventId: "evt_1",
       rawBodyBase64: rawBody.toString("base64"),
       signature: createWebhookSignature(rawBody),
+      webhookId: "webhook-1",
       version: 1
     }
   );
@@ -859,8 +861,16 @@ test("handleRazorpayWebhook enqueues signed payload for async webhook follow-up"
     Date.parse((queue.paymentWebhookJobs[0] as { receivedAt: string }).receivedAt)
   );
   assert.equal(prisma.calls.paymentWebhookCreate.length, 1);
-  assert.equal(prisma.records.payment.status, "PAID");
-  assert.equal(prisma.calls.cartItemDeleteMany.length, 1);
+  assert.equal(
+    (
+      prisma.calls.paymentWebhookCreate[0] as {
+        data: { processingStatus: string };
+      }
+    ).data.processingStatus,
+    "RECEIVED"
+  );
+  assert.equal(prisma.records.payment.status, "PENDING");
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
 });
 
 test("handleRazorpayWebhook marks failed payments for customer recovery", async () => {

@@ -6,6 +6,7 @@ type RequestOptions = {
   body?: unknown;
   headers?: Record<string, string>;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  timeoutMs?: number;
 };
 
 export class ApiError extends Error {
@@ -24,21 +25,39 @@ export const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
   "http://localhost:4000/api/v1";
 
+const DEFAULT_TIMEOUT_MS = 20_000;
+
 export async function apiRequest<T>(
   path: string,
   schema: z.ZodType<T>,
   options: RequestOptions = {}
 ) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    body:
-      options.body instanceof FormData
-        ? options.body
-        : options.body === undefined
-          ? undefined
-          : JSON.stringify(options.body),
-    headers: buildHeaders(options),
-    method: options.method ?? "GET"
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  );
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      body:
+        options.body instanceof FormData
+          ? options.body
+          : options.body === undefined
+            ? undefined
+            : JSON.stringify(options.body),
+      headers: buildHeaders(options),
+      method: options.method ?? "GET",
+      signal: controller.signal
+    });
+  } catch (error) {
+    throw toNetworkApiError(error);
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const payload = await parseJson(response);
 
   if (!response.ok) {
@@ -51,6 +70,23 @@ export async function apiRequest<T>(
       : payload;
 
   return schema.parse(data);
+}
+
+function toNetworkApiError(error: unknown) {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  ) {
+    return new ApiError("Request timed out.", 0);
+  }
+
+  return new ApiError("Unable to connect to the server.", 0);
 }
 
 function buildHeaders(options: RequestOptions) {

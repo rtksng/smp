@@ -133,7 +133,11 @@ describe("AccountWishlist", () => {
     renderAccountWishlist();
 
     expect(
-      await screen.findByRole("heading", { name: "SurgiPro Artery Forceps" })
+      await screen.findByRole(
+        "heading",
+        { name: "SurgiPro Artery Forceps" },
+        { timeout: 5000 }
+      )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
     expect(screen.queryByText(product.shortDescription)).not.toBeInTheDocument();

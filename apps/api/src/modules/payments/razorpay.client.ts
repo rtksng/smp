@@ -41,11 +41,15 @@ export type RazorpayFetchRefundResult = RazorpayCreateRefundResult;
 export class RazorpayClient {
   private readonly keyId: string;
   private readonly keySecret: string;
+  private readonly requestTimeoutMs: number;
   private readonly webhookSecret: string;
 
   constructor(configService: ConfigService) {
     this.keyId = configService.getOrThrow<string>("razorpayKeyId");
     this.keySecret = configService.getOrThrow<string>("razorpayKeySecret");
+    this.requestTimeoutMs = Number(
+      configService.get<number>("razorpayRequestTimeoutMs", 10000)
+    );
     this.webhookSecret = configService.getOrThrow<string>("razorpayWebhookSecret");
   }
 
@@ -69,7 +73,7 @@ export class RazorpayClient {
       );
     }
 
-    const response = await fetch("https://api.razorpay.com/v1/orders", {
+    const response = await this.request("https://api.razorpay.com/v1/orders", {
       body: JSON.stringify({
         amount: input.amount,
         currency: input.currency,
@@ -77,9 +81,7 @@ export class RazorpayClient {
         receipt: input.receipt
       }),
       headers: {
-        Authorization: `Basic ${Buffer.from(
-          `${this.keyId}:${this.keySecret}`
-        ).toString("base64")}`,
+        Authorization: this.authorizationHeader(),
         "Content-Type": "application/json"
       },
       method: "POST"
@@ -105,7 +107,7 @@ export class RazorpayClient {
       );
     }
 
-    const response = await fetch(
+    const response = await this.request(
       `https://api.razorpay.com/v1/payments/${encodeURIComponent(
         paymentId
       )}/refund`,
@@ -117,9 +119,7 @@ export class RazorpayClient {
           speed: input.speed
         }),
         headers: {
-          Authorization: `Basic ${Buffer.from(
-            `${this.keyId}:${this.keySecret}`
-          ).toString("base64")}`,
+          Authorization: this.authorizationHeader(),
           "Content-Type": "application/json"
         },
         method: "POST"
@@ -146,13 +146,11 @@ export class RazorpayClient {
       );
     }
 
-    const response = await fetch(
+    const response = await this.request(
       `https://api.razorpay.com/v1/refunds/${encodeURIComponent(refundId)}`,
       {
         headers: {
-          Authorization: `Basic ${Buffer.from(
-            `${this.keyId}:${this.keySecret}`
-          ).toString("base64")}`
+          Authorization: this.authorizationHeader()
         },
         method: "GET"
       }
@@ -189,6 +187,37 @@ export class RazorpayClient {
       .digest("hex");
 
     return safeCompareHex(signature, expected);
+  }
+
+  private authorizationHeader() {
+    return `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString(
+      "base64"
+    )}`;
+  }
+
+  private async request(url: string, init: RequestInit) {
+    const abortController = new AbortController();
+    const timeout = setTimeout(
+      () => abortController.abort(),
+      Number.isFinite(this.requestTimeoutMs) && this.requestTimeoutMs > 0
+        ? this.requestTimeoutMs
+        : 10000
+    );
+
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: abortController.signal
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new BadGatewayException("Razorpay request timed out.");
+      }
+
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
 

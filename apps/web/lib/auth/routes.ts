@@ -1,9 +1,8 @@
 const privateCustomerPaths = new Set([
   "/account",
-  "/account/addresses",
-  "/account/orders",
-  "/account/profile",
-  "/checkout"
+  "/cart",
+  "/checkout",
+  "/order-success"
 ]);
 
 export function isPrivateCustomerPath(pathname: string) {
@@ -11,7 +10,8 @@ export function isPrivateCustomerPath(pathname: string) {
 
   return (
     privateCustomerPaths.has(normalizedPath) ||
-    /^\/account\/orders\/[^/]+$/.test(normalizedPath)
+    normalizedPath.startsWith("/account/") ||
+    normalizedPath.startsWith("/order-success/")
   );
 }
 

@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
+  buildAdminApiProxyErrorResponse,
   buildAdminApiProxyHeaders,
   buildAdminApiProxyResponse,
-  buildAdminApiProxyUrl
+  buildAdminApiProxyUrl,
+  fetchAdminApiProxy
 } from "../../../../lib/api-proxy";
 
 export const dynamic = "force-dynamic";
@@ -22,26 +24,33 @@ async function proxyAdminApi(
   request: NextRequest,
   { params }: AdminApiProxyContext
 ) {
-  const apiBaseUrl = getApiBaseUrl();
-  const { path = [] } = await params;
-  const upstreamUrl = buildAdminApiProxyUrl(
-    apiBaseUrl,
-    path,
-    request.nextUrl.search
-  );
-  const body = BODYLESS_METHODS.has(request.method)
-    ? undefined
-    : await request.arrayBuffer();
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const { path = [] } = await params;
+    const upstreamUrl = buildAdminApiProxyUrl(
+      apiBaseUrl,
+      path,
+      request.nextUrl.search
+    );
+    const body = BODYLESS_METHODS.has(request.method)
+      ? undefined
+      : await request.arrayBuffer();
 
-  const upstreamResponse = await fetch(upstreamUrl, {
-    body,
-    cache: "no-store",
-    headers: buildAdminApiProxyHeaders(request.headers),
-    method: request.method,
-    redirect: "manual"
-  });
+    const upstreamResponse = await fetchAdminApiProxy(upstreamUrl, {
+      body,
+      cache: "no-store",
+      headers: buildAdminApiProxyHeaders(request.headers),
+      method: request.method,
+      redirect: "manual"
+    });
 
-  return buildAdminApiProxyResponse(upstreamResponse);
+    return buildAdminApiProxyResponse(upstreamResponse);
+  } catch (error) {
+    return buildAdminApiProxyErrorResponse(error, {
+      method: request.method,
+      path: request.nextUrl.pathname
+    });
+  }
 }
 
 function getApiBaseUrl() {

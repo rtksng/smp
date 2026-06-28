@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException
@@ -260,6 +261,23 @@ export class DeliveryService {
         await this.findActiveWarehouse(tx, pickupWarehouseId);
       }
 
+      const orderClaim = await tx.order.updateMany({
+        data: {
+          status: OrderStatus.ASSIGNED
+        },
+        where: {
+          deletedAt: null,
+          id: order.id,
+          status: {
+            in: [OrderStatus.CONFIRMED, OrderStatus.PACKED]
+          }
+        }
+      });
+
+      if (orderClaim.count !== 1) {
+        throw new ConflictException("Order is no longer available for assignment.");
+      }
+
       const assignment = await tx.deliveryAssignment.create({
         data: {
           deliveryPartnerId: deliveryPartner.id,
@@ -275,14 +293,6 @@ export class DeliveryService {
           deliveryAssignmentId: assignment.id,
           note: input.note,
           status: DeliveryStatus.ASSIGNED
-        }
-      });
-      await tx.order.update({
-        data: {
-          status: OrderStatus.ASSIGNED
-        },
-        where: {
-          id: order.id
         }
       });
       await tx.orderStatusHistory.create({

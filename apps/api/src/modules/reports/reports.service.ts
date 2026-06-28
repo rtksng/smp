@@ -740,7 +740,6 @@ function renderDashboardPdf(report: DashboardReport) {
   ];
 
   for (const [index, page] of pages.entries()) {
-    const pageObjectNumber = getPdfPageObjectNumber(index);
     const contentObjectNumber = getPdfContentObjectNumber(index);
     const content = buildPdfPageContent(page, index + 1, pages.length);
 

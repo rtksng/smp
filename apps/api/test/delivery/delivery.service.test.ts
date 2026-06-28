@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import type { PrismaService } from "../../src/database/prisma.service";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
@@ -38,7 +38,10 @@ class FakeWarehouseAccess {
   }
 }
 
-function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
+function createDeliveryPrismaMock(input?: {
+  orderStatus?: string;
+  orderStatusClaimCount?: number;
+}) {
   const calls: Record<string, unknown[]> = {
     adminAuditLogCreate: [],
     deliveryAssignmentCreate: [],
@@ -57,6 +60,7 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
     orderFindFirst: [],
     orderStatusHistoryCreate: [],
     orderUpdate: [],
+    orderUpdateMany: [],
     warehouseFindFirst: []
   };
   const deliveryPartner = {
@@ -314,6 +318,13 @@ function createDeliveryPrismaMock(input?: { orderStatus?: string }) {
         calls.orderUpdate.push(args);
         Object.assign(order, args.data);
         return order;
+      },
+      updateMany: async (args: { data: Record<string, unknown> }) => {
+        calls.orderUpdateMany.push(args);
+        if ((input?.orderStatusClaimCount ?? 1) > 0) {
+          Object.assign(order, args.data);
+        }
+        return { count: input?.orderStatusClaimCount ?? 1 };
       }
     },
     orderStatusHistory: {
@@ -437,8 +448,21 @@ test("assignOrder creates an assignment, initial status history, and order assig
   assert.deepEqual(warehouseAccess.assertedWarehouseIds, ["warehouse-1"]);
   assert.equal(prisma.calls.deliveryAssignmentCreate.length, 1);
   assert.equal(prisma.calls.deliveryStatusHistoryCreate.length, 1);
+  assert.deepEqual(
+    (prisma.calls.orderUpdateMany[0] as {
+      data: { status: string };
+      where: Record<string, unknown>;
+    }).where,
+    {
+      deletedAt: null,
+      id: "order-1",
+      status: {
+        in: ["CONFIRMED", "PACKED"]
+      }
+    }
+  );
   assert.equal(
-    (prisma.calls.orderUpdate[0] as { data: { status: string } }).data.status,
+    (prisma.calls.orderUpdateMany[0] as { data: { status: string } }).data.status,
     "ASSIGNED"
   );
 });
@@ -466,6 +490,32 @@ test("assignOrder only accepts confirmed or packed orders", async () => {
       ),
     BadRequestException
   );
+});
+
+test("assignOrder rejects concurrent assignment when the order status was already claimed", async () => {
+  const prisma = createDeliveryPrismaMock({ orderStatusClaimCount: 0 });
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () =>
+      service.assignOrder(
+        {
+          deliveryPartnerId: "partner-1",
+          orderId: "order-1",
+          pickupWarehouseId: "warehouse-1"
+        },
+        {
+          auth: adminAuth(),
+          ipAddress: "127.0.0.1",
+          userAgent: "node-test"
+        }
+      ),
+    ConflictException
+  );
+  assert.equal(prisma.calls.deliveryAssignmentCreate.length, 0);
 });
 
 test("listAdminDeliveryAssignments filters assignments by status, warehouse, and delivery partner", async () => {

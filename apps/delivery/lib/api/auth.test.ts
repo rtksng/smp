@@ -54,4 +54,32 @@ describe("delivery auth API", () => {
       })
     );
   });
+
+  test("normalizes delivery OTP numbers before calling the backend", async () => {
+    process.env.EXPO_PUBLIC_API_URL = "https://api.example.com/api/v1";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            devOtp: "123456",
+            expiresInSeconds: 300,
+            mobileNumber: "+919876543210",
+            resendAfterSeconds: 60
+          },
+          success: true
+        }),
+        { status: 200 }
+      )
+    );
+    const { requestDeliveryOtp } = await import("./auth");
+
+    await requestDeliveryOtp("98765 43210");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.com/api/v1/auth/delivery/request-otp",
+      expect.objectContaining({
+        body: JSON.stringify({ mobileNumber: "+919876543210" })
+      })
+    );
+  });
 });

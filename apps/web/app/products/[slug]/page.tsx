@@ -21,7 +21,11 @@ export async function generateMetadata({
 
   try {
     return buildProductMetadata(await getProduct(slug));
-  } catch {
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound();
+    }
+
     return buildMetadata({
       description:
         "Browse surgical and medical equipment with GST invoices, secure payments, and bulk purchase support.",

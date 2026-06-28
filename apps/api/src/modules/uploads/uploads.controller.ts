@@ -17,9 +17,12 @@ import {
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import { RequirePermission } from "../auth/decorators/require-permission.decorator";
 import { CustomerJwtGuard } from "../auth/guards/customer-jwt.guard";
 import { DeliveryPartnerJwtGuard } from "../auth/guards/delivery-partner-jwt.guard";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
+import { PermissionGuard } from "../auth/guards/permission.guard";
+import { PermissionCode } from "../permissions/permissions.constants";
 import {
   AdminUploadDocumentDto,
   CustomerUploadDocumentDto,
@@ -28,7 +31,11 @@ import {
   UploadImageDto
 } from "./dto/upload-request.dto";
 import { UploadResponseDto } from "./dto/upload-response.dto";
-import { UploadDocumentPurpose } from "./uploads.constants";
+import {
+  DOCUMENT_MAX_BYTES_DEFAULT,
+  IMAGE_MAX_BYTES_DEFAULT,
+  UploadDocumentPurpose
+} from "./uploads.constants";
 import {
   UploadedFilePayload,
   UploadsService
@@ -55,12 +62,19 @@ const fileUploadSchema = {
 @ApiBearerAuth()
 @ApiTags("Uploads")
 @Controller("uploads")
-@UseGuards(AdminJwtGuard)
+@UseGuards(AdminJwtGuard, PermissionGuard)
 export class AdminUploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post("image")
-  @UseInterceptors(FileInterceptor("file"))
+  @RequirePermission(PermissionCode.ProductsUpdate)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: {
+        fileSize: IMAGE_MAX_BYTES_DEFAULT
+      }
+    })
+  )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
     summary: "Upload an admin-managed catalog image."
@@ -83,7 +97,14 @@ export class AdminUploadsController {
   }
 
   @Post("document")
-  @UseInterceptors(FileInterceptor("file"))
+  @RequirePermission(PermissionCode.ProductsUpdate)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: {
+        fileSize: DOCUMENT_MAX_BYTES_DEFAULT
+      }
+    })
+  )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
     summary: "Upload an admin-managed product document."
@@ -114,7 +135,13 @@ export class CustomerUploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post("document")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: {
+        fileSize: DOCUMENT_MAX_BYTES_DEFAULT
+      }
+    })
+  )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
     summary: "Upload a customer-owned document."
@@ -150,7 +177,13 @@ export class DeliveryPartnerUploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post("document")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: {
+        fileSize: DOCUMENT_MAX_BYTES_DEFAULT
+      }
+    })
+  )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
     summary: "Upload a delivery partner-owned document."
@@ -178,7 +211,13 @@ export class DeliveryPartnerUploadsController {
   }
 
   @Post("proof")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: {
+        fileSize: DOCUMENT_MAX_BYTES_DEFAULT
+      }
+    })
+  )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
     summary: "Upload delivery proof for a delivery assignment."

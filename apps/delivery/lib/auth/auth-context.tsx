@@ -11,6 +11,7 @@ import {
   type DeliveryOtpRequest,
   logoutDeliverySession,
   requestDeliveryOtp,
+  refreshDeliveryToken,
   verifyDeliveryOtp
 } from "../api/auth";
 import type { DeliverySession } from "../api/types";
@@ -19,6 +20,7 @@ import {
   getStoredSession,
   storeSession
 } from "./session-store";
+import { clearStatusQueue } from "../offline/status-queue-store";
 
 type AuthContextValue = {
   accessToken: string | null;
@@ -39,9 +41,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let mounted = true;
 
     getStoredSession()
-      .then((storedSession) => {
+      .then(async (storedSession) => {
+        if (!storedSession) {
+          return null;
+        }
+
+        try {
+          const refreshed = await refreshDeliveryToken(storedSession.tokens.refreshToken);
+          const nextSession = {
+            ...storedSession,
+            tokens: refreshed.tokens
+          };
+
+          await storeSession(nextSession);
+          return nextSession;
+        } catch {
+          await clearStoredSession();
+          await clearStatusQueue();
+          return null;
+        }
+      })
+      .then((restoredSession) => {
         if (mounted) {
-          setSession(storedSession);
+          setSession(restoredSession);
         }
       })
       .finally(() => {
@@ -72,6 +94,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const refreshToken = session?.tokens.refreshToken;
 
     await clearStoredSession();
+    await clearStatusQueue();
     setSession(null);
 
     if (refreshToken) {

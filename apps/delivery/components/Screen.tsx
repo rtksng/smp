@@ -17,7 +17,7 @@ type ScreenProps = PropsWithChildren<{
 export function Screen({ children, footer, scroll = true, style }: ScreenProps) {
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, style]}
+      contentContainerStyle={[styles.content, styles.scrollContent, style]}
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
     >
@@ -42,9 +42,12 @@ export function Screen({ children, footer, scroll = true, style }: ScreenProps) 
 
 const styles = StyleSheet.create({
   content: {
-    gap: 16,
-    padding: 16,
-    paddingBottom: 28
+    alignItems: "stretch",
+    gap: 10,
+    paddingBottom: 20,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    width: "100%"
   },
   fill: {
     flex: 1
@@ -52,10 +55,14 @@ const styles = StyleSheet.create({
   footer: {
     borderTopColor: "#E2E8F0",
     borderTopWidth: StyleSheet.hairlineWidth,
-    padding: 16
+    paddingHorizontal: 10,
+    paddingVertical: 10
   },
   safeArea: {
     backgroundColor: "#F8FAFC",
     flex: 1
+  },
+  scrollContent: {
+    flexGrow: 1
   }
 });

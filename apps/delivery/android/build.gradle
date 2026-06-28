@@ -22,3 +22,18 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects { subproject ->
+  subproject.plugins.withId("com.android.library") {
+    def androidExtension = subproject.extensions.findByName("android")
+    if (androidExtension != null) {
+      def shortName = subproject.name.replaceAll(/[^A-Za-z0-9_.-]/, "_")
+
+      androidExtension.externalNativeBuild {
+        cmake {
+          buildStagingDirectory = rootProject.layout.buildDirectory.dir("cxx/${shortName}").get().asFile
+        }
+      }
+    }
+  }
+}

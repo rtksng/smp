@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   type PressableProps
 } from "react-native";
+import { Button } from "heroui-native/button";
+import { Spinner } from "heroui-native/spinner";
 
 type ActionButtonProps = PressableProps & {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -23,24 +23,35 @@ export function ActionButton({
   tone = "primary",
   ...props
 }: ActionButtonProps) {
+  const variant =
+    tone === "danger" ? "danger" : tone === "secondary" ? "outline" : "primary";
+  const foreground = tone === "secondary" ? "#0F172A" : "#FFFFFF";
+  const toneStyle =
+    tone === "danger"
+      ? styles.dangerButton
+      : tone === "secondary"
+        ? styles.secondaryButton
+        : styles.primaryButton;
+
   return (
-    <Pressable
+    <Button
       accessibilityRole="button"
-      disabled={disabled || loading}
-      style={(state) => [
+      isDisabled={disabled || loading}
+      onPress={props.onPress}
+      style={[
         styles.button,
-        styles[tone],
+        toneStyle,
         (disabled || loading) && styles.disabled,
-        state.pressed && styles.pressed,
-        typeof style === "function" ? style(state) : style
+        typeof style === "function" ? undefined : style
       ]}
+      variant={variant}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={tone === "secondary" ? "#0F172A" : "#FFFFFF"} />
+        <Spinner color={foreground} size="sm" />
       ) : icon ? (
         <Ionicons
-          color={tone === "secondary" ? "#0F172A" : "#FFFFFF"}
+          color={foreground}
           name={icon}
           size={19}
         />
@@ -51,7 +62,7 @@ export function ActionButton({
       >
         {label}
       </Text>
-    </Pressable>
+    </Button>
   );
 }
 
@@ -59,32 +70,33 @@ const styles = StyleSheet.create({
   button: {
     alignItems: "center",
     borderRadius: 8,
+    borderWidth: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: 14
-  },
-  danger: {
-    backgroundColor: "#B91C1C"
   },
   disabled: {
     opacity: 0.55
+  },
+  dangerButton: {
+    backgroundColor: "#B91C1C",
+    borderColor: "#B91C1C"
   },
   label: {
     color: "#FFFFFF",
     flexShrink: 1,
     fontSize: 15,
-    fontWeight: "700"
+    fontWeight: "800"
   },
-  pressed: {
-    opacity: 0.82
+  primaryButton: {
+    backgroundColor: "#287C30",
+    borderColor: "#287C30"
   },
-  primary: {
-    backgroundColor: "#287c30"
-  },
-  secondary: {
-    backgroundColor: "#E2E8F0"
+  secondaryButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#CBD5E1"
   },
   secondaryLabel: {
     color: "#0F172A"

@@ -20,10 +20,12 @@ async function bootstrap() {
   const corsOrigins = configService.get<string[]>("corsOrigins", []);
   const port = configService.get<number>("port", 4000);
   const storageProvider = configService.get<string>("storageProvider", "local");
+  const swaggerEnabled = configService.get<boolean>("swaggerEnabled", false);
   const trustProxy = configService.get<boolean | number>("trustProxy", false);
   const logger = app.get(StructuredLogger);
 
   app.useLogger(logger);
+  app.enableShutdownHooks();
   app.set("trust proxy", trustProxy);
   app.use(
     helmet({
@@ -69,7 +71,9 @@ async function bootstrap() {
 
   app.setGlobalPrefix(apiPrefix);
   app.useGlobalPipes(createValidationPipe());
-  setupSwagger(app);
+  if (swaggerEnabled) {
+    setupSwagger(app);
+  }
 
   await app.listen(port);
 }

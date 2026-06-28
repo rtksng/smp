@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { Chip } from "heroui-native/chip";
 import type { DeliveryStatus } from "../lib/api/types";
 import { statusLabel } from "../lib/api/status";
 
@@ -8,13 +9,21 @@ type StatusPillProps = {
 
 export function StatusPill({ status }: StatusPillProps) {
   const tone = statusTone(status);
+  const color =
+    tone === "success"
+      ? "success"
+      : tone === "danger"
+        ? "danger"
+        : tone === "warning"
+          ? "warning"
+          : "default";
 
   return (
-    <View style={[styles.pill, styles[tone]]}>
+    <Chip color={color} size="sm" variant="soft">
       <Text style={[styles.label, styles[`${tone}Label`]]}>
         {statusLabel(status as DeliveryStatus)}
       </Text>
-    </View>
+    </Chip>
   );
 }
 
@@ -35,9 +44,6 @@ function statusTone(status: string) {
 }
 
 const styles = StyleSheet.create({
-  danger: {
-    backgroundColor: "#FEE2E2"
-  },
   dangerLabel: {
     color: "#991B1B"
   },
@@ -45,26 +51,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800"
   },
-  neutral: {
-    backgroundColor: "#E2E8F0"
-  },
   neutralLabel: {
     color: "#334155"
   },
-  pill: {
-    alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5
-  },
-  success: {
-    backgroundColor: "#DCFCE7"
-  },
   successLabel: {
     color: "#166534"
-  },
-  warning: {
-    backgroundColor: "#FEF3C7"
   },
   warningLabel: {
     color: "#92400E"

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Post,
@@ -66,9 +67,13 @@ export class OrdersController {
   @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
   createOrder(
     @Body() body: CreateOrderDto,
+    @Headers("Idempotency-Key") idempotencyKey: string | undefined,
     @Req() request: AuthenticatedRequest
   ) {
-    return this.ordersService.createOrder(getCustomerId(request), body);
+    return this.ordersService.createOrder(getCustomerId(request), {
+      ...body,
+      idempotencyKey: body.idempotencyKey ?? idempotencyKey
+    });
   }
 
   @Post(":id/reorder")

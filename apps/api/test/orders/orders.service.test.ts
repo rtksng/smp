@@ -649,6 +649,53 @@ function createOrdersPrismaMock(input?: {
       },
       findFirst: async (args: unknown) => {
         calls.orderFindFirst.push(args);
+        const where = (args as {
+          where?: {
+            checkoutIdempotencyKey?: string;
+            deletedAt?: null;
+            id?: string;
+            userId?: string;
+          };
+        }).where ?? {};
+
+        if (where.checkoutIdempotencyKey !== undefined) {
+          const matchingOrder = orders.find(
+            (entry) =>
+              entry.checkoutIdempotencyKey === where.checkoutIdempotencyKey &&
+              entry.userId === where.userId
+          );
+
+          if (!matchingOrder) {
+            return null;
+          }
+
+          return {
+            ...matchingOrder,
+            billingAddress: address,
+            deliveryAssignments:
+              (
+                matchingOrder as {
+                  deliveryAssignments?: typeof deliveryAssignments;
+                }
+              ).deliveryAssignments ?? deliveryAssignments,
+            gstInvoice:
+              (matchingOrder as { gstInvoice?: typeof invoice }).gstInvoice ??
+              null,
+            items: orderItems,
+            payments:
+              (matchingOrder as { payments?: typeof payments }).payments ??
+              payments,
+            refunds:
+              (matchingOrder as { refunds?: typeof refunds }).refunds ?? refunds,
+            shippingAddress: address,
+            statusHistory,
+            user: (matchingOrder as { user?: typeof customer }).user ?? customer,
+            warehouse:
+              (matchingOrder as { warehouse?: typeof warehouse }).warehouse ??
+              warehouse
+          };
+        }
+
         const order = orders[0] ?? {
           createdAt: now,
           discountTotal: "0.00",
@@ -1057,6 +1104,34 @@ test("createOrder keeps the cart intact for pending online payment orders", asyn
   assert.equal(prisma.calls.orderCreate.length, 1);
   assert.equal(prisma.calls.paymentCreate.length, 1);
   assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
+});
+
+test("createOrder returns the existing order for duplicate checkout idempotency keys", async () => {
+  const prisma = createOrdersPrismaMock();
+  const queue = new FakeOrderQueue();
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    queue as unknown as ApiQueueService,
+    undefined,
+    undefined,
+    new FakeDeliveryChargesService(50) as never
+  );
+
+  const input = {
+    idempotencyKey: "checkout-20260627-001",
+    paymentMethod: "ONLINE" as const,
+    shippingAddressId: "address-1"
+  };
+
+  const first = await service.createOrder("customer-1", input);
+  const second = await service.createOrder("customer-1", input);
+
+  assert.equal(second.id, first.id);
+  assert.equal(prisma.calls.orderCreate.length, 1);
+  assert.equal(prisma.calls.paymentCreate.length, 1);
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 1);
+  assert.equal(queue.notificationJobs.length, 1);
 });
 
 test("createOrder applies a valid coupon to order and payment totals", async () => {

@@ -163,9 +163,9 @@ test("requestOtp hides the generated OTP in production responses", async () => {
   }
 });
 
-test("requestOtp can expose the generated OTP when explicitly enabled in production", async () => {
+test("requestOtp can expose the generated OTP when explicitly enabled in development", async () => {
   const originalNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = "production";
+  process.env.NODE_ENV = "development";
 
   try {
     const cache = new InMemoryOtpCache(() => Date.now());

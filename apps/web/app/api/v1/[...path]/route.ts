@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
+  buildCustomerApiProxyErrorResponse,
   buildCustomerApiProxyHeaders,
   buildCustomerApiProxyResponse,
-  buildCustomerApiProxyUrl
+  buildCustomerApiProxyUrl,
+  fetchCustomerApiProxy
 } from "../../../../lib/api/proxy";
 
 export const dynamic = "force-dynamic";
@@ -22,26 +24,33 @@ async function proxyCustomerApi(
   request: NextRequest,
   { params }: CustomerApiProxyContext
 ) {
-  const apiBaseUrl = getApiBaseUrl();
-  const { path = [] } = await params;
-  const upstreamUrl = buildCustomerApiProxyUrl(
-    apiBaseUrl,
-    path,
-    request.nextUrl.search
-  );
-  const body = BODYLESS_METHODS.has(request.method)
-    ? undefined
-    : await request.arrayBuffer();
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const { path = [] } = await params;
+    const upstreamUrl = buildCustomerApiProxyUrl(
+      apiBaseUrl,
+      path,
+      request.nextUrl.search
+    );
+    const body = BODYLESS_METHODS.has(request.method)
+      ? undefined
+      : await request.arrayBuffer();
 
-  const upstreamResponse = await fetch(upstreamUrl, {
-    body,
-    cache: "no-store",
-    headers: buildCustomerApiProxyHeaders(request.headers),
-    method: request.method,
-    redirect: "manual"
-  });
+    const upstreamResponse = await fetchCustomerApiProxy(upstreamUrl, {
+      body,
+      cache: "no-store",
+      headers: buildCustomerApiProxyHeaders(request.headers),
+      method: request.method,
+      redirect: "manual"
+    });
 
-  return buildCustomerApiProxyResponse(upstreamResponse);
+    return buildCustomerApiProxyResponse(upstreamResponse);
+  } catch (error) {
+    return buildCustomerApiProxyErrorResponse(error, {
+      method: request.method,
+      path: request.nextUrl.pathname
+    });
+  }
 }
 
 function getApiBaseUrl() {

@@ -13,7 +13,8 @@ import {
   PaymentMethod,
   PaymentStatus,
   Prisma,
-  RefundStatus
+  RefundStatus,
+  WebhookProcessingStatus
 } from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
 import type {
@@ -267,35 +268,126 @@ export class PaymentsService {
     }
 
     const parsedPayload = normalizeWebhookPayload(payload);
-    await this.queueService?.enqueuePaymentWebhook({
-      payload: parsedPayload,
-      provider: RAZORPAY_PROVIDER,
-      providerEventId: readString(parsedPayload.id),
-      rawBodyBase64: rawBody.toString("base64"),
-      receivedAt: new Date().toISOString(),
-      signature,
-      version: 1
-    });
-    const result = await this.processRazorpayWebhookPayload(
+    const receipt = await this.recordRazorpayWebhookReceipt(
       rawBody,
       parsedPayload,
       signature
     );
 
+    if (receipt.duplicate) {
+      return {
+        duplicate: true,
+        processed: false,
+        queued: false,
+        received: true,
+        webhookId: receipt.webhookId
+      };
+    }
+
+    if (this.queueService) {
+      await this.queueService.enqueuePaymentWebhook({
+        payload: parsedPayload,
+        provider: RAZORPAY_PROVIDER,
+        providerEventId: readString(parsedPayload.id),
+        rawBodyBase64: rawBody.toString("base64"),
+        receivedAt: new Date().toISOString(),
+        signature,
+        version: 1,
+        webhookId: receipt.webhookId
+      });
+
+      return {
+        duplicate: false,
+        processed: false,
+        queued: true,
+        received: true,
+        webhookId: receipt.webhookId
+      };
+    }
+
+    const result = await this.processRazorpayWebhookPayload(
+      rawBody,
+      parsedPayload,
+      signature,
+      receipt.webhookId
+    );
+
     return {
       ...result,
-      queued: Boolean(this.queueService)
+      queued: false,
+      webhookId: receipt.webhookId
     };
   }
 
-  private async processRazorpayWebhookPayload(
+  private async recordRazorpayWebhookReceipt(
     rawBody: Buffer,
     parsedPayload: RazorpayWebhookPayload,
     signature: string
   ) {
     const providerEventId = readString(parsedPayload.id);
+    const eventType = readString(parsedPayload.event) ?? "unknown";
 
     if (providerEventId) {
+      const existingWebhook = await this.prisma.paymentWebhook.findFirst({
+        where: {
+          providerEventId
+        }
+      });
+
+      if (existingWebhook) {
+        return {
+          duplicate: true,
+          webhookId: existingWebhook.id
+        };
+      }
+    }
+
+    try {
+      const webhook = await this.prisma.paymentWebhook.create({
+        data: {
+          eventType,
+          payload: toJsonValue(parsedPayload),
+          provider: RAZORPAY_PROVIDER,
+          providerEventId,
+          rawPayload: rawBody.toString("utf8"),
+          signature,
+          processingStatus: WebhookProcessingStatus.RECEIVED
+        }
+      });
+
+      return {
+        duplicate: false,
+        webhookId: webhook.id
+      };
+    } catch (error) {
+      if (providerEventId && isUniqueConstraintError(error)) {
+        const existingWebhook = await this.prisma.paymentWebhook.findFirst({
+          where: {
+            providerEventId
+          }
+        });
+
+        if (existingWebhook) {
+          return {
+            duplicate: true,
+            webhookId: existingWebhook.id
+          };
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  private async processRazorpayWebhookPayload(
+    rawBody: Buffer,
+    parsedPayload: RazorpayWebhookPayload,
+    signature: string,
+    webhookId?: string
+  ) {
+    const providerEventId = readString(parsedPayload.id);
+
+    if (providerEventId && !webhookId) {
       const existingWebhook = await this.prisma.paymentWebhook.findFirst({
         where: {
           providerEventId
@@ -312,71 +404,112 @@ export class PaymentsService {
     }
 
     let invoiceOrderId: string | null = null;
-    const result = await this.prisma.$transaction(async (tx) => {
-      const paymentEntity = extractRazorpayPaymentEntity(parsedPayload);
-      const refundEntity = extractRazorpayRefundEntity(parsedPayload);
-      const payment = paymentEntity
-        ? await tx.payment.findFirst({
-            include: {
-              order: true
-            },
-            where: {
-              providerOrderId: paymentEntity.orderId
-            }
-          })
-        : refundEntity
+    const result = await this.prisma
+      .$transaction(async (tx) => {
+        const paymentEntity = extractRazorpayPaymentEntity(parsedPayload);
+        const refundEntity = extractRazorpayRefundEntity(parsedPayload);
+        const payment = paymentEntity
           ? await tx.payment.findFirst({
               include: {
                 order: true
               },
               where: {
-                providerPaymentId: refundEntity.paymentId
+                providerOrderId: paymentEntity.orderId
               }
             })
-        : null;
-      const webhook = await tx.paymentWebhook.create({
-        data: {
-          eventType: readString(parsedPayload.event) ?? "unknown",
-          payload: toJsonValue(parsedPayload),
-          paymentId: payment?.id,
-          provider: RAZORPAY_PROVIDER,
-          providerEventId,
-          rawPayload: rawBody.toString("utf8"),
-          signature
+          : refundEntity
+            ? await tx.payment.findFirst({
+                include: {
+                  order: true
+                },
+                where: {
+                  providerPaymentId: refundEntity.paymentId
+                }
+              })
+            : null;
+        const webhook =
+          webhookId ??
+          (
+            await tx.paymentWebhook.create({
+              data: {
+                eventType: readString(parsedPayload.event) ?? "unknown",
+                payload: toJsonValue(parsedPayload),
+                paymentId: payment?.id,
+                provider: RAZORPAY_PROVIDER,
+                providerEventId,
+                rawPayload: rawBody.toString("utf8"),
+                signature,
+                processingStatus: WebhookProcessingStatus.PROCESSING
+              }
+            })
+          ).id;
+
+        if (webhookId) {
+          await tx.paymentWebhook.update({
+            data: {
+              lastProcessingError: null,
+              paymentId: payment?.id,
+              processingAttempts: {
+                increment: 1
+              },
+              processingStatus: WebhookProcessingStatus.PROCESSING
+            },
+            where: {
+              id: webhookId
+            }
+          });
         }
-      });
 
-      const processed = payment
-        ? await this.processSupportedWebhookEvent(
-            tx,
-            parsedPayload,
-            payment,
-            paymentEntity,
-            refundEntity
-          )
-        : false;
+        const processed = payment
+          ? await this.processSupportedWebhookEvent(
+              tx,
+              parsedPayload,
+              payment,
+              paymentEntity,
+              refundEntity
+            )
+          : false;
 
-      if (processed && readString(parsedPayload.event) === "payment.captured") {
-        invoiceOrderId = payment?.orderId ?? null;
-      }
+        if (processed && readString(parsedPayload.event) === "payment.captured") {
+          invoiceOrderId = payment?.orderId ?? null;
+        }
 
-      if (processed) {
         await tx.paymentWebhook.update({
           data: {
-            processedAt: new Date()
+            lastProcessingError: null,
+            processedAt: processed ? new Date() : null,
+            processingStatus: processed
+              ? WebhookProcessingStatus.PROCESSED
+              : WebhookProcessingStatus.IGNORED
           },
           where: {
-            id: webhook.id
+            id: webhook
           }
         });
-      }
 
-      return {
-        duplicate: false,
-        processed,
-        received: true
-      };
-    });
+        return {
+          duplicate: false,
+          processed,
+          received: true
+        };
+      })
+      .catch(async (error) => {
+        if (webhookId) {
+          await this.prisma.paymentWebhook
+            .update({
+              data: {
+                lastProcessingError: errorToMessage(error),
+                processingStatus: WebhookProcessingStatus.FAILED
+              },
+              where: {
+                id: webhookId
+              }
+            })
+            .catch(() => undefined);
+        }
+
+        throw error;
+      });
 
     if (invoiceOrderId) {
       await this.queueService?.enqueueInvoice({
@@ -1173,4 +1306,21 @@ function readRazorpayRefundStatus(value: unknown) {
 
 function toJsonValue(value: unknown) {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+function errorToMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }

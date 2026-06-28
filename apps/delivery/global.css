@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "uniwind";
+@import "heroui-native/styles";
+@import "heroui-native/styles/vibrant";
+
+@source "./app/**/*.{ts,tsx}";
+@source "./components/**/*.{ts,tsx}";
+@source "./lib/**/*.{ts,tsx}";
+@source "./node_modules/heroui-native/lib/module/**/*.{js,ts,jsx,tsx}";

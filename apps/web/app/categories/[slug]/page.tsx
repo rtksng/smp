@@ -28,7 +28,11 @@ export async function generateMetadata({
 
   try {
     return buildCategoryMetadata(await getCategory(slug));
-  } catch {
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound();
+    }
+
     return buildMetadata({
       description:
         "Browse category-specific surgical and medical products with price, stock, specialty, and clinical-use filters.",

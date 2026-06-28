@@ -9,6 +9,7 @@ Create `apps/web/.env.local` from `apps/web/.env.example` and set:
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_APP_ENV=local
 ```
 
 The value must point at the customer API version prefix. Catalog sections call:
@@ -125,6 +126,8 @@ Private customer routes use `noindex, nofollow` metadata:
 - `/account/addresses`
 - `/account/orders`
 - `/account/orders/[id]`
+- `/account/quotes`
+- `/account/wishlist`
 - `/order-success/[orderId]`
 - `/payment-failed`
 
@@ -150,6 +153,8 @@ Protected routes:
 - `/account/addresses`
 - `/account/orders`
 - `/account/orders/[id]`
+- `/account/quotes`
+- `/account/wishlist`
 - `/order-success/[orderId]`
 
 Unauthenticated protected-route visits redirect to `/login?next=<previous-path>`. Add-to-cart actions prompt the login modal when the customer is not signed in. After successful login, the customer returns to the prior page.
@@ -165,6 +170,7 @@ The protected customer account section includes:
 - `/account/addresses` saved address management with add, edit, delete, set default, and HOME, WORK, CLINIC, HOSPITAL, OTHER address types
 - `/account/orders` order history with order number, date, order status, payment status, and total
 - `/account/orders/[id]` order detail with items, delivery address, payment details, refund status, delivery tracking, status timeline, invoice HTML/PDF downloads, reorder-to-cart, payment retry, cancel, and return-request actions
+- `/account/quotes` quote request history with product and request context
 - `/account/wishlist` saved products with direct product navigation
 
 Account routes use the shared protected customer route, loading skeletons, empty states, and retryable error states. Invoice download is shown only for orders that can produce a customer invoice under the backend order and payment status rules. Cancel and return actions are conditionally shown from the backend order status.
@@ -251,6 +257,7 @@ pnpm --filter @surgical/web test
 pnpm --filter @surgical/web lint
 pnpm --filter @surgical/web typecheck
 pnpm --filter @surgical/web build
+pnpm --filter @surgical/web start
 ```
 
 The page uses TanStack Query for client-side catalog fetching, Zod for API response validation and search validation, Zustand for search/cart UI state, and Tailwind CSS for responsive styling.

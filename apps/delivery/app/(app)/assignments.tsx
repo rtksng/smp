@@ -1,52 +1,75 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Switch } from "heroui-native/switch";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActionButton } from "../../components/ActionButton";
 import { Screen } from "../../components/Screen";
-import { StatusPill } from "../../components/StatusPill";
 import {
-  assignmentDestination,
-  formatCurrency
-} from "../../lib/api/status";
-import type { DeliveryAssignment } from "../../lib/api/types";
+  AssignmentCard,
+  EmptyState,
+  LoadingCards,
+  MetricCard,
+  SectionCard
+} from "../../components/ui/delivery-card";
+import {
+  errorMessage,
+  useAppFeedback
+} from "../../components/ui/feedback";
+import { formatCurrency } from "../../lib/api/status";
 import {
   getMyProfile,
   listAssignments,
   registerDevice,
   updateOnlineStatus
 } from "../../lib/api/delivery";
+import {
+  dashboardMetrics,
+  deliveryFilterOptions,
+  type DeliveryStatusFilter
+} from "../../lib/delivery/dashboard";
 import { getExpoPushRegistration } from "../../lib/device/native";
 import { useAuth } from "../../lib/auth/auth-context";
 
 export default function AssignmentsScreen() {
   const { accessToken } = useAuth();
+  const feedback = useAppFeedback();
   const queryClient = useQueryClient();
+  const [selectedStatus, setSelectedStatus] =
+    useState<DeliveryStatusFilter>("ALL");
+
   const profileQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => getMyProfile(accessToken ?? ""),
     queryKey: ["delivery-profile"]
   });
-  const assignmentsQuery = useQuery({
+  const allAssignmentsQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => listAssignments(accessToken ?? ""),
-    queryKey: ["delivery-assignments"]
+    queryKey: ["delivery-assignments", "all"]
+  });
+  const assignmentsQuery = useQuery({
+    enabled: Boolean(accessToken),
+    queryFn: () =>
+      listAssignments(
+        accessToken ?? "",
+        selectedStatus === "ALL" ? undefined : selectedStatus
+      ),
+    queryKey: ["delivery-assignments", selectedStatus]
   });
   const onlineMutation = useMutation({
     mutationFn: (isOnline: boolean) => updateOnlineStatus(accessToken ?? "", isOnline),
-    onError: showError,
-    onSuccess: () => {
+    onError: (error) => feedback.error(errorMessage(error)),
+    onSuccess: (profile) => {
+      feedback.success(profile.isOnline ? "You are online." : "You are offline.");
       void queryClient.invalidateQueries({ queryKey: ["delivery-profile"] });
     }
   });
@@ -69,58 +92,116 @@ export default function AssignmentsScreen() {
       .catch(() => undefined);
   }, [accessToken]);
 
-  const isRefreshing = profileQuery.isFetching || assignmentsQuery.isFetching;
+  const allAssignments = allAssignmentsQuery.data?.items ?? [];
   const assignments = assignmentsQuery.data?.items ?? [];
+  const metrics = dashboardMetrics(allAssignments);
+  const filterOptions = deliveryFilterOptions(allAssignments);
+  const isRefreshing =
+    profileQuery.isFetching ||
+    allAssignmentsQuery.isFetching ||
+    assignmentsQuery.isFetching;
+
+  function refresh() {
+    void profileQuery.refetch();
+    void allAssignmentsQuery.refetch();
+    void assignmentsQuery.refetch();
+  }
 
   return (
     <Screen scroll={false}>
       <FlatList
         ListEmptyComponent={
           assignmentsQuery.isLoading ? (
-            <ActivityIndicator color="#287c30" style={styles.loader} />
+            <LoadingCards />
+          ) : assignmentsQuery.isError ? (
+            <EmptyState
+              icon="warning-outline"
+              message={errorMessage(assignmentsQuery.error)}
+              title="Deliveries could not load"
+            />
           ) : (
-            <View style={styles.empty}>
-              <Ionicons color="#64748B" name="cube-outline" size={28} />
-              <Text style={styles.emptyText}>No assigned deliveries</Text>
-            </View>
+            <EmptyState
+              icon="cube-outline"
+              message="Pull to refresh or switch filters to check other delivery states."
+              title="No deliveries in this view"
+            />
           )
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={styles.statusPanel}>
-              <View style={styles.statusText}>
-                <Text style={styles.name}>
-                  {profileQuery.data?.fullName ?? "Delivery partner"}
-                </Text>
-                <Text style={styles.meta}>
-                  {profileQuery.data?.isOnline ? "Online" : "Offline"}
-                </Text>
+            <SectionCard>
+              <View style={styles.statusPanel}>
+                <View style={styles.statusText}>
+                  <Text style={styles.eyebrow}>Delivery workspace</Text>
+                  <Text style={styles.name}>
+                    {profileQuery.data?.fullName ?? "Delivery partner"}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {profileQuery.data?.isOnline ? "Online" : "Offline"}
+                  </Text>
+                </View>
+                <Switch
+                  isDisabled={onlineMutation.isPending || profileQuery.isLoading}
+                  isSelected={profileQuery.data?.isOnline ?? false}
+                  onSelectedChange={(value) => onlineMutation.mutate(value)}
+                />
               </View>
-              <Switch
-                ios_backgroundColor="#CBD5E1"
-                onValueChange={(value) => onlineMutation.mutate(value)}
-                trackColor={{ false: "#CBD5E1", true: "#9fe4a4" }}
-                value={profileQuery.data?.isOnline ?? false}
+              <View style={styles.headerActions}>
+                <ActionButton
+                  icon="person-circle-outline"
+                  label="Profile"
+                  onPress={() => router.push("/(app)/profile")}
+                  tone="secondary"
+                />
+                <ActionButton
+                  icon="refresh-outline"
+                  label="Refresh"
+                  loading={isRefreshing}
+                  onPress={refresh}
+                  tone="secondary"
+                />
+              </View>
+            </SectionCard>
+
+            <View style={styles.metrics}>
+              <MetricCard label="Active" value={String(metrics.activeCount)} />
+              <MetricCard
+                label="COD to collect"
+                tone="warning"
+                value={formatCurrency(metrics.codAmount)}
+              />
+              <MetricCard
+                label="Completed"
+                tone="success"
+                value={String(metrics.completedCount)}
+              />
+              <MetricCard
+                label="Issues"
+                tone={metrics.issueCount > 0 ? "danger" : "default"}
+                value={String(metrics.issueCount)}
               />
             </View>
-            <View style={styles.headerActions}>
-              <ActionButton
-                icon="person-circle-outline"
-                label="Profile"
-                onPress={() => router.push("/(app)/profile")}
-                tone="secondary"
-              />
-              <ActionButton
-                icon="refresh-outline"
-                label="Refresh"
-                loading={isRefreshing}
-                onPress={() => {
-                  void profileQuery.refetch();
-                  void assignmentsQuery.refetch();
-                }}
-                tone="secondary"
-              />
-            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.filters}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {filterOptions.map((option) => {
+                const selected = selectedStatus === option.status;
+                return (
+                  <Pressable
+                    key={option.status}
+                    onPress={() => setSelectedStatus(option.status)}
+                    style={[styles.filterPill, selected && styles.filterPillSelected]}
+                  >
+                    <Text style={selected ? styles.selectedFilterText : styles.filterText}>
+                      {option.label} {option.count}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         }
         contentContainerStyle={styles.list}
@@ -128,161 +209,95 @@ export default function AssignmentsScreen() {
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
-            onRefresh={() => {
-              void profileQuery.refetch();
-              void assignmentsQuery.refetch();
-            }}
+            onRefresh={refresh}
             refreshing={isRefreshing}
             tintColor="#287c30"
           />
         }
-        renderItem={({ item }) => <AssignmentCard assignment={item} />}
+        renderItem={({ item }) => (
+          <AssignmentCard
+            assignment={item}
+            onPress={() =>
+              router.push({
+                params: { id: item.id },
+                pathname: "/(app)/assignments/[id]"
+              })
+            }
+          />
+        )}
       />
     </Screen>
   );
 }
 
-function AssignmentCard({ assignment }: { assignment: DeliveryAssignment }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() =>
-        router.push({
-          params: { id: assignment.id },
-          pathname: "/(app)/assignments/[id]"
-        })
-      }
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      <View style={styles.cardTop}>
-        <View style={styles.cardTitleBlock}>
-          <Text numberOfLines={1} style={styles.orderNumber}>
-            {assignment.orderNumber}
-          </Text>
-          <Text numberOfLines={1} style={styles.customer}>
-            {assignment.customer.businessName ?? assignment.customer.fullName}
-          </Text>
-        </View>
-        <StatusPill status={assignment.status} />
-      </View>
-
-      <View style={styles.detailRow}>
-        <Ionicons color="#475569" name="location-outline" size={16} />
-        <Text numberOfLines={2} style={styles.detailText}>
-          {assignmentDestination(assignment)}
-        </Text>
-      </View>
-      <View style={styles.detailRow}>
-        <Ionicons color="#475569" name="cash-outline" size={16} />
-        <Text style={styles.detailText}>
-          {assignment.payment.method === "COD"
-            ? `COD ${formatCurrency(assignment.payment.codAmount)}`
-            : "Paid online"}
-        </Text>
-      </View>
-      <View style={styles.detailRow}>
-        <Ionicons color="#475569" name="cube-outline" size={16} />
-        <Text numberOfLines={1} style={styles.detailText}>
-          {assignment.items.length} item{assignment.items.length === 1 ? "" : "s"}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-function showError(error: unknown) {
-  Alert.alert("Request failed", error instanceof Error ? error.message : "Try again.");
-}
-
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 12,
-    padding: 14
+  eyebrow: {
+    color: "#287C30",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase"
   },
-  cardPressed: {
-    opacity: 0.78
-  },
-  cardTitleBlock: {
-    flex: 1,
-    gap: 5,
-    minWidth: 0
-  },
-  cardTop: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between"
-  },
-  customer: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "600"
-  },
-  detailRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 8
-  },
-  detailText: {
+  filterText: {
     color: "#334155",
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20
+    fontSize: 13,
+    fontWeight: "800"
   },
-  empty: {
+  filterPill: {
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 48
+    backgroundColor: "#EEF2F7",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 36,
+    paddingHorizontal: 11
   },
-  emptyText: {
-    color: "#64748B",
-    fontSize: 15,
-    fontWeight: "700"
+  filterPillSelected: {
+    backgroundColor: "#E8F5EC",
+    borderColor: "#287C30"
+  },
+  filters: {
+    gap: 8,
+    paddingRight: 0
   },
   header: {
-    gap: 12
+    gap: 10
   },
   headerActions: {
     flexDirection: "row",
-    gap: 10
+    gap: 8
   },
   list: {
-    gap: 12,
-    padding: 16,
-    paddingBottom: 28
-  },
-  loader: {
-    paddingVertical: 48
+    gap: 10,
+    paddingBottom: 12,
+    paddingHorizontal: 0,
+    paddingTop: 0
   },
   meta: {
     color: "#64748B",
     fontSize: 14,
     fontWeight: "700"
   },
+  metrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6
+  },
   name: {
     color: "#0F172A",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "900"
   },
-  orderNumber: {
-    color: "#0F172A",
-    fontSize: 17,
+  selectedFilterText: {
+    color: "#166534",
+    fontSize: 13,
     fontWeight: "900"
   },
   statusPanel: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    padding: 14
+    gap: 8,
+    justifyContent: "space-between"
   },
   statusText: {
     flex: 1,

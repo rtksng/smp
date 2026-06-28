@@ -232,127 +232,165 @@ export class OrdersService {
   ) {}
 
   async createOrder(customerId: string, input: CreateOrderDto) {
-    const order = await this.prisma.$transaction(async (tx) => {
-      await this.assertActiveCustomer(tx, customerId);
-      const shippingAddress = await this.findOwnedAddress(
-        tx,
-        customerId,
-        input.shippingAddressId
-      );
-      const billingAddressId = input.billingAddressId ?? input.shippingAddressId;
-      const billingAddress =
-        billingAddressId === shippingAddress.id
-          ? shippingAddress
-          : await this.findOwnedAddress(tx, customerId, billingAddressId);
-      const cart = await this.findCheckoutCart(tx, customerId);
-      const lines = cart.items.map((item) => this.buildFulfillmentLine(item));
-      const allocations = await this.reserveInventory(tx, lines);
-      const primaryWarehouseId = allocations[0]?.warehouseId ?? null;
-      const itemTotals = calculateTotals(
-        allocations.map((allocation) =>
-          buildAllocationTotals(allocation.line, allocation.quantity)
+    const checkoutIdempotencyKey = normalizeCheckoutIdempotencyKey(
+      input.idempotencyKey
+    );
+    const existingOrder = checkoutIdempotencyKey
+      ? await this.findOrderByCheckoutIdempotencyKey(
+          this.prisma,
+          customerId,
+          checkoutIdempotencyKey
         )
-      );
-      const deliveryCharge = await this.calculateDeliveryCharge(
-        shippingAddress.pincode,
-        itemTotals.subtotal,
-        primaryWarehouseId
-      );
-      const totals = {
-        ...itemTotals,
-        deliveryCharge,
-        grandTotal: roundMoney(itemTotals.subtotal + itemTotals.tax + deliveryCharge)
-      };
-      const couponApplication = await this.applyCouponDiscount(
-        tx,
-        input.couponCode,
-        totals.subtotal
-      );
-      const payableTotal = roundMoney(totals.grandTotal - couponApplication.discount);
-      const order = await tx.order.create({
-        data: {
-          billingAddressId: billingAddress.id,
-          couponId: couponApplication.couponId,
-          discountTotal: couponApplication.discount,
-          grandTotal: payableTotal,
-          orderNumber: await this.generateOrderNumber(tx),
-          paymentStatus: PaymentStatus.PENDING,
-          placedAt: new Date(),
-          shippingAddressId: shippingAddress.id,
-          shippingTotal: totals.deliveryCharge,
-          status: OrderStatus.CREATED,
-          subtotal: totals.subtotal,
-          taxTotal: totals.tax,
-          userId: customerId,
-          warehouseId: primaryWarehouseId
-        }
-      });
+      : null;
 
-      for (const allocation of allocations) {
-        const allocationTotals = buildAllocationTotals(
-          allocation.line,
-          allocation.quantity
+    if (existingOrder) {
+      return this.serializeOrder(existingOrder);
+    }
+
+    let order: ReturnType<OrdersService["serializeOrder"]>;
+
+    try {
+      order = await this.prisma.$transaction(async (tx) => {
+        await this.assertActiveCustomer(tx, customerId);
+        const shippingAddress = await this.findOwnedAddress(
+          tx,
+          customerId,
+          input.shippingAddressId
+        );
+        const billingAddressId = input.billingAddressId ?? input.shippingAddressId;
+        const billingAddress =
+          billingAddressId === shippingAddress.id
+            ? shippingAddress
+            : await this.findOwnedAddress(tx, customerId, billingAddressId);
+        const cart = await this.findCheckoutCart(tx, customerId);
+        const lines = cart.items.map((item) => this.buildFulfillmentLine(item));
+        const allocations = await this.reserveInventory(tx, lines);
+        const primaryWarehouseId = allocations[0]?.warehouseId ?? null;
+        const itemTotals = calculateTotals(
+          allocations.map((allocation) =>
+            buildAllocationTotals(allocation.line, allocation.quantity)
+          )
+        );
+        const deliveryCharge = await this.calculateDeliveryCharge(
+          shippingAddress.pincode,
+          itemTotals.subtotal,
+          primaryWarehouseId
+        );
+        const totals = {
+          ...itemTotals,
+          deliveryCharge,
+          grandTotal: roundMoney(
+            itemTotals.subtotal + itemTotals.tax + deliveryCharge
+          )
+        };
+        const couponApplication = await this.applyCouponDiscount(
+          tx,
+          input.couponCode,
+          totals.subtotal
+        );
+        const payableTotal = roundMoney(
+          totals.grandTotal - couponApplication.discount
+        );
+        const order = await tx.order.create({
+          data: {
+            billingAddressId: billingAddress.id,
+            ...(checkoutIdempotencyKey ? { checkoutIdempotencyKey } : {}),
+            couponId: couponApplication.couponId,
+            discountTotal: couponApplication.discount,
+            grandTotal: payableTotal,
+            orderNumber: await this.generateOrderNumber(tx),
+            paymentStatus: PaymentStatus.PENDING,
+            placedAt: new Date(),
+            shippingAddressId: shippingAddress.id,
+            shippingTotal: totals.deliveryCharge,
+            status: OrderStatus.CREATED,
+            subtotal: totals.subtotal,
+            taxTotal: totals.tax,
+            userId: customerId,
+            warehouseId: primaryWarehouseId
+          }
+        });
+
+        for (const allocation of allocations) {
+          const allocationTotals = buildAllocationTotals(
+            allocation.line,
+            allocation.quantity
+          );
+
+          await tx.orderItem.create({
+            data: {
+              name: allocation.line.name,
+              orderId: order.id,
+              productId: allocation.line.productId,
+              quantity: allocation.quantity,
+              sku: allocation.line.sku,
+              stockBatchId: allocation.stockBatchId,
+              taxAmount: allocationTotals.tax,
+              taxRate: allocation.line.taxRate,
+              total: allocationTotals.total,
+              unitPrice: allocation.line.unitPrice,
+              variantId: allocation.line.variantId,
+              warehouseId: allocation.warehouseId
+            }
+          });
+          await tx.stockMovement.create({
+            data: {
+              metadata: toJsonValue({
+                orderNumber: order.orderNumber
+              }),
+              productId: allocation.line.productId,
+              quantity: allocation.quantity,
+              referenceId: order.id,
+              referenceType: "ORDER",
+              stockBatchId: allocation.stockBatchId,
+              type: StockMovementType.OUT,
+              variantId: allocation.line.variantId,
+              warehouseId: allocation.warehouseId
+            }
+          });
+        }
+
+        await tx.payment.create({
+          data: {
+            amount: payableTotal,
+            method: input.paymentMethod,
+            orderId: order.id,
+            status: PaymentStatus.PENDING
+          }
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status: OrderStatus.CREATED
+          }
+        });
+        await this.incrementCouponUsage(tx, couponApplication.couponId);
+
+        if (input.paymentMethod === PaymentMethod.COD) {
+          await tx.cartItem.deleteMany({
+            where: {
+              cartId: cart.id
+            }
+          });
+        }
+
+        return this.serializeOrder(await this.findOrderById(tx, order.id));
+      });
+    } catch (error) {
+      if (checkoutIdempotencyKey && isUniqueConstraintError(error)) {
+        const existing = await this.findOrderByCheckoutIdempotencyKey(
+          this.prisma,
+          customerId,
+          checkoutIdempotencyKey
         );
 
-        await tx.orderItem.create({
-          data: {
-            name: allocation.line.name,
-            orderId: order.id,
-            productId: allocation.line.productId,
-            quantity: allocation.quantity,
-            sku: allocation.line.sku,
-            stockBatchId: allocation.stockBatchId,
-            taxAmount: allocationTotals.tax,
-            taxRate: allocation.line.taxRate,
-            total: allocationTotals.total,
-            unitPrice: allocation.line.unitPrice,
-            variantId: allocation.line.variantId,
-            warehouseId: allocation.warehouseId
-          }
-        });
-        await tx.stockMovement.create({
-          data: {
-            metadata: toJsonValue({
-              orderNumber: order.orderNumber
-            }),
-            productId: allocation.line.productId,
-            quantity: allocation.quantity,
-            referenceId: order.id,
-            referenceType: "ORDER",
-            stockBatchId: allocation.stockBatchId,
-            type: StockMovementType.OUT,
-            variantId: allocation.line.variantId,
-            warehouseId: allocation.warehouseId
-          }
-        });
+        if (existing) {
+          return this.serializeOrder(existing);
+        }
       }
 
-      await tx.payment.create({
-        data: {
-          amount: payableTotal,
-          method: input.paymentMethod,
-          orderId: order.id,
-          status: PaymentStatus.PENDING
-        }
-      });
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: order.id,
-          status: OrderStatus.CREATED
-        }
-      });
-      await this.incrementCouponUsage(tx, couponApplication.couponId);
-
-      if (input.paymentMethod === PaymentMethod.COD) {
-        await tx.cartItem.deleteMany({
-          where: {
-            cartId: cart.id
-          }
-        });
-      }
-
-      return this.serializeOrder(await this.findOrderById(tx, order.id));
-    });
+      throw error;
+    }
 
     await this.queueService?.enqueueOrderConfirmation({
       customerId,
@@ -1266,6 +1304,21 @@ export class OrdersService {
     return order;
   }
 
+  private async findOrderByCheckoutIdempotencyKey(
+    client: OrderClient,
+    customerId: string,
+    checkoutIdempotencyKey: string
+  ) {
+    return client.order.findFirst({
+      include: ORDER_INCLUDE,
+      where: {
+        checkoutIdempotencyKey,
+        deletedAt: null,
+        userId: customerId
+      }
+    });
+  }
+
   private assertAllowedStatusTransition(
     currentStatus: OrderStatus,
     nextStatus: OrderStatus
@@ -1838,4 +1891,19 @@ function stripUndefined<T extends Record<string, unknown>>(value: T) {
 
 function toJsonValue(value: unknown) {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function normalizeCheckoutIdempotencyKey(value: string | null | undefined) {
+  const normalized = value?.trim();
+
+  return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

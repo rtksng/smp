@@ -94,15 +94,23 @@ export type ApiEnvironment = {
   port: number;
   razorpayKeyId: string;
   razorpayKeySecret: string;
+  razorpayRequestTimeoutMs: number;
   razorpayWebhookSecret: string;
   redisUrl: string;
   redisQueuePrefix: string;
+  s3AccessKeyId?: string;
+  s3Bucket?: string;
+  s3Endpoint?: string;
+  s3ForcePathStyle: boolean;
+  s3Region?: string;
+  s3SecretAccessKey?: string;
   storageDocumentMaxBytes: number;
   storageImageMaxBytes: number;
   storageLocalRoot: string;
   storageProvider: string;
   storagePublicBaseUrl: string;
   storagePublicPath: string;
+  swaggerEnabled: boolean;
   throttleBlockMs: number;
   throttleLimit: number;
   throttleTtlMs: number;
@@ -111,8 +119,7 @@ export type ApiEnvironment = {
 
 export function loadApiEnvironment(): ApiEnvironment {
   const environment = process.env.NODE_ENV ?? "development";
-
-  return {
+  const apiEnvironment: ApiEnvironment = {
     apiPrefix: API_VERSION_PREFIX.replace(/^\//, ""),
     bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS ?? 12),
     corsOrigins: corsOriginsForEnvironment(environment),
@@ -138,9 +145,18 @@ export function loadApiEnvironment(): ApiEnvironment {
     port: Number(process.env.API_PORT ?? 4000),
     razorpayKeyId: required("RAZORPAY_KEY_ID"),
     razorpayKeySecret: required("RAZORPAY_KEY_SECRET"),
+    razorpayRequestTimeoutMs: Number(
+      process.env.RAZORPAY_REQUEST_TIMEOUT_MS ?? 10000
+    ),
     razorpayWebhookSecret: required("RAZORPAY_WEBHOOK_SECRET"),
     redisUrl: required("REDIS_URL"),
     redisQueuePrefix: process.env.REDIS_QUEUE_PREFIX ?? "surgical-platform",
+    s3AccessKeyId: process.env.S3_ACCESS_KEY_ID,
+    s3Bucket: process.env.S3_BUCKET,
+    s3Endpoint: process.env.S3_ENDPOINT,
+    s3ForcePathStyle: parseBoolean(process.env.S3_FORCE_PATH_STYLE, false),
+    s3Region: process.env.S3_REGION,
+    s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     storageDocumentMaxBytes: Number(
       process.env.STORAGE_DOCUMENT_MAX_BYTES ?? 10 * 1024 * 1024
     ),
@@ -152,9 +168,84 @@ export function loadApiEnvironment(): ApiEnvironment {
     storagePublicBaseUrl:
       process.env.STORAGE_PUBLIC_BASE_URL ?? "http://localhost:4000/uploads",
     storagePublicPath: process.env.STORAGE_PUBLIC_PATH ?? "uploads",
+    swaggerEnabled: parseBoolean(
+      process.env.SWAGGER_ENABLED,
+      environment !== "production"
+    ),
     throttleBlockMs: Number(process.env.RATE_LIMIT_BLOCK_MS ?? 60000),
     throttleLimit: Number(process.env.RATE_LIMIT_MAX ?? 100),
     throttleTtlMs: Number(process.env.RATE_LIMIT_TTL_MS ?? 60000),
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY)
   };
+
+  validateProductionEnvironment(apiEnvironment);
+
+  return apiEnvironment;
+}
+
+function validateProductionEnvironment(environment: ApiEnvironment) {
+  if (environment.environment !== "production") {
+    return;
+  }
+
+  if (environment.otpExposeInResponse) {
+    throw new Error("OTP_EXPOSE_IN_RESPONSE cannot be enabled in production.");
+  }
+
+  if (environment.swaggerEnabled) {
+    throw new Error("SWAGGER_ENABLED cannot be true in production.");
+  }
+
+  if (
+    [environment.databaseUrl, environment.redisUrl, environment.storagePublicBaseUrl]
+      .concat(environment.corsOrigins)
+      .some(isLocalUrl)
+  ) {
+    throw new Error(
+      "Production values cannot point to localhost or loopback addresses."
+    );
+  }
+
+  if (environment.storageProvider === "local") {
+    throw new Error("STORAGE_PROVIDER=local cannot be used in production.");
+  }
+
+  validateS3Environment(environment);
+}
+
+function validateS3Environment(environment: ApiEnvironment) {
+  if (environment.storageProvider !== "s3") {
+    throw new Error("STORAGE_PROVIDER must be set to s3 in production.");
+  }
+
+  if (!environment.s3Bucket) {
+    throw new Error("S3_BUCKET is required when STORAGE_PROVIDER=s3.");
+  }
+
+  if (!environment.s3Region) {
+    throw new Error("S3_REGION is required when STORAGE_PROVIDER=s3.");
+  }
+
+  if (!environment.s3AccessKeyId) {
+    throw new Error("S3_ACCESS_KEY_ID is required when STORAGE_PROVIDER=s3.");
+  }
+
+  if (!environment.s3SecretAccessKey) {
+    throw new Error("S3_SECRET_ACCESS_KEY is required when STORAGE_PROVIDER=s3.");
+  }
+}
+
+function isLocalUrl(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return /(^|[/:,])(?:localhost|127\.0\.0\.1)(?:[/:,]|$)/i.test(value);
+  }
 }

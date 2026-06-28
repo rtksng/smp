@@ -1,11 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AdminApiProxyTimeoutError,
   buildAdminApiProxyHeaders,
+  buildAdminApiProxyErrorResponse,
   buildAdminApiProxyResponse,
-  buildAdminApiProxyUrl
+  buildAdminApiProxyUrl,
+  fetchAdminApiProxy
 } from "./api-proxy";
 
 describe("admin API proxy helpers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
   it("builds upstream API URLs from path segments and the original query string", () => {
     const url = buildAdminApiProxyUrl(
       "https://api.example.com/api/v1/",
@@ -76,6 +84,62 @@ describe("admin API proxy helpers", () => {
         tokens: {}
       },
       success: true
+    });
+  });
+
+  it("aborts slow upstream proxy requests", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      const signal = (init as RequestInit | undefined)?.signal;
+
+      if (!signal) {
+        return Promise.reject(new Error("missing abort signal"));
+      }
+
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          reject(new DOMException("Request aborted.", "AbortError"));
+        });
+      });
+    });
+
+    const request = fetchAdminApiProxy(
+      new URL("https://api.example.com/api/v1/admin/products"),
+      {
+        method: "GET"
+      },
+      25
+    );
+    const expectation = expect(request).rejects.toThrow(
+      AdminApiProxyTimeoutError
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expectation;
+  });
+
+  it("returns sanitized proxy error envelopes without leaking upstream internals", async () => {
+    const response = buildAdminApiProxyErrorResponse(
+      new AdminApiProxyTimeoutError(),
+      {
+        method: "GET",
+        path: "/api/v1/admin/products"
+      }
+    );
+
+    expect(response.status).toBe(504);
+    await expect(response.json()).resolves.toMatchObject({
+      data: null,
+      error: {
+        code: "ADMIN_API_TIMEOUT",
+        message: "Admin API request timed out. Try again in a moment."
+      },
+      meta: {
+        method: "GET",
+        path: "/api/v1/admin/products"
+      },
+      success: false
     });
   });
 });

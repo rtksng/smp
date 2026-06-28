@@ -71,7 +71,12 @@ export type AdminApiRequestOptions = RequestInit & {
   auth?: AdminApiAuth;
   query?: QueryParams;
   skipAuthRefresh?: boolean;
+  timeoutMs?: number;
   tokenOverride?: string;
+};
+
+type FetchAdminApiInit = RequestInit & {
+  timeoutMs?: number;
 };
 
 type AdminApiClientOptions = {
@@ -81,6 +86,7 @@ type AdminApiClientOptions = {
 };
 
 const REFRESH_SKEW_MS = 30_000;
+const DEFAULT_ADMIN_API_TIMEOUT_MS = 30_000;
 const BROWSER_API_PROXY_BASE_PATH = "/api/v1";
 const BROWSER_PROXY_HOST_SUFFIXES = [".up.railway.app"];
 
@@ -181,6 +187,7 @@ export async function requestAdminApi<T>(
     headers,
     query,
     skipAuthRefresh,
+    timeoutMs,
     tokenOverride,
     ...init
   } = options;
@@ -197,7 +204,8 @@ export async function requestAdminApi<T>(
   const accessToken = tokenOverride ?? session?.tokens.accessToken ?? null;
   const response = await fetchAdminApi(buildAdminApiUrl(path, query), {
     ...init,
-    headers: buildHeaders(headers, init.body, accessToken)
+    headers: buildHeaders(headers, init.body, accessToken),
+    timeoutMs
   });
 
   if (response.status === 401 && auth && !skipAuthRefresh) {
@@ -288,23 +296,80 @@ function shouldRefresh(session: AdminSession) {
   );
 }
 
-function rawAdminRequest<T = unknown>(path: string, init: RequestInit) {
+function rawAdminRequest<T = unknown>(path: string, init: FetchAdminApiInit) {
   return fetchAdminApi(buildAdminApiUrl(path), {
     ...init,
     headers: buildHeaders(init.headers, init.body)
   }).then((response) => parseEnvelope<T>(response));
 }
 
-async function fetchAdminApi(url: URL, init: RequestInit) {
+export async function fetchAdminApi(url: URL, init: FetchAdminApiInit) {
+  const {
+    signal,
+    timeoutMs = DEFAULT_ADMIN_API_TIMEOUT_MS,
+    ...fetchInit
+  } = init;
+  const timeout = createTimeoutSignal(signal, timeoutMs);
+
   try {
-    return await fetch(url, init);
+    return await fetch(url, {
+      ...fetchInit,
+      signal: timeout.signal
+    });
   } catch {
+    if (timeout.didTimeout()) {
+      throw new AdminApiClientError(
+        "Admin API request timed out. Try again in a moment.",
+        0,
+        "TIMEOUT"
+      );
+    }
+
     throw new AdminApiClientError(
       "Unable to reach the admin API. Make sure the backend is running and try again.",
       0,
       "NETWORK_ERROR"
     );
+  } finally {
+    timeout.cleanup();
   }
+}
+
+function createTimeoutSignal(
+  inputSignal: AbortSignal | null | undefined,
+  timeoutMs: number
+) {
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let didTimeout = false;
+
+  const abortFromInput = () => {
+    controller.abort();
+  };
+
+  if (inputSignal?.aborted) {
+    abortFromInput();
+  } else {
+    inputSignal?.addEventListener("abort", abortFromInput, { once: true });
+  }
+
+  if (timeoutMs > 0 && !controller.signal.aborted) {
+    timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, timeoutMs);
+  }
+
+  return {
+    cleanup: () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      inputSignal?.removeEventListener("abort", abortFromInput);
+    },
+    didTimeout: () => didTimeout,
+    signal: controller.signal
+  };
 }
 
 function shouldUseBrowserApiProxy(apiBaseUrl: string) {

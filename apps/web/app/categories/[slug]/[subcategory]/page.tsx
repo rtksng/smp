@@ -30,7 +30,7 @@ export async function generateMetadata({
     const child = findActiveSubcategory(category, subcategory);
 
     if (!child) {
-      return fallbackMetadata(slug, subcategory);
+      notFound();
     }
 
     return buildMetadata({
@@ -41,7 +41,11 @@ export async function generateMetadata({
       path: `/categories/${slug}/${subcategory}`,
       title: `${child.name} Products`
     });
-  } catch {
+  } catch (error) {
+    if (isNotFoundApiError(error)) {
+      notFound();
+    }
+
     return fallbackMetadata(slug, subcategory);
   }
 }

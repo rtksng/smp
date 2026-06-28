@@ -9,6 +9,7 @@ import {
   UPLOAD_OPTIONS
 } from "./uploads.constants";
 import { LocalStorageProvider } from "./storage/local-storage.provider";
+import { S3StorageProvider } from "./storage/s3-storage.provider";
 import {
   AdminUploadsController,
   CustomerUploadsController,
@@ -44,8 +45,20 @@ import { UploadsService } from "./uploads.service";
       useFactory: (configService: ConfigService) => {
         const provider = configService.get<string>("storageProvider", "local");
 
+        if (provider === "s3") {
+          return new S3StorageProvider({
+            accessKeyId: configService.get<string>("s3AccessKeyId"),
+            bucket: requiredConfig(configService, "s3Bucket"),
+            endpoint: configService.get<string>("s3Endpoint") || undefined,
+            forcePathStyle: configService.get<boolean>("s3ForcePathStyle", false),
+            publicBaseUrl: requiredConfig(configService, "storagePublicBaseUrl"),
+            region: requiredConfig(configService, "s3Region"),
+            secretAccessKey: configService.get<string>("s3SecretAccessKey")
+          });
+        }
+
         if (provider !== "local") {
-          throw new Error("Only local upload storage is implemented.");
+          throw new Error(`Unsupported upload storage provider: ${provider}.`);
         }
 
         return new LocalStorageProvider({
@@ -64,3 +77,13 @@ import { UploadsService } from "./uploads.service";
   exports: [UploadsService]
 })
 export class UploadsModule {}
+
+function requiredConfig(configService: ConfigService, key: string) {
+  const value = configService.get<string>(key);
+
+  if (!value) {
+    throw new Error(`${key} is required.`);
+  }
+
+  return value;
+}

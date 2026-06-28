@@ -6,6 +6,7 @@ const adminAppDir = __dirname;
 const globalsCss = readFileSync(join(adminAppDir, "globals.css"), "utf8");
 const layoutSource = readFileSync(join(adminAppDir, "layout.tsx"), "utf8");
 const adminShellSource = readFileSync(join(adminAppDir, "admin-shell.tsx"), "utf8");
+const loginSource = readFileSync(join(adminAppDir, "login/page.tsx"), "utf8");
 const buttonSource = readFileSync(
   join(adminAppDir, "../components/ui/button.tsx"),
   "utf8"
@@ -70,6 +71,10 @@ describe("admin layout styles", () => {
     expect(buttonSource).toContain('from "@heroui/button"');
     expect(buttonSource).toContain("buttonVariants");
     expect(buttonSource).toContain("heroButtonClassName");
+  });
+
+  it("announces login errors as alerts", () => {
+    expect(loginSource).toContain('className="formError" role="alert"');
   });
 
   it("keeps shared admin cards and form controls aligned inside their boxes", () => {

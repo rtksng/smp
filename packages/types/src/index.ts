@@ -92,6 +92,7 @@ export interface ProcessPaymentWebhookJobData {
   receivedAt: string;
   signature: string;
   version: 1;
+  webhookId: string;
 }
 
 export const LOW_STOCK_ALERT_JOB_NAMES = {

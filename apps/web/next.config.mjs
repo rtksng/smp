@@ -6,7 +6,6 @@ const apiUploadRemotePattern = remotePatternFromUrl(
 const storageUploadRemotePattern = remotePatternFromUrl(
   process.env.STORAGE_PUBLIC_BASE_URL
 );
-const customerApiBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
@@ -36,20 +35,6 @@ const nextConfig = {
       storageUploadRemotePattern
     ])
   },
-  async rewrites() {
-    if (!customerApiBaseUrl) {
-      return [];
-    }
-
-    return {
-      beforeFiles: [
-        {
-          destination: `${customerApiBaseUrl}/:path*`,
-          source: "/api/v1/:path*"
-        }
-      ]
-    };
-  },
   transpilePackages: ["@surgical/config", "@surgical/types", "@surgical/ui"]
 };
 
@@ -74,18 +59,6 @@ function remotePatternFromUrl(rawUrl) {
       port: url.port || undefined,
       protocol
     };
-  } catch {
-    return null;
-  }
-}
-
-function normalizeBaseUrl(rawUrl) {
-  if (!rawUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(rawUrl).toString().replace(/\/+$/, "");
   } catch {
     return null;
   }

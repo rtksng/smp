@@ -1,13 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
-} from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +7,16 @@ import { useNetInfo } from "@react-native-community/netinfo";
 import { ActionButton } from "../../../components/ActionButton";
 import { Screen } from "../../../components/Screen";
 import { StatusPill } from "../../../components/StatusPill";
+import { FormField } from "../../../components/ui/form-field";
+import {
+  EmptyState,
+  SectionCard
+} from "../../../components/ui/delivery-card";
+import {
+  confirmAction,
+  errorMessage,
+  useAppFeedback
+} from "../../../components/ui/feedback";
 import {
   assignmentDestination,
   formatCurrency,
@@ -23,7 +25,6 @@ import {
   statusLabel
 } from "../../../lib/api/status";
 import type {
-  DeliveryAssignment,
   DeliveryStatus,
   StatusUpdateInput
 } from "../../../lib/api/types";
@@ -33,38 +34,44 @@ import {
   updateLocation,
   uploadDeliveryProof
 } from "../../../lib/api/delivery";
-import { validateStatusUpdatePayload } from "../../../lib/api/schemas";
 import {
   getCurrentCoordinates,
   openMapsDestination,
   pickProofImage,
   successHaptic
 } from "../../../lib/device/native";
-import {
-  enqueueStatusUpdate,
-  type QueuedStatusUpdate
-} from "../../../lib/offline/status-queue";
+import { useStatusQueue } from "../../../lib/offline/status-queue-context";
+import { validateDeliveryStatusForm } from "../../../lib/delivery/forms";
+import { formatDateTime } from "../../../lib/delivery/dashboard";
 import { useAuth } from "../../../lib/auth/auth-context";
+
+type StatusFormErrors = Partial<{
+  cashCollectedAmount: string;
+  failureReason: string;
+  proof: string;
+  receiverName: string;
+}>;
 
 export default function AssignmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { accessToken } = useAuth();
+  const feedback = useAppFeedback();
   const queryClient = useQueryClient();
   const netInfo = useNetInfo();
+  const { enqueueUpdate, queuedUpdates } = useStatusQueue();
   const [note, setNote] = useState("");
   const [failureReason, setFailureReason] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [cashCollectedAmount, setCashCollectedAmount] = useState("");
+  const [formErrors, setFormErrors] = useState<StatusFormErrors>({});
   const [proofAsset, setProofAsset] = useState<{
     mimeType?: string;
     uri: string;
   } | null>(null);
-  const [queuedUpdates, setQueuedUpdates] = useState<QueuedStatusUpdate[]>([]);
-
   const assignmentsQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => listAssignments(accessToken ?? ""),
-    queryKey: ["delivery-assignments"]
+    queryKey: ["delivery-assignments", "all"]
   });
   const assignment = useMemo(
     () => assignmentsQuery.data?.items.find((item) => item.id === id) ?? null,
@@ -73,25 +80,33 @@ export default function AssignmentDetailScreen() {
   const statusMutation = useMutation({
     mutationFn: (input: { assignmentId: string; payload: StatusUpdateInput }) =>
       updateAssignmentStatus(accessToken ?? "", input.assignmentId, input.payload),
-    onError: showError,
+    onError: (error) => feedback.error(errorMessage(error)),
     onSuccess: async () => {
       await successHaptic();
+      feedback.success("Delivery status updated.");
+      resetStatusForm();
       await queryClient.invalidateQueries({ queryKey: ["delivery-assignments"] });
     }
   });
 
   if (assignmentsQuery.isLoading) {
     return (
-      <Screen scroll={false} style={styles.center}>
-        <ActivityIndicator color="#287c30" />
+      <Screen>
+        <EmptyState icon="cube-outline" title="Loading delivery" />
       </Screen>
     );
   }
 
   if (!assignment) {
     return (
-      <Screen scroll={false} style={styles.center}>
-        <Text style={styles.emptyText}>Delivery not found</Text>
+      <Screen>
+        <EmptyState
+          icon="warning-outline"
+          message={
+            assignmentsQuery.isError ? errorMessage(assignmentsQuery.error) : undefined
+          }
+          title="Delivery not found"
+        />
       </Screen>
     );
   }
@@ -106,15 +121,43 @@ export default function AssignmentDetailScreen() {
       return;
     }
 
+    const validation = validateDeliveryStatusForm({
+      cashCollectedAmount,
+      expectedCodAmount: assignment.payment.codAmount,
+      failureReason,
+      isCod,
+      proofSelected: Boolean(proofAsset || assignment.proofOfDeliveryUrl),
+      receiverName,
+      status
+    });
+    setFormErrors(validation.errors);
+
+    if (!validation.isValid) {
+      feedback.warning("Check the highlighted delivery details.");
+      return;
+    }
+
+    if (netInfo.isConnected === false && status === "DELIVERED") {
+      feedback.warning(
+        "Connect to the internet to upload proof before completing delivery."
+      );
+      return;
+    }
+
     let proof:
       | {
           key: string;
           url: string;
         }
-      | null = null;
+      | null = assignment.proofOfDeliveryKey && assignment.proofOfDeliveryUrl
+      ? {
+          key: assignment.proofOfDeliveryKey,
+          url: assignment.proofOfDeliveryUrl
+        }
+      : null;
 
     try {
-      if (status === "DELIVERED" && proofAsset) {
+      if (status === "DELIVERED" && proofAsset && !proof) {
         const uploaded = await uploadDeliveryProof(accessToken, {
           name: proofAsset.uri.split("/").pop() ?? "delivery-proof.jpg",
           type: proofAsset.mimeType ?? "image/jpeg",
@@ -126,50 +169,29 @@ export default function AssignmentDetailScreen() {
         };
       }
 
-      const validationMessage = validateStatusUpdatePayload({
-        cashCollectedAmount: cashCollectedAmount
-          ? Number(cashCollectedAmount)
-          : undefined,
-        failureReason: failureReason.trim(),
-        isCod,
-        proofOfDeliveryKey: proof?.key,
-        proofOfDeliveryUrl: proof?.url,
-        receiverName: receiverName.trim(),
-        status
-      });
-
-      if (validationMessage) {
-        Alert.alert("Missing detail", validationMessage);
-        return;
-      }
-
       const coordinates = await getCurrentCoordinates();
       const payload: StatusUpdateInput = {
-        cashCollectedAmount: cashCollectedAmount
-          ? Number(cashCollectedAmount)
-          : undefined,
-        failureReason: failureReason.trim() || undefined,
+        cashCollectedAmount: validation.values.cashCollectedAmount,
+        failureReason: validation.values.failureReason,
         latitude: coordinates?.latitude,
         longitude: coordinates?.longitude,
         note: note.trim() || undefined,
         proofOfDeliveryKey: proof?.key,
         proofOfDeliveryUrl: proof?.url,
-        receiverName: receiverName.trim() || undefined,
+        receiverName: validation.values.receiverName,
         status
       };
 
-      if (coordinates) {
+      if (coordinates && netInfo.isConnected !== false) {
         await updateLocation(accessToken, coordinates).catch(() => undefined);
       }
 
       if (netInfo.isConnected === false) {
-        setQueuedUpdates((queue) =>
-          enqueueStatusUpdate(queue, {
-            assignmentId: assignment.id,
-            payload
-          })
-        );
-        Alert.alert("Queued", "Status will retry when the device is online.");
+        await enqueueUpdate({
+          assignmentId: assignment.id,
+          payload
+        });
+        feedback.info("Status will sync when the device reconnects.", "Queued");
         return;
       }
 
@@ -178,27 +200,41 @@ export default function AssignmentDetailScreen() {
         payload
       });
     } catch (error) {
-      if (netInfo.isConnected === false) {
-        setQueuedUpdates((queue) =>
-          enqueueStatusUpdate(queue, {
-            assignmentId: assignment.id,
-            payload: {
-              failureReason: failureReason.trim() || undefined,
-              note: note.trim() || undefined,
-              status
-            }
-          })
-        );
-        return;
-      }
-
-      showError(error);
+      feedback.error(errorMessage(error));
     }
+  }
+
+  function requestStatus(status: DeliveryStatus) {
+    const action = () => void submitStatus(status);
+
+    if (status === "FAILED" || status === "CANCELLED" || status === "DELIVERED") {
+      confirmAction({
+        body: `This will mark ${
+          assignment?.orderNumber ?? "this delivery"
+        } as ${statusLabel(status).toLowerCase()}.`,
+        confirmLabel:
+          status === "FAILED" ? "Fail" : status === "DELIVERED" ? "Deliver" : "Confirm",
+        onConfirm: action,
+        title: `Confirm ${statusLabel(status)}`
+      });
+      return;
+    }
+
+    action();
+  }
+
+  function resetStatusForm() {
+    setNote("");
+    setFailureReason("");
+    setReceiverName("");
+    setCashCollectedAmount("");
+    setProofAsset(null);
+    setFormErrors({});
   }
 
   return (
     <Screen>
-      <View style={styles.card}>
+      <SectionCard>
         <View style={styles.cardHeader}>
           <View style={styles.titleBlock}>
             <Text style={styles.orderNumber}>{assignment.orderNumber}</Text>
@@ -210,15 +246,7 @@ export default function AssignmentDetailScreen() {
         </View>
         <InfoRow icon="call-outline" value={assignment.customer.mobileNumber} />
         <InfoRow icon="location-outline" value={assignmentDestination(assignment)} />
-        <InfoRow
-          icon="cash-outline"
-          value={
-            isCod
-              ? `COD ${formatCurrency(assignment.payment.codAmount)}`
-              : "Paid online"
-          }
-        />
-      </View>
+      </SectionCard>
 
       <View style={styles.buttonRow}>
         <ActionButton
@@ -241,31 +269,79 @@ export default function AssignmentDetailScreen() {
         />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Items</Text>
+      {assignment.pickupWarehouse ? (
+        <SectionCard title="Pickup warehouse">
+          <Info label="Name" value={assignment.pickupWarehouse.name} />
+          <Info
+            label="Contact"
+            value={`${assignment.pickupWarehouse.contactPerson} (${assignment.pickupWarehouse.contactNumber})`}
+          />
+          <Info
+            label="Address"
+            value={[
+              assignment.pickupWarehouse.address,
+              assignment.pickupWarehouse.city,
+              assignment.pickupWarehouse.state,
+              assignment.pickupWarehouse.pincode
+            ]
+              .filter(Boolean)
+              .join(", ")}
+          />
+        </SectionCard>
+      ) : null}
+
+      <SectionCard title="Payment and totals">
+        <Info
+          label="Payment"
+          value={
+            isCod
+              ? `COD ${formatCurrency(assignment.payment.codAmount)}`
+              : "Paid online"
+          }
+        />
+        <Info label="Subtotal" value={formatCurrency(assignment.totals.subtotal)} />
+        <Info label="Tax" value={formatCurrency(assignment.totals.taxTotal)} />
+        <Info label="Grand total" value={formatCurrency(assignment.totals.grandTotal)} />
+      </SectionCard>
+
+      <SectionCard title="Items">
         {assignment.items.map((item) => (
           <View key={item.id} style={styles.itemRow}>
-            <Text style={styles.itemName}>{item.name}</Text>
+            <View style={styles.itemText}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              <Text style={styles.itemSku}>{item.sku}</Text>
+            </View>
             <Text style={styles.itemQty}>x{item.quantity}</Text>
           </View>
         ))}
-      </View>
+      </SectionCard>
+
+      {assignment.orderNotes ? (
+        <SectionCard title="Order notes">
+          <Text selectable style={styles.noteText}>
+            {assignment.orderNotes}
+          </Text>
+        </SectionCard>
+      ) : null}
 
       {canDeliver || canFail ? (
-        <View style={styles.card}>
+        <SectionCard title="Update delivery">
           {canDeliver ? (
             <>
-              <Field
-                keyboardType="default"
+              <FormField
+                error={formErrors.receiverName}
                 label="Receiver name"
                 onChangeText={setReceiverName}
+                required
                 value={receiverName}
               />
               {isCod ? (
-                <Field
+                <FormField
+                  error={formErrors.cashCollectedAmount}
                   keyboardType="numeric"
                   label="Cash collected"
                   onChangeText={setCashCollectedAmount}
+                  required
                   value={cashCollectedAmount}
                 />
               ) : null}
@@ -279,15 +355,26 @@ export default function AssignmentDetailScreen() {
                       mimeType: result.assets[0].mimeType,
                       uri: result.assets[0].uri
                     });
+                    setFormErrors((errors) => ({ ...errors, proof: undefined }));
+                    feedback.success("Proof photo attached.", "Proof selected");
                   }
                 }}
                 tone="secondary"
               />
+              {formErrors.proof ? (
+                <Text style={styles.errorText}>{formErrors.proof}</Text>
+              ) : null}
+              {proofAsset || assignment.proofOfDeliveryUrl ? (
+                <Text selectable style={styles.proofText}>
+                  {proofAsset?.uri ?? assignment.proofOfDeliveryUrl}
+                </Text>
+              ) : null}
             </>
           ) : null}
 
           {canFail ? (
-            <Field
+            <FormField
+              error={formErrors.failureReason}
               label="Failure reason"
               multiline
               onChangeText={setFailureReason}
@@ -295,27 +382,51 @@ export default function AssignmentDetailScreen() {
             />
           ) : null}
 
-          <Field label="Note" multiline onChangeText={setNote} value={note} />
-        </View>
+          <FormField label="Note" multiline onChangeText={setNote} value={note} />
+        </SectionCard>
       ) : null}
 
       <View style={styles.actions}>
         {transitions.map((status) => (
           <ActionButton
-            icon={status === "DELIVERED" ? "checkmark-circle-outline" : "arrow-forward-outline"}
+            icon={
+              status === "DELIVERED"
+                ? "checkmark-circle-outline"
+                : "arrow-forward-outline"
+            }
             key={status}
             label={statusActionLabel(status)}
             loading={statusMutation.isPending}
-            onPress={() => void submitStatus(status)}
+            onPress={() => requestStatus(status)}
             tone={status === "FAILED" || status === "CANCELLED" ? "danger" : "primary"}
           />
         ))}
       </View>
 
+      <SectionCard title="Timeline">
+        {assignment.statusHistory.length === 0 ? (
+          <Text style={styles.meta}>No delivery movement has been recorded yet.</Text>
+        ) : (
+          assignment.statusHistory.map((entry) => (
+            <View key={entry.id} style={styles.timelineRow}>
+              <View style={styles.timelineDot} />
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineStatus}>{statusLabel(entry.status)}</Text>
+                <Text style={styles.meta}>{formatDateTime(entry.createdAt)}</Text>
+                {entry.note ? <Text style={styles.noteText}>{entry.note}</Text> : null}
+              </View>
+            </View>
+          ))
+        )}
+      </SectionCard>
+
       {queuedUpdates.length > 0 ? (
         <View style={styles.queueBanner}>
           <Ionicons color="#92400E" name="cloud-offline-outline" size={18} />
-          <Text style={styles.queueText}>{queuedUpdates.length} queued update</Text>
+          <Text style={styles.queueText}>
+            {queuedUpdates.length} queued update
+            {queuedUpdates.length === 1 ? "" : "s"} waiting to sync
+          </Text>
         </View>
       ) : null}
     </Screen>
@@ -332,23 +443,20 @@ function InfoRow({
   return (
     <View style={styles.infoRow}>
       <Ionicons color="#475569" name={icon} size={17} />
-      <Text style={styles.infoText}>{value}</Text>
+      <Text selectable style={styles.infoText}>
+        {value}
+      </Text>
     </View>
   );
 }
 
-function Field({
-  label,
-  ...props
-}: React.ComponentProps<typeof TextInput> & { label: string }) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        placeholderTextColor="#94A3B8"
-        style={[styles.input, props.multiline && styles.textArea]}
-        {...props}
-      />
+    <View style={styles.detailInfoRow}>
+      <Text style={styles.detailInfoLabel}>{label}</Text>
+      <Text numberOfLines={3} selectable style={styles.detailInfoValue}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -361,25 +469,13 @@ function statusActionLabel(status: DeliveryStatus) {
   return `Mark ${statusLabel(status)}`;
 }
 
-function showError(error: unknown) {
-  Alert.alert("Request failed", error instanceof Error ? error.message : "Try again.");
-}
-
 const styles = StyleSheet.create({
   actions: {
-    gap: 10
+    gap: 8
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 10
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 12,
-    padding: 14
+    gap: 8
   },
   cardHeader: {
     alignItems: "flex-start",
@@ -387,22 +483,33 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "space-between"
   },
-  center: {
-    alignItems: "center",
-    justifyContent: "center"
-  },
   customer: {
     color: "#475569",
     fontSize: 14,
     fontWeight: "700"
   },
-  emptyText: {
+  detailInfoLabel: {
     color: "#64748B",
-    fontSize: 16,
-    fontWeight: "800"
+    fontSize: 13,
+    fontWeight: "800",
+    width: 78
   },
-  field: {
-    gap: 7
+  detailInfoRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 8
+  },
+  detailInfoValue: {
+    color: "#0F172A",
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20
+  },
+  errorText: {
+    color: "#B91C1C",
+    fontSize: 13,
+    fontWeight: "800"
   },
   infoRow: {
     alignItems: "flex-start",
@@ -415,65 +522,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   },
-  input: {
-    backgroundColor: "#F8FAFC",
-    borderColor: "#CBD5E1",
-    borderRadius: 8,
-    borderWidth: 1,
-    color: "#0F172A",
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: 12
-  },
   itemName: {
     color: "#0F172A",
-    flex: 1,
     fontSize: 14,
-    fontWeight: "700"
+    fontWeight: "800"
   },
   itemQty: {
     color: "#475569",
     fontSize: 14,
-    fontWeight: "800"
+    fontWeight: "900"
   },
   itemRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     justifyContent: "space-between"
   },
-  label: {
-    color: "#334155",
+  itemSku: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  itemText: {
+    flex: 1,
+    gap: 3
+  },
+  meta: {
+    color: "#64748B",
     fontSize: 13,
     fontWeight: "700"
   },
+  noteText: {
+    color: "#334155",
+    fontSize: 14,
+    lineHeight: 20
+  },
   orderNumber: {
     color: "#0F172A",
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: "900"
+  },
+  proofText: {
+    color: "#475569",
+    fontSize: 12,
+    fontWeight: "700"
   },
   queueBanner: {
     alignItems: "center",
     backgroundColor: "#FEF3C7",
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: "row",
-    gap: 8,
-    padding: 12
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 8
   },
   queueText: {
     color: "#92400E",
+    flex: 1,
     fontSize: 13,
     fontWeight: "800"
   },
-  sectionTitle: {
-    color: "#0F172A",
-    fontSize: 16,
-    fontWeight: "900"
+  timelineContent: {
+    flex: 1,
+    gap: 3
   },
-  textArea: {
-    minHeight: 86,
-    paddingTop: 12,
-    textAlignVertical: "top"
+  timelineDot: {
+    backgroundColor: "#287C30",
+    borderRadius: 999,
+    height: 10,
+    marginTop: 5,
+    width: 10
+  },
+  timelineRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 8
+  },
+  timelineStatus: {
+    color: "#0F172A",
+    fontSize: 14,
+    fontWeight: "900"
   },
   titleBlock: {
     flex: 1,

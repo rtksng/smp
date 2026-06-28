@@ -23,8 +23,24 @@ function setRequiredApiEnv(overrides: NodeJS.ProcessEnv = {}) {
   };
 }
 
-test("loadApiEnvironment requires explicit CORS origins in production", () => {
+function setProductionApiEnv(overrides: NodeJS.ProcessEnv = {}) {
   setRequiredApiEnv({
+    CORS_ORIGINS: "https://shop.example.com, https://admin.example.com",
+    DATABASE_URL: "postgresql://postgres:postgres@db.example.com:5432/surgical_platform",
+    NODE_ENV: "production",
+    REDIS_URL: "rediss://redis.example.com:6379",
+    S3_ACCESS_KEY_ID: "prod-access-key",
+    S3_BUCKET: "surgical-prod-uploads",
+    S3_REGION: "ap-south-1",
+    S3_SECRET_ACCESS_KEY: "prod-secret-key",
+    STORAGE_PROVIDER: "s3",
+    STORAGE_PUBLIC_BASE_URL: "https://cdn.example.com/uploads",
+    ...overrides
+  });
+}
+
+test("loadApiEnvironment requires explicit CORS origins in production", () => {
+  setProductionApiEnv({
     CORS_ORIGINS: undefined,
     NODE_ENV: "production"
   });
@@ -33,7 +49,7 @@ test("loadApiEnvironment requires explicit CORS origins in production", () => {
 });
 
 test("loadApiEnvironment rejects wildcard CORS origins when credentials are enabled", () => {
-  setRequiredApiEnv({
+  setProductionApiEnv({
     CORS_ORIGINS: "https://admin.example.com,*",
     NODE_ENV: "production"
   });
@@ -62,9 +78,7 @@ test("loadApiEnvironment allows localhost and loopback frontend origins by defau
 });
 
 test("loadApiEnvironment hides OTP responses by default in production", () => {
-  setRequiredApiEnv({
-    CORS_ORIGINS: "https://shop.example.com",
-    NODE_ENV: "production",
+  setProductionApiEnv({
     OTP_EXPOSE_IN_RESPONSE: undefined
   });
 
@@ -73,13 +87,69 @@ test("loadApiEnvironment hides OTP responses by default in production", () => {
   assert.equal(environment.otpExposeInResponse, false);
 });
 
+test("loadApiEnvironment rejects explicit OTP exposure in production", () => {
+  setProductionApiEnv({
+    OTP_EXPOSE_IN_RESPONSE: "true"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /OTP_EXPOSE_IN_RESPONSE cannot be enabled in production/
+  );
+});
+
+test("loadApiEnvironment rejects unprotected Swagger in production", () => {
+  setProductionApiEnv({
+    SWAGGER_ENABLED: "true"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /SWAGGER_ENABLED cannot be true in production/
+  );
+});
+
+test("loadApiEnvironment rejects local infrastructure endpoints in production", () => {
+  setProductionApiEnv({
+    CORS_ORIGINS: "https://shop.example.com,http://localhost:3001",
+    DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/surgical_platform",
+    REDIS_URL: "redis://127.0.0.1:6379"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /Production values cannot point to localhost or loopback/
+  );
+});
+
+test("loadApiEnvironment rejects local upload storage in production", () => {
+  setProductionApiEnv({
+    STORAGE_PROVIDER: "local"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /STORAGE_PROVIDER=local cannot be used in production/
+  );
+});
+
+test("loadApiEnvironment requires S3 settings for production uploads", () => {
+  setProductionApiEnv({
+    S3_BUCKET: "",
+    S3_SECRET_ACCESS_KEY: ""
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /S3_BUCKET is required when STORAGE_PROVIDER=s3/
+  );
+});
+
 test("loadApiEnvironment parses production security and monitoring settings", () => {
-  setRequiredApiEnv({
-    CORS_ORIGINS: "https://shop.example.com, https://admin.example.com",
+  setProductionApiEnv({
     ERROR_MONITORING_DSN: "https://monitoring.example.com/project",
     ERROR_MONITORING_ENABLED: "true",
-    NODE_ENV: "production",
-    OTP_EXPOSE_IN_RESPONSE: "true",
+    OTP_EXPOSE_IN_RESPONSE: "false",
     RATE_LIMIT_BLOCK_MS: "120000",
     RATE_LIMIT_TTL_MS: "30000",
     TRUST_PROXY: "1"
@@ -96,7 +166,10 @@ test("loadApiEnvironment parses production security and monitoring settings", ()
     "https://monitoring.example.com/project"
   );
   assert.equal(environment.errorMonitoringEnabled, true);
-  assert.equal(environment.otpExposeInResponse, true);
+  assert.equal(environment.otpExposeInResponse, false);
+  assert.equal(environment.s3Bucket, "surgical-prod-uploads");
+  assert.equal(environment.storageProvider, "s3");
+  assert.equal(environment.swaggerEnabled, false);
   assert.equal(environment.throttleBlockMs, 120000);
   assert.equal(environment.throttleTtlMs, 30000);
   assert.equal(environment.trustProxy, 1);

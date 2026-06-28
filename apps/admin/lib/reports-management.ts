@@ -1,6 +1,7 @@
 import {
   AdminApiClientError,
   buildAdminApiUrl,
+  fetchAdminApi,
   type QueryParams
 } from "./admin-api";
 import {
@@ -204,12 +205,15 @@ export async function downloadDashboardReportExport(
   format: ReportExportFormat,
   accessToken: string
 ) {
-  const response = await fetch(buildAdminApiUrl(buildReportExportUrl(filters, format)), {
-    headers: {
-      Accept: format === "pdf" ? "application/pdf" : "text/csv",
-      Authorization: `Bearer ${accessToken}`
+  const response = await fetchAdminApi(
+    buildAdminApiUrl(buildReportExportUrl(filters, format)),
+    {
+      headers: {
+        Accept: format === "pdf" ? "application/pdf" : "text/csv",
+        Authorization: `Bearer ${accessToken}`
+      }
     }
-  });
+  );
 
   if (!response.ok) {
     const message = await readExportErrorMessage(response);

@@ -89,7 +89,7 @@ export function ProductCard({
   return (
     <article
       className={[
-        "group grid h-full grid-rows-[auto_1fr] overflow-hidden border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10",
+        "group grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10",
         compact ? "rounded-xl sm:rounded-lg" : "rounded-[1.25rem]",
         compact && !recommendationCard ? "min-h-[14.3rem] sm:min-h-0" : undefined
       ].join(" ")}
@@ -209,7 +209,7 @@ export function ProductCard({
           </div>
           <h3
             className={[
-              "line-clamp-2 text-[#173b1d]",
+              "line-clamp-2 break-words text-[#173b1d]",
               recommendationCard
                 ? "mt-2 text-sm font-semibold leading-5"
                 : compact

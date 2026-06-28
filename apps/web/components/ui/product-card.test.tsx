@@ -99,7 +99,7 @@ describe("ProductCard", () => {
     const imagePanel = article?.firstElementChild;
     const contentPanel = article?.children[1];
 
-    expect(article).toHaveClass("min-h-[14.3rem]", "rounded-xl");
+    expect(article).toHaveClass("min-h-[14.3rem]", "min-w-0", "rounded-xl");
     expect(imagePanel).toHaveClass("h-24", "sm:h-36");
     expect(contentPanel).toHaveClass("gap-1", "p-3", "sm:gap-3", "sm:p-4");
     expect(screen.getByRole("link", { name: "SurgiPro" })).toHaveClass(
@@ -107,6 +107,7 @@ describe("ProductCard", () => {
     );
     expect(title).toHaveClass(
       "min-h-9",
+      "break-words",
       "text-xs",
       "font-semibold",
       "leading-[1.15rem]"

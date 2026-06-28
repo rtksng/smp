@@ -30,17 +30,29 @@ NODE_ENV=development
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/surgical_platform?schema=public
 REDIS_URL=redis://localhost:6379
 REDIS_QUEUE_PREFIX=surgical-platform
+RAZORPAY_WEBHOOK_SECRET=
+WORKER_PREFLIGHT_ON_STARTUP=true
+WORKER_PREFLIGHT_TIMEOUT_MS=5000
 ERROR_MONITORING_ENABLED=false
 ERROR_MONITORING_DSN=
 ```
 
 Worker logs are emitted as JSON through the shared Nest logger surface. Keep the worker deployed separately from the API so queue processing can be restarted or scaled without interrupting HTTP traffic.
 
+Before production startup, the worker runs a Redis and PostgreSQL preflight by default. The same readiness probe is available after build:
+
+```bash
+pnpm --filter @surgical/worker build
+pnpm --filter @surgical/worker healthcheck
+```
+
+Set `WORKER_PREFLIGHT_ON_STARTUP=false` only for local debugging when Redis/PostgreSQL are intentionally unavailable.
+
 ## Queues
 
 - `otp`: mock OTP delivery
 - `notifications`: persists customer order confirmation records to `NotificationLog`
 - `invoice`: mock invoice generation
-- `payment-webhook`: Razorpay webhook follow-up processing
+- `payment-webhook`: verifies Razorpay webhook jobs and applies recorded payment/refund updates
 - `low-stock-alert`: persists admin low-stock alert records to `NotificationLog`
 - `near-expiry-alert`: persists admin near-expiry alert records to `NotificationLog`

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min
@@ -49,6 +50,18 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(64)
   couponCode?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Stable client-generated key used to make checkout retries idempotent.",
+    example: "checkout-20260627-001",
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  @Matches(/^[A-Za-z0-9._:-]+$/)
+  idempotencyKey?: string | null;
 }
 
 export class OrderListQueryDto {

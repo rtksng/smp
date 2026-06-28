@@ -40,6 +40,7 @@ describe("admin API client", () => {
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -172,5 +173,37 @@ describe("admin API client", () => {
         "NETWORK_ERROR"
       )
     );
+  });
+
+  it("aborts slow admin API requests with a typed timeout error", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      const signal = (init as RequestInit | undefined)?.signal;
+
+      if (!signal) {
+        return Promise.reject(new Error("missing abort signal"));
+      }
+
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          reject(new DOMException("Request aborted.", "AbortError"));
+        });
+      });
+    });
+
+    const request = requestAdminApi("/admin/products", {
+      timeoutMs: 25
+    });
+    const expectation = expect(request).rejects.toThrow(
+      new AdminApiClientError(
+        "Admin API request timed out. Try again in a moment.",
+        0,
+        "TIMEOUT"
+      )
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expectation;
   });
 });

@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "tsc -p tsconfig.build.json",
+    "healthcheck": "node dist/healthcheck.js",
     "lint": "eslint .",
+    "preflight": "node dist/healthcheck.js",
+    "start:prod": "node dist/main.js",
     "test": "node scripts/run-tests.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

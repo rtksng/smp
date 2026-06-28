@@ -123,6 +123,14 @@ enum ProductDocumentType {
   OTHER
 }
 
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 model User {
   id            String                @id @default(uuid())
   email         String?               @unique
@@ -620,37 +628,39 @@ model CartItem {
 }
 
 model Order {
-  id                  String               @id @default(uuid())
-  orderNumber         String               @unique
-  userId              String
-  billingAddressId    String?
-  shippingAddressId   String?
-  couponId            String?
-  warehouseId         String?
-  status              OrderStatus          @default(CREATED)
-  paymentStatus       PaymentStatus        @default(PENDING)
-  subtotal            Decimal              @db.Decimal(12, 2)
-  discountTotal       Decimal              @default(0) @db.Decimal(12, 2)
-  taxTotal            Decimal              @default(0) @db.Decimal(12, 2)
-  shippingTotal       Decimal              @default(0) @db.Decimal(12, 2)
-  grandTotal          Decimal              @db.Decimal(12, 2)
-  notes               String?
-  placedAt            DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  deletedAt           DateTime?
-  billingAddress      Address?             @relation("OrderBillingAddress", fields: [billingAddressId], references: [id])
-  coupon              Coupon?              @relation(fields: [couponId], references: [id])
-  deliveryAssignments DeliveryAssignment[]
-  gstInvoice          GSTInvoice?
-  items               OrderItem[]
-  payments            Payment[]
-  refunds             Refund[]
-  shippingAddress     Address?             @relation("OrderShippingAddress", fields: [shippingAddressId], references: [id])
-  statusHistory       OrderStatusHistory[]
-  user                User                 @relation(fields: [userId], references: [id])
-  warehouse           Warehouse?           @relation(fields: [warehouseId], references: [id])
+  id                     String               @id @default(uuid())
+  orderNumber            String               @unique
+  userId                 String
+  billingAddressId       String?
+  shippingAddressId      String?
+  couponId               String?
+  warehouseId            String?
+  status                 OrderStatus          @default(CREATED)
+  paymentStatus          PaymentStatus        @default(PENDING)
+  subtotal               Decimal              @db.Decimal(12, 2)
+  discountTotal          Decimal              @default(0) @db.Decimal(12, 2)
+  taxTotal               Decimal              @default(0) @db.Decimal(12, 2)
+  shippingTotal          Decimal              @default(0) @db.Decimal(12, 2)
+  grandTotal             Decimal              @db.Decimal(12, 2)
+  notes                  String?
+  checkoutIdempotencyKey String?
+  placedAt               DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  deletedAt              DateTime?
+  billingAddress         Address?             @relation("OrderBillingAddress", fields: [billingAddressId], references: [id])
+  coupon                 Coupon?              @relation(fields: [couponId], references: [id])
+  deliveryAssignments    DeliveryAssignment[]
+  gstInvoice             GSTInvoice?
+  items                  OrderItem[]
+  payments               Payment[]
+  refunds                Refund[]
+  shippingAddress        Address?             @relation("OrderShippingAddress", fields: [shippingAddressId], references: [id])
+  statusHistory          OrderStatusHistory[]
+  user                   User                 @relation(fields: [userId], references: [id])
+  warehouse              Warehouse?           @relation(fields: [warehouseId], references: [id])
 
+  @@unique([userId, checkoutIdempotencyKey])
   @@index([orderNumber])
   @@index([userId])
   @@index([status])
@@ -736,22 +746,26 @@ model Payment {
 }
 
 model PaymentWebhook {
-  id              String    @id @default(uuid())
-  paymentId       String?
-  provider        String
-  providerEventId String?   @unique
-  eventType       String
-  payload         Json
-  rawPayload      String?   @db.Text
-  signature       String?
-  processedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  payment         Payment?  @relation(fields: [paymentId], references: [id])
+  id                  String                  @id @default(uuid())
+  paymentId           String?
+  provider            String
+  providerEventId     String?                 @unique
+  eventType           String
+  payload             Json
+  rawPayload          String?                 @db.Text
+  signature           String?
+  processingStatus    WebhookProcessingStatus @default(RECEIVED)
+  processingAttempts  Int                     @default(0)
+  lastProcessingError String?                 @db.Text
+  processedAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  payment             Payment?                @relation(fields: [paymentId], references: [id])
 
   @@index([paymentId])
   @@index([provider])
   @@index([eventType])
+  @@index([processingStatus, createdAt])
   @@index([provider, eventType, createdAt])
 }
 
@@ -862,6 +876,7 @@ model DeliveryPartnerSession {
 
   @@index([deliveryPartnerId])
   @@index([expiresAt])
+  @@index([revokedAt, expiresAt])
 }
 
 model DeliveryPartnerDevice {
