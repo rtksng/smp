@@ -25,6 +25,12 @@ storage/uploads/
 **/storage/uploads/
 apps/api/storage/uploads
 apps/api/src/generated/
+apps/delivery/.expo/
+apps/delivery/android/.gradle/
+apps/delivery/android/.kotlin/
+apps/delivery/android/build/
+apps/delivery/android/app/build/
+apps/delivery/android/app/.cxx/
 *.dump
 *.log
 *.tsbuildinfo
