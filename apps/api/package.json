@@ -11,7 +11,8 @@
     "prisma:format": "prisma format --schema ./prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema ./prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ./prisma/schema.prisma",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "seed:aws:fresh-catalog": "tsx scripts/seed-aws-fresh-catalog.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",

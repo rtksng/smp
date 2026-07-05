@@ -4,7 +4,8 @@ const apiUploadRemotePattern = remotePatternFromUrl(
   process.env.NEXT_PUBLIC_API_URL
 );
 const storageUploadRemotePattern = remotePatternFromUrl(
-  process.env.STORAGE_PUBLIC_BASE_URL
+  process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL ??
+    process.env.STORAGE_PUBLIC_BASE_URL
 );
 
 /** @type {import("next").NextConfig} */
@@ -32,7 +33,11 @@ const nextConfig = {
         protocol: "http"
       },
       apiUploadRemotePattern,
-      storageUploadRemotePattern
+      storageUploadRemotePattern,
+      {
+        hostname: "d268wazo8qmwd.cloudfront.net",
+        protocol: "https"
+      }
     ])
   },
   transpilePackages: ["@surgical/config", "@surgical/types", "@surgical/ui"]
@@ -55,7 +60,6 @@ function remotePatternFromUrl(rawUrl) {
 
     return {
       hostname: url.hostname,
-      pathname: "/uploads/**",
       port: url.port || undefined,
       protocol
     };
