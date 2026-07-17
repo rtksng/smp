@@ -25,3 +25,4 @@ storage/uploads/
 **/storage/uploads/
 .vercel
 .codex/
+.worktrees/
