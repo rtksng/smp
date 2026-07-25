@@ -54,6 +54,7 @@ export function SectionCard({
 
 export function AssignmentCard({
   assignment,
+  style,
   ...props
 }: PressableProps & {
   assignment: DeliveryAssignment;
@@ -62,9 +63,23 @@ export function AssignmentCard({
 
   return (
     <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [pressed && styles.pressed]}
       {...props}
+      accessibilityHint={
+        props.accessibilityHint ?? "Opens delivery details and status actions"
+      }
+      accessibilityLabel={
+        props.accessibilityLabel ??
+        `${assignment.orderNumber}, ${customer}, ${assignment.status.replaceAll(
+          "_",
+          " "
+        )}`
+      }
+      accessibilityRole="button"
+      style={(state) => [
+        styles.assignmentPressable,
+        state.pressed && styles.pressed,
+        typeof style === "function" ? style(state) : style
+      ]}
     >
       <Card className="w-full rounded-xl border border-slate-200 bg-white">
         <Card.Body className="gap-2 px-2 py-2.5">
@@ -167,6 +182,9 @@ const toneStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  assignmentPressable: {
+    minHeight: 44
+  },
   cardTop: {
     alignItems: "flex-start",
     flexDirection: "row",

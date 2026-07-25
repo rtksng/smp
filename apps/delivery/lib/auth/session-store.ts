@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { deliverySessionSchema } from "../api/schemas";
 import type { DeliverySession } from "../api/types";
 
 const SESSION_KEY = "surgical.delivery.session.v1";
@@ -11,7 +12,14 @@ export async function getStoredSession() {
   }
 
   try {
-    return JSON.parse(value) as DeliverySession;
+    const parsed = deliverySessionSchema.safeParse(JSON.parse(value));
+
+    if (parsed.success) {
+      return parsed.data;
+    }
+
+    await clearStoredSession();
+    return null;
   } catch {
     await clearStoredSession();
     return null;

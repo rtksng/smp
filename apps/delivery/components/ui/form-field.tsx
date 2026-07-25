@@ -26,6 +26,12 @@ export function FormField({
         <Label.Text styles={{ text: styles.label }}>{label}</Label.Text>
       </Label>
       <Input
+        accessibilityLabel={props.accessibilityLabel ?? label}
+        accessibilityState={{
+          ...props.accessibilityState,
+          disabled: Boolean(props.editable === false)
+        }}
+        autoCorrect={props.autoCorrect ?? false}
         isInvalid={isInvalid}
         placeholderTextColor="#94A3B8"
         selectionColor="#287C30"

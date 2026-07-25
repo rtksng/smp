@@ -20,12 +20,26 @@ export class ApiError extends Error {
   }
 }
 
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  "http://localhost:4000/api/v1";
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const DEFAULT_TIMEOUT_MS = 20_000;
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler;
+}
+
+function resolveApiBaseUrl() {
+  const configuredUrl =
+    process.env.EXPO_PUBLIC_API_URL?.trim() ||
+    (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined)?.trim();
+  const fallbackHost =
+    process.env.EXPO_OS === "android" ? "10.0.2.2" : "localhost";
+
+  return (
+    configuredUrl ?? `http://${fallbackHost}:4000/api/v1`
+  ).replace(/\/+$/, "");
+}
 
 export async function apiRequest<T>(
   path: string,
@@ -61,6 +75,9 @@ export async function apiRequest<T>(
   const payload = await parseJson(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
     throw new ApiError(readErrorMessage(payload), response.status, payload);
   }
 

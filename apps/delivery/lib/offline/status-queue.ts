@@ -60,6 +60,23 @@ export function markStatusUpdateRetried(
   return markStatusUpdateFailed(queue, id, attemptedAt);
 }
 
+export function markStatusUpdateExhausted(
+  queue: QueuedStatusUpdate[],
+  id: string,
+  attemptedAt = new Date()
+) {
+  return queue.map((item) =>
+    item.id === id
+      ? {
+          ...item,
+          attempts: MAX_STATUS_UPDATE_ATTEMPTS,
+          lastAttemptedAt: attemptedAt.toISOString(),
+          nextAttemptAt: undefined
+        }
+      : item
+  );
+}
+
 export function dropStatusUpdate(queue: QueuedStatusUpdate[], id: string) {
   return queue.filter((item) => item.id !== id);
 }

@@ -1,9 +1,16 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from "react-native";
+import { Redirect, router } from "expo-router";
 import { registerDeliveryPartner } from "../lib/api/auth";
 import { useAuth } from "../lib/auth/auth-context";
 import { ActionButton } from "../components/ActionButton";
+import { KeyboardAccessory } from "../components/KeyboardAccessory";
 import { Screen } from "../components/Screen";
 import { FormField } from "../components/ui/form-field";
 import { SectionCard } from "../components/ui/delivery-card";
@@ -30,9 +37,10 @@ type RegistrationErrors = Partial<{
 }>;
 
 const INDIA_MOBILE_PREFIX = "+91 ";
+const KEYBOARD_ACCESSORY_ID = "delivery-login-keyboard";
 
 export default function LoginScreen() {
-  const { requestOtp, signInWithOtp } = useAuth();
+  const { isReady, requestOtp, session, signInWithOtp } = useAuth();
   const feedback = useAppFeedback();
   const [mode, setMode] = useState<Mode>("login");
   const [mobileNumber, setMobileNumber] = useState(INDIA_MOBILE_PREFIX);
@@ -41,14 +49,40 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [otpRequested, setOtpRequested] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
   const [loading, setLoading] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [loginErrors, setLoginErrors] = useState<LoginErrors>({});
   const [registrationErrors, setRegistrationErrors] =
     useState<RegistrationErrors>({});
+  const emailRef = useRef<TextInput>(null);
+  const vehicleRef = useRef<TextInput>(null);
+  const mobileRef = useRef<TextInput>(null);
+  const otpRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+
+    const timer = setInterval(
+      () => setResendIn((value) => Math.max(value - 1, 0)),
+      1_000
+    );
+
+    return () => clearInterval(timer);
+  }, [resendIn]);
+
+  if (isReady && session) {
+    return <Redirect href="/(app)/assignments" />;
+  }
 
   async function submitOtpRequest() {
     if (loading) {
+      return;
+    }
+
+    if (otpRequested && resendIn > 0) {
       return;
     }
 
@@ -72,6 +106,8 @@ export default function LoginScreen() {
       setMobileNumber(formatMobileInput(validation.values.mobileNumber));
       setOtp(otpRequest.devOtp ?? "");
       setOtpRequested(true);
+      setResendIn(otpRequest.resendAfterSeconds);
+      requestAnimationFrame(() => otpRef.current?.focus());
       feedback.success("OTP sent to your mobile number.", "OTP sent");
     } catch (error) {
       const message = errorMessage(error);
@@ -158,7 +194,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen style={styles.screen}>
+    <Screen edges={["top", "bottom", "left", "right"]} style={styles.screen}>
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.brand}>Surgical Delivery</Text>
@@ -182,6 +218,9 @@ export default function LoginScreen() {
                   setMode("login");
                   setFormMessage(null);
                   setRegistrationErrors({});
+                  setOtpRequested(false);
+                  setOtp("");
+                  setResendIn(0);
                 }}
               />
               <SegmentButton
@@ -192,6 +231,9 @@ export default function LoginScreen() {
                   setMode("register");
                   setFormMessage(null);
                   setLoginErrors({});
+                  setOtpRequested(false);
+                  setOtp("");
+                  setResendIn(0);
                 }}
               />
             </View>
@@ -210,30 +252,46 @@ export default function LoginScreen() {
                   <FormField
                     autoCapitalize="words"
                     autoComplete="name"
+                    autoCorrect={false}
                     error={registrationErrors.fullName}
                     label="Full name"
                     onChangeText={setFullName}
+                    onSubmitEditing={() => emailRef.current?.focus()}
                     placeholder="Driver full name"
+                    returnKeyType="next"
                     required
+                    submitBehavior="submit"
                     textContentType="name"
                     value={fullName}
                   />
                   <FormField
                     autoCapitalize="none"
                     autoComplete="email"
+                    autoCorrect={false}
                     error={registrationErrors.email}
                     keyboardType="email-address"
                     label="Email"
                     onChangeText={setEmail}
+                    onSubmitEditing={() => vehicleRef.current?.focus()}
                     placeholder="driver@example.com"
+                    ref={emailRef}
+                    returnKeyType="next"
+                    spellCheck={false}
+                    submitBehavior="submit"
                     textContentType="emailAddress"
                     value={email}
                   />
                   <FormField
                     autoCapitalize="characters"
+                    autoCorrect={false}
                     label="Vehicle number"
                     onChangeText={setVehicleNumber}
+                    onSubmitEditing={() => mobileRef.current?.focus()}
                     placeholder="DL 01 AB 1234"
+                    ref={vehicleRef}
+                    returnKeyType="next"
+                    spellCheck={false}
+                    submitBehavior="submit"
                     value={vehicleNumber}
                   />
                 </>
@@ -246,11 +304,24 @@ export default function LoginScreen() {
                     ? registrationErrors.mobileNumber
                     : loginErrors.mobileNumber
                 }
+                inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
                 keyboardType="phone-pad"
                 label="Mobile number"
                 onChangeText={(value) => setMobileNumber(formatMobileInput(value))}
+                onSubmitEditing={() => {
+                  if (mode === "register") {
+                    void submitRegistration();
+                  } else if (otpRequested) {
+                    otpRef.current?.focus();
+                  } else {
+                    void submitOtpRequest();
+                  }
+                }}
                 placeholder="+91 98765 43210"
+                ref={mobileRef}
+                returnKeyType={mode === "register" ? "done" : "next"}
                 required
+                submitBehavior="submit"
                 textContentType="telephoneNumber"
                 value={mobileNumber}
               />
@@ -259,12 +330,19 @@ export default function LoginScreen() {
                 <FormField
                   autoComplete="one-time-code"
                   error={loginErrors.otp}
+                  inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
                   keyboardType="number-pad"
                   label="OTP"
                   maxLength={6}
-                  onChangeText={setOtp}
+                  onChangeText={(value) =>
+                    setOtp(value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  onSubmitEditing={() => void submitOtpVerification()}
                   placeholder="6 digit OTP"
+                  ref={otpRef}
+                  returnKeyType="done"
                   required
+                  submitBehavior="submit"
                   textContentType="oneTimeCode"
                   value={otp}
                 />
@@ -272,12 +350,39 @@ export default function LoginScreen() {
 
               {mode === "login" ? (
                 otpRequested ? (
-                  <ActionButton
-                    icon="checkmark-circle-outline"
-                    label="Verify"
-                    loading={loading}
-                    onPress={submitOtpVerification}
-                  />
+                  <>
+                    <ActionButton
+                      icon="checkmark-circle-outline"
+                      label="Verify"
+                      loading={loading}
+                      onPress={submitOtpVerification}
+                    />
+                    <View style={styles.otpActions}>
+                      <ActionButton
+                        disabled={loading || resendIn > 0}
+                        icon="refresh-outline"
+                        label={
+                          resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"
+                        }
+                        onPress={submitOtpRequest}
+                        style={styles.flexAction}
+                        tone="secondary"
+                      />
+                      <ActionButton
+                        disabled={loading}
+                        icon="create-outline"
+                        label="Change number"
+                        onPress={() => {
+                          setOtpRequested(false);
+                          setOtp("");
+                          setResendIn(0);
+                          requestAnimationFrame(() => mobileRef.current?.focus());
+                        }}
+                        style={styles.flexAction}
+                        tone="secondary"
+                      />
+                    </View>
+                  </>
                 ) : (
                   <ActionButton
                     icon="keypad-outline"
@@ -302,6 +407,7 @@ export default function LoginScreen() {
           Stay signed in only on your own delivery device.
         </Text>
       </View>
+      <KeyboardAccessory nativeID={KEYBOARD_ACCESSORY_ID} />
     </Screen>
   );
 }
@@ -326,6 +432,7 @@ function SegmentButton({
 }) {
   return (
     <Pressable
+      accessibilityState={{ disabled, selected: active }}
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
@@ -334,6 +441,7 @@ function SegmentButton({
         active && styles.segmentButtonActive,
         disabled && styles.disabledSegment
       ]}
+      hitSlop={4}
     >
       <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>
         {label}
@@ -365,6 +473,9 @@ const styles = StyleSheet.create({
   form: {
     gap: 12
   },
+  flexAction: {
+    flex: 1
+  },
   header: {
     alignItems: "center",
     gap: 8
@@ -388,6 +499,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     lineHeight: 18
+  },
+  otpActions: {
+    flexDirection: "row",
+    gap: 8
   },
   screen: {
     flexGrow: 1,

@@ -3,6 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
+  "pnpm": {
+    "overrides": {
+      "@expo/dom-webview": "56.0.6",
+      "expo": "56.0.17",
+      "expo-constants": "56.0.22",
+      "expo-linking": "56.0.16",
+      "expo-router": "56.2.16",
+      "react-native-screens": "4.26.2"
+    }
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:parallel": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --parallel --filter @surgical/web --filter @surgical/admin --filter @surgical/api --filter @surgical/worker dev",
@@ -30,6 +40,7 @@
     "globals": "^15.12.0",
     "prettier": "3.6.2",
     "prisma": "^7.8.0",
+    "sharp": "0.34.5",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8.16.0"
   }

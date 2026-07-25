@@ -51,4 +51,27 @@ describe("delivery API client", () => {
       })
     );
   });
+
+  test("removes trailing slashes from configured API base URLs", async () => {
+    process.env.EXPO_PUBLIC_API_URL = "https://api.example.com/api/v1///";
+    const { API_BASE_URL } = await import("./client");
+
+    expect(API_BASE_URL).toBe("https://api.example.com/api/v1");
+  });
+
+  test("notifies auth when the API rejects an access token", async () => {
+    process.env.EXPO_PUBLIC_API_URL = "https://api.example.com/api/v1";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "Unauthorized" }), { status: 401 })
+    );
+    const { apiRequest, setUnauthorizedHandler } = await import("./client");
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+
+    await expect(apiRequest("/delivery/me", z.unknown())).rejects.toMatchObject({
+      status: 401
+    });
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    setUnauthorizedHandler(null);
+  });
 });

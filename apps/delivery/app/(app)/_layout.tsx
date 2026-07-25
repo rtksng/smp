@@ -12,6 +12,8 @@ export default function AppLayout() {
     <Stack
       screenOptions={{
         contentStyle: { backgroundColor: "#F8FAFC" },
+        fullScreenGestureEnabled: true,
+        headerBackButtonDisplayMode: "minimal",
         headerShadowVisible: false,
         headerStyle: { backgroundColor: "#F8FAFC" },
         headerTitleStyle: {

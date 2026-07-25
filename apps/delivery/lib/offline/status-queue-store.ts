@@ -17,7 +17,9 @@ export async function saveStatusQueue(queue: QueuedStatusUpdate[]) {
     return;
   }
 
-  await SecureStore.setItemAsync(STATUS_QUEUE_KEY, serializeStatusQueue(queue));
+  await SecureStore.setItemAsync(STATUS_QUEUE_KEY, serializeStatusQueue(queue), {
+    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY
+  });
 }
 
 export async function clearStatusQueue() {

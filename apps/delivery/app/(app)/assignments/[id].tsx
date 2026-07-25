@@ -1,12 +1,20 @@
-import { useMemo, useState } from "react";
-import { Linking, StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { ActionButton } from "../../../components/ActionButton";
+import { KeyboardAccessory } from "../../../components/KeyboardAccessory";
 import { Screen } from "../../../components/Screen";
 import { StatusPill } from "../../../components/StatusPill";
+import { ConnectivityBanner } from "../../../components/ui/connectivity-banner";
 import { FormField } from "../../../components/ui/form-field";
 import {
   EmptyState,
@@ -37,10 +45,14 @@ import {
 import {
   getCurrentCoordinates,
   openMapsDestination,
+  openPhoneNumber,
   pickProofImage,
+  showPermissionSettingsAlert,
   successHaptic
 } from "../../../lib/device/native";
+import type { ProofImageAsset } from "../../../lib/device/native";
 import { useStatusQueue } from "../../../lib/offline/status-queue-context";
+import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../../lib/offline/status-queue";
 import { validateDeliveryStatusForm } from "../../../lib/delivery/forms";
 import { formatDateTime } from "../../../lib/delivery/dashboard";
 import { useAuth } from "../../../lib/auth/auth-context";
@@ -52,22 +64,27 @@ type StatusFormErrors = Partial<{
   receiverName: string;
 }>;
 
+const KEYBOARD_ACCESSORY_ID = "delivery-status-keyboard";
+
 export default function AssignmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { accessToken } = useAuth();
   const feedback = useAppFeedback();
   const queryClient = useQueryClient();
   const netInfo = useNetInfo();
-  const { enqueueUpdate, queuedUpdates } = useStatusQueue();
+  const { discardUpdate, enqueueUpdate, queuedUpdates, retryUpdate } =
+    useStatusQueue();
   const [note, setNote] = useState("");
   const [failureReason, setFailureReason] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [cashCollectedAmount, setCashCollectedAmount] = useState("");
   const [formErrors, setFormErrors] = useState<StatusFormErrors>({});
-  const [proofAsset, setProofAsset] = useState<{
-    mimeType?: string;
-    uri: string;
-  } | null>(null);
+  const [proofAsset, setProofAsset] = useState<ProofImageAsset | null>(null);
+  const [submittingStatus, setSubmittingStatus] = useState<DeliveryStatus | null>(
+    null
+  );
+  const cashRef = useRef<TextInput>(null);
+  const noteRef = useRef<TextInput>(null);
   const assignmentsQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => listAssignments(accessToken ?? ""),
@@ -80,7 +97,6 @@ export default function AssignmentDetailScreen() {
   const statusMutation = useMutation({
     mutationFn: (input: { assignmentId: string; payload: StatusUpdateInput }) =>
       updateAssignmentStatus(accessToken ?? "", input.assignmentId, input.payload),
-    onError: (error) => feedback.error(errorMessage(error)),
     onSuccess: async () => {
       await successHaptic();
       feedback.success("Delivery status updated.");
@@ -115,6 +131,16 @@ export default function AssignmentDetailScreen() {
   const transitions = nextStatuses(assignment.status);
   const canDeliver = transitions.includes("DELIVERED");
   const canFail = transitions.includes("FAILED");
+  const isOffline =
+    netInfo.isConnected === false || netInfo.isInternetReachable === false;
+  const queuedForAssignment = queuedUpdates.find(
+    (item) => item.assignmentId === assignment.id
+  );
+  const stalledUpdate =
+    queuedForAssignment &&
+    queuedForAssignment.attempts >= MAX_STATUS_UPDATE_ATTEMPTS
+      ? queuedForAssignment
+      : null;
 
   async function submitStatus(status: DeliveryStatus) {
     if (!assignment || !accessToken) {
@@ -137,7 +163,7 @@ export default function AssignmentDetailScreen() {
       return;
     }
 
-    if (netInfo.isConnected === false && status === "DELIVERED") {
+    if (isOffline && status === "DELIVERED") {
       feedback.warning(
         "Connect to the internet to upload proof before completing delivery."
       );
@@ -156,11 +182,12 @@ export default function AssignmentDetailScreen() {
         }
       : null;
 
+    setSubmittingStatus(status);
     try {
       if (status === "DELIVERED" && proofAsset && !proof) {
         const uploaded = await uploadDeliveryProof(accessToken, {
-          name: proofAsset.uri.split("/").pop() ?? "delivery-proof.jpg",
-          type: proofAsset.mimeType ?? "image/jpeg",
+          name: proofAsset.fileName,
+          type: proofAsset.mimeType,
           uri: proofAsset.uri
         });
         proof = {
@@ -169,7 +196,24 @@ export default function AssignmentDetailScreen() {
         };
       }
 
-      const coordinates = await getCurrentCoordinates();
+      const locationResult = await getCurrentCoordinates();
+      const coordinates = locationResult.coordinates;
+
+      if (locationResult.status === "denied" && !locationResult.canAskAgain) {
+        showPermissionSettingsAlert({
+          body: "Enable Location in Settings to attach GPS coordinates to future delivery updates.",
+          title: "Location permission is off"
+        });
+      } else if (locationResult.status === "services-disabled") {
+        feedback.warning(
+          "Location Services are off. This update will continue without GPS."
+        );
+      } else if (locationResult.status === "unavailable") {
+        feedback.warning(
+          "A location fix was not available. This update will continue without GPS."
+        );
+      }
+
       const payload: StatusUpdateInput = {
         cashCollectedAmount: validation.values.cashCollectedAmount,
         failureReason: validation.values.failureReason,
@@ -182,16 +226,17 @@ export default function AssignmentDetailScreen() {
         status
       };
 
-      if (coordinates && netInfo.isConnected !== false) {
+      if (coordinates && !isOffline) {
         await updateLocation(accessToken, coordinates).catch(() => undefined);
       }
 
-      if (netInfo.isConnected === false) {
+      if (isOffline) {
         await enqueueUpdate({
           assignmentId: assignment.id,
           payload
         });
         feedback.info("Status will sync when the device reconnects.", "Queued");
+        resetStatusForm();
         return;
       }
 
@@ -201,6 +246,8 @@ export default function AssignmentDetailScreen() {
       });
     } catch (error) {
       feedback.error(errorMessage(error));
+    } finally {
+      setSubmittingStatus(null);
     }
   }
 
@@ -248,23 +295,64 @@ export default function AssignmentDetailScreen() {
         <InfoRow icon="location-outline" value={assignmentDestination(assignment)} />
       </SectionCard>
 
+      {queuedForAssignment ? (
+        <>
+          <ConnectivityBanner
+            message={
+              stalledUpdate
+                ? "This delivery update could not sync after several attempts."
+                : "This delivery already has an update waiting to sync."
+            }
+            tone={stalledUpdate ? "danger" : "warning"}
+          />
+          {stalledUpdate ? (
+            <View style={styles.buttonRow}>
+              <ActionButton
+                icon="refresh-outline"
+                label="Retry sync"
+                onPress={() => void retryUpdate(stalledUpdate.id)}
+                tone="secondary"
+              />
+              <ActionButton
+                icon="trash-outline"
+                label="Discard"
+                onPress={() =>
+                  confirmAction({
+                    body: "The unsynced delivery update will be removed from this device.",
+                    confirmLabel: "Discard",
+                    destructive: true,
+                    onConfirm: () => void discardUpdate(stalledUpdate.id),
+                    title: "Discard update?"
+                  })
+                }
+                tone="danger"
+              />
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
       <View style={styles.buttonRow}>
         <ActionButton
           icon="navigate-outline"
           label="Maps"
-          onPress={() =>
-            openMapsDestination({
+          onPress={() => {
+            void openMapsDestination({
               latitude: assignment.shippingAddress?.latitude ?? null,
               longitude: assignment.shippingAddress?.longitude ?? null,
               query: assignmentDestination(assignment)
-            })
-          }
+            }).catch((error) => feedback.error(errorMessage(error)));
+          }}
           tone="secondary"
         />
         <ActionButton
           icon="call-outline"
           label="Call"
-          onPress={() => Linking.openURL(`tel:${assignment.customer.mobileNumber}`)}
+          onPress={() => {
+            void openPhoneNumber(assignment.customer.mobileNumber).catch((error) =>
+              feedback.error(errorMessage(error))
+            );
+          }}
           tone="secondary"
         />
       </View>
@@ -329,19 +417,37 @@ export default function AssignmentDetailScreen() {
           {canDeliver ? (
             <>
               <FormField
+                autoCapitalize="words"
+                autoComplete="name"
+                autoCorrect={false}
                 error={formErrors.receiverName}
                 label="Receiver name"
                 onChangeText={setReceiverName}
+                onSubmitEditing={() =>
+                  isCod ? cashRef.current?.focus() : noteRef.current?.focus()
+                }
                 required
+                returnKeyType="next"
+                submitBehavior="submit"
+                textContentType="name"
                 value={receiverName}
               />
               {isCod ? (
                 <FormField
                   error={formErrors.cashCollectedAmount}
-                  keyboardType="numeric"
+                  inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
+                  keyboardType="decimal-pad"
                   label="Cash collected"
-                  onChangeText={setCashCollectedAmount}
+                  onChangeText={(value) =>
+                    setCashCollectedAmount(
+                      value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+                    )
+                  }
+                  onSubmitEditing={() => noteRef.current?.focus()}
+                  ref={cashRef}
+                  returnKeyType="next"
                   required
+                  submitBehavior="submit"
                   value={cashCollectedAmount}
                 />
               ) : null}
@@ -349,14 +455,33 @@ export default function AssignmentDetailScreen() {
                 icon="camera-outline"
                 label={proofAsset ? "Proof selected" : "Capture proof"}
                 onPress={async () => {
-                  const result = await pickProofImage();
-                  if (result && !result.canceled && result.assets[0]) {
-                    setProofAsset({
-                      mimeType: result.assets[0].mimeType,
-                      uri: result.assets[0].uri
-                    });
-                    setFormErrors((errors) => ({ ...errors, proof: undefined }));
-                    feedback.success("Proof photo attached.", "Proof selected");
+                  try {
+                    const result = await pickProofImage();
+
+                    if (result.status === "permission-denied") {
+                      if (!result.canAskAgain) {
+                        showPermissionSettingsAlert({
+                          body: `Enable ${
+                            result.source === "camera" ? "Camera" : "Photos"
+                          } access in Settings to attach proof of delivery.`,
+                          title: "Proof photo permission is off"
+                        });
+                      } else {
+                        feedback.warning("Proof photo permission was not granted.");
+                      }
+                      return;
+                    }
+
+                    if (result.status === "selected") {
+                      setProofAsset(result.asset);
+                      setFormErrors((errors) => ({
+                        ...errors,
+                        proof: undefined
+                      }));
+                      feedback.success("Proof photo attached.", "Proof selected");
+                    }
+                  } catch (error) {
+                    feedback.error(errorMessage(error));
                   }
                 }}
                 tone="secondary"
@@ -365,9 +490,14 @@ export default function AssignmentDetailScreen() {
                 <Text style={styles.errorText}>{formErrors.proof}</Text>
               ) : null}
               {proofAsset || assignment.proofOfDeliveryUrl ? (
-                <Text selectable style={styles.proofText}>
-                  {proofAsset?.uri ?? assignment.proofOfDeliveryUrl}
-                </Text>
+                <Image
+                  accessibilityLabel="Selected proof of delivery"
+                  resizeMode="cover"
+                  source={{
+                    uri: proofAsset?.uri ?? assignment.proofOfDeliveryUrl ?? ""
+                  }}
+                  style={styles.proofImage}
+                />
               ) : null}
             </>
           ) : null}
@@ -378,11 +508,21 @@ export default function AssignmentDetailScreen() {
               label="Failure reason"
               multiline
               onChangeText={setFailureReason}
+              returnKeyType="next"
+              submitBehavior="newline"
               value={failureReason}
             />
           ) : null}
 
-          <FormField label="Note" multiline onChangeText={setNote} value={note} />
+          <FormField
+            label="Note"
+            multiline
+            onChangeText={setNote}
+            ref={noteRef}
+            returnKeyType="done"
+            submitBehavior="newline"
+            value={note}
+          />
         </SectionCard>
       ) : null}
 
@@ -396,7 +536,8 @@ export default function AssignmentDetailScreen() {
             }
             key={status}
             label={statusActionLabel(status)}
-            loading={statusMutation.isPending}
+            disabled={Boolean(queuedForAssignment || submittingStatus)}
+            loading={submittingStatus === status}
             onPress={() => requestStatus(status)}
             tone={status === "FAILED" || status === "CANCELLED" ? "danger" : "primary"}
           />
@@ -420,7 +561,7 @@ export default function AssignmentDetailScreen() {
         )}
       </SectionCard>
 
-      {queuedUpdates.length > 0 ? (
+      {queuedUpdates.length > 0 && !queuedForAssignment ? (
         <View style={styles.queueBanner}>
           <Ionicons color="#92400E" name="cloud-offline-outline" size={18} />
           <Text style={styles.queueText}>
@@ -429,6 +570,7 @@ export default function AssignmentDetailScreen() {
           </Text>
         </View>
       ) : null}
+      <KeyboardAccessory nativeID={KEYBOARD_ACCESSORY_ID} />
     </Screen>
   );
 }
@@ -562,10 +704,12 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: "900"
   },
-  proofText: {
-    color: "#475569",
-    fontSize: 12,
-    fontWeight: "700"
+  proofImage: {
+    aspectRatio: 4 / 3,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 10,
+    maxHeight: 360,
+    width: "100%"
   },
   queueBanner: {
     alignItems: "center",

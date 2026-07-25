@@ -4,6 +4,7 @@ import {
   dropStatusUpdate,
   enqueueStatusUpdate,
   markStatusUpdateRetried,
+  markStatusUpdateExhausted,
   markStatusUpdateSucceeded,
   markStatusUpdateFailed,
   nextStatusUpdate,
@@ -146,6 +147,9 @@ describe("status retry queue", () => {
     expect(shouldRetryStatusUpdate(400)).toBe(false);
     expect(shouldRetryStatusUpdate(404)).toBe(false);
     expect(shouldRetryStatusUpdate(409)).toBe(false);
+    expect(markStatusUpdateExhausted(queue, "exhausted")[0]?.attempts).toBe(
+      MAX_STATUS_UPDATE_ATTEMPTS
+    );
   });
 
   test("serializes and parses stored queue values defensively", () => {

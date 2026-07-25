@@ -35,7 +35,6 @@ export function ActionButton({
 
   return (
     <Button
-      accessibilityRole="button"
       isDisabled={disabled || loading}
       onPress={props.onPress}
       style={[
@@ -46,6 +45,13 @@ export function ActionButton({
       ]}
       variant={variant}
       {...props}
+      accessibilityLabel={props.accessibilityLabel ?? label}
+      accessibilityRole="button"
+      accessibilityState={{
+        ...props.accessibilityState,
+        busy: loading,
+        disabled: Boolean(disabled || loading)
+      }}
     >
       {loading ? (
         <Spinner color={foreground} size="sm" />

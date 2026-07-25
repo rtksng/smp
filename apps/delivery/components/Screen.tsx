@@ -1,41 +1,66 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import {
-  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
   type ViewStyle
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  type Edge
+} from "react-native-safe-area-context";
 
 type ScreenProps = PropsWithChildren<{
+  edges?: Edge[];
   footer?: ReactNode;
   scroll?: boolean;
   style?: ViewStyle;
 }>;
 
-export function Screen({ children, footer, scroll = true, style }: ScreenProps) {
+export function Screen({
+  children,
+  edges = ["bottom", "left", "right"],
+  footer,
+  scroll = true,
+  style
+}: ScreenProps) {
+  const { width } = useWindowDimensions();
+  const horizontalPadding = width >= 768 ? 20 : 10;
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, styles.scrollContent, style]}
+      automaticallyAdjustKeyboardInsets={process.env.EXPO_OS === "ios"}
+      contentContainerStyle={[
+        styles.content,
+        styles.scrollContent,
+        { paddingHorizontal: horizontalPadding },
+        style
+      ]}
       contentInsetAdjustmentBehavior="automatic"
+      keyboardDismissMode={
+        process.env.EXPO_OS === "ios" ? "interactive" : "on-drag"
+      }
       keyboardShouldPersistTaps="handled"
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, styles.fill, style]}>{children}</View>
+    <View
+      style={[
+        styles.content,
+        styles.fill,
+        { paddingHorizontal: horizontalPadding },
+        style
+      ]}
+    >
+      {children}
+    </View>
   );
 
   return (
-    <SafeAreaView edges={["bottom", "left", "right"]} style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
-        style={styles.fill}
-      >
-        {body}
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+    <SafeAreaView edges={edges} style={styles.safeArea}>
+      {body}
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </SafeAreaView>
   );
 }
@@ -43,9 +68,10 @@ export function Screen({ children, footer, scroll = true, style }: ScreenProps) 
 const styles = StyleSheet.create({
   content: {
     alignItems: "stretch",
+    alignSelf: "center",
     gap: 10,
+    maxWidth: 920,
     paddingBottom: 20,
-    paddingHorizontal: 10,
     paddingTop: 8,
     width: "100%"
   },
@@ -53,10 +79,13 @@ const styles = StyleSheet.create({
     flex: 1
   },
   footer: {
+    alignSelf: "center",
     borderTopColor: "#E2E8F0",
     borderTopWidth: StyleSheet.hairlineWidth,
+    maxWidth: 920,
     paddingHorizontal: 10,
-    paddingVertical: 10
+    paddingVertical: 10,
+    width: "100%"
   },
   safeArea: {
     backgroundColor: "#F8FAFC",

@@ -46,6 +46,7 @@ function showFeedbackToast(
     component: (props) => (
       <Toast
         {...props}
+        accessibilityLiveRegion="polite"
         className="flex-row"
         placement="top"
         style={[styles.toastRoot, { borderLeftColor: tone.border }]}
@@ -78,6 +79,7 @@ function showFeedbackToast(
 export function confirmAction(input: {
   body: string;
   confirmLabel?: string;
+  destructive?: boolean;
   onConfirm: () => void;
   title: string;
 }) {
@@ -88,7 +90,10 @@ export function confirmAction(input: {
     },
     {
       onPress: input.onConfirm,
-      style: input.confirmLabel === "Fail" ? "destructive" : "default",
+      style:
+        input.destructive || input.confirmLabel === "Fail"
+          ? "destructive"
+          : "default",
       text: input.confirmLabel ?? "Confirm"
     }
   ]);
@@ -247,9 +252,9 @@ const styles = StyleSheet.create({
   toastClose: {
     alignItems: "center",
     borderRadius: 999,
-    height: 30,
+    height: 44,
     justifyContent: "center",
-    width: 30
+    width: 44
   },
   toastContent: {
     flex: 1,

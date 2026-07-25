@@ -7,11 +7,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../lib/auth/auth-context";
+import { NativeAppLifecycle } from "../lib/device/app-lifecycle";
 import { StatusQueueProvider } from "../lib/offline/status-queue-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: true,
       retry: 1,
       staleTime: 20_000
     }
@@ -34,11 +37,13 @@ export default function RootLayout() {
         >
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
+              <NativeAppLifecycle />
               <StatusQueueProvider>
                 <StatusBar style="dark" />
                 <Stack
                   screenOptions={{
                     contentStyle: { backgroundColor: "#F8FAFC" },
+                    headerBackButtonDisplayMode: "minimal",
                     headerShadowVisible: false,
                     headerStyle: { backgroundColor: "#F8FAFC" },
                     headerTitleStyle: {

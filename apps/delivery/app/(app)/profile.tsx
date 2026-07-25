@@ -11,6 +11,7 @@ import {
   SectionCard
 } from "../../components/ui/delivery-card";
 import {
+  confirmAction,
   errorMessage,
   useAppFeedback
 } from "../../components/ui/feedback";
@@ -50,13 +51,21 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <Screen>
-        <EmptyState
-          icon="warning-outline"
-          message={
-            profileQuery.isError ? errorMessage(profileQuery.error) : undefined
-          }
-          title="Profile unavailable"
-        />
+        <View style={styles.retryState}>
+          <EmptyState
+            icon="warning-outline"
+            message={
+              profileQuery.isError ? errorMessage(profileQuery.error) : undefined
+            }
+            title="Profile unavailable"
+          />
+          <ActionButton
+            icon="refresh-outline"
+            label="Try again"
+            onPress={() => void profileQuery.refetch()}
+            tone="secondary"
+          />
+        </View>
       </Screen>
     );
   }
@@ -82,6 +91,7 @@ export default function ProfileScreen() {
             <Text style={styles.meta}>{profile.isOnline ? "Online" : "Offline"}</Text>
           </View>
           <Switch
+            accessibilityLabel="Delivery availability"
             isDisabled={onlineMutation.isPending}
             isSelected={profile.isOnline}
             onSelectedChange={(value) => onlineMutation.mutate(value)}
@@ -133,9 +143,17 @@ export default function ProfileScreen() {
         <ActionButton
           icon="log-out-outline"
           label="Sign out"
-          onPress={() => {
-            void signOut().then(() => router.replace("/login"));
-          }}
+          onPress={() =>
+            confirmAction({
+              body: "Queued delivery updates on this device will be removed when you sign out.",
+              confirmLabel: "Sign out",
+              destructive: true,
+              onConfirm: () => {
+                void signOut().then(() => router.replace("/login"));
+              },
+              title: "Sign out?"
+            })
+          }
           tone="danger"
         />
       </View>
@@ -204,6 +222,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     justifyContent: "space-between"
+  },
+  retryState: {
+    alignSelf: "center",
+    maxWidth: 430,
+    width: "100%"
   },
   sectionTitle: {
     color: "#0F172A",

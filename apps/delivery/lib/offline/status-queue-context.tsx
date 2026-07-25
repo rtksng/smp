@@ -9,12 +9,15 @@ import {
 } from "react";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { useQueryClient } from "@tanstack/react-query";
+import { AppState } from "react-native";
 import { ApiError } from "../api/client";
 import { updateAssignmentStatus } from "../api/delivery";
 import { useAuth } from "../auth/auth-context";
 import {
+  MAX_STATUS_UPDATE_ATTEMPTS,
   dropStatusUpdate,
   enqueueStatusUpdate,
+  markStatusUpdateExhausted,
   markStatusUpdateRetried,
   markStatusUpdateSucceeded,
   nextStatusUpdate,
@@ -24,6 +27,7 @@ import {
 import { loadStatusQueue, saveStatusQueue } from "./status-queue-store";
 
 type StatusQueueContextValue = {
+  discardUpdate: (id: string) => Promise<void>;
   enqueueUpdate: (
     item: Omit<QueuedStatusUpdate, "attempts" | "createdAt" | "id"> & {
       createdAt?: string;
@@ -31,6 +35,7 @@ type StatusQueueContextValue = {
     }
   ) => Promise<QueuedStatusUpdate[]>;
   queuedUpdates: QueuedStatusUpdate[];
+  retryUpdate: (id: string) => Promise<void>;
 };
 
 const StatusQueueContext = createContext<StatusQueueContextValue | null>(null);
@@ -41,6 +46,7 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const drainingRef = useRef(false);
   const [queuedUpdates, setQueuedUpdates] = useState<QueuedStatusUpdate[]>([]);
+  const [retryTick, setRetryTick] = useState(0);
 
   const persistQueue = useCallback(async (queue: QueuedStatusUpdate[]) => {
     setQueuedUpdates(queue);
@@ -62,10 +68,56 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
     [persistQueue]
   );
 
+  const discardUpdate = useCallback(
+    async (id: string) => {
+      await persistQueue(dropStatusUpdate(await loadStatusQueue(), id));
+    },
+    [persistQueue]
+  );
+
+  const retryUpdate = useCallback(
+    async (id: string) => {
+      const queue = await loadStatusQueue();
+      await persistQueue(
+        queue.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                attempts: 0,
+                lastAttemptedAt: undefined,
+                nextAttemptAt: undefined
+              }
+            : item
+        )
+      );
+      setRetryTick((value) => value + 1);
+    },
+    [persistQueue]
+  );
+
   useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    if (!accessToken) {
+      setQueuedUpdates([]);
+      return;
+    }
+
     loadStatusQueue()
       .then(setQueuedUpdates)
       .catch(() => undefined);
+  }, [accessToken, isReady]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (status) => {
+      if (status === "active") {
+        setRetryTick((value) => value + 1);
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
@@ -73,6 +125,7 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
       !isReady ||
       !accessToken ||
       netInfo.isConnected !== true ||
+      netInfo.isInternetReachable === false ||
       queuedUpdates.length === 0 ||
       drainingRef.current
     ) {
@@ -82,6 +135,23 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
     const next = nextStatusUpdate(queuedUpdates);
 
     if (!next) {
+      const nextAttemptAt = queuedUpdates
+        .filter(
+          (item) =>
+            item.attempts < MAX_STATUS_UPDATE_ATTEMPTS && item.nextAttemptAt
+        )
+        .map((item) => new Date(item.nextAttemptAt ?? "").getTime())
+        .filter(Number.isFinite)
+        .sort((left, right) => left - right)[0];
+
+      if (nextAttemptAt !== undefined) {
+        const timer = setTimeout(
+          () => setRetryTick((value) => value + 1),
+          Math.max(nextAttemptAt - Date.now(), 1_000)
+        );
+        return () => clearTimeout(timer);
+      }
+
       return;
     }
 
@@ -95,24 +165,29 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
         const status = error instanceof ApiError ? error.status : undefined;
         const nextQueue = shouldRetryStatusUpdate(status)
           ? markStatusUpdateRetried(queuedUpdates, next.id)
-          : dropStatusUpdate(queuedUpdates, next.id);
+          : markStatusUpdateExhausted(queuedUpdates, next.id);
 
         await persistQueue(nextQueue);
       })
       .finally(() => {
         drainingRef.current = false;
+        setRetryTick((value) => value + 1);
       });
   }, [
     accessToken,
     isReady,
     netInfo.isConnected,
+    netInfo.isInternetReachable,
     persistQueue,
     queryClient,
+    retryTick,
     queuedUpdates
   ]);
 
   return (
-    <StatusQueueContext.Provider value={{ enqueueUpdate, queuedUpdates }}>
+    <StatusQueueContext.Provider
+      value={{ discardUpdate, enqueueUpdate, queuedUpdates, retryUpdate }}
+    >
       {children}
     </StatusQueueContext.Provider>
   );

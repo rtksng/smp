@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -6,13 +6,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  useWindowDimensions
 } from "react-native";
 import { Switch } from "heroui-native/switch";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNetInfo } from "@react-native-community/netinfo";
 import { ActionButton } from "../../components/ActionButton";
 import { Screen } from "../../components/Screen";
+import { ConnectivityBanner } from "../../components/ui/connectivity-banner";
 import {
   AssignmentCard,
   EmptyState,
@@ -28,7 +31,6 @@ import { formatCurrency } from "../../lib/api/status";
 import {
   getMyProfile,
   listAssignments,
-  registerDevice,
   updateOnlineStatus
 } from "../../lib/api/delivery";
 import {
@@ -36,15 +38,20 @@ import {
   deliveryFilterOptions,
   type DeliveryStatusFilter
 } from "../../lib/delivery/dashboard";
-import { getExpoPushRegistration } from "../../lib/device/native";
 import { useAuth } from "../../lib/auth/auth-context";
+import { useStatusQueue } from "../../lib/offline/status-queue-context";
+import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../lib/offline/status-queue";
 
 export default function AssignmentsScreen() {
   const { accessToken } = useAuth();
   const feedback = useAppFeedback();
   const queryClient = useQueryClient();
+  const netInfo = useNetInfo();
+  const { width } = useWindowDimensions();
+  const { queuedUpdates } = useStatusQueue();
   const [selectedStatus, setSelectedStatus] =
     useState<DeliveryStatusFilter>("ALL");
+  const numColumns = width >= 768 ? 2 : 1;
 
   const profileQuery = useQuery({
     enabled: Boolean(accessToken),
@@ -74,24 +81,6 @@ export default function AssignmentsScreen() {
     }
   });
 
-  useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
-
-    getExpoPushRegistration()
-      .then((registration) =>
-        registration
-          ? registerDevice(accessToken, {
-              notificationsEnabled: true,
-              platform: registration.platform,
-              pushToken: registration.pushToken
-            })
-          : undefined
-      )
-      .catch(() => undefined);
-  }, [accessToken]);
-
   const allAssignments = allAssignmentsQuery.data?.items ?? [];
   const assignments = assignmentsQuery.data?.items ?? [];
   const metrics = dashboardMetrics(allAssignments);
@@ -100,6 +89,11 @@ export default function AssignmentsScreen() {
     profileQuery.isFetching ||
     allAssignmentsQuery.isFetching ||
     assignmentsQuery.isFetching;
+  const isOffline =
+    netInfo.isConnected === false || netInfo.isInternetReachable === false;
+  const stalledCount = queuedUpdates.filter(
+    (item) => item.attempts >= MAX_STATUS_UPDATE_ATTEMPTS
+  ).length;
 
   function refresh() {
     void profileQuery.refetch();
@@ -114,11 +108,19 @@ export default function AssignmentsScreen() {
           assignmentsQuery.isLoading ? (
             <LoadingCards />
           ) : assignmentsQuery.isError ? (
-            <EmptyState
-              icon="warning-outline"
-              message={errorMessage(assignmentsQuery.error)}
-              title="Deliveries could not load"
-            />
+            <View style={styles.emptyWithAction}>
+              <EmptyState
+                icon="warning-outline"
+                message={errorMessage(assignmentsQuery.error)}
+                title="Deliveries could not load"
+              />
+              <ActionButton
+                icon="refresh-outline"
+                label="Try again"
+                onPress={refresh}
+                tone="secondary"
+              />
+            </View>
           ) : (
             <EmptyState
               icon="cube-outline"
@@ -129,6 +131,23 @@ export default function AssignmentsScreen() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
+            {isOffline ? (
+              <ConnectivityBanner message="You are offline. Existing delivery updates can be queued and will sync after reconnection." />
+            ) : null}
+            {queuedUpdates.length > 0 ? (
+              <ConnectivityBanner
+                message={
+                  stalledCount > 0
+                    ? `${stalledCount} delivery update${
+                        stalledCount === 1 ? "" : "s"
+                      } need attention. Open the related delivery to retry or discard.`
+                    : `${queuedUpdates.length} delivery update${
+                        queuedUpdates.length === 1 ? "" : "s"
+                      } waiting to sync.`
+                }
+                tone={stalledCount > 0 ? "danger" : "warning"}
+              />
+            ) : null}
             <SectionCard>
               <View style={styles.statusPanel}>
                 <View style={styles.statusText}>
@@ -141,6 +160,7 @@ export default function AssignmentsScreen() {
                   </Text>
                 </View>
                 <Switch
+                  accessibilityLabel="Delivery availability"
                   isDisabled={onlineMutation.isPending || profileQuery.isLoading}
                   isSelected={profileQuery.data?.isOnline ?? false}
                   onSelectedChange={(value) => onlineMutation.mutate(value)}
@@ -191,6 +211,8 @@ export default function AssignmentsScreen() {
                 const selected = selectedStatus === option.status;
                 return (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
                     key={option.status}
                     onPress={() => setSelectedStatus(option.status)}
                     style={[styles.filterPill, selected && styles.filterPillSelected]}
@@ -206,7 +228,10 @@ export default function AssignmentsScreen() {
         }
         contentContainerStyle={styles.list}
         data={assignments}
+        columnWrapperStyle={numColumns > 1 ? styles.columns : undefined}
         keyExtractor={(item) => item.id}
+        key={`assignments-${numColumns}`}
+        numColumns={numColumns}
         refreshControl={
           <RefreshControl
             onRefresh={refresh}
@@ -215,15 +240,22 @@ export default function AssignmentsScreen() {
           />
         }
         renderItem={({ item }) => (
-          <AssignmentCard
-            assignment={item}
-            onPress={() =>
-              router.push({
-                params: { id: item.id },
-                pathname: "/(app)/assignments/[id]"
-              })
-            }
-          />
+          <View
+            style={[
+              styles.columnItem,
+              numColumns > 1 && styles.tabletColumnItem
+            ]}
+          >
+            <AssignmentCard
+              assignment={item}
+              onPress={() =>
+                router.push({
+                  params: { id: item.id },
+                  pathname: "/(app)/assignments/[id]"
+                })
+              }
+            />
+          </View>
         )}
       />
     </Screen>
@@ -231,6 +263,17 @@ export default function AssignmentsScreen() {
 }
 
 const styles = StyleSheet.create({
+  columnItem: {
+    flex: 1
+  },
+  columns: {
+    gap: 10
+  },
+  emptyWithAction: {
+    alignSelf: "center",
+    maxWidth: 430,
+    width: "100%"
+  },
   eyebrow: {
     color: "#287C30",
     fontSize: 12,
@@ -249,7 +292,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
-    minHeight: 36,
+    minHeight: 44,
     paddingHorizontal: 11
   },
   filterPillSelected: {
@@ -302,5 +345,8 @@ const styles = StyleSheet.create({
   statusText: {
     flex: 1,
     gap: 4
+  },
+  tabletColumnItem: {
+    maxWidth: "50%"
   }
 });

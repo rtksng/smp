@@ -4,16 +4,24 @@
     "slug": "surgical-delivery",
     "scheme": "surgical-delivery",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.surgical.delivery",
-      "supportsTablet": false,
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is used to capture proof of delivery photos.",
         "NSLocationWhenInUseUsageDescription": "Location access is used to attach GPS coordinates to delivery status updates.",
-        "NSPhotoLibraryUsageDescription": "Photo library access is used to attach an existing proof of delivery image."
+        "NSPhotoLibraryUsageDescription": "Photo library access is used to attach an existing proof of delivery image.",
+        "NSLocalNetworkUsageDescription": "Local network access is used only to connect to a delivery API running on your development network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -28,18 +36,31 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Surgical Delivery to attach your location to delivery updates."
+          "locationWhenInUsePermission": "Allow Surgical Delivery to attach your location to delivery updates.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isAndroidMotionActivityEnabled": false
         }
       ],
       [
         "expo-image-picker",
         {
           "photosPermission": "Allow Surgical Delivery to attach proof photos from your library.",
-          "cameraPermission": "Allow Surgical Delivery to capture proof of delivery photos."
+          "cameraPermission": "Allow Surgical Delivery to capture proof of delivery photos.",
+          "microphonePermission": false
         }
       ],
       [
