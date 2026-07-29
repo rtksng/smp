@@ -9,10 +9,6 @@ import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
-import {
-  FIXED_ROOT_CATEGORY_SLUGS,
-  isFixedRootCategorySlug
-} from "./fixed-catalog-taxonomy";
 import type { CreateCategoryDto } from "./dto/create-category.dto";
 import type { UpdateCategoryDto } from "./dto/update-category.dto";
 
@@ -55,25 +51,11 @@ export class CategoriesService {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       where: {
         deletedAt: null,
-        isActive: true,
-        OR: [
-          {
-            slug: {
-              in: [...FIXED_ROOT_CATEGORY_SLUGS]
-            }
-          },
-          {
-            parent: {
-              slug: {
-                in: [...FIXED_ROOT_CATEGORY_SLUGS]
-              }
-            }
-          }
-        ]
+        isActive: true
       }
     });
 
-    return this.getFixedCatalogRoots(categories);
+    return this.buildCategoryTree(categories).roots;
   }
 
   async listAdminCategories() {
@@ -92,36 +74,19 @@ export class CategoriesService {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       where: {
         deletedAt: null,
-        isActive: true,
-        OR: [
-          {
-            slug: {
-              in: [...FIXED_ROOT_CATEGORY_SLUGS]
-            }
-          },
-          {
-            parent: {
-              slug: {
-                in: [...FIXED_ROOT_CATEGORY_SLUGS]
-              }
-            }
-          }
-        ]
+        isActive: true
       }
     });
-    const category = this.findCategoryBySlug(this.getFixedCatalogRoots(categories), slug);
+    const category = this.findCategoryBySlug(
+      this.buildCategoryTree(categories).roots,
+      slug
+    );
 
     if (!category) {
       throw new NotFoundException("Category was not found.");
     }
 
     return category;
-  }
-
-  private getFixedCatalogRoots(categories: CategoryRecord[]) {
-    return this.buildCategoryTree(categories).roots.filter((category) =>
-      isFixedRootCategorySlug(category.slug)
-    );
   }
 
   private findCategoryBySlug(
@@ -378,7 +343,7 @@ export class CategoriesService {
 
       if (parent) {
         parent.children.push(serialized);
-      } else {
+      } else if (category.parentId === null) {
         roots.push(serialized);
       }
     }

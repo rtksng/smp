@@ -32,6 +32,10 @@
 
 - [ ] **Step 1: Change the brand behavior tests**
 
+Update the test Prisma `findMany` double to apply the supplied `deletedAt`,
+`isActive`, and optional `slug.in` predicates and the requested name ordering,
+so assertions exercise the service through a faithful database boundary.
+
 Update `listPublicBrands returns only active brands with logo support` so the
 expected slugs are `["abbott", "legacy-brand"]` and the expected Prisma query
 is:

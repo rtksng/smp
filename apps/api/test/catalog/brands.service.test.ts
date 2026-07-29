@@ -59,6 +59,19 @@ type BrandPrismaMock = PrismaService & {
   };
 };
 
+type BrandFindManyArgs = {
+  orderBy?: {
+    name?: "asc" | "desc";
+  };
+  where?: {
+    deletedAt?: null;
+    isActive?: boolean;
+    slug?: {
+      in: string[];
+    };
+  };
+};
+
 function createBrandPrismaMock(records: BrandFixture[]): BrandPrismaMock {
   const calls: BrandPrismaMock["calls"] = {
     adminAuditLogCreate: [],
@@ -108,9 +121,26 @@ function createBrandPrismaMock(records: BrandFixture[]): BrandPrismaMock {
           }) ?? null
         );
       },
-      findMany: async (args: unknown) => {
+      findMany: async (args: BrandFindManyArgs) => {
         calls.findMany.push(args);
-        return records;
+        const matchingRecords = records.filter((record) => {
+          const deletedMatches =
+            args.where?.deletedAt === undefined || record.deletedAt === null;
+          const activeMatches =
+            args.where?.isActive === undefined ||
+            record.isActive === args.where.isActive;
+          const slugMatches =
+            args.where?.slug === undefined ||
+            args.where.slug.in.includes(record.slug);
+
+          return deletedMatches && activeMatches && slugMatches;
+        });
+
+        return [...matchingRecords].sort((left, right) => {
+          const comparison = left.name.localeCompare(right.name);
+
+          return args.orderBy?.name === "desc" ? -comparison : comparison;
+        });
       },
       update: async (args: { data?: Partial<BrandFixture>; where: { id: string } }) => {
         calls.update.push(args);
@@ -164,7 +194,7 @@ test("listPublicBrands returns only active brands with logo support", async () =
 
   assert.deepEqual(
     brands.map((brand) => brand.slug),
-    ["abbott"]
+    ["abbott", "legacy-brand"]
   );
   assert.equal(brands[0]?.logoUrl, "https://cdn.example.com/brands/abbott.svg");
   assert.deepEqual(prisma.calls.findMany[0], {
@@ -173,24 +203,12 @@ test("listPublicBrands returns only active brands with logo support", async () =
     },
     where: {
       deletedAt: null,
-      isActive: true,
-      slug: {
-        in: [
-          "mb-plus",
-          "abbott",
-          "contec",
-          "volk",
-          "orikam",
-          "healthium",
-          "gc",
-          "j-mitra"
-        ]
-      }
+      isActive: true
     }
   });
 });
 
-test("listAdminBrands returns active and inactive fixed brands", async () => {
+test("listAdminBrands returns active and inactive non-deleted brands", async () => {
   const prisma = createBrandPrismaMock([
     brandFixture({
       id: "brand-1",
@@ -238,6 +256,11 @@ test("listAdminBrands returns active and inactive fixed brands", async () => {
         id: "brand-2",
         isActive: false,
         name: "GC"
+      },
+      {
+        id: "brand-legacy",
+        isActive: true,
+        name: "Legacy Brand"
       }
     ]
   );
@@ -246,19 +269,7 @@ test("listAdminBrands returns active and inactive fixed brands", async () => {
       name: "asc"
     },
     where: {
-      deletedAt: null,
-      slug: {
-        in: [
-          "mb-plus",
-          "abbott",
-          "contec",
-          "volk",
-          "orikam",
-          "healthium",
-          "gc",
-          "j-mitra"
-        ]
-      }
+      deletedAt: null
     }
   });
 });

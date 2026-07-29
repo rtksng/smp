@@ -163,7 +163,8 @@ test("listPublicCategories returns only active root categories with active child
   const legacyRoot = categoryFixture({
     id: "legacy-root",
     name: "Surgical Instruments",
-    slug: "surgical-instruments"
+    slug: "surgical-instruments",
+    sortOrder: 3
   });
   const inactiveChild = categoryFixture({
     id: "inactive-child",
@@ -171,6 +172,18 @@ test("listPublicCategories returns only active root categories with active child
     name: "Inactive child",
     parentId: root.id,
     slug: "inactive-child"
+  });
+  const inactiveRoot = categoryFixture({
+    id: "inactive-root",
+    isActive: false,
+    name: "Inactive root",
+    slug: "inactive-root"
+  });
+  const orphanedActiveChild = categoryFixture({
+    id: "orphaned-active-child",
+    name: "Orphaned active child",
+    parentId: inactiveRoot.id,
+    slug: "orphaned-active-child"
   });
   const deletedRoot = categoryFixture({
     deletedAt: now,
@@ -180,6 +193,8 @@ test("listPublicCategories returns only active root categories with active child
   });
   const prisma = createCategoryPrismaMock([
     inactiveChild,
+    inactiveRoot,
+    orphanedActiveChild,
     deletedRoot,
     child,
     legacyRoot,
@@ -189,7 +204,10 @@ test("listPublicCategories returns only active root categories with active child
 
   const categories = await service.listPublicCategories();
 
-  assert.equal(categories.length, 1);
+  assert.deepEqual(
+    categories.map((category) => category.slug),
+    ["dental", "surgical-instruments"]
+  );
   assert.equal(categories[0]?.slug, "dental");
   assert.equal(
     categories[0]?.imageUrl,
@@ -203,47 +221,7 @@ test("listPublicCategories returns only active root categories with active child
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     where: {
       deletedAt: null,
-      isActive: true,
-      OR: [
-        {
-          slug: {
-            in: [
-              "dental",
-              "diagnostics",
-              "consumables",
-              "equipment",
-              "orthopedics",
-              "ophthalmology",
-              "nephrology",
-              "pharma",
-              "cardiology",
-              "physiotherapy",
-              "vaccines",
-              "ivf-gynae"
-            ]
-          }
-        },
-        {
-          parent: {
-            slug: {
-              in: [
-                "dental",
-                "diagnostics",
-                "consumables",
-                "equipment",
-                "orthopedics",
-                "ophthalmology",
-                "nephrology",
-                "pharma",
-                "cardiology",
-                "physiotherapy",
-                "vaccines",
-                "ivf-gynae"
-              ]
-            }
-          }
-        }
-      ]
+      isActive: true
     }
   });
 });

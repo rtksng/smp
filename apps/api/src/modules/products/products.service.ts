@@ -11,8 +11,6 @@ import {
   ProductStatus,
   WarehouseStatus
 } from "../../generated/prisma/client";
-import { FIXED_CATALOG_BRAND_SLUGS } from "../brands/fixed-catalog-brands";
-import { FIXED_ROOT_CATEGORY_SLUGS } from "../categories/fixed-catalog-taxonomy";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
 import type { CreateProductDto } from "./dto/create-product.dto";
 import type {
@@ -611,9 +609,7 @@ export class ProductsService {
       where: {
         deletedAt: null,
         id: brandId,
-        slug: {
-          in: [...FIXED_CATALOG_BRAND_SLUGS]
-        }
+        isActive: true
       }
     });
 
@@ -630,10 +626,8 @@ export class ProductsService {
       where: {
         deletedAt: null,
         id: categoryId,
-        parentId: null,
-        slug: {
-          in: [...FIXED_ROOT_CATEGORY_SLUGS]
-        }
+        isActive: true,
+        parentId: null
       }
     });
 
@@ -646,6 +640,7 @@ export class ProductsService {
         where: {
           deletedAt: null,
           id: subcategoryId,
+          isActive: true,
           parentId: categoryId
         }
       });

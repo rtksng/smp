@@ -211,6 +211,51 @@ function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
   };
 }
 
+type ProductRelations = {
+  brand?: RelatedFixture | null;
+  categories?: RelatedFixture[];
+};
+
+type RelatedFindFirstArgs = {
+  where?: {
+    deletedAt?: null;
+    id?: string;
+    isActive?: boolean;
+    parentId?: string | null;
+    slug?: {
+      in: string[];
+    };
+  };
+};
+
+type CreateProductInput = Parameters<ProductsService["createProduct"]>[0];
+
+function createProductInput(
+  overrides: Partial<CreateProductInput> = {}
+): CreateProductInput {
+  return {
+    basePrice: 100,
+    brandId: activeBrand.id,
+    categoryId: activeCategory.id,
+    description: "Reusable surgical product.",
+    disposable: false,
+    expirySensitive: false,
+    mrp: 150,
+    name: "Dynamic Surgical Product",
+    searchTags: ["surgical"],
+    sellingPrice: 120,
+    shortDescription: "Reusable surgical product.",
+    sku: "DYNAMIC-001",
+    slug: "dynamic-surgical-product",
+    status: "ACTIVE",
+    sterile: false,
+    subcategoryId: activeSubcategory.id,
+    taxRate: 18,
+    unit: "piece",
+    ...overrides
+  } as CreateProductInput;
+}
+
 type ProductPrismaMock = PrismaService & {
   calls: {
     adminAuditLogCreate: unknown[];
@@ -239,7 +284,13 @@ type ProductFindFirstArgs = {
   };
 };
 
-function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
+function createProductPrismaMock(
+  records: ProductFixture[],
+  relations: ProductRelations = {
+    brand: activeBrand,
+    categories: [activeCategory, activeSubcategory]
+  }
+): ProductPrismaMock {
   const calls: ProductPrismaMock["calls"] = {
     adminAuditLogCreate: [],
     brandFindFirst: [],
@@ -270,24 +321,22 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
       }
     },
     brand: {
-      findFirst: async (args: unknown) => {
+      findFirst: async (args: RelatedFindFirstArgs) => {
         calls.brandFindFirst.push(args);
-        return activeBrand;
+        const brand = relations.brand;
+
+        return brand && relatedRecordMatches(brand, args) ? brand : null;
       }
     },
     calls,
     category: {
-      findFirst: async (args: { where?: { id?: string } }) => {
+      findFirst: async (args: RelatedFindFirstArgs) => {
         calls.categoryFindFirst.push(args);
-        if (args.where?.id === activeSubcategory.id) {
-          return activeSubcategory;
-        }
-
-        if (args.where?.id === activeCategory.id) {
-          return activeCategory;
-        }
-
-        return null;
+        return (
+          (relations.categories ?? []).find((category) =>
+            relatedRecordMatches(category, args)
+          ) ?? null
+        );
       }
     },
     productDocument: {
@@ -453,6 +502,30 @@ function createProductPrismaMock(records: ProductFixture[]): ProductPrismaMock {
   };
 
   return mock as unknown as ProductPrismaMock;
+}
+
+function relatedRecordMatches(
+  record: RelatedFixture,
+  args: RelatedFindFirstArgs
+) {
+  const where = args.where;
+  const deletedMatches =
+    where?.deletedAt === undefined || record.deletedAt === where.deletedAt;
+  const idMatches = where?.id === undefined || record.id === where.id;
+  const activeMatches =
+    where?.isActive === undefined || record.isActive === where.isActive;
+  const parentMatches =
+    where?.parentId === undefined || (record.parentId ?? null) === where.parentId;
+  const slugMatches =
+    where?.slug === undefined || where.slug.in.includes(record.slug);
+
+  return (
+    deletedMatches &&
+    idMatches &&
+    activeMatches &&
+    parentMatches &&
+    slugMatches
+  );
 }
 
 test("listPublicProducts applies search, filters, sorting, and pagination", async () => {
@@ -973,47 +1046,22 @@ test("createProduct validates brand and category and persists nested catalogue d
     where: {
       deletedAt: null,
       id: activeBrand.id,
-      slug: {
-        in: [
-          "mb-plus",
-          "abbott",
-          "contec",
-          "volk",
-          "orikam",
-          "healthium",
-          "gc",
-          "j-mitra"
-        ]
-      }
+      isActive: true
     }
   });
   assert.deepEqual(prisma.calls.categoryFindFirst[0], {
     where: {
       deletedAt: null,
       id: activeCategory.id,
-      parentId: null,
-      slug: {
-        in: [
-          "dental",
-          "diagnostics",
-          "consumables",
-          "equipment",
-          "orthopedics",
-          "ophthalmology",
-          "nephrology",
-          "pharma",
-          "cardiology",
-          "physiotherapy",
-          "vaccines",
-          "ivf-gynae"
-        ]
-      }
+      isActive: true,
+      parentId: null
     }
   });
   assert.deepEqual(prisma.calls.categoryFindFirst[1], {
     where: {
       deletedAt: null,
       id: activeSubcategory.id,
+      isActive: true,
       parentId: activeCategory.id
     }
   });
@@ -1127,6 +1175,105 @@ test("createProduct validates brand and category and persists nested catalogue d
   assert.equal(auditCall.data.entityType, "Product");
   assert.equal(auditCall.data.ipAddress, "10.0.0.1");
   assert.equal(auditCall.data.userAgent, "node-test-agent");
+});
+
+test("createProduct accepts an active dynamic brand and category hierarchy", async () => {
+  const dynamicBrand = {
+    ...activeBrand,
+    id: "brand-dynamic",
+    name: "Dynamic Medical",
+    slug: "dynamic-medical"
+  };
+  const dynamicRoot = {
+    ...activeCategory,
+    id: "category-dynamic",
+    name: "Hospital Furniture",
+    slug: "hospital-furniture"
+  };
+  const dynamicChild = {
+    ...activeSubcategory,
+    id: "subcategory-dynamic",
+    name: "Hospital Beds",
+    parentId: dynamicRoot.id,
+    slug: "hospital-beds"
+  };
+  const prisma = createProductPrismaMock([], {
+    brand: dynamicBrand,
+    categories: [dynamicRoot, dynamicChild]
+  });
+  const service = new ProductsService(prisma);
+
+  await service.createProduct(
+    createProductInput({
+      brandId: dynamicBrand.id,
+      categoryId: dynamicRoot.id,
+      subcategoryId: dynamicChild.id
+    }),
+    adminContext
+  );
+
+  assert.equal(prisma.calls.productCreate.length, 1);
+});
+
+test("createProduct rejects an inactive legacy brand", async () => {
+  const prisma = createProductPrismaMock([], {
+    brand: {
+      ...activeBrand,
+      isActive: false
+    },
+    categories: [activeCategory, activeSubcategory]
+  });
+  const service = new ProductsService(prisma);
+
+  await assert.rejects(
+    () => service.createProduct(createProductInput(), adminContext),
+    NotFoundException
+  );
+  assert.equal(prisma.calls.productCreate.length, 0);
+});
+
+test("createProduct rejects an inactive legacy root category", async () => {
+  const inactiveRoot = {
+    ...activeCategory,
+    isActive: false
+  };
+  const prisma = createProductPrismaMock([], {
+    brand: activeBrand,
+    categories: [
+      inactiveRoot,
+      {
+        ...activeSubcategory,
+        parentId: inactiveRoot.id
+      }
+    ]
+  });
+  const service = new ProductsService(prisma);
+
+  await assert.rejects(
+    () => service.createProduct(createProductInput(), adminContext),
+    NotFoundException
+  );
+  assert.equal(prisma.calls.productCreate.length, 0);
+});
+
+test("createProduct rejects an inactive subcategory", async () => {
+  const prisma = createProductPrismaMock([], {
+    brand: activeBrand,
+    categories: [
+      activeCategory,
+      {
+        ...activeSubcategory,
+        isActive: false
+      }
+    ]
+  });
+  const service = new ProductsService(prisma);
+
+  await assert.rejects(
+    () => service.createProduct(createProductInput(), adminContext),
+    NotFoundException
+  );
+  assert.equal(prisma.calls.productCreate.length, 0);
 });
 
 test("updateProduct replaces only nested collections that are provided", async () => {
