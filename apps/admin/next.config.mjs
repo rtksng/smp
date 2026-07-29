@@ -13,7 +13,7 @@ const nextConfig = {
   images: {
     remotePatterns: uniqueRemotePatterns([
       {
-        hostname: "smp-production-b700.up.railway.app",
+        hostname: "smp-production-bfda.up.railway.app",
         protocol: "https"
       },
       {
