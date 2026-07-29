@@ -163,6 +163,51 @@ test("requestOtp hides the generated OTP in production responses", async () => {
   }
 });
 
+test("requestOtp exposes the generated OTP only for whitelisted demo customers", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+
+  try {
+    const cache = new InMemoryOtpCache(() => Date.now());
+    const service = new OtpService(cache, {
+      cooldownSeconds: 0,
+      demoCustomerMobileNumbers: ["+919000000000"],
+      generator: () => "123456",
+      otpTtlSeconds: 300,
+      rateLimit: 5,
+      rateWindowSeconds: 3600
+    });
+
+    assert.deepEqual(
+      await service.requestOtp(OtpPurpose.Customer, "+919000000000"),
+      {
+        devOtp: "123456",
+        expiresInSeconds: 300,
+        mobileNumber: "+919000000000",
+        resendAfterSeconds: 0
+      }
+    );
+    assert.deepEqual(
+      await service.requestOtp(OtpPurpose.Customer, "+919876543210"),
+      {
+        expiresInSeconds: 300,
+        mobileNumber: "+919876543210",
+        resendAfterSeconds: 0
+      }
+    );
+    assert.deepEqual(
+      await service.requestOtp(OtpPurpose.DeliveryPartner, "+919000000000"),
+      {
+        expiresInSeconds: 300,
+        mobileNumber: "+919000000000",
+        resendAfterSeconds: 0
+      }
+    );
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test("requestOtp can expose the generated OTP when explicitly enabled in development", async () => {
   const originalNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "development";

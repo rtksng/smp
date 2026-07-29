@@ -1379,10 +1379,26 @@ function ImageFields({
       ) : null}
       {fields.map((field, index) => (
         <div className="assetRow" key={field.id}>
-          <TextField
-            error={errors.images?.[index]?.url?.message}
-            label="Image URL"
-            registration={form.register(`images.${index}.url` as const)}
+          <Controller
+            control={form.control}
+            name={`images.${index}.url` as const}
+            render={({ field: imageUrlField }) => (
+              <Label>
+                Image URL
+                <Input
+                  name={imageUrlField.name}
+                  onBlur={imageUrlField.onBlur}
+                  onChange={imageUrlField.onChange}
+                  ref={imageUrlField.ref}
+                  value={imageUrlField.value}
+                />
+                {errors.images?.[index]?.url?.message ? (
+                  <span className="fieldError">
+                    {errors.images[index]?.url?.message}
+                  </span>
+                ) : null}
+              </Label>
+            )}
           />
           <TextField
             error={errors.images?.[index]?.altText?.message}

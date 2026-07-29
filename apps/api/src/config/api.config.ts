@@ -24,6 +24,18 @@ function parseBoolean(value: string | undefined, fallback: boolean) {
   return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
+function demoCustomerMobileNumbers(value: string | undefined) {
+  const mobileNumbers = [...new Set(csv(value, []))];
+
+  if (mobileNumbers.some((mobileNumber) => !/^\+[1-9]\d{7,14}$/.test(mobileNumber))) {
+    throw new Error(
+      "OTP_DEMO_CUSTOMER_MOBILE_NUMBERS must contain E.164 mobile numbers."
+    );
+  }
+
+  return mobileNumbers;
+}
+
 function parseTrustProxy(value: string | undefined) {
   if (!value) {
     return false;
@@ -86,6 +98,7 @@ export type ApiEnvironment = {
   jwtAccessTtlSeconds: number;
   jwtRefreshSecret: string;
   jwtRefreshTtlSeconds: number;
+  otpDemoCustomerMobileNumbers: string[];
   otpExposeInResponse: boolean;
   otpRateLimit: number;
   otpRateWindowSeconds: number;
@@ -134,6 +147,9 @@ export function loadApiEnvironment(): ApiEnvironment {
     jwtAccessTtlSeconds: Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
     jwtRefreshSecret: required("JWT_REFRESH_SECRET"),
     jwtRefreshTtlSeconds: Number(process.env.JWT_REFRESH_TTL_SECONDS ?? 2592000),
+    otpDemoCustomerMobileNumbers: demoCustomerMobileNumbers(
+      process.env.OTP_DEMO_CUSTOMER_MOBILE_NUMBERS
+    ),
     otpExposeInResponse: parseBoolean(
       process.env.OTP_EXPOSE_IN_RESPONSE,
       environment !== "production"

@@ -166,6 +166,7 @@ NestJS backend for the Surgical Medical Equipment Platform.
 - Error monitoring is behind `ERROR_MONITORING_ENABLED` and `ERROR_MONITORING_DSN`; the placeholder logs capture intent until a vendor SDK is selected
 - OTP login uses Redis-backed code storage, resend cooldown, and request rate limiting
 - OTP delivery is enqueued to the `otp` BullMQ queue and mocked by the worker; no external SMS provider is wired yet
+- Private demos can set `OTP_DEMO_CUSTOMER_MOBILE_NUMBERS` to a comma-separated E.164 whitelist. Only customer OTP requests for those exact numbers include `devOtp`; global production exposure remains blocked.
 - Customer refresh sessions are stored in `UserSession`
 - Customer profile routes require a customer access token and are scoped to the token subject.
 - Customer profile updates support name, email, GST number, and business name.
@@ -267,6 +268,7 @@ OTP_RESEND_COOLDOWN_SECONDS=60
 OTP_RATE_LIMIT=5
 OTP_RATE_WINDOW_SECONDS=3600
 OTP_EXPOSE_IN_RESPONSE=false
+OTP_DEMO_CUSTOMER_MOBILE_NUMBERS=
 STORAGE_PROVIDER=local
 STORAGE_LOCAL_ROOT=storage/uploads
 STORAGE_PUBLIC_PATH=uploads
