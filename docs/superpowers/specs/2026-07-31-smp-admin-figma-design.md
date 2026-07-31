@@ -4,12 +4,20 @@
 
 Approved visual direction: **Premium Operations, light theme only**.
 
+Approved implementation architecture: domain-organized responsive screens,
+design variables, and a controlled reusable component library for repeated
+interface primitives.
+
 This specification is the review gate before the Figma canvas is changed. The
-target file is the existing blank Figma Design file:
+target file is the existing Figma Design file:
 
 - File: `SMP Admin`
 - File key: `cQswQB7IOSTQwgqvKeojzv`
-- Current canvas: one empty page named `Page 1`
+- Current canvas: `00 - Foundations`, containing the existing foundations board
+  and reusable UI component board
+- Current audited inventory: 156 variables and 103 component/component-set
+  entries
+- Current gap: no complete production route screens
 
 ## Outcome
 
@@ -28,10 +36,13 @@ actions.
 
 - Use a light application theme with a dark forest-green navigation sidebar.
 - Use the approved Premium Operations visual language.
-- Do not create Figma components, component sets, variants, or instances.
-- Create and bind Figma variables for the design foundations.
-- Repeated visual structures remain one-off auto-layout groups on each screen.
-- Do not create a separate reusable-component or UI-kit page.
+- Preserve and refine the existing variables as the design foundations.
+- Reusable Figma components are allowed and expected for repeated interface
+  primitives such as the application shell, navigation, buttons, fields,
+  badges, cards, tables, pagination, states, dialogs, drawers, and toasts.
+- Keep route-specific content, forms, tables, workflows, and business states
+  purpose-built rather than forcing them into generic components.
+- Do not create components for one-off compositions that have no genuine reuse.
 - Preserve every current route and workflow.
 - Treat permission filtering, disabled actions, errors, loading, and empty
   states as first-class product states.
@@ -74,36 +85,38 @@ must remain readable and predictable.
 
 ## Figma File Architecture
 
-Rename the existing page and create the following Figma pages:
+Preserve and refine the existing foundations page, then create the following
+domain pages:
 
-1. `00 - Foundations`
-2. `01 - Auth and Shell`
+1. `00 - Foundations and Components`
+2. `01 - Global Shell and Authentication`
 3. `02 - Dashboard and Reports`
 4. `03 - Catalog`
 5. `04 - Inventory and Warehouses`
-6. `05 - Orders Returns Customers`
+6. `05 - Orders Returns and Customers`
 7. `06 - Delivery`
-8. `07 - Commercial and Support`
-9. `08 - Settings and Access`
-10. `09 - States and Overlays`
-11. `10 - Responsive`
-12. `11 - Flow Map and Coverage`
+8. `07 - Commercial`
+9. `08 - Settings and RBAC`
+10. `09 - States Overlays and Flow Reference`
 
-Each page uses sections to group related route frames and state boards. Desktop
-frames are 1440 pixels wide. Primary route frames should use descriptive names
-with their real path, for example:
+Each domain page uses sections to group desktop, tablet, and mobile route
+frames with their related states and overlays. Desktop frames are 1440 pixels
+wide, tablet reference frames are 834 pixels wide, and mobile reference frames
+are 390 pixels wide. Primary route frames use descriptive names with their real
+path, for example:
 
 `Desktop / Catalog / Products /products / Populated`
 
-State frames append the state:
+Breakpoint and state frames append the viewport and state:
 
-`Desktop / Catalog / Products /products / Empty`
+`Mobile / Catalog / Products /products / Empty`
 
 ## Design Variables
 
-Variables are the only reusable design-system artifacts in this file. Do not
-create local paint styles, text styles, effect styles, components, or component
-sets.
+Variables are the source of truth for all reusable design values. Components
+must bind to variables rather than introducing independent colors, typography,
+spacing, radii, effects, or opacity values. Do not create local paint, text, or
+effect styles.
 
 ### Collection: `Admin / Color`
 
@@ -279,12 +292,46 @@ Single mode: `Default`.
 Motion values are documented and used in prototype transitions where Figma
 supports them. Reduced-motion behavior uses instant transitions.
 
+## Reusable Component Library
+
+The existing reusable UI board becomes the controlled component library for
+the admin. Refine existing components before creating new ones, remove obsolete
+or misleading variants, and use instances throughout production screens.
+
+Approved reusable families:
+
+- Application shell: desktop sidebar, mobile/tablet top bar, navigation drawer,
+  operator identity, and permission-filtered navigation item.
+- Page structure: breadcrumb, page header, tab bar, section heading, metric
+  card, detail summary, form section, chart card, and timeline.
+- Actions: primary, secondary, tertiary, destructive, icon, split, loading,
+  disabled, hover, focus, and pressed button states.
+- Inputs: text, textarea, search, select, multi-select, checkbox, radio, switch,
+  date, date range, number, rich text, JSON editor, upload, helper, validation,
+  and character-count states.
+- Data display: purpose-built table primitives, sortable header, row action
+  menu, pagination, badge, chip, avatar, tooltip, and key-value row.
+- Feedback: inline alert, toast, empty state, no-results state, error state,
+  loading state, skeleton, and permission-denied state.
+- Overlays: confirmation dialog, destructive dialog, side panel, mobile bottom
+  sheet, filter drawer, date picker, select popover, image preview, and account
+  menu.
+
+Components may expose variants only when the same behavior is reused across
+multiple routes. Module-specific filter sets, table column sets, form groups,
+detail layouts, and workflow content remain explicit route compositions.
+
+Use the Lucide icon family consistently. Import vector SVGs rather than drawing
+icons with primitives. Standardize to a two-pixel visual stroke and the
+approved 16, 18, 20, and 24-pixel sizes. Every navigation item uses a
+semantically matching icon, with no generic circle fallback.
+
 ## Shell and Global Layout
 
 ### Desktop shell
 
 - Fixed 272-pixel dark sidebar.
-- SMEP mark and `SMP Admin` product title at the top.
+- SMP mark and `SMP Admin` product title at the top.
 - Permission-filtered navigation with route-aware group expansion.
 - Clear active route indicator using a low-contrast green surface and bright
   text.
@@ -295,6 +342,57 @@ supports them. Reduced-motion behavior uses instant transitions.
 - Page header contains breadcrumb, title, concise operational description, and
   route actions.
 - Optional sticky local action bar on long forms and record-detail screens.
+
+The sidebar must mirror the current code navigation exactly:
+
+- Dashboard
+- Products
+- Categories
+- Brands
+- Product Feedback
+- Inventory: Overview, Stock actions, Movements
+- Orders
+- Returns & Refunds
+- Customers
+- Warehouses: Warehouse staff, Warehouse list
+- Delivery
+- Quote Requests
+- Coupons
+- Delivery Charges
+- Reports
+- Settings
+
+Do not replace these labels with aggregated concepts such as Promotions or
+Support.
+
+### Role and permission coverage
+
+Design navigation and action availability for the implemented administrator
+roles:
+
+- `SUPER_ADMIN`
+- `INVENTORY_MANAGER`
+- `WAREHOUSE_MANAGER`
+- `ORDER_MANAGER`
+- `DELIVERY_MANAGER`
+- `SUPPORT`
+
+The permission reference covers:
+
+- `delivery.assign`, `delivery.read`
+- `inventory.read`, `inventory.update`
+- `orders.cancel`, `orders.read`, `orders.update`
+- `products.create`, `products.delete`, `products.read`, `products.update`
+- `reports.read`
+- `settings.manage`
+- `users.read`, `users.update`
+- `warehouse.manage`, `warehouse.read`, `warehouse.staff.manage`
+
+Show three distinct permission outcomes: navigation hidden when a destination
+is unavailable, an action disabled with an explanation when context should
+remain visible, and an explicit access-restricted route state. The dashboard
+also needs an access-restricted treatment because its route requires
+`reports.read` even though the navigation item itself is not permission-gated.
 
 ### Tablet shell
 
@@ -315,7 +413,8 @@ supports them. Reduced-motion behavior uses instant transitions.
 
 ## Shared Screen Anatomy
 
-These are design rules, not Figma components.
+These anatomies combine reusable primitives with route-specific content and
+behavior.
 
 ### Hub
 
@@ -326,7 +425,7 @@ destination route.
 ### List
 
 Page header, metric strip, filter surface, result summary, table, pagination,
-bulk/action affordances where supported, and state messaging.
+supported actions, and state messaging.
 
 ### Create and edit
 
@@ -345,10 +444,56 @@ action states.
 Filter bar, metric cards, readable charts, table drilldowns, export actions,
 empty chart states, loading skeletons, and a clear data timestamp.
 
+## Production Table Behavior
+
+Tables must behave like operational data grids without implying capabilities
+that the codebase does not provide.
+
+### Desktop
+
+- Use a semantic header row, stable column widths, consistent numeric
+  alignment, and a compact but readable 52-pixel default row.
+- Keep primary identity in the first data column, supporting metadata on a
+  second line, status in a dedicated badge column, and row actions at the end.
+- Use sticky headers on long lists and a sticky action column only when
+  horizontal overflow would otherwise hide essential actions.
+- Truncate only secondary long content. Preserve complete identifiers, monetary
+  values, statuses, and action access.
+- Show visible sort affordances only for fields supported by the route.
+- Show selection checkboxes and bulk-action controls only when an implemented
+  bulk workflow exists.
+- Keep filters above the table with applied-filter visibility, reset, result
+  count, and no-results recovery.
+- Pagination communicates current range, total records, current page, and
+  previous/next availability.
+
+### Tablet and mobile
+
+- Tablet retains the table only while essential columns and actions remain
+  readable. Lower-priority columns move into an expandable row detail.
+- Mobile converts dense rows into route-specific entity cards or compact
+  label-value records with the same data hierarchy, statuses, and actions.
+- Mobile filters open in a bottom sheet, while search and the primary create
+  action remain visible.
+- Horizontal scrolling is reserved for genuinely comparative data such as
+  report matrices; it is not the default mobile solution.
+
+### Capability boundaries
+
+- Report routes alone expose CSV/PDF export.
+- Product listing exposes supported sorting and the implemented advanced
+  filters for stock, price range, category, subcategory, brand, status,
+  sterile, disposable, expiry-sensitive, and specialty.
+- Do not add generic export, import, density, column-management, bulk action,
+  archive, restore, or sorting controls to routes that do not implement them.
+- Soft-delete workflows are labeled Delete or Deactivate according to their
+  actual API and product effect; they are not presented as recoverable archives
+  unless a restore workflow exists.
+
 ## Route Coverage
 
-Every route below receives a named desktop frame. Routes that are redirects or
-section hubs are documented rather than silently omitted.
+Every route below receives named desktop, tablet, and mobile frames. Routes that
+are redirects or section hubs are documented rather than silently omitted.
 
 ### Entry, authentication, and shell
 
@@ -365,10 +510,10 @@ mobile-drawer, operator-menu, and logout-pending examples.
 
 | Route | Required design |
 | --- | --- |
-| `/products` | Metrics, product filters, populated table, no-results, initial empty, loading, error, row menu, archive confirmation |
+| `/products` | Metrics, product filters and supported sorting, populated table, no-results, initial empty, loading, error, row menu, activate/deactivate confirmation, delete confirmation |
 | `/products/create` | Complete product creation form and all nested content states |
 | `/products/[id]/edit` | Loaded edit, loading, unavailable, permission denied, validation errors, save pending, save success, unsaved changes |
-| `/brands` | Brand metrics, search, table, logo/no-logo rows, loading, empty, row actions, archive confirmation |
+| `/brands` | Brand metrics, search, table, logo/no-logo rows, loading, empty, row actions, delete confirmation |
 | `/brands/create` | Brand create form |
 | `/brands/[id]/edit` | Brand edit, loading, unavailable, permission denied, save states |
 | `/categories` | Hierarchy metrics, search, root table, child counts, loading, empty, row actions |
@@ -399,6 +544,21 @@ description, image, active status, and root/child relationship guidance. The
 category list also needs the child-category modal in populated and empty
 states.
 
+Catalog table and filter contracts:
+
+- Products filters: search by name or SKU, category, subcategory, brand,
+  status, sterile, disposable, expiry-sensitive, specialty, in-stock,
+  minimum price, maximum price, and supported sort order.
+- Products columns: product name with specialty, SKU, category with
+  subcategory, brand, price, status, inventory/product flags, and row actions.
+- Brands columns: brand name with description, slug, brand image, status, and
+  actions.
+- Categories columns: category name with description, slug, child-category
+  count, sort order, status, and actions. The child modal uses name, slug,
+  status, and actions.
+- Catalog lists do not expose bulk actions, import, general export, or restore
+  controls.
+
 ### Product feedback
 
 | Route | Required design |
@@ -410,6 +570,15 @@ states.
 Show pending, published/approved, answered, and hidden treatments without
 depending on color alone. Include answer-save pending, moderation pending,
 success, and failure feedback.
+
+Feedback table contracts:
+
+- Reviews columns: customer, product, review/rating, status, moderation note,
+  created date, and actions.
+- Questions columns: customer, product, question, answer, status, moderation
+  note, created date, and actions.
+- Filters: product ID and feedback status. Question answering and moderation
+  actions reflect `products.update` permission availability.
 
 ### Inventory
 
@@ -433,6 +602,19 @@ The design must make it explicit that product creation does not create
 inventory and that stock belongs to warehouse/product/variant and, where
 applicable, batch.
 
+Inventory table and filter contracts:
+
+- Stock filters: search by product or SKU, product, warehouse, low-stock,
+  near-expiry, and expiry-window days.
+- Stock columns: product, SKU/variant, warehouse, available, reserved,
+  reorder threshold, and warning indicators.
+- Batch columns: batch number, product, warehouse, quantity, expiry, purchase
+  price, selling price, and MRP.
+- Movement filters: movement type, product, warehouse, and relevant date/query
+  fields supported by the endpoint.
+- Movement columns: type, product/SKU, warehouse, batch where present, quantity,
+  notes/reason, and timestamp.
+
 ### Warehouses
 
 | Route | Required design |
@@ -444,7 +626,14 @@ applicable, batch.
 
 Warehouse form fields: name, code, address, city, state, six-digit pincode,
 optional latitude/longitude, contact person, contact number, and status.
-Include edit treatment where the existing list opens the edit workflow.
+Include edit treatment where the existing list opens `/warehouses/create` with
+the edit query parameter.
+
+Warehouse list filters are search, state, city, and status. Its table columns
+are warehouse name/code, city/state/pincode, contact person/phone, status, and
+actions. Row actions include edit, activate/deactivate, and the implemented
+soft-delete confirmation. The staff table shows assigned administrator name,
+email, administrator ID, and remove action.
 
 ### Orders
 
@@ -463,12 +652,23 @@ Order detail contains:
 - Linked warehouse.
 - Subtotal, discount, delivery, tax, and grand total.
 - Payment detail.
-- Invoice detail and PDF state.
+- Invoice metadata plus JSON, HTML preview, and PDF download states exposed by
+  the implemented invoice endpoint.
 - Order status timeline.
 - Update-status action with no-next-status state.
 - Cancel-order action with unavailable and destructive confirmation states.
 - Assign-delivery action with partner, pickup warehouse, instructions,
   unavailable/loading/empty states, and success/failure feedback.
+
+Order table contract:
+
+- Filters: order status, payment status, from date, to date, customer mobile,
+  order number, and warehouse.
+- Columns: order number/ID, customer name/mobile, order status, payment status,
+  placed date, warehouse, total, and action.
+- Item detail columns: item, SKU/variant, quantity, unit price, tax, total, and
+  warehouse.
+- Do not add list bulk actions, import, or general export.
 
 ### Returns and refunds
 
@@ -480,6 +680,12 @@ Order detail contains:
 Include internal note entry, returned-item selection, disposition quantity,
 disposition outcome, inspection note, refund status, action pending, action
 success, action failure, and permission unavailable states.
+
+Return/refund filters are refund status, customer mobile, order number, and
+warehouse. Columns are order, customer, payment, refund, reason, warehouse,
+stock disposition, and actions. Available row actions are View order, add
+internal note, approve, reject, process/refetch, and record returned-stock
+disposition when allowed by current status and permissions.
 
 ### Customers
 
@@ -499,6 +705,12 @@ Customer detail contains:
 - Internal support notes with add-note permission state.
 - Status-change confirmation, pending, success, and failure.
 
+Customer list filters are search across name, mobile, email, business, or
+GSTIN, plus account status. Columns are customer, mobile, email, business,
+orders, status, created date, and action. Customer
+create, edit, delete, and bulk workflows are not designed because the admin
+does not implement them.
+
 ### Delivery
 
 | Route | Required design |
@@ -512,6 +724,15 @@ Partner detail includes identity, mobile, email, verification status, vehicle,
 wallet, earnings, availability, last seen, creation date, documents, and
 approval/suspension actions. Destructive or high-impact status changes require
 confirmation.
+
+Delivery table contracts:
+
+- Partners filters: partner status. Columns: partner identity, status,
+  availability, document verification, and actions.
+- Assignments filters: assignment status, warehouse, and partner. Columns:
+  order, partner, assignment status, pickup location, timeline, and proof/issue.
+- Assignment create uses eligible order, active partner, optional pickup
+  warehouse, and note/pickup instructions.
 
 ### Commercial operations
 
@@ -531,6 +752,16 @@ Delivery-charge form includes rule name, charge, optional pincode, optional
 warehouse, minimum/maximum order, free-delivery threshold, priority, and active
 status. Explain matching precedence and optional scopes in contextual copy.
 
+Commercial table contracts:
+
+- Coupons filter by code search. Columns: coupon code, discount, rules,
+  validity window, usage, status, and actions.
+- Delivery-charge rules filter by rule-name search, pincode, warehouse, and
+  status. Columns: rule, charge, scope, order range, free threshold, status,
+  updated date, and actions.
+- Archive is destructive and has no restore affordance because no restore
+  endpoint exists.
+
 ### Quote requests
 
 | Route | Required design |
@@ -542,6 +773,11 @@ Quotation workspace includes status, request/customer context, editable quote
 lines, SKU, item name, quantity, unit price, tax, optional product and variant
 IDs, shipping, validity date, customer notes, calculated totals, existing quote
 summary, save/send pending, success, and failure.
+
+Quote requests filter by request status. Columns are customer, contact,
+request summary, status, quotation summary, created date, and action. The
+selected request opens a route-local detail/quotation side panel rather than a
+separate invented detail route.
 
 ### Reports
 
@@ -559,6 +795,15 @@ filters, applied-filter summary, reset, export, data timestamp, chart loading,
 no-data, request error, and export pending/success/failure states. Charts must
 remain legible without color and expose data in an accompanying table.
 
+Report table contracts:
+
+- Orders by day: date, orders, and drilldown.
+- Revenue by day: date, revenue, and drilldown.
+- Top selling: product, SKU, quantity, revenue, and drilldown.
+- Stock alerts: warehouse, low-stock count, near-expiry count, and drilldowns.
+- Warehouse stock: warehouse, available, reserved, batches, alerts, and
+  drilldown.
+
 ### Settings and access
 
 | Route | Required design |
@@ -573,11 +818,21 @@ and create/new-password behavior. Include password visibility, strength/help,
 validation, suspended status, system-role constraints, permission explanation,
 delete unavailable, delete confirmation, pending, success, and failure states.
 
+Settings table contracts:
+
+- Admin-user filters: search, role, and status. Columns: administrator, email,
+  role, status, last login, and actions.
+- Roles columns: role, system/custom type, description, and permission count.
+  Selecting a role opens the implemented read-only role-detail response in a
+  drawer; role CRUD is not invented.
+- Permissions columns: code, name, and description. Permission CRUD is not
+  invented.
+
 ## States and Overlays
 
-The `09 - States and Overlays` page contains one-off, variable-bound examples
-with route references. Each route frame is annotated with the states that
-apply.
+The `09 - States Overlays and Flow Reference` page contains reusable state and
+overlay examples plus route references. Each route frame is annotated with the
+states that apply.
 
 ### Global states
 
@@ -644,7 +899,8 @@ and mobile treatment.
 
 ## Primary Prototype Flows
 
-Connect the following flows on the `11 - Flow Map and Coverage` page:
+Connect the following flows on the `09 - States Overlays and Flow Reference`
+page:
 
 1. Sign in, handle invalid credentials, and reach dashboard.
 2. Navigate with full permissions and with a restricted operator.
@@ -664,13 +920,15 @@ Connect the following flows on the `11 - Flow Map and Coverage` page:
 16. Filter a report, drill into data, and export.
 17. Create/edit/delete an admin user and inspect role/permission context.
 
-Prototype connections use restrained 180–240 millisecond transitions. Destructive
+Prototype connections use restrained 180-240 millisecond transitions. Destructive
 actions never jump directly to a success state without a confirmation frame.
 
 ## Responsive Coverage
 
-All 52 route entry points receive a desktop design. The responsive page contains
-tablet and mobile adaptations for every unique screen anatomy:
+All 52 route entry points receive desktop, tablet, and mobile treatments within
+their domain page. Repeated state matrices may live on the reference page, but
+every route must link to the applicable breakpoint-specific state and overlay
+behavior. Responsive coverage includes:
 
 - Login
 - Shell and navigation
@@ -688,8 +946,9 @@ tablet and mobile adaptations for every unique screen anatomy:
 - Bottom-sheet filters
 - Loading, empty, error, and permission states
 
-The responsive frame annotations map each route to one of these anatomies, so no
-route lacks a defined collapse behavior.
+The frames and annotations map every route to its exact collapse behavior.
+Tablet and mobile layouts are purpose-built adaptations, not scaled desktop
+screens.
 
 ## Accessibility
 
@@ -732,7 +991,11 @@ route lacks a defined collapse behavior.
 - Give every top-level frame a clear route/state name.
 - Place screens in predictable left-to-right flows with generous canvas
   separation.
-- Do not create components, component sets, variants, or instances.
+- Refine existing reusable components before creating a duplicate.
+- Create new components only for interface primitives reused across multiple
+  routes, and expose only meaningful, behaviorally consistent variants.
+- Keep module-specific tables, filters, forms, and workflow compositions
+  explicit.
 - Do not create local styles.
 - Do not leave shimmer placeholders on completed work.
 
@@ -740,15 +1003,16 @@ route lacks a defined collapse behavior.
 
 Before handoff:
 
-1. Confirm the file contains the 12 named pages.
-2. Confirm all 52 route entry points are represented or explicitly documented
-   when the route is a redirect.
+1. Confirm the file contains the 10 named pages.
+2. Confirm all 52 route entry points are represented across desktop, tablet,
+   and mobile, or explicitly documented when the route is a redirect.
 3. Confirm all primary flows have connected prototype paths.
 4. Confirm all required global, form, upload, overlay, permission, and
    destructive states exist.
-5. Confirm responsive mappings cover every route.
-6. Programmatically confirm there are zero components, zero component sets, and
-   zero instances created by this work.
+5. Confirm responsive frames and mappings cover every route.
+6. Confirm repeated UI uses the approved reusable component families, instances
+   remain intact, and route-specific business compositions have not been
+   collapsed into misleading generic components.
 7. Confirm the variable collections, modes, names, values, scopes, and bindings.
 8. Confirm all rendered text uses Plus Jakarta Sans or the approved Geist Mono
    data role.
@@ -760,4 +1024,5 @@ Before handoff:
 12. Verify the Figma work did not change application code or backend behavior.
 
 The design is complete only when route coverage, flow coverage, state coverage,
-responsive coverage, and the no-components constraint all pass this audit.
+responsive coverage, component consistency, code parity, and visual QA all pass
+this audit.
