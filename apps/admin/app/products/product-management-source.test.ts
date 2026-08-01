@@ -44,9 +44,7 @@ describe("product management route flow", () => {
     expect(productManagementSource).toContain("rowIconButton");
     expect(productManagementSource).toContain("useId");
     expect(productManagementSource).toContain("aria-labelledby={labelId}");
-    expect(productManagementSource).not.toContain(
-      '<label className="richTextField">'
-    );
+    expect(productManagementSource).not.toContain('<label className="richTextField">');
     expect(productManagementSource).not.toContain("document.execCommand");
   });
 
@@ -55,9 +53,30 @@ describe("product management route flow", () => {
     expect(productManagementSource).toContain("@/components/ui/card");
     expect(productManagementSource).toContain("@/components/ui/input");
     expect(productManagementSource).toContain("@/components/ui/select");
-    expect(productManagementSource).toContain(
-      "@/components/admin/confirmation-dialog"
-    );
+    expect(productManagementSource).toContain("@/components/admin/confirmation-dialog");
     expect(productManagementSource).not.toContain("function ConfirmationDialog(");
+  });
+
+  it("opens product filters in the shared drawer without duplicating the filter form", () => {
+    expect(productManagementSource).toContain(
+      'import { FilterDrawer } from "@/components/admin/filter-drawer";'
+    );
+    expect(productManagementSource).toContain(
+      "<SlidersHorizontal aria-hidden size={16} />"
+    );
+    expect(productManagementSource).toContain('title="Product filters"');
+    expect(productManagementSource).toContain("<ProductFilterFields");
+    expect(productManagementSource).toContain(
+      'api.request<ProductListResponse>("/admin/products",'
+    );
+    expect(productManagementSource).toContain(
+      "query: buildProductQuery(appliedFilters, page)"
+    );
+    expect(productManagementSource).toContain("setAppliedFilters(draftFilters)");
+    expect(productManagementSource).toContain("setIsFilterDrawerOpen(false)");
+    expect(productManagementSource).not.toContain(
+      '<PageHeader level={2} eyebrow="Catalog filters" title="Find products" />'
+    );
+    expect(productManagementSource).not.toContain('<form className="productFilters"');
   });
 });

@@ -42,6 +42,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Trash2,
   Underline
 } from "lucide-react";
@@ -73,6 +74,7 @@ import {
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
@@ -231,6 +233,7 @@ function ProductManagementContent({
   const router = useRouter();
   const [draftFilters, setDraftFilters] = useState<ProductFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(emptyFilters);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -316,6 +319,7 @@ function ProductManagementContent({
   function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
     setPage(1);
   }
 
@@ -399,9 +403,7 @@ function ProductManagementContent({
                 : "Create a catalog product with pricing, assets, variants, and documents."
             }
             title={
-              isEditView
-                ? (editingProduct?.name ?? "Edit product")
-                : "Create product"
+              isEditView ? (editingProduct?.name ?? "Edit product") : "Create product"
             }
           />
 
@@ -461,6 +463,14 @@ function ProductManagementContent({
             <>
               <Button
                 className="iconTextButton"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                type="button"
+              >
+                <SlidersHorizontal aria-hidden size={16} />
+                <span>Add filter</span>
+              </Button>
+              <Button
+                className="iconTextButton"
                 onClick={() => void productsQuery.refetch()}
                 type="button"
                 variant="outline"
@@ -509,18 +519,23 @@ function ProductManagementContent({
         </div>
       </Card>
 
-      <Card className="panel">
-        <PageHeader level={2} eyebrow="Catalog filters" title="Find products" />
-        <ProductFilterForm
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        isSubmitting={productsQuery.isFetching}
+        onApply={handleFilterSubmit}
+        onOpenChange={setIsFilterDrawerOpen}
+        onReset={resetFilters}
+        summary="Search and refine the product catalog table."
+        title="Product filters"
+      >
+        <ProductFilterFields
           brands={brands}
           categories={categoryTree}
           filters={draftFilters}
           isLoading={brandsQuery.isLoading || categoriesQuery.isLoading}
           onChange={setDraftFilters}
-          onReset={resetFilters}
-          onSubmit={handleFilterSubmit}
         />
-      </Card>
+      </FilterDrawer>
 
       <Card className="panel">
         <PageHeader
@@ -536,9 +551,7 @@ function ProductManagementContent({
           title="Catalog table"
         />
 
-        {productsQuery.isLoading ? (
-          <LoadingState label="Loading products..." />
-        ) : null}
+        {productsQuery.isLoading ? <LoadingState label="Loading products..." /> : null}
         {productsQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
@@ -575,22 +588,18 @@ function ProductManagementContent({
   );
 }
 
-function ProductFilterForm({
+function ProductFilterFields({
   brands,
   categories,
   filters,
   isLoading,
-  onChange,
-  onReset,
-  onSubmit
+  onChange
 }: {
   brands: AdminBrand[];
   categories: AdminCategory[];
   filters: ProductFilters;
   isLoading: boolean;
   onChange: (filters: ProductFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   const subcategories = filters.category
     ? getSubcategoriesForCategory(categories, filters.category)
@@ -608,12 +617,13 @@ function ProductFilterForm({
   }
 
   return (
-    <form className="productFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Label>
         Search name or SKU
         <span className="searchInput">
           <Search aria-hidden size={16} />
           <Input
+            className="filterDrawerControl"
             onChange={(event) => updateFilter("search", event.target.value)}
             placeholder="Forceps or FORCEPS-001"
             value={filters.search}
@@ -629,7 +639,7 @@ function ProductFilterForm({
           }
           value={filters.category || FILTER_ALL_VALUE}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
@@ -651,7 +661,7 @@ function ProductFilterForm({
           }
           value={filters.subcategory || FILTER_ALL_VALUE}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="All subcategories" />
           </SelectTrigger>
           <SelectContent>
@@ -673,7 +683,7 @@ function ProductFilterForm({
           }
           value={filters.brand || FILTER_ALL_VALUE}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="All brands" />
           </SelectTrigger>
           <SelectContent>
@@ -697,7 +707,7 @@ function ProductFilterForm({
           }
           value={filters.status || FILTER_ALL_VALUE}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -734,21 +744,13 @@ function ProductFilterForm({
       <Label>
         Medical specialty
         <Input
+          className="filterDrawerControl"
           onChange={(event) => updateFilter("medicalSpecialty", event.target.value)}
           placeholder="General Surgery"
           value={filters.medicalSpecialty}
         />
       </Label>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -812,7 +814,9 @@ function ProductTable({
                 </TableCell>
                 <TableCell>
                   <span className="flagList">
-                    {product.sterile ? <Badge variant="secondary">Sterile</Badge> : null}
+                    {product.sterile ? (
+                      <Badge variant="secondary">Sterile</Badge>
+                    ) : null}
                     {product.disposable ? (
                       <Badge variant="secondary">Disposable</Badge>
                     ) : null}
@@ -1138,7 +1142,9 @@ export function ProductForm({
             value={form.watch("categoryId")}
           />
           <SelectField
-            disabled={isLookupLoading || !selectedCategoryId || subcategories.length === 0}
+            disabled={
+              isLookupLoading || !selectedCategoryId || subcategories.length === 0
+            }
             error={errors.subcategoryId?.message}
             label="Subcategory"
             onChange={(value) =>
@@ -1151,7 +1157,9 @@ export function ProductForm({
               label: subcategory.name,
               value: subcategory.id
             }))}
-            placeholder={subcategories.length > 0 ? "Select subcategory" : "No subcategory"}
+            placeholder={
+              subcategories.length > 0 ? "Select subcategory" : "No subcategory"
+            }
             value={form.watch("subcategoryId")}
           />
           <SelectField
@@ -1366,7 +1374,12 @@ function ImageFields({
     <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product images</h3>
-        <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
+        <Button
+          className="iconTextButton"
+          onClick={onAdd}
+          type="button"
+          variant="outline"
+        >
           <Plus aria-hidden size={16} />
           <span>Add image</span>
         </Button>
@@ -1479,7 +1492,12 @@ function VariantFields({
     <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product variants</h3>
-        <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
+        <Button
+          className="iconTextButton"
+          onClick={onAdd}
+          type="button"
+          variant="outline"
+        >
           <Plus aria-hidden size={16} />
           <span>Add variant</span>
         </Button>
@@ -1567,7 +1585,12 @@ function DocumentFields({
     <Card className="formSection border-0">
       <div className="sectionTitleRow">
         <h3>Product documents</h3>
-        <Button className="iconTextButton" onClick={onAdd} type="button" variant="outline">
+        <Button
+          className="iconTextButton"
+          onClick={onAdd}
+          type="button"
+          variant="outline"
+        >
           <Plus aria-hidden size={16} />
           <span>Add document</span>
         </Button>
@@ -1799,11 +1822,7 @@ function RichTextToolbar() {
         </Select>
       </div>
       <EditorButton icon={Bold} label="Bold" onClick={() => formatText("bold")} />
-      <EditorButton
-        icon={Italic}
-        label="Italic"
-        onClick={() => formatText("italic")}
-      />
+      <EditorButton icon={Italic} label="Italic" onClick={() => formatText("italic")} />
       <EditorButton
         icon={Underline}
         label="Underline"
@@ -1817,9 +1836,7 @@ function RichTextToolbar() {
       <EditorButton
         icon={List}
         label="Unordered list"
-        onClick={() =>
-          editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)
-        }
+        onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}
       />
       <EditorButton icon={LinkIcon} label="Link" onClick={createLink} />
       <EditorButton
@@ -1947,7 +1964,8 @@ function SelectField({
   placeholder?: string;
   value: string;
 }) {
-  const selectedValue = value || (placeholder ? FORM_SELECT_EMPTY_VALUE : options[0]?.value);
+  const selectedValue =
+    value || (placeholder ? FORM_SELECT_EMPTY_VALUE : options[0]?.value);
 
   return (
     <Label>
@@ -1994,7 +2012,7 @@ function BooleanSelect({
       }
       value={value || BOOLEAN_FILTER_ANY_VALUE}
     >
-      <SelectTrigger>
+      <SelectTrigger className="filterDrawerControl">
         <SelectValue placeholder="Any" />
       </SelectTrigger>
       <SelectContent>
