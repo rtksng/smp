@@ -8,13 +8,18 @@ import {
   BarChart3,
   Boxes,
   Circle,
+  CircleDollarSign,
+  ClipboardList,
   FolderTree,
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareHeart,
   Package,
+  ReceiptText,
   Settings,
   ShoppingCart,
+  TicketPercent,
   Truck,
   Users,
   Warehouse,
@@ -37,13 +42,18 @@ import {
 const navIconMap: Record<string, LucideIcon> = {
   Brands: Badge,
   Categories: FolderTree,
+  Coupons: TicketPercent,
   Customers: Users,
   Dashboard: LayoutDashboard,
   Delivery: Truck,
+  "Delivery Charges": CircleDollarSign,
   Inventory: Boxes,
   Orders: ShoppingCart,
   Products: Package,
+  "Product Feedback": MessageSquareHeart,
+  "Quote Requests": ClipboardList,
   Reports: BarChart3,
+  "Returns & Refunds": ReceiptText,
   Settings,
   Warehouses: Warehouse
 };
@@ -187,15 +197,42 @@ function renderNavigation(
   pathname: string,
   onNavigate?: () => void
 ) {
+  const navigationSections = visibleNavItems.reduce<
+    Array<{ label: AdminNavigationItem["category"]; items: AdminNavigationItem[] }>
+  >((sections, item) => {
+    const section = sections.find(({ label }) => label === item.category);
+
+    if (section) {
+      section.items.push(item);
+      return sections;
+    }
+
+    sections.push({ label: item.category, items: [item] });
+    return sections;
+  }, []);
+
   return (
     <nav aria-label="Admin navigation">
-      {visibleNavItems.map((item) => (
-        <NavigationGroup
-          item={item}
-          key={item.href}
-          onNavigate={onNavigate}
-          pathname={pathname}
-        />
+      {navigationSections.map((section) => (
+        <section
+          aria-labelledby={`navigation-${section.label}`}
+          className="sidebarNavSection"
+          key={section.label}
+        >
+          <h2 className="sidebarNavSectionLabel" id={`navigation-${section.label}`}>
+            {section.label}
+          </h2>
+          <div className="sidebarNavSectionLinks">
+            {section.items.map((item) => (
+              <NavigationGroup
+                item={item}
+                key={item.href}
+                onNavigate={onNavigate}
+                pathname={pathname}
+              />
+            ))}
+          </div>
+        </section>
       ))}
     </nav>
   );

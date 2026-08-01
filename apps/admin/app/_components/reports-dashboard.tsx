@@ -10,16 +10,30 @@ import {
   FileText,
   IndianRupee,
   RefreshCw,
-  Search,
   ShoppingCart,
+  SlidersHorizontal,
   Truck,
   Users,
   Warehouse
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Area,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
@@ -57,6 +71,7 @@ import {
   type DashboardCards,
   type DashboardReport,
   type DashboardReportFilters,
+  type OrdersByDayPoint,
   type ReportExportFormat,
   type RevenueByDayPoint,
   type StockAlertPoint,
@@ -159,6 +174,26 @@ const reportCopy: Record<ReportView, { summary: string; title: string }> = {
   }
 };
 
+const dashboardChartColors = {
+  accent: "#0f766e",
+  muted: "#8fa29d",
+  primary: "#287c30",
+  revenue: "#2563eb",
+  warning: "#b7791f"
+};
+
+const compactNumberFormatter = new Intl.NumberFormat("en-IN", {
+  maximumFractionDigits: 1,
+  notation: "compact"
+});
+
+const compactCurrencyFormatter = new Intl.NumberFormat("en-IN", {
+  currency: "INR",
+  maximumFractionDigits: 1,
+  notation: "compact",
+  style: "currency"
+});
+
 export function ReportsDashboard({
   eyebrow = "Reports",
   hideSectionNavigation = false,
@@ -173,6 +208,7 @@ export function ReportsDashboard({
     createDefaultReportFilters()
   );
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportingFormat, setExportingFormat] = useState<ReportExportFormat | null>(
     null
@@ -203,6 +239,7 @@ export function ReportsDashboard({
   const report = dashboardQuery.data;
   const warehouses = warehousesQuery.data?.items ?? [];
   const emptyState = getDashboardEmptyState(report);
+  const isMainDashboard = view === "overview" && hideSectionNavigation;
   const errorMessage =
     dashboardQuery.error instanceof Error
       ? dashboardQuery.error.message
@@ -219,6 +256,7 @@ export function ReportsDashboard({
 
     setFilterError(null);
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
@@ -261,6 +299,14 @@ export function ReportsDashboard({
             <div className="reportExportActions">
               <Button
                 className="iconTextButton"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                type="button"
+              >
+                <SlidersHorizontal aria-hidden size={16} />
+                <span>Add filter</span>
+              </Button>
+              <Button
+                className="iconTextButton"
                 disabled={Boolean(exportingFormat)}
                 onClick={() => void handleExport("csv")}
                 type="button"
@@ -295,19 +341,23 @@ export function ReportsDashboard({
           summary={reportCopy[view].summary}
           title={title ?? reportCopy[view].title}
         />
-        <ReportFilterForm
-          filters={draftFilters}
-          isWarehouseLoading={warehousesQuery.isLoading}
-          onChange={setDraftFilters}
+        <FilterDrawer
+          error={filterError}
+          isOpen={isFilterDrawerOpen}
+          isSubmitting={dashboardQuery.isFetching}
+          onApply={applyFilters}
+          onOpenChange={setIsFilterDrawerOpen}
           onReset={resetFilters}
-          onSubmit={applyFilters}
-          warehouses={warehouses}
-        />
-        {filterError ? (
-          <p className="formError" role="alert">
-            {filterError}
-          </p>
-        ) : null}
+          summary="Set a date range and operational filters for the dashboard."
+          title="Dashboard filters"
+        >
+          <ReportFilterFields
+            filters={draftFilters}
+            isWarehouseLoading={warehousesQuery.isLoading}
+            onChange={setDraftFilters}
+            warehouses={warehouses}
+          />
+        </FilterDrawer>
         {warehousesQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
@@ -333,16 +383,464 @@ export function ReportsDashboard({
       {emptyState ? <EmptyState body={emptyState} title="No report data" /> : null}
 
       {report ? (
-        <>
-          <MetricGrid cards={report.cards} filters={appliedFilters} view={view} />
-          {view === "overview" ? (
-            <ReportHub cards={report.cards} />
-          ) : (
-            <ReportViewTable filters={appliedFilters} report={report} view={view} />
-          )}
-        </>
+        isMainDashboard ? (
+          <DashboardOverview filters={appliedFilters} report={report} />
+        ) : (
+          <>
+            <MetricGrid cards={report.cards} filters={appliedFilters} view={view} />
+            {view === "overview" ? (
+              <ReportHub cards={report.cards} />
+            ) : (
+              <ReportViewTable filters={appliedFilters} report={report} view={view} />
+            )}
+          </>
+        )
       ) : null}
     </>
+  );
+}
+
+function DashboardOverview({
+  filters,
+  report
+}: {
+  filters: DashboardReportFilters;
+  report: DashboardReport;
+}) {
+  return (
+    <>
+      <DashboardKpiStrip cards={report.cards} filters={filters} />
+      <section className="dashboardChartGrid" aria-label="Dashboard charts">
+        <DashboardTrendChart report={report} />
+        <TopProductsChart
+          filters={filters}
+          items={report.charts.topSellingProducts}
+        />
+        <InventoryRiskChart
+          filters={filters}
+          items={report.charts.stockAlerts}
+        />
+        <WarehouseStockChart
+          filters={filters}
+          items={report.charts.warehouseStockSummary}
+        />
+      </section>
+    </>
+  );
+}
+
+function DashboardKpiStrip({
+  cards,
+  filters
+}: {
+  cards: DashboardCards;
+  filters: DashboardReportFilters;
+}) {
+  const inventoryRisk = cards.lowStockProducts + cards.nearExpiryBatches;
+  const kpis = [
+    {
+      href: buildReportDrilldownHref("orders", {
+        ...filters,
+        paymentStatus: "PAID"
+      }),
+      label: "Revenue",
+      note: "Paid order value",
+      tone: "primary",
+      value: formatReportCurrency(cards.revenue)
+    },
+    {
+      href: buildReportDrilldownHref("orders", filters),
+      label: "Order volume",
+      note: `${formatReportNumber(cards.todayOrders)} today`,
+      tone: "neutral",
+      value: formatReportNumber(cards.totalOrders)
+    },
+    {
+      href: buildReportDrilldownHref("orders", filters),
+      label: "Pending queue",
+      note: "Needs operation review",
+      tone: cards.pendingOrders > 0 ? "warning" : "neutral",
+      value: formatReportNumber(cards.pendingOrders)
+    },
+    {
+      href: buildReportDrilldownHref("inventory-low-stock", filters),
+      label: "Inventory risk",
+      note: `${formatReportNumber(cards.lowStockProducts)} low, ${formatReportNumber(
+        cards.nearExpiryBatches
+      )} expiry`,
+      tone: inventoryRisk > 0 ? "warning" : "neutral",
+      value: formatReportNumber(inventoryRisk)
+    }
+  ];
+
+  return (
+    <section className="dashboardKpiGrid" aria-label="Dashboard key metrics">
+      {kpis.map((kpi) => (
+        <Link
+          className={`dashboardKpi dashboardKpi--${kpi.tone}`}
+          href={kpi.href}
+          key={kpi.label}
+        >
+          <span>{kpi.label}</span>
+          <strong>{kpi.value}</strong>
+          <em>{kpi.note}</em>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+function DashboardTrendChart({ report }: { report: DashboardReport }) {
+  const data = buildTrendChartData(report);
+
+  return (
+    <DashboardChartPanel
+      actionHref="/reports/sales"
+      actionLabel="Open sales report"
+      emptyState="No orders or revenue in this date range."
+      isEmpty={data.length === 0}
+      summary="Orders and paid revenue by day"
+      title="Sales and order trend"
+      wide
+    >
+      <DashboardChartFrame height={300}>
+        {(width) => (
+        <ComposedChart
+          data={data}
+          height={300}
+          margin={{ bottom: 4, left: 0, right: 12, top: 10 }}
+          width={width}
+        >
+          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            tickMargin={10}
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            tickFormatter={formatCompactNumberAxis}
+            tickLine={false}
+            width={44}
+            yAxisId="orders"
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            orientation="right"
+            tickFormatter={formatCompactCurrencyAxis}
+            tickLine={false}
+            width={58}
+            yAxisId="revenue"
+          />
+          <RechartsTooltip formatter={formatChartTooltipValue} />
+          <Legend iconType="circle" />
+          <Bar
+            barSize={18}
+            dataKey="orders"
+            fill={dashboardChartColors.primary}
+            name="Orders"
+            radius={[6, 6, 0, 0]}
+            yAxisId="orders"
+          />
+          <Area
+            dataKey="revenue"
+            fill={dashboardChartColors.revenue}
+            fillOpacity={0.12}
+            name="Revenue"
+            stroke={dashboardChartColors.revenue}
+            strokeWidth={2}
+            type="monotone"
+            yAxisId="revenue"
+          />
+        </ComposedChart>
+        )}
+      </DashboardChartFrame>
+    </DashboardChartPanel>
+  );
+}
+
+function TopProductsChart({
+  filters,
+  items
+}: {
+  filters: DashboardReportFilters;
+  items: TopSellingProductPoint[];
+}) {
+  const data = items.slice(0, 6).map((item) => ({
+    ...item,
+    href: buildReportDrilldownHref("product", filters, item.productId),
+    id: item.productId,
+    label: compactLabel(item.name)
+  }));
+
+  return (
+    <DashboardChartPanel
+      actionHref="/reports/products"
+      actionLabel="Open product report"
+      emptyState="No product movement in this date range."
+      isEmpty={data.length === 0}
+      summary="Top selling products by quantity"
+      title="Product movement"
+    >
+      <DashboardChartFrame>
+        {(width) => (
+        <BarChart
+          data={data}
+          height={280}
+          layout="vertical"
+          margin={{ bottom: 4, left: 8, right: 18, top: 4 }}
+          width={width}
+        >
+          <CartesianGrid stroke="#e4ece9" horizontal={false} />
+          <XAxis
+            axisLine={false}
+            fontSize={12}
+            tickFormatter={formatCompactNumberAxis}
+            tickLine={false}
+            type="number"
+          />
+          <YAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            type="category"
+            width={118}
+          />
+          <RechartsTooltip formatter={formatChartTooltipValue} />
+          <Bar dataKey="quantity" name="Quantity sold" radius={[0, 6, 6, 0]}>
+            {data.map((item, index) => (
+              <Cell
+                fill={index % 2 === 0 ? dashboardChartColors.primary : dashboardChartColors.accent}
+                key={item.id}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+        )}
+      </DashboardChartFrame>
+      <div className="dashboardChartDrilldowns">
+        {data.slice(0, 3).map((item) => (
+          <ReportTableLink href={item.href} key={item.id}>
+            {item.name}
+          </ReportTableLink>
+        ))}
+      </div>
+    </DashboardChartPanel>
+  );
+}
+
+function InventoryRiskChart({
+  filters,
+  items
+}: {
+  filters: DashboardReportFilters;
+  items: StockAlertPoint[];
+}) {
+  const data = items.slice(0, 6).map((item) => ({
+    ...item,
+    label: compactLabel(item.warehouseName)
+  }));
+
+  return (
+    <DashboardChartPanel
+      actionHref={buildReportDrilldownHref("inventory-low-stock", filters)}
+      actionLabel="Open inventory"
+      emptyState="No stock alerts for visible warehouses."
+      isEmpty={data.length === 0}
+      summary="Low stock and near expiry alerts"
+      title="Inventory risk"
+    >
+      <DashboardChartFrame>
+        {(width) => (
+        <ComposedChart
+          data={data}
+          height={280}
+          margin={{ bottom: 4, left: 0, right: 12, top: 4 }}
+          width={width}
+        >
+          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            tickMargin={10}
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            tickFormatter={formatCompactNumberAxis}
+            tickLine={false}
+            width={38}
+          />
+          <RechartsTooltip formatter={formatChartTooltipValue} />
+          <Legend iconType="circle" />
+          <Bar
+            dataKey="lowStockProducts"
+            fill={dashboardChartColors.warning}
+            name="Low stock"
+            radius={[6, 6, 0, 0]}
+          />
+          <Bar
+            dataKey="nearExpiryBatches"
+            fill={dashboardChartColors.accent}
+            name="Near expiry"
+            radius={[6, 6, 0, 0]}
+          />
+        </ComposedChart>
+        )}
+      </DashboardChartFrame>
+    </DashboardChartPanel>
+  );
+}
+
+function WarehouseStockChart({
+  filters,
+  items
+}: {
+  filters: DashboardReportFilters;
+  items: WarehouseStockSummaryPoint[];
+}) {
+  const data = items.slice(0, 6).map((item) => ({
+    ...item,
+    label: compactLabel(item.warehouseName)
+  }));
+
+  return (
+    <DashboardChartPanel
+      actionHref={buildReportDrilldownHref("warehouse", filters)}
+      actionLabel="Open warehouses"
+      emptyState="No warehouse stock summary available."
+      isEmpty={data.length === 0}
+      summary="Available and reserved stock coverage"
+      title="Warehouse stock"
+    >
+      <DashboardChartFrame>
+        {(width) => (
+        <ComposedChart
+          data={data}
+          height={280}
+          margin={{ bottom: 4, left: 0, right: 12, top: 4 }}
+          width={width}
+        >
+          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            tickMargin={10}
+          />
+          <YAxis
+            axisLine={false}
+            fontSize={12}
+            tickFormatter={formatCompactNumberAxis}
+            tickLine={false}
+            width={42}
+          />
+          <RechartsTooltip formatter={formatChartTooltipValue} />
+          <Legend iconType="circle" />
+          <Bar
+            dataKey="availableQuantity"
+            fill={dashboardChartColors.primary}
+            name="Available"
+            radius={[6, 6, 0, 0]}
+          />
+          <Bar
+            dataKey="reservedQuantity"
+            fill={dashboardChartColors.muted}
+            name="Reserved"
+            radius={[6, 6, 0, 0]}
+          />
+          <Line
+            dataKey="activeBatches"
+            dot={{ r: 3 }}
+            name="Batches"
+            stroke={dashboardChartColors.revenue}
+            strokeWidth={2}
+            type="monotone"
+          />
+        </ComposedChart>
+        )}
+      </DashboardChartFrame>
+    </DashboardChartPanel>
+  );
+}
+
+function DashboardChartPanel({
+  actionHref,
+  actionLabel,
+  children,
+  emptyState,
+  isEmpty,
+  summary,
+  title,
+  wide = false
+}: {
+  actionHref: string;
+  actionLabel: string;
+  children: ReactNode;
+  emptyState: string;
+  isEmpty: boolean;
+  summary: string;
+  title: string;
+  wide?: boolean;
+}) {
+  return (
+    <section className="panel dashboardChartPanel" data-wide={wide ? "true" : undefined}>
+      <div className="dashboardChartHeader">
+        <span>
+          <strong>{title}</strong>
+          <em>{summary}</em>
+        </span>
+        <ReportTableLink href={actionHref}>{actionLabel}</ReportTableLink>
+      </div>
+      {isEmpty ? <div className="emptyPanel smallEmpty">{emptyState}</div> : children}
+    </section>
+  );
+}
+
+function DashboardChartFrame({
+  children,
+  height = 280
+}: {
+  children: (width: number) => ReactNode;
+  height?: number;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(760);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+
+    if (!frame) {
+      return;
+    }
+
+    const syncWidth = () => {
+      const nextWidth = Math.floor(frame.getBoundingClientRect().width);
+
+      if (nextWidth > 0) {
+        setWidth(nextWidth);
+      }
+    };
+    const resizeObserver = new ResizeObserver(syncWidth);
+
+    syncWidth();
+    resizeObserver.observe(frame);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  return (
+    <div className="dashboardChartFrame" ref={frameRef} style={{ height }}>
+      {children(width)}
+    </div>
   );
 }
 
@@ -378,26 +876,23 @@ function ReportHub({ cards }: { cards: DashboardCards }) {
   );
 }
 
-function ReportFilterForm({
+function ReportFilterFields({
   filters,
   isWarehouseLoading,
   onChange,
-  onReset,
-  onSubmit,
   warehouses
 }: {
   filters: DashboardReportFilters;
   isWarehouseLoading: boolean;
   onChange: (filters: DashboardReportFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   warehouses: WarehouseListResponse["items"];
 }) {
   return (
-    <form className="reportFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Label>
         From
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, dateFrom: event.target.value })}
           type="date"
           value={filters.dateFrom}
@@ -406,6 +901,7 @@ function ReportFilterForm({
       <Label>
         To
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, dateTo: event.target.value })}
           type="date"
           value={filters.dateTo}
@@ -419,7 +915,7 @@ function ReportFilterForm({
           onValueChange={(warehouseId) => onChange({ ...filters, warehouseId })}
           value={filters.warehouseId}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="All visible warehouses" />
           </SelectTrigger>
           <SelectContent>
@@ -448,7 +944,7 @@ function ReportFilterForm({
           }
           value={filters.orderStatus}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="Any status" />
           </SelectTrigger>
           <SelectContent>
@@ -473,7 +969,7 @@ function ReportFilterForm({
           }
           value={filters.paymentStatus}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="Any payment" />
           </SelectTrigger>
           <SelectContent>
@@ -489,6 +985,7 @@ function ReportFilterForm({
       <Label>
         Expiry window
         <Input
+          className="filterDrawerControl"
           inputMode="numeric"
           max={365}
           min={1}
@@ -499,16 +996,7 @@ function ReportFilterForm({
           value={filters.nearExpiryDays}
         />
       </Label>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -1151,6 +1639,94 @@ function formatLongDate(value: string) {
     month: "short",
     year: "numeric"
   });
+}
+
+function mergeTrendData(
+  ordersByDay: OrdersByDayPoint[],
+  revenueByDay: RevenueByDayPoint[]
+) {
+  const points = new Map<string, { date: string; orders: number; revenue: number }>();
+
+  for (const item of ordersByDay) {
+    points.set(item.date, {
+      date: item.date,
+      orders: item.orders,
+      revenue: points.get(item.date)?.revenue ?? 0
+    });
+  }
+
+  for (const item of revenueByDay) {
+    points.set(item.date, {
+      date: item.date,
+      orders: points.get(item.date)?.orders ?? 0,
+      revenue: item.revenue
+    });
+  }
+
+  return Array.from(points.values())
+    .sort((first, second) => first.date.localeCompare(second.date))
+    .map((item) => ({
+      ...item,
+      label: formatChartDate(item.date)
+    }));
+}
+
+function buildTrendChartData(report: DashboardReport) {
+  const trendData = mergeTrendData(report.charts.ordersByDay, report.charts.revenueByDay);
+
+  if (trendData.length > 0) {
+    return trendData;
+  }
+
+  return [
+    {
+      date: "pending",
+      label: "Pending",
+      orders: report.cards.pendingOrders,
+      revenue: 0
+    },
+    {
+      date: "today",
+      label: "Today",
+      orders: report.cards.todayOrders,
+      revenue: 0
+    },
+    {
+      date: "total",
+      label: "Total",
+      orders: report.cards.totalOrders,
+      revenue: report.cards.revenue
+    }
+  ];
+}
+
+function formatChartDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short"
+  });
+}
+
+function compactLabel(value: string, maxLength = 18) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
+}
+
+function formatCompactNumberAxis(value: number | string) {
+  return compactNumberFormatter.format(Number(value) || 0);
+}
+
+function formatCompactCurrencyAxis(value: number | string) {
+  return compactCurrencyFormatter.format(Number(value) || 0);
+}
+
+function formatChartTooltipValue(value: unknown, name: unknown) {
+  const numericValue = typeof value === "number" ? value : Number(value) || 0;
+  const label = String(name);
+  const formattedValue = label.toLowerCase().includes("revenue")
+    ? formatReportCurrency(numericValue)
+    : formatReportNumber(numericValue);
+
+  return [formattedValue, label] as [string, string];
 }
 
 function getErrorMessage(error: unknown) {

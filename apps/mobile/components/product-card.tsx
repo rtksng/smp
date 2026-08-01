@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import type { Product } from "@/lib/api/schemas";
 import { formatRupees } from "@/lib/format";
@@ -20,23 +20,36 @@ export function ProductCard({
       : 0;
 
   return (
-    <Link
-      asChild
-      href={{ pathname: "/products/[slug]", params: { slug: product.slug } }}
+    <View
+      style={{
+        ...cardStyle,
+        minHeight: compact ? 229 : undefined,
+        overflow: "hidden",
+        width: "100%"
+      }}
     >
       <Pressable
+        accessibilityLabel={`Open ${product.name}`}
+        onPress={() =>
+          router.push({
+            pathname: "/products/[slug]",
+            params: { slug: product.slug }
+          })
+        }
         style={({ pressed }) => ({
-          ...cardStyle,
-          opacity: pressed ? 0.86 : 1,
-          overflow: "hidden",
-          width: compact ? 146 : "100%"
+          flex: 1,
+          opacity: pressed ? 0.84 : 1,
+          width: "100%"
         })}
       >
         <View
           style={{
             alignItems: "center",
-            aspectRatio: compact ? 1.5 : 1.25,
             backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+            borderBottomWidth: 1,
+            height: compact ? 96 : undefined,
+            aspectRatio: compact ? undefined : 1.25,
             justifyContent: "center"
           }}
         >
@@ -55,8 +68,42 @@ export function ProductCard({
               size={42}
             />
           )}
+          {compact ? (
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.primaryDark,
+                borderCurve: "continuous",
+                borderRadius: 8,
+                borderWidth: 1,
+                bottom: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                position: "absolute",
+                right: 8
+              }}
+            >
+              <Text
+                selectable
+                style={{
+                  color: colors.primaryDark,
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: 11
+                }}
+              >
+                View
+              </Text>
+            </View>
+          ) : null}
         </View>
-        <View style={{ gap: 4, padding: 12 }}>
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            flex: compact ? 1 : undefined,
+            gap: 4,
+            padding: 12
+          }}
+        >
           <Text
             numberOfLines={1}
             selectable
@@ -97,11 +144,12 @@ export function ProductCard({
             style={{
               color: colors.muted,
               fontFamily: fonts.bodySemiBold,
-              fontSize: 10
+              fontSize: 11,
+              lineHeight: 16
             }}
           >
             <Text style={{ textDecorationLine: "line-through" }}>
-              {formatRupees(product.mrp)}
+              MRP {formatRupees(product.mrp)}
             </Text>
             {savingsPercent ? (
               <Text style={{ color: "#008F5F" }}> {savingsPercent}% OFF</Text>
@@ -109,6 +157,6 @@ export function ProductCard({
           </Text>
         </View>
       </Pressable>
-    </Link>
+    </View>
   );
 }

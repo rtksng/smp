@@ -9,8 +9,22 @@ import {
   INVENTORY_OVERVIEW_PATH
 } from "./inventory-management";
 
+export type AdminNavigationCategory =
+  | "Workspace"
+  | "Catalog"
+  | "Fulfilment"
+  | "Growth"
+  | "System";
+
+export type AdminNavigationChild = {
+  href: string;
+  label: string;
+  permissions?: readonly AdminPermission[];
+};
+
 export type AdminNavigationItem = {
-  children?: readonly AdminNavigationItem[];
+  category: AdminNavigationCategory;
+  children?: readonly AdminNavigationChild[];
   href: string;
   label: string;
   permissions?: readonly AdminPermission[];
@@ -18,30 +32,36 @@ export type AdminNavigationItem = {
 
 export const adminNavigationItems: readonly AdminNavigationItem[] = [
   {
+    category: "Workspace",
     href: "/dashboard",
     label: "Dashboard"
   },
   {
+    category: "Catalog",
     href: "/products",
     label: "Products",
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
+    category: "Catalog",
     href: "/categories",
     label: "Categories",
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
+    category: "Catalog",
     href: "/brands",
     label: "Brands",
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
+    category: "Catalog",
     href: "/product-feedback",
     label: "Product Feedback",
     permissions: [ADMIN_PERMISSION.ProductsRead]
   },
   {
+    category: "Fulfilment",
     href: INVENTORY_OVERVIEW_PATH,
     label: "Inventory",
     children: [
@@ -64,21 +84,25 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     permissions: [ADMIN_PERMISSION.InventoryRead]
   },
   {
+    category: "Fulfilment",
     href: "/orders",
     label: "Orders",
     permissions: [ADMIN_PERMISSION.OrdersRead]
   },
   {
+    category: "Fulfilment",
     href: "/returns-refunds",
     label: "Returns & Refunds",
     permissions: [ADMIN_PERMISSION.OrdersRead]
   },
   {
+    category: "Fulfilment",
     href: "/customers",
     label: "Customers",
     permissions: [ADMIN_PERMISSION.UsersRead]
   },
   {
+    category: "Fulfilment",
     href: "/warehouses",
     label: "Warehouses",
     children: [
@@ -96,31 +120,37 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     permissions: [ADMIN_PERMISSION.WarehouseRead]
   },
   {
+    category: "Fulfilment",
     href: "/delivery",
     label: "Delivery",
     permissions: [ADMIN_PERMISSION.DeliveryRead]
   },
   {
+    category: "Growth",
     href: "/quote-requests",
     label: "Quote Requests",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
+    category: "Growth",
     href: "/coupons",
     label: "Coupons",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
+    category: "Growth",
     href: "/delivery-charges",
     label: "Delivery Charges",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
+    category: "Growth",
     href: "/reports",
     label: "Reports",
     permissions: [ADMIN_PERMISSION.ReportsRead]
   },
   {
+    category: "System",
     href: "/settings",
     label: "Settings",
     permissions: [ADMIN_PERMISSION.SettingsManage]

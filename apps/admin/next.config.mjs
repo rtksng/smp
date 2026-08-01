@@ -7,6 +7,9 @@ const storageUploadRemotePattern = remotePatternFromUrl(
   process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL ??
     process.env.STORAGE_PUBLIC_BASE_URL
 );
+const apiProxyDestination = apiProxyDestinationFromUrl(
+  process.env.NEXT_PUBLIC_API_URL
+);
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
@@ -32,6 +35,16 @@ const nextConfig = {
       }
     ])
   },
+  async rewrites() {
+    return apiProxyDestination
+      ? [
+          {
+            destination: `${apiProxyDestination}/:path*`,
+            source: "/api/v1/:path*"
+          }
+        ]
+      : [];
+  },
   transpilePackages: ["@surgical/config", "@surgical/types", "@surgical/ui"]
 };
 
@@ -55,6 +68,18 @@ function remotePatternFromUrl(rawUrl) {
       port: url.port || undefined,
       protocol
     };
+  } catch {
+    return null;
+  }
+}
+
+function apiProxyDestinationFromUrl(rawUrl) {
+  if (!rawUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(rawUrl).toString().replace(/\/+$/, "");
   } catch {
     return null;
   }

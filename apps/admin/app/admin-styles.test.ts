@@ -35,12 +35,16 @@ const tableSource = readFileSync(
   join(adminAppDir, "../components/ui/table.tsx"),
   "utf8"
 );
+const productManagementSource = readFileSync(
+  join(adminAppDir, "products/product-management.tsx"),
+  "utf8"
+);
 
 describe("admin layout styles", () => {
-  it("uses Outfit as the admin interface font", () => {
-    expect(layoutSource).toContain('import { Outfit } from "next/font/google"');
+  it("uses Plus Jakarta Sans as the admin interface font", () => {
+    expect(layoutSource).toContain('import { Plus_Jakarta_Sans } from "next/font/google"');
     expect(layoutSource).toContain("variable: \"--font-admin\"");
-    expect(layoutSource).toContain('className={outfit.variable}');
+    expect(layoutSource).toContain('className={plusJakartaSans.variable}');
     expect(globalsCss).toMatch(/font-family:\s*var\(--font-admin\)/);
   });
 
@@ -54,11 +58,22 @@ describe("admin layout styles", () => {
   });
 
   it("lets dense catalog and inventory controls reflow on narrow screens", () => {
-    expect(globalsCss).toMatch(/\.assetRow\s*{[^}]*grid-template-columns:\s*minmax\(150px,\s*1\.2fr\)\s+minmax\(150px,\s*1\.2fr\)\s+minmax\(120px,\s*0\.8fr\)\s+minmax\(130px,\s*0\.8fr\)\s+minmax\(130px,\s*0\.9fr\)\s+40px;/s);
-    expect(globalsCss).toMatch(/\.documentRow\s*{[^}]*grid-template-columns:\s*minmax\(150px,\s*1\.1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(150px,\s*1fr\)\s+minmax\(130px,\s*0\.9fr\)\s+40px;/s);
-    expect(globalsCss).toMatch(/\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(112px,\s*1fr\)\)\s+minmax\(150px,\s*1\.1fr\)\s+minmax\(140px,\s*auto\);/s);
-    expect(globalsCss).toMatch(/\.rowActionControl,[\s\S]*?\.rowIconButton,[\s\S]*?\.rowCheck\s*{[^}]*align-self:\s*start;[^}]*margin-top:\s*24px;/s);
-    expect(globalsCss).toMatch(/@media \(max-width:\s*1040px\)[\s\S]*?\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(min\(100%,\s*180px\),\s*1fr\)\);/s);
+    expect(globalsCss).toMatch(/\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\);/s);
+    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 5;/s);
+    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s);
+    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 2;/s);
+    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 4;/s);
+    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s);
+    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 5;/s);
+    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(4\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(globalsCss).toMatch(/\.variantRow > :nth-child\(6\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
+    expect(globalsCss).toMatch(/\.rowFloatingDelete\s*{[^}]*margin-top:\s*0;[^}]*position:\s*absolute;[^}]*right:\s*14px;[^}]*top:\s*14px;/s);
+    expect(globalsCss).toMatch(/\.rowActionControl,[\s\S]*?\.rowIconButton,[\s\S]*?\.rowCheck\s*{[^}]*align-self:\s*start;[^}]*margin-top:\s*20px;/s);
+    expect(globalsCss).toMatch(/\.inlineUploadField\s*{[^}]*display:\s*flex;[\s\S]*?gap:\s*10px;/s);
+    expect(globalsCss).toMatch(/\.fileUploadButton\s*{[^}]*align-items:\s*center !important;[\s\S]*?display:\s*inline-flex !important;[\s\S]*?gap:\s*8px !important;[\s\S]*?justify-content:\s*center !important;[\s\S]*?min-height:\s*36px;[^}]*min-width:\s*112px;/s);
+    expect(globalsCss).toMatch(/\.fileUploadButton svg,[\s\S]*?\.fileUploadButton span\s*{[^}]*flex:\s*0 0 auto;/s);
+    expect(globalsCss).toMatch(/\.inlineUploadButton\s*{[^}]*height:\s*36px;[\s\S]*?margin-top:\s*24px;/s);
+    expect(globalsCss).toMatch(/@media \(max-width:\s*1040px\)[\s\S]*?\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/s);
     expect(globalsCss).toMatch(/@media \(max-width:\s*640px\)[\s\S]*?\.productFilters,[\s\S]*?\.inventoryFilters,[\s\S]*?grid-template-columns:\s*1fr;/s);
   });
 
@@ -112,6 +127,10 @@ describe("admin layout styles", () => {
   it("keeps shared admin table, dropdown, and dialog overlays usable in dense tables", () => {
     expect(tableSource).toContain("adminTableViewport");
     expect(tableSource).toContain("adminTableColumn");
+    expect(tableSource).toContain("gap-0");
+    expect(tableSource).toContain("p-0");
+    expect(productManagementSource).toContain("<colgroup>");
+    expect(productManagementSource).toContain("productTableProductColumn");
     expect(dropdownSource).toContain("adminDropdownContent");
     expect(dropdownSource).toContain("shouldBlockScroll = false");
     expect(dialogSource).toContain("adminDialogWrapper");
@@ -121,7 +140,15 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/\.adminTableViewport\s*{[^}]*overflow:\s*auto;/s);
     expect(globalsCss).toMatch(/\.adminTableViewport\s*{[^}]*--admin-table-column-max-width:\s*min\(360px,\s*42vw\);/s);
     expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\s*{[^}]*table-layout:\s*auto !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\s*{[^}]*width:\s*max-content !important;/s);
+    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\s*{[^}]*width:\s*100% !important;/s);
+    expect(globalsCss).toMatch(/\*\s*{[^}]*scrollbar-width:\s*thin;/s);
+    expect(globalsCss).toMatch(/\*::-webkit-scrollbar\s*{[^}]*height:\s*8px;[^}]*width:\s*8px;/s);
+    expect(globalsCss).toMatch(/\.productDataTable\s*{[^}]*min-width:\s*1340px;/s);
+    expect(globalsCss).toMatch(/\.productTableProductColumn\s*{[^}]*width:\s*320px;/s);
+    expect(globalsCss).toMatch(/\.productTableFlagsColumn\s*{[^}]*width:\s*150px;/s);
+    expect(globalsCss).toMatch(/\.adminTableViewport \.productDataTable th:nth-child\(1\),[\s\S]*?\.adminTableViewport \.productDataTable td:nth-child\(1\)\s*{[^}]*width:\s*320px !important;/s);
+    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\.productDataTable\s*{[^}]*table-layout:\s*fixed !important;/s);
+    expect(globalsCss).toMatch(/\.adminTableViewport \.productDataTable td:first-child,[\s\S]*?\.adminTableViewport \.productDataTable td:first-child > \*\s*{[^}]*white-space:\s*normal !important;/s);
     expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*max-width:\s*var\(--admin-table-column-max-width\) !important;/s);
     expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*min-width:\s*0 !important;/s);
     expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*text-overflow:\s*ellipsis !important;/s);

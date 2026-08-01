@@ -177,10 +177,34 @@ test("admin dashboard reports apply date filters and assigned warehouse scope", 
   assert.equal(result.cards.activeCustomers, 7);
   assert.equal(result.cards.activeDeliveryPartners, 5);
   assert.equal(result.cards.activeWarehouses, 1);
-  assert.deepEqual(result.charts.ordersByDay, [
+  assert.equal(result.charts.ordersByDay.length, 26);
+  assert.deepEqual(result.charts.ordersByDay.slice(0, 3), [
     {
       date: "2026-05-01",
       orders: 2
+    },
+    {
+      date: "2026-05-02",
+      orders: 0
+    },
+    {
+      date: "2026-05-03",
+      orders: 0
+    }
+  ]);
+  assert.deepEqual(result.charts.ordersByDay.at(-1), {
+    date: "2026-05-26",
+    orders: 0
+  });
+  assert.equal(result.charts.revenueByDay.length, 26);
+  assert.deepEqual(result.charts.revenueByDay.slice(0, 2), [
+    {
+      date: "2026-05-01",
+      revenue: 320.5
+    },
+    {
+      date: "2026-05-02",
+      revenue: 0
     }
   ]);
   assert.deepEqual(result.charts.warehouseStockSummary, [
@@ -321,6 +345,7 @@ test("admin dashboard stock reports pre-aggregate warehouse inventory and batche
   assert.match(stockAlertsSql, /batch_alerts/);
   assert.doesNotMatch(stockAlertsSql, /LEFT JOIN\s+"InventoryStock"/);
   assert.doesNotMatch(stockAlertsSql, /LEFT JOIN\s+"StockBatch"/);
+  assert.doesNotMatch(stockAlertsSql, /COALESCE\(ia\."lowStockProducts", 0\) > 0/);
 
   assert.match(warehouseSummarySql, /inventory_summary/);
   assert.match(warehouseSummarySql, /batch_summary/);

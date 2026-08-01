@@ -443,7 +443,7 @@ function CategoriesContent({
         </div>
       </Card>
 
-      <Card className="panel">
+      <Card className="panel my-3">
         <form className="productFilters" onSubmit={(event) => event.preventDefault()}>
           <Label>
             Search categories

@@ -1,8 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { getVisibleNavigationItems } from "./navigation";
+import { adminNavigationItems, getVisibleNavigationItems } from "./navigation";
 import { ADMIN_PERMISSION } from "./permissions";
 
 describe("admin navigation", () => {
+  it("organizes navigation items into sidebar categories", () => {
+    expect(
+      adminNavigationItems.map(({ category, label }) => ({ category, label }))
+    ).toEqual([
+      { category: "Workspace", label: "Dashboard" },
+      { category: "Catalog", label: "Products" },
+      { category: "Catalog", label: "Categories" },
+      { category: "Catalog", label: "Brands" },
+      { category: "Catalog", label: "Product Feedback" },
+      { category: "Fulfilment", label: "Inventory" },
+      { category: "Fulfilment", label: "Orders" },
+      { category: "Fulfilment", label: "Returns & Refunds" },
+      { category: "Fulfilment", label: "Customers" },
+      { category: "Fulfilment", label: "Warehouses" },
+      { category: "Fulfilment", label: "Delivery" },
+      { category: "Growth", label: "Quote Requests" },
+      { category: "Growth", label: "Coupons" },
+      { category: "Growth", label: "Delivery Charges" },
+      { category: "Growth", label: "Reports" },
+      { category: "System", label: "Settings" }
+    ]);
+  });
+
   it("always includes dashboard and hides permission-gated sections without access", () => {
     expect(getVisibleNavigationItems([]).map((item) => item.label)).toEqual([
       "Dashboard"

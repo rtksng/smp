@@ -9,7 +9,7 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StoreHeader } from "@/components/store-header";
 import { ErrorState, LoadingState } from "@/components/ui/state-view";
 import { getCategories } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
@@ -18,7 +18,6 @@ import { cardStyle, colors, fonts } from "@/lib/theme";
 
 export default function CategoriesScreen() {
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const columns = width >= 700 ? 2 : 1;
   const query = useQuery({
     queryFn: getCategories,
@@ -27,6 +26,7 @@ export default function CategoriesScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
+      <StoreHeader />
       <View
         style={{
           backgroundColor: colors.surface,
@@ -35,7 +35,7 @@ export default function CategoriesScreen() {
           gap: 4,
           paddingBottom: 16,
           paddingHorizontal: 16,
-          paddingTop: insets.top + 12
+          paddingTop: 12
         }}
       >
         <Text
@@ -92,15 +92,14 @@ export default function CategoriesScreen() {
               }}
             >
               <Pressable
-                style={({ pressed }) => ({
+                style={{
                   ...cardStyle,
                   alignItems: "center",
                   flex: 1,
                   flexDirection: "row",
                   gap: 14,
-                  opacity: pressed ? 0.84 : 1,
                   padding: 14
-                })}
+                }}
               >
                 {item.imageUrl ? (
                   <Image

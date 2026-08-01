@@ -10,10 +10,16 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  CatalogFilterSheet,
+  defaultCatalogFilters,
+  readPrice,
+  type CatalogFilters
+} from "@/components/catalog-filter-sheet";
 import { ProductCard } from "@/components/product-card";
+import { StoreHeader } from "@/components/store-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/state-view";
-import { getProducts, type ProductQuery } from "@/lib/api/catalog";
+import { getBrands, getCategories, getProducts } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
 import { queryKeys } from "@/lib/query";
 import { colors, fonts } from "@/lib/theme";
@@ -26,32 +32,74 @@ export default function SearchScreen() {
     title?: string;
   }>();
   const [search, setSearch] = useState(params.q ?? "");
-  const [submittedSearch, setSubmittedSearch] = useState(params.q ?? "");
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [sort, setSort] = useState<ProductQuery["sort"]>("latest");
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const columns = width >= 900 ? 4 : width >= 620 ? 3 : 2;
-  const query = {
+  const [filters, setFilters] = useState<CatalogFilters>({
+    ...defaultCatalogFilters,
     brand: params.brand,
     category: params.category,
-    inStock: inStockOnly || undefined,
+    search: params.q ?? ""
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { width } = useWindowDimensions();
+  const columns = width >= 900 ? 4 : width >= 620 ? 3 : 2;
+  const productWidth =
+    (Math.min(width, 1100) - 32 - 12 * (columns - 1)) / columns;
+  const query = {
+    brand: filters.brand,
+    category: filters.category,
+    disposable: filters.disposable || undefined,
+    expirySensitive: filters.expirySensitive || undefined,
+    inStock: filters.availability
+      ? true
+      : filters.stock === "in_stock"
+        ? true
+        : filters.stock === "out_of_stock"
+          ? false
+          : undefined,
     limit: 40,
-    search: submittedSearch.trim() || undefined,
-    sort
+    maxPrice: readPrice(filters.maxPrice),
+    medicalSpecialty: filters.medicalSpecialty.trim() || undefined,
+    minPrice: readPrice(filters.minPrice),
+    search: filters.search.trim() || undefined,
+    sort: filters.sort,
+    sterile: filters.sterile || undefined,
+    subcategory: filters.subcategory
   };
   const productsQuery = useQuery({
     queryFn: () => getProducts(query),
     queryKey: queryKeys.products(query)
   });
+  const categoriesQuery = useQuery({
+    queryFn: getCategories,
+    queryKey: queryKeys.categories
+  });
+  const brandsQuery = useQuery({
+    queryFn: getBrands,
+    queryKey: queryKeys.brands
+  });
 
   useEffect(() => {
     setSearch(params.q ?? "");
-    setSubmittedSearch(params.q ?? "");
-  }, [params.q]);
+    setFilters((current) => ({
+      ...current,
+      brand: params.brand,
+      category: params.category,
+      search: params.q ?? "",
+      subcategory: undefined
+    }));
+  }, [params.brand, params.category, params.q]);
+
+  function submitSearch() {
+    setFilters((current) => ({ ...current, search }));
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setFilters(defaultCatalogFilters);
+  }
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
+      <StoreHeader />
       <View
         style={{
           backgroundColor: colors.surface,
@@ -60,7 +108,7 @@ export default function SearchScreen() {
           gap: 10,
           paddingBottom: 16,
           paddingHorizontal: 16,
-          paddingTop: insets.top + 12
+          paddingTop: 12
         }}
       >
         <Text
@@ -90,7 +138,7 @@ export default function SearchScreen() {
             autoCorrect={false}
             clearButtonMode="while-editing"
             onChangeText={setSearch}
-            onSubmitEditing={() => setSubmittedSearch(search)}
+            onSubmitEditing={submitSearch}
             placeholder="Search products or SKU"
             placeholderTextColor={colors.muted}
             returnKeyType="search"
@@ -106,7 +154,7 @@ export default function SearchScreen() {
             accessibilityLabel="Search catalog"
             accessibilityRole="button"
             hitSlop={10}
-            onPress={() => setSubmittedSearch(search)}
+            onPress={submitSearch}
             style={{
               alignItems: "center",
               height: 44,
@@ -121,24 +169,47 @@ export default function SearchScreen() {
             />
           </Pressable>
         </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <FilterChip
-            active={inStockOnly}
-            label="In stock"
-            onPress={() => setInStockOnly((value) => !value)}
-            role="checkbox"
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
+          <Pressable
+            accessibilityLabel="Show in-stock products"
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: filters.availability }}
+            onPress={() =>
+              setFilters((current) => ({
+                ...current,
+                availability: !current.availability
+              }))
+            }
+            style={({ pressed }) => ({
+              alignItems: "center",
+              backgroundColor: colors.primaryDark,
+              borderRadius: 999,
+              flex: 1,
+              justifyContent: "center",
+              minHeight: 44,
+              opacity: pressed ? 0.82 : 1,
+              paddingHorizontal: 16
+            })}
+          >
+            <Text
+              style={{
+                color: colors.surface,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              {filters.availability ? "Showing in stock" : "In-stock only"}
+            </Text>
+          </Pressable>
+          <CatalogControl
+            accessibilityLabel="Open filters"
+            icon="tune-variant"
+            onPress={() => setFiltersOpen(true)}
           />
-          <FilterChip
-            active={sort === "latest"}
-            label="Latest"
-            onPress={() => setSort("latest")}
-            role="radio"
-          />
-          <FilterChip
-            active={sort === "price_low_to_high"}
-            label="Price: low to high"
-            onPress={() => setSort("price_low_to_high")}
-            role="radio"
+          <CatalogControl
+            accessibilityLabel="Clear catalog filters"
+            icon="restore"
+            onPress={clearFilters}
           />
         </View>
       </View>
@@ -186,56 +257,59 @@ export default function SearchScreen() {
           key={columns}
           keyExtractor={(item) => item.id}
           numColumns={columns}
-          columnWrapperStyle={{ gap: 12 }}
+          columnWrapperStyle={{ alignItems: "flex-start", gap: 12 }}
           renderItem={({ item }) => (
-            <View style={{ flex: 1 }}>
-              <ProductCard product={item} />
+            <View style={{ width: productWidth }}>
+              <ProductCard compact product={item} />
             </View>
           )}
         />
       ) : null}
+      <CatalogFilterSheet
+        brands={brandsQuery.data?.filter((brand) => brand.isActive) ?? []}
+        categories={
+          categoriesQuery.data?.filter((category) => category.isActive) ?? []
+        }
+        filters={filters}
+        onApply={(nextFilters) => {
+          setFilters(nextFilters);
+          setSearch(nextFilters.search);
+          setFiltersOpen(false);
+        }}
+        onClose={() => setFiltersOpen(false)}
+        visible={filtersOpen}
+      />
     </View>
   );
 }
 
-function FilterChip({
-  active,
-  label,
-  onPress,
-  role
+function CatalogControl({
+  accessibilityLabel,
+  icon,
+  onPress
 }: {
-  active: boolean;
-  label: string;
+  accessibilityLabel: string;
+  icon: "restore" | "tune-variant";
   onPress: () => void;
-  role: "checkbox" | "radio";
 }) {
   return (
     <Pressable
-      accessibilityRole={role}
-      accessibilityState={{ checked: active }}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
       onPress={onPress}
-      style={{
+      style={({ pressed }) => ({
         alignItems: "center",
-        backgroundColor: active ? colors.primaryDark : colors.surfaceMuted,
-        borderColor: active ? colors.primaryDark : colors.border,
-        borderRadius: 999,
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderRadius: 12,
         borderWidth: 1,
+        height: 44,
         justifyContent: "center",
-        minHeight: 44,
-        paddingHorizontal: 12,
-        paddingVertical: 8
-      }}
+        opacity: pressed ? 0.72 : 1,
+        width: 44
+      })}
     >
-      <Text
-        selectable
-        style={{
-          color: active ? colors.surface : colors.text,
-          fontFamily: fonts.bodySemiBold,
-          fontSize: 11
-        }}
-      >
-        {label}
-      </Text>
+      <MaterialCommunityIcons color={colors.text} name={icon} size={20} />
     </Pressable>
   );
 }

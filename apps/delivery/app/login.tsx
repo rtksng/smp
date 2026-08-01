@@ -45,6 +45,7 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<Mode>("login");
   const [mobileNumber, setMobileNumber] = useState(INDIA_MOBILE_PREFIX);
   const [otp, setOtp] = useState("");
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
@@ -104,7 +105,8 @@ export default function LoginScreen() {
     try {
       const otpRequest = await requestOtp(validation.values.mobileNumber);
       setMobileNumber(formatMobileInput(validation.values.mobileNumber));
-      setOtp(otpRequest.devOtp ?? "");
+      setDevOtp(otpRequest.devOtp ?? null);
+      setOtp("");
       setOtpRequested(true);
       setResendIn(otpRequest.resendAfterSeconds);
       requestAnimationFrame(() => otpRef.current?.focus());
@@ -184,6 +186,7 @@ export default function LoginScreen() {
       setMode("login");
       setOtpRequested(false);
       setOtp("");
+      setDevOtp(null);
     } catch (error) {
       const message = errorMessage(error);
       setFormMessage(message);
@@ -220,6 +223,7 @@ export default function LoginScreen() {
                   setRegistrationErrors({});
                   setOtpRequested(false);
                   setOtp("");
+                  setDevOtp(null);
                   setResendIn(0);
                 }}
               />
@@ -233,6 +237,7 @@ export default function LoginScreen() {
                   setLoginErrors({});
                   setOtpRequested(false);
                   setOtp("");
+                  setDevOtp(null);
                   setResendIn(0);
                 }}
               />
@@ -297,55 +302,78 @@ export default function LoginScreen() {
                 </>
               ) : null}
 
-              <FormField
-                autoComplete="tel"
-                error={
-                  mode === "register"
-                    ? registrationErrors.mobileNumber
-                    : loginErrors.mobileNumber
-                }
-                inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
-                keyboardType="phone-pad"
-                label="Mobile number"
-                onChangeText={(value) => setMobileNumber(formatMobileInput(value))}
-                onSubmitEditing={() => {
-                  if (mode === "register") {
-                    void submitRegistration();
-                  } else if (otpRequested) {
-                    otpRef.current?.focus();
-                  } else {
-                    void submitOtpRequest();
-                  }
-                }}
-                placeholder="+91 98765 43210"
-                ref={mobileRef}
-                returnKeyType={mode === "register" ? "done" : "next"}
-                required
-                submitBehavior="submit"
-                textContentType="telephoneNumber"
-                value={mobileNumber}
-              />
-
-              {mode === "login" && otpRequested ? (
+              {mode === "register" || !otpRequested ? (
                 <FormField
-                  autoComplete="one-time-code"
-                  error={loginErrors.otp}
-                  inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
-                  keyboardType="number-pad"
-                  label="OTP"
-                  maxLength={6}
-                  onChangeText={(value) =>
-                    setOtp(value.replace(/\D/g, "").slice(0, 6))
+                  autoComplete="tel"
+                  error={
+                    mode === "register"
+                      ? registrationErrors.mobileNumber
+                      : loginErrors.mobileNumber
                   }
-                  onSubmitEditing={() => void submitOtpVerification()}
-                  placeholder="6 digit OTP"
-                  ref={otpRef}
-                  returnKeyType="done"
+                  inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
+                  keyboardType="phone-pad"
+                  label="Mobile number"
+                  onChangeText={(value) =>
+                    setMobileNumber(formatMobileInput(value))
+                  }
+                  onSubmitEditing={() => {
+                    if (mode === "register") {
+                      void submitRegistration();
+                    } else {
+                      void submitOtpRequest();
+                    }
+                  }}
+                  placeholder="+91 98765 43210"
+                  ref={mobileRef}
+                  returnKeyType={mode === "register" ? "done" : "next"}
                   required
                   submitBehavior="submit"
-                  textContentType="oneTimeCode"
-                  value={otp}
+                  textContentType="telephoneNumber"
+                  value={mobileNumber}
                 />
+              ) : null}
+
+              {mode === "login" && otpRequested ? (
+                <>
+                  <View style={styles.otpStatusCard}>
+                    <Text style={styles.otpStatusLabel}>OTP sent to</Text>
+                    <Text selectable style={styles.otpStatusMobile}>
+                      {mobileNumber}
+                    </Text>
+                    {devOtp ? (
+                      <View
+                        accessibilityLabel={`Development OTP ${devOtp}`}
+                        style={styles.devOtpBadge}
+                      >
+                        <Text selectable style={styles.devOtpLabel}>
+                          Dev OTP
+                        </Text>
+                        <Text selectable style={styles.devOtpValue}>
+                          {devOtp}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <FormField
+                    autoComplete="one-time-code"
+                    error={loginErrors.otp}
+                    inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
+                    keyboardType="number-pad"
+                    label="6-digit OTP"
+                    maxLength={6}
+                    onChangeText={(value) =>
+                      setOtp(value.replace(/\D/g, "").slice(0, 6))
+                    }
+                    onSubmitEditing={() => void submitOtpVerification()}
+                    placeholder="123456"
+                    ref={otpRef}
+                    returnKeyType="done"
+                    required
+                    submitBehavior="submit"
+                    textContentType="oneTimeCode"
+                    value={otp}
+                  />
+                </>
               ) : null}
 
               {mode === "login" ? (
@@ -375,6 +403,7 @@ export default function LoginScreen() {
                         onPress={() => {
                           setOtpRequested(false);
                           setOtp("");
+                          setDevOtp(null);
                           setResendIn(0);
                           requestAnimationFrame(() => mobileRef.current?.focus());
                         }}
@@ -467,6 +496,32 @@ const styles = StyleSheet.create({
     maxWidth: 430,
     width: "100%"
   },
+  devOtpBadge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "#EAF7EB",
+    borderColor: "#A9DDAE",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6
+  },
+  devOtpLabel: {
+    color: "#287C30",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  devOtpValue: {
+    color: "#287C30",
+    fontSize: 14,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "900",
+    letterSpacing: 2
+  },
   disabledSegment: {
     opacity: 0.55
   },
@@ -503,6 +558,26 @@ const styles = StyleSheet.create({
   otpActions: {
     flexDirection: "row",
     gap: 8
+  },
+  otpStatusCard: {
+    backgroundColor: "#F8FBFA",
+    borderColor: "#CFE9D2",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12
+  },
+  otpStatusLabel: {
+    color: "#687773",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  otpStatusMobile: {
+    color: "#17211F",
+    fontSize: 14,
+    fontWeight: "700"
   },
   screen: {
     flexGrow: 1,

@@ -7,7 +7,10 @@ const tableSlots = heroTable({ radius: "sm", shadow: "none" });
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
     <div
-      className={cn(tableSlots.base(), "relative w-full overflow-auto adminTableViewport")}
+      className={cn(
+        tableSlots.base(),
+        "relative w-full gap-0 overflow-auto rounded-none bg-transparent p-0 shadow-none adminTableViewport"
+      )}
       data-slot="table-container"
     >
       <table

@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { Link, type Href } from "expo-router";
+import { router, type Href } from "expo-router";
 import type { PropsWithChildren } from "react";
 import {
   ActivityIndicator,
@@ -28,7 +28,20 @@ export function Button({
   variant = "primary",
   ...props
 }: ButtonProps) {
-  const content = (
+  const baseStyle = {
+    alignItems: "center" as const,
+    backgroundColor: buttonBackground(variant),
+    borderColor: variant === "danger" ? "#F4C7C3" : colors.primaryDark,
+    borderCurve: "continuous" as const,
+    borderRadius: 999,
+    borderWidth: variant === "primary" ? 0 : 1,
+    flexDirection: "row" as const,
+    gap: 8,
+    justifyContent: "center" as const,
+    minHeight: 48,
+    paddingHorizontal: 20
+  };
+  return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{
@@ -41,23 +54,16 @@ export function Button({
         if (process.env.EXPO_OS === "ios") {
           void Haptics.selectionAsync();
         }
+        if (href) {
+          router.push(href);
+        }
         onPress?.(event);
       }}
       style={(state) => [
+        baseStyle,
         {
-          alignItems: "center",
-          backgroundColor: buttonBackground(variant),
-          borderColor:
-            variant === "danger" ? "#F4C7C3" : colors.primaryDark,
-          borderCurve: "continuous",
-          borderRadius: 999,
-          borderWidth: variant === "primary" ? 0 : 1,
-          flexDirection: "row",
-          gap: 8,
-          justifyContent: "center",
-          minHeight: 48,
-          opacity: disabled || loading ? 0.55 : state.pressed ? 0.82 : 1,
-          paddingHorizontal: 20
+          opacity:
+            disabled || loading ? 0.55 : state.pressed ? 0.82 : 1
         },
         typeof style === "function" ? style(state) : style
       ]}
@@ -78,16 +84,6 @@ export function Button({
       </Text>
     </Pressable>
   );
-
-  if (href && !disabled && !loading) {
-    return (
-      <Link asChild href={href}>
-        {content}
-      </Link>
-    );
-  }
-
-  return content;
 }
 
 function buttonBackground(variant: NonNullable<ButtonProps["variant"]>) {

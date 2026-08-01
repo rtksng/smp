@@ -34,6 +34,13 @@ const banners = [
   mobileBanner5
 ];
 
+const fallbackCategoryIcons = [
+  "gift-outline",
+  "heart-pulse",
+  "magnify",
+  "view-grid-outline"
+] as const;
+
 export default function HomeScreen() {
   const categoriesQuery = useQuery({
     queryFn: getCategories,
@@ -118,68 +125,88 @@ function BannerCarousel() {
     <View
       style={{
         alignSelf: "center",
-        gap: 8,
         maxWidth: 980,
+        paddingHorizontal: 16,
         paddingTop: 12,
         width: "100%"
       }}
     >
-      <FlatList
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-        contentInsetAdjustmentBehavior="automatic"
-        data={banners}
-        decelerationRate="fast"
-        getItemLayout={(_, index) => ({
-          index,
-          length: itemWidth,
-          offset: itemWidth * index
-        })}
-        horizontal
-        keyExtractor={(_, index) => String(index)}
-        onMomentumScrollEnd={(event) =>
-          setActiveIndex(Math.round(event.nativeEvent.contentOffset.x / itemWidth))
-        }
-        pagingEnabled
-        ref={listRef}
-        renderItem={({ item }) => (
-          <View
-            style={{
-              borderColor: colors.border,
-              borderRadius: 12,
-              borderWidth: 1,
-              height: 160,
-              overflow: "hidden",
-              width: itemWidth
-            }}
-          >
+      <View
+        style={{
+          borderColor: colors.border,
+          borderCurve: "continuous",
+          borderRadius: 12,
+          borderWidth: 1,
+          height: 160,
+          overflow: "hidden",
+          width: itemWidth
+        }}
+      >
+        <FlatList
+          contentInsetAdjustmentBehavior="automatic"
+          data={banners}
+          decelerationRate="fast"
+          getItemLayout={(_, index) => ({
+            index,
+            length: itemWidth,
+            offset: itemWidth * index
+          })}
+          horizontal
+          keyExtractor={(_, index) => String(index)}
+          onMomentumScrollEnd={(event) =>
+            setActiveIndex(
+              Math.min(
+                banners.length - 1,
+                Math.max(
+                  0,
+                  Math.round(event.nativeEvent.contentOffset.x / itemWidth)
+                )
+              )
+            )
+          }
+          pagingEnabled
+          ref={listRef}
+          renderItem={({ item }) => (
             <Image
               contentFit="cover"
               source={item}
-              style={{ height: "100%", width: "100%" }}
+              style={{ height: 160, width: itemWidth }}
             />
-          </View>
-        )}
-        showsHorizontalScrollIndicator={false}
-      />
-      <View
-        style={{
-          flexDirection: "row",
-          gap: 6,
-          justifyContent: "center"
-        }}
-      >
-        {banners.map((_, index) => (
-          <View
-            key={index}
-            style={{
-              backgroundColor:
-                index === activeIndex ? colors.primaryDark : "#A9DDAE",
-              borderRadius: 4,
-              height: 7,
-              width: index === activeIndex ? 20 : 7
-            }}
-          />
-        ))}
+          )}
+          showsHorizontalScrollIndicator={false}
+        />
+        <View
+          style={{
+            bottom: 8,
+            flexDirection: "row",
+            gap: 6,
+            justifyContent: "center",
+            left: 0,
+            position: "absolute",
+            right: 0
+          }}
+        >
+          {banners.map((_, index) => (
+            <Pressable
+              accessibilityLabel={`Show banner ${index + 1}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: index === activeIndex }}
+              hitSlop={8}
+              key={index}
+              onPress={() => {
+                setActiveIndex(index);
+                listRef.current?.scrollToIndex({ animated: true, index });
+              }}
+              style={{
+                backgroundColor:
+                  index === activeIndex ? colors.primaryDark : "rgba(255,255,255,0.8)",
+                borderRadius: 4,
+                height: 8,
+                width: index === activeIndex ? 20 : 8
+              }}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -196,7 +223,7 @@ function CategoryRail({ categories }: { categories: Category[] }) {
         data={categories.filter((category) => category.isActive).slice(0, 10)}
         horizontal
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        renderItem={({ index, item }) => (
           <Link
             asChild
             href={{
@@ -235,7 +262,11 @@ function CategoryRail({ categories }: { categories: Category[] }) {
                 >
                   <MaterialCommunityIcons
                     color={colors.primaryDark}
-                    name="medical-bag"
+                    name={
+                      fallbackCategoryIcons[
+                        index % fallbackCategoryIcons.length
+                      ] ?? "view-grid-outline"
+                    }
                     size={24}
                   />
                 </View>
@@ -252,13 +283,36 @@ function CategoryRail({ categories }: { categories: Category[] }) {
               >
                 {item.name}
               </Text>
+              <View
+                style={{
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: "#C7EACB",
+                  borderCurve: "continuous",
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  minHeight: 24,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4
+                }}
+              >
+                <Text
+                  selectable
+                  style={{
+                    color: colors.primaryDark,
+                    fontFamily: fonts.bodySemiBold,
+                    fontSize: 10
+                  }}
+                >
+                  Open catalog
+                </Text>
+              </View>
             </Pressable>
           </Link>
         )}
         showsHorizontalScrollIndicator={false}
       />
       <View style={{ alignItems: "center" }}>
-        <Link asChild href="/categories">
+        <Link asChild href="/search">
           <Pressable
             style={{
               backgroundColor: colors.surface,
@@ -332,21 +386,36 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
                 {category.name}
               </Text>
               <Link
+                asChild
                 href={{
                   pathname: "/search",
                   params: { category: category.slug, title: category.name }
                 }}
               >
-                <Text
-                  selectable
+                <Pressable
                   style={{
-                    color: colors.primaryDark,
-                    fontFamily: fonts.bodySemiBold,
-                    fontSize: 11
+                    alignItems: "center",
+                    backgroundColor: colors.surface,
+                    borderColor: "#C7EACB",
+                    borderCurve: "continuous",
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    justifyContent: "center",
+                    minHeight: 32,
+                    paddingHorizontal: 12
                   }}
                 >
-                  Open Catalog
-                </Text>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.primaryDark,
+                      fontFamily: fonts.bodySemiBold,
+                      fontSize: 11
+                    }}
+                  >
+                    Open Catalog
+                  </Text>
+                </Pressable>
               </Link>
             </View>
             <FlatList
@@ -354,7 +423,11 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
               data={products}
               horizontal
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <ProductCard compact product={item} />}
+              renderItem={({ item }) => (
+                <View style={{ width: 146 }}>
+                  <ProductCard compact product={item} />
+                </View>
+              )}
               showsHorizontalScrollIndicator={false}
             />
           </View>
@@ -372,7 +445,11 @@ function BrandRail({
   return (
     <View style={{ gap: 12 }}>
       <View style={{ paddingHorizontal: 16 }}>
-        <SectionHeader title="Top Brands" />
+        <SectionHeader
+          actionHref="/search"
+          actionText="View all brands"
+          title="Top Brands"
+        />
       </View>
       <FlatList
         contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
@@ -461,7 +538,11 @@ function ProductRail({
         data={products}
         horizontal
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ProductCard compact product={item} />}
+        renderItem={({ item }) => (
+          <View style={{ width: 146 }}>
+            <ProductCard compact product={item} />
+          </View>
+        )}
         showsHorizontalScrollIndicator={false}
       />
     </View>

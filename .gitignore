@@ -1,6 +1,7 @@
 node_modules/
 .p/
 .pnpm/
+.pnpm-store/
 dist/
 .next/
 .turbo/

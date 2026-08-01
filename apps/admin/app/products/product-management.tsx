@@ -537,7 +537,7 @@ function ProductManagementContent({
         />
       </FilterDrawer>
 
-      <Card className="panel">
+      <Card className="panel mt-3">
         <PageHeader
           actions={
             pagination ? (
@@ -774,6 +774,16 @@ function ProductTable({
   return (
     <div className="brandTableScroll">
       <Table className="brandDataTable productDataTable">
+        <colgroup>
+          <col className="productTableProductColumn" />
+          <col className="productTableSkuColumn" />
+          <col className="productTableCategoryColumn" />
+          <col className="productTableBrandColumn" />
+          <col className="productTablePriceColumn" />
+          <col className="productTableStatusColumn" />
+          <col className="productTableFlagsColumn" />
+          <col className="productTableActionsColumn" />
+        </colgroup>
         <TableHeader>
           <TableRow>
             <TableHead>Product</TableHead>
@@ -1392,27 +1402,40 @@ function ImageFields({
       ) : null}
       {fields.map((field, index) => (
         <div className="assetRow" key={field.id}>
-          <Controller
-            control={form.control}
-            name={`images.${index}.url` as const}
-            render={({ field: imageUrlField }) => (
-              <Label>
-                Image URL
-                <Input
-                  name={imageUrlField.name}
-                  onBlur={imageUrlField.onBlur}
-                  onChange={imageUrlField.onChange}
-                  ref={imageUrlField.ref}
-                  value={imageUrlField.value}
-                />
-                {errors.images?.[index]?.url?.message ? (
-                  <span className="fieldError">
-                    {errors.images[index]?.url?.message}
-                  </span>
-                ) : null}
-              </Label>
-            )}
-          />
+          <div className="inlineUploadField">
+            <Controller
+              control={form.control}
+              name={`images.${index}.url` as const}
+              render={({ field: imageUrlField }) => (
+                <Label>
+                  Image URL
+                  <Input
+                    name={imageUrlField.name}
+                    onBlur={imageUrlField.onBlur}
+                    onChange={imageUrlField.onChange}
+                    ref={imageUrlField.ref}
+                    value={imageUrlField.value}
+                  />
+                  {errors.images?.[index]?.url?.message ? (
+                    <span className="fieldError">
+                      {errors.images[index]?.url?.message}
+                    </span>
+                  ) : null}
+                </Label>
+              )}
+            />
+            <FileUploadButton
+              className="fileUploadButton inlineUploadButton"
+              inputProps={{
+                accept: "image/*",
+                disabled: uploadingIndex !== null,
+                onChange: (event) => onUpload(index, event.target.files?.[0])
+              }}
+            >
+              <ImageUp aria-hidden size={16} />
+              <span>{uploadingIndex === index ? "Uploading..." : "Upload"}</span>
+            </FileUploadButton>
+          </div>
           <TextField
             error={errors.images?.[index]?.altText?.message}
             label="Alt text"
@@ -1448,20 +1471,9 @@ function ImageFields({
             />
             <span>Primary</span>
           </Label>
-          <FileUploadButton
-            className="fileUploadButton rowActionControl"
-            inputProps={{
-              accept: "image/*",
-              disabled: uploadingIndex !== null,
-              onChange: (event) => onUpload(index, event.target.files?.[0])
-            }}
-          >
-            <ImageUp aria-hidden size={16} />
-            <span>{uploadingIndex === index ? "Uploading..." : "Upload"}</span>
-          </FileUploadButton>
           <Button
             aria-label="Remove image"
-            className="rowIconButton"
+            className="rowActionControl rowIconButton rowFloatingDelete"
             size="icon"
             onClick={() => onRemove(index)}
             type="button"
@@ -1550,13 +1562,14 @@ function VariantFields({
             registration={form.register(`variants.${index}.attributesText` as const)}
           />
           <Button
-            className="iconTextButton rowActionControl"
+            aria-label="Remove variant"
+            className="rowActionControl rowIconButton rowFloatingDelete"
+            size="icon"
             onClick={() => onRemove(index)}
             type="button"
             variant="outline"
           >
             <Trash2 aria-hidden size={16} />
-            <span>Remove variant</span>
           </Button>
         </div>
       ))}
@@ -1629,25 +1642,27 @@ function DocumentFields({
             label="File key"
             registration={form.register(`documents.${index}.fileKey` as const)}
           />
-          <TextField
-            error={errors.documents?.[index]?.fileUrl?.message}
-            label="File URL"
-            registration={form.register(`documents.${index}.fileUrl` as const)}
-          />
-          <FileUploadButton
-            className="fileUploadButton rowActionControl"
-            inputProps={{
-              accept: ".pdf,.doc,.docx,.xls,.xlsx,.csv,image/*",
-              disabled: uploadingIndex !== null,
-              onChange: (event) => onUpload(index, event.target.files?.[0])
-            }}
-          >
-            <FileUp aria-hidden size={16} />
-            <span>{uploadingIndex === index ? "Uploading..." : "Upload"}</span>
-          </FileUploadButton>
+          <div className="inlineUploadField">
+            <TextField
+              error={errors.documents?.[index]?.fileUrl?.message}
+              label="File URL"
+              registration={form.register(`documents.${index}.fileUrl` as const)}
+            />
+            <FileUploadButton
+              className="fileUploadButton inlineUploadButton"
+              inputProps={{
+                accept: ".pdf,.doc,.docx,.xls,.xlsx,.csv,image/*",
+                disabled: uploadingIndex !== null,
+                onChange: (event) => onUpload(index, event.target.files?.[0])
+              }}
+            >
+              <FileUp aria-hidden size={16} />
+              <span>{uploadingIndex === index ? "Uploading..." : "Upload"}</span>
+            </FileUploadButton>
+          </div>
           <Button
             aria-label="Remove document"
-            className="rowIconButton"
+            className="rowActionControl rowIconButton rowFloatingDelete"
             size="icon"
             onClick={() => onRemove(index)}
             type="button"

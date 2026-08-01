@@ -41,9 +41,9 @@ export function SectionHeader({
               borderWidth: 1,
               alignItems: "center",
               justifyContent: "center",
-              minHeight: 44,
+              minHeight: 32,
               paddingHorizontal: 12,
-              paddingVertical: 7
+              paddingVertical: 6
             }}
           >
             <Text

@@ -97,6 +97,11 @@ export class ReportsService {
     const warehouseFilter = this.toPrismaWarehouseFilter(warehouseScope);
     const dateRange = buildDateRangeFilter(query.dateFrom, query.dateTo);
     const now = new Date();
+    const dashboardSeriesWindow = buildDashboardSeriesWindow(
+      query.dateFrom,
+      query.dateTo,
+      now
+    );
     const nearExpiryCutoff = addDays(now, query.nearExpiryDays ?? 30);
     const todayRange = getUtcDayRange(now);
     const orderWhere = stripUndefined({
@@ -198,13 +203,13 @@ export class ReportsService {
         where: activeWarehouseWhere
       }),
       this.queryOrdersByDay({
-        dateRange,
+        dateRange: dashboardSeriesWindow.dateRange,
         orderStatus: query.orderStatus,
         paymentStatus: query.paymentStatus,
         warehouseScope
       }),
       this.queryRevenueByDay({
-        dateRange,
+        dateRange: dashboardSeriesWindow.dateRange,
         orderStatus: query.orderStatus,
         paymentStatus: query.paymentStatus,
         warehouseScope
@@ -232,14 +237,8 @@ export class ReportsService {
         totalOrders
       },
       charts: {
-        ordersByDay: ordersByDay.map((item) => ({
-          date: formatDateOnly(item.date),
-          orders: toInteger(item.orders)
-        })),
-        revenueByDay: revenueByDay.map((item) => ({
-          date: formatDateOnly(item.date),
-          revenue: roundMoney(toNumber(item.revenue))
-        })),
+        ordersByDay: fillOrdersByDay(ordersByDay, dashboardSeriesWindow.dates),
+        revenueByDay: fillRevenueByDay(revenueByDay, dashboardSeriesWindow.dates),
         stockAlerts: stockAlerts.map((item) => ({
           lowStockProducts: toInteger(item.lowStockProducts),
           nearExpiryBatches: toInteger(item.nearExpiryBatches),
@@ -455,10 +454,6 @@ export class ReportsService {
       WHERE w."deletedAt" IS NULL
         AND w."status" = ${WarehouseStatus.ACTIVE}::"WarehouseStatus"
         ${warehouseSql(Prisma.sql`w."id"`, warehouseScope)}
-        AND (
-          COALESCE(ia."lowStockProducts", 0) > 0
-          OR COALESCE(ba."nearExpiryBatches", 0) > 0
-        )
       ORDER BY "lowStockProducts" DESC, "nearExpiryBatches" DESC, w."name" ASC
       LIMIT ${STOCK_ALERT_LIMIT}
     `;
@@ -525,6 +520,11 @@ type DateRangeFilter = {
   lte?: Date;
 };
 
+type DashboardSeriesWindow = {
+  dateRange: DateRangeFilter;
+  dates: string[];
+};
+
 function addDays(date: Date, days: number) {
   const result = new Date(date);
   result.setUTCDate(result.getUTCDate() + days);
@@ -544,6 +544,83 @@ function buildDateRangeFilter(dateFrom?: string, dateTo?: string) {
     gte,
     lte
   });
+}
+
+function buildDashboardSeriesWindow(
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  now: Date
+): DashboardSeriesWindow {
+  const fromBoundary = parseDateBoundary(dateFrom, "start");
+  const toBoundary = parseDateBoundary(dateTo, "end");
+  let start = fromBoundary ? startOfUtcDay(fromBoundary) : undefined;
+  let end = toBoundary ? startOfUtcDay(toBoundary) : undefined;
+
+  if (!start && !end) {
+    end = startOfUtcDay(now);
+    start = addDays(end, -(DASHBOARD_SERIES_LIMIT - 1));
+  } else if (start && !end) {
+    const today = startOfUtcDay(now);
+    const windowEnd = addDays(start, DASHBOARD_SERIES_LIMIT - 1);
+    end = windowEnd > today ? today : windowEnd;
+  } else if (!start && end) {
+    start = addDays(end, -(DASHBOARD_SERIES_LIMIT - 1));
+  }
+
+  if (!start || !end || start > end) {
+    return {
+      dateRange: {},
+      dates: []
+    };
+  }
+
+  let dates = getUtcDateKeysBetween(start, end);
+
+  if (dates.length > DASHBOARD_SERIES_LIMIT) {
+    dates = dates.slice(-DASHBOARD_SERIES_LIMIT);
+    start = parseDateBoundary(dates[0], "start") ?? start;
+    end = parseDateBoundary(dates[dates.length - 1], "end") ?? end;
+  }
+
+  return {
+    dateRange: {
+      gte: startOfUtcDay(start),
+      lte: endOfUtcDay(end)
+    },
+    dates
+  };
+}
+
+function endOfUtcDay(date: Date) {
+  const end = startOfUtcDay(date);
+  end.setUTCHours(23, 59, 59, 999);
+
+  return end;
+}
+
+function fillOrdersByDay(rows: OrdersByDayRow[], dates: string[]) {
+  const byDate = new Map(
+    rows.map((item) => [formatDateOnly(item.date), toInteger(item.orders)] as const)
+  );
+
+  return dates.map((date) => ({
+    date,
+    orders: byDate.get(date) ?? 0
+  }));
+}
+
+function fillRevenueByDay(rows: RevenueByDayRow[], dates: string[]) {
+  const byDate = new Map(
+    rows.map((item) => [
+      formatDateOnly(item.date),
+      roundMoney(toNumber(item.revenue))
+    ] as const)
+  );
+
+  return dates.map((date) => ({
+    date,
+    revenue: byDate.get(date) ?? 0
+  }));
 }
 
 function dateRangeSql(column: Prisma.Sql, dateRange: DateRangeFilter | undefined) {
@@ -567,6 +644,19 @@ function formatDateOnly(value: Date | string) {
   }
 
   return value.toISOString().slice(0, 10);
+}
+
+function getUtcDateKeysBetween(start: Date, end: Date) {
+  const dates: string[] = [];
+  const cursor = startOfUtcDay(start);
+  const last = startOfUtcDay(end);
+
+  while (cursor <= last) {
+    dates.push(formatDateOnly(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return dates;
 }
 
 function getUtcDayRange(date: Date) {
@@ -602,6 +692,12 @@ function parseDateBoundary(value: string | undefined, boundary: "end" | "start")
   const parsed = new Date(value);
 
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function startOfUtcDay(date: Date) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
 }
 
 function roundMoney(value: number) {

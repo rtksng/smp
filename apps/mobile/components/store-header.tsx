@@ -64,13 +64,14 @@ export function StoreHeader() {
               <MaterialCommunityIcons color="white" name="shield-check" size={17} />
             </View>
             <Text
+              ellipsizeMode="tail"
               numberOfLines={1}
-              selectable
               style={{
                 color: colors.text,
                 flex: 1,
                 fontFamily: fonts.headingBold,
-                fontSize: 13,
+                fontSize: 14,
+                lineHeight: 18,
                 textTransform: "uppercase"
               }}
             >

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const outfit = Outfit({
+const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
   subsets: ["latin"],
   variable: "--font-admin"
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body className={outfit.variable}>
+      <body className={plusJakartaSans.variable}>
         <Providers>{children}</Providers>
       </body>
     </html>
