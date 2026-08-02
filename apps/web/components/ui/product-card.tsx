@@ -337,7 +337,7 @@ export function ProductCard({
             recommendationCard
               ? "grid gap-2"
               : compact
-                ? "hidden gap-2 sm:grid sm:grid-cols-[1fr_auto]"
+                ? "hidden gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto]"
                 : "grid gap-2 sm:grid-cols-[1fr_auto]"
           }
         >
@@ -346,13 +346,16 @@ export function ProductCard({
               aria-label={`Add ${product.name} to cart`}
               className={
                 compact
-                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!min-h-10 sm:!px-3 sm:text-xs"
+                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!w-auto sm:whitespace-nowrap sm:!min-h-10 sm:!px-2 sm:text-[11px] xl:!px-3 xl:text-xs"
                   : "w-full"
               }
               disabled={!product.inStock || addCartMutation.isPending}
               onClick={handleAddToCart}
             >
-              <ShoppingCart aria-hidden="true" className="h-4 w-4" />
+              <ShoppingCart
+                aria-hidden="true"
+                className="hidden h-4 w-4 min-[1441px]:block"
+              />
               {addCartMutation.isPending
                 ? "Adding..."
                 : product.inStock
@@ -365,7 +368,7 @@ export function ProductCard({
               recommendationCard
                 ? "w-full !min-h-9 !px-3 text-xs"
                 : compact
-                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!min-h-10 sm:!px-3 sm:text-xs md:w-auto"
+                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!w-auto sm:whitespace-nowrap sm:!min-h-10 sm:!px-2 sm:text-[11px] xl:!px-3 xl:text-xs"
                   : "w-full sm:w-auto"
             }
             href={`/products/${product.slug}`}

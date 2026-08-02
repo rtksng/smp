@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Brand, Category, ProductList } from "../api/schemas";
 import {
   filterBrandsForDirectory,
+  getFeaturedCategoryProductLimit,
   getFeaturedCategorySectionLimit,
   getLandingCategoryLimit,
   getLandingProductLimit,
@@ -53,21 +54,22 @@ const brands: Brand[] = [
 ];
 
 describe("storefront catalog helpers", () => {
-  it("selects ten active landing categories for the five-column catalog grid", () => {
+  it("selects eight active landing categories for the twelve-column catalog grid", () => {
     const selected = selectLandingCategories([
       category(1),
       category(2, false),
       ...Array.from({ length: 12 }, (_, index) => category(index + 3))
     ]);
 
-    expect(getLandingCategoryLimit()).toBe(10);
-    expect(selected).toHaveLength(10);
+    expect(getLandingCategoryLimit()).toBe(8);
+    expect(selected).toHaveLength(8);
     expect(selected.every((item) => item.href.startsWith("/categories/"))).toBe(true);
     expect(selected.map((item) => item.label)).not.toContain("Category 2");
   });
 
-  it("uses four products per landing category section", () => {
+  it("uses four latest products and five products per featured category section", () => {
     expect(getLandingProductLimit()).toBe(4);
+    expect(getFeaturedCategoryProductLimit()).toBe(5);
   });
 
   it("limits featured product sections to five main categories", () => {
@@ -93,7 +95,7 @@ describe("storefront catalog helpers", () => {
     const productsByCategorySlug = Object.fromEntries(
       selected.map((item, index) => [
         item.slug,
-        productList(index === 4 ? 1 : 4)
+        productList(index === 4 ? 1 : 5)
       ])
     );
 

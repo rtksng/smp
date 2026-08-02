@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Brand, Category, Product, ProductList } from "../../lib/api/schemas";
 import { buildCategoryNavigation } from "../../lib/catalog/customer-navigation";
@@ -44,15 +45,7 @@ describe("MobileCommerceHome", () => {
   it("renders a mobile-only auto-scrolling banner carousel with nav dots", () => {
     vi.useFakeTimers();
 
-    render(
-      <MobileCommerceHome
-        brands={brands}
-        categories={categories}
-        featuredCategories={featuredCategories}
-        featuredCategoryProducts={featuredCategoryProducts}
-        products={products}
-      />
-    );
+    renderMobileCommerceHome();
 
     const carousel = screen.getByRole("region", {
       name: "Mobile promotional banners"
@@ -80,15 +73,7 @@ describe("MobileCommerceHome", () => {
   });
 
   it("renders the mobile shopping structure with native horizontal rails", () => {
-    render(
-      <MobileCommerceHome
-        brands={brands}
-        categories={categories}
-        featuredCategories={featuredCategories}
-        featuredCategoryProducts={featuredCategoryProducts}
-        products={products}
-      />
-    );
+    renderMobileCommerceHome();
 
     expect(screen.getByTestId("mobile-commerce-home")).toBeInTheDocument();
     expect(
@@ -122,15 +107,7 @@ describe("MobileCommerceHome", () => {
   }, 15000);
 
   it("renders featured products by category on mobile with scrollable product rails", () => {
-    render(
-      <MobileCommerceHome
-        brands={brands}
-        categories={categories}
-        featuredCategories={featuredCategories}
-        featuredCategoryProducts={featuredCategoryProducts}
-        products={products}
-      />
-    );
+    renderMobileCommerceHome();
 
     expect(
       screen.getByRole("heading", { name: "Featured products by category" })
@@ -150,15 +127,7 @@ describe("MobileCommerceHome", () => {
   }, 15000);
 
   it("highlights landing catalog actions without allowing their labels to wrap", () => {
-    render(
-      <MobileCommerceHome
-        brands={brands}
-        categories={categories}
-        featuredCategories={featuredCategories}
-        featuredCategoryProducts={featuredCategoryProducts}
-        products={products}
-      />
-    );
+    renderMobileCommerceHome();
 
     const categoryCard = within(screen.getByTestId("mobile-category-rail"))
       .getByRole("link", { name: /Consumables/i });
@@ -175,6 +144,26 @@ describe("MobileCommerceHome", () => {
     }
   }, 15000);
 });
+
+function renderMobileCommerceHome() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false }
+    }
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MobileCommerceHome
+        brands={brands}
+        categories={categories}
+        featuredCategories={featuredCategories}
+        featuredCategoryProducts={featuredCategoryProducts}
+        products={products}
+      />
+    </QueryClientProvider>
+  );
+}
 
 function category(slug: string, name: string, description: string): Category {
   return {

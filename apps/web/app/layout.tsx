@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Montserrat, Open_Sans } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import {
   defaultDescription,
@@ -10,16 +10,16 @@ import {
 import "./globals.css";
 import { Providers } from "./providers";
 
-const openSans = Open_Sans({
+const inter = Inter({
   display: "swap",
   subsets: ["latin"],
-  variable: "--font-open-sans"
+  variable: "--font-body"
 });
 
-const montserrat = Montserrat({
+const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
   subsets: ["latin"],
-  variable: "--font-montserrat"
+  variable: "--font-heading"
 });
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
-      className={`${openSans.variable} ${montserrat.variable}`}
+      className={`${inter.variable} ${plusJakartaSans.variable}`}
       data-scroll-behavior="smooth"
       lang="en"
     >

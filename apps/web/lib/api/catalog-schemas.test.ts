@@ -244,5 +244,85 @@ describe("customer catalog schemas", () => {
         updatedAt: "2026-05-25T10:00:00.000Z"
       }).items[0]?.imageUrl
     ).toBe("/uploads/catalog/products/images/forceps.png");
+
+    expect(
+      categorySchema.parse({
+        children: [],
+        description: "Operating room equipment.",
+        id: "legacy-category-id",
+        imageUrl: "<UNKNOWN>/catalog/categories/images/or.png",
+        isActive: true,
+        name: "Operating Room",
+        parentId: null,
+        slug: "operating-room",
+        sortOrder: 1
+      }).imageUrl
+    ).toBe("/uploads/catalog/categories/images/or.png");
+
+    expect(
+      productSchema.parse({
+        basePrice: 1000,
+        brand: { id: "brand-id", name: "Acme Surgical", slug: "acme-surgical" },
+        brandId: "brand-id",
+        category: { id: "category-id", name: "Surgical Instruments", slug: "surgical-instruments" },
+        categoryId: "category-id",
+        createdAt: "2026-05-25T10:00:00.000Z",
+        description: "Reusable operating room instrument.",
+        disposable: false,
+        documents: [],
+        expirySensitive: false,
+        id: "storage-product-id",
+        images: [{ altText: null, id: "storage-image-id", isPrimary: true, sortOrder: 0, url: "https://pxseurailproxy-production-1f3a.up.railway.app/catalog/products/images/forceps.png" }],
+        inStock: true,
+        material: "Stainless steel",
+        medicalSpecialty: "General Surgery",
+        metaDescription: null,
+        metaTitle: null,
+        mrp: 1400,
+        name: "Curved Artery Forceps",
+        packSize: "1 pc",
+        searchTags: ["forceps"],
+        sellingPrice: 1200,
+        shortDescription: "Curved artery forceps.",
+        sku: "FORCEPS-STORAGE",
+        slug: "curved-artery-forceps-storage",
+        status: "ACTIVE",
+        sterile: true,
+        subcategory: null,
+        subcategoryId: null,
+        taxRate: 18,
+        unit: "piece",
+        updatedAt: "2026-05-25T10:00:00.000Z",
+        variants: []
+      }).images[0]?.url
+    ).toBe("/uploads/catalog/products/images/forceps.png");
+
+    expect(
+      categorySchema.parse({
+        children: [],
+        description: "Operating room equipment.",
+        id: "relative-storage-category-id",
+        imageUrl: "/catalog/categories/images/or.png",
+        isActive: true,
+        name: "Operating Room",
+        parentId: null,
+        slug: "operating-room",
+        sortOrder: 1
+      }).imageUrl
+    ).toBe("/uploads/catalog/categories/images/or.png");
+
+    expect(
+      categorySchema.parse({
+        children: [],
+        description: "Operating room equipment.",
+        id: "encoded-legacy-category-id",
+        imageUrl: "https://api.example.com/%3CUNKNOWN%3E/catalog/categories/images/or.png",
+        isActive: true,
+        name: "Operating Room",
+        parentId: null,
+        slug: "operating-room",
+        sortOrder: 1
+      }).imageUrl
+    ).toBe("/uploads/catalog/categories/images/or.png");
   });
 });

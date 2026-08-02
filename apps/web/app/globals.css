@@ -16,9 +16,9 @@
 
 :root {
   --font-sans:
-    var(--font-open-sans), "Open Sans", Inter, Aptos, "Segoe UI Variable", "Segoe UI",
+    var(--font-body), Inter, Aptos, "Segoe UI Variable", "Segoe UI",
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: var(--font-montserrat), Montserrat, "Open Sans", Arial, sans-serif;
+  --font-display: var(--font-heading), "Plus Jakarta Sans", Inter, Arial, sans-serif;
   --brand-primary: #3cb043;
   --brand-primary-foreground: #0d2f12;
   --brand-primary-strong: #287c30;
@@ -109,6 +109,20 @@ p {
   }
 }
 
+@keyframes proof-marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.proof-marquee-track {
+  animation: proof-marquee-scroll 18s linear infinite;
+}
+
 .route-progress-bar {
   animation: route-progress-sweep 1.05s cubic-bezier(0.22, 0.61, 0.36, 1)
     infinite;
@@ -120,6 +134,7 @@ p {
     animation: none;
     transform: translateX(0) scaleX(1);
   }
+
 }
 
 .productDescriptionRichText h1,

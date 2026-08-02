@@ -22,6 +22,9 @@ const REFRESH_CATEGORY_IMAGES =
   REFRESH_UPLOADED_IMAGES || process.env.DEMO_SEED_REFRESH_CATEGORY_IMAGES === "1";
 const REFRESH_PRODUCT_IMAGES =
   REFRESH_UPLOADED_IMAGES || process.env.DEMO_SEED_REFRESH_PRODUCT_IMAGES === "1";
+const SKIP_BRAND_IMAGES = process.env.DEMO_SEED_SKIP_BRAND_IMAGES === "1";
+const SKIP_CATEGORY_IMAGES = process.env.DEMO_SEED_SKIP_CATEGORY_IMAGES === "1";
+const PRUNE_STALE_DEMO_PRODUCTS = process.env.DEMO_SEED_PRUNE === "1";
 
 const PRODUCT_GALLERY_VIEWS = [
   {
@@ -1861,6 +1864,15 @@ class AdminApi {
         continue;
       }
 
+      if ([502, 503, 504].includes(response.status) && attempt < 3) {
+        const waitMs = 5000 * (attempt + 1);
+        console.log(
+          `temporary gateway error (${response.status}); waiting ${Math.round(waitMs / 1000)}s before retrying ${apiPath}`
+        );
+        await sleep(waitMs);
+        continue;
+      }
+
       if (response.status === 401 && !options.skipAuth && attempt < 3) {
         console.log(`admin session expired; refreshing login before retrying ${apiPath}`);
         await this.refreshLogin();
@@ -1982,10 +1994,14 @@ async function listAllInventoryForProduct(api, productId) {
 }
 
 async function ensureBrandImages(api, brands) {
+  if (SKIP_BRAND_IMAGES) {
+    return brands;
+  }
+
   const updated = [];
 
   for (const brand of brands) {
-    if (brand.logoUrl && !REFRESH_BRAND_IMAGES) {
+    if (isUsableUploadUrl(brand.logoUrl) && !REFRESH_BRAND_IMAGES) {
       updated.push(brand);
       continue;
     }
@@ -1998,7 +2014,7 @@ async function ensureBrandImages(api, brands) {
       body: {
         description: BRAND_DESCRIPTIONS[brand.slug] ?? `${brand.name} catalog brand for clinical supplies.`,
         isActive: true,
-        logoUrl: upload.url
+        logoUrl: toAbsoluteUploadUrl(upload.url)
       },
       method: "PATCH"
     });
@@ -2009,11 +2025,15 @@ async function ensureBrandImages(api, brands) {
 }
 
 async function ensureCategoryImages(api, categories) {
+  if (SKIP_CATEGORY_IMAGES) {
+    return categories;
+  }
+
   const flattened = flattenCategories(categories);
   const updated = [];
 
   for (const category of flattened) {
-    if (category.imageUrl && !REFRESH_CATEGORY_IMAGES) {
+    if (isUsableUploadUrl(category.imageUrl) && !REFRESH_CATEGORY_IMAGES) {
       updated.push(category);
       continue;
     }
@@ -2027,7 +2047,7 @@ async function ensureCategoryImages(api, categories) {
         description:
           category.description ??
           `${category.name} supplies for verified medical and clinical catalog workflows.`,
-        imageUrl: upload.url,
+        imageUrl: toAbsoluteUploadUrl(upload.url),
         isActive: true
       },
       method: "PATCH"
@@ -2085,11 +2105,18 @@ async function ensureProducts(api, brands, categories) {
       imageUrls = [];
 
       for (const viewConfig of PRODUCT_GALLERY_VIEWS) {
-        const image = await buildProductImage(definition, viewConfig);
         const filename = `${imageSlug}-${viewConfig.fileSuffix}-${ASSET_VERSION}.png`;
-        writeAsset(`products/${filename}`, image);
+        const assetPath = path.join(ASSET_DIR, "products", filename);
+        const image = fs.existsSync(assetPath)
+          ? fs.readFileSync(assetPath)
+          : await buildProductImage(definition, viewConfig);
+
+        if (!fs.existsSync(assetPath)) {
+          writeAsset(`products/${filename}`, image);
+        }
+
         const upload = await api.uploadPng(image, filename, "product_image");
-        imageUrls.push(upload.url);
+        imageUrls.push(toAbsoluteUploadUrl(upload.url));
       }
     }
 
@@ -2118,16 +2145,18 @@ async function ensureProducts(api, brands, categories) {
     console.log(`product ${savedProducts.length}/${definitions.length}: ${saved.name}`);
   }
 
-  const staleDemoProducts = existingProducts.filter(
-    (productItem) =>
-      productItem.slug?.startsWith("demo-") && !currentDemoSlugs.has(productItem.slug)
-  );
+  if (PRUNE_STALE_DEMO_PRODUCTS) {
+    const staleDemoProducts = existingProducts.filter(
+      (productItem) =>
+        productItem.slug?.startsWith("demo-") && !currentDemoSlugs.has(productItem.slug)
+    );
 
-  for (const productItem of staleDemoProducts) {
-    await api.request(`/admin/products/${encodeURIComponent(productItem.id)}`, {
-      method: "DELETE"
-    });
-    console.log(`retired stale demo product: ${productItem.name}`);
+    for (const productItem of staleDemoProducts) {
+      await api.request(`/admin/products/${encodeURIComponent(productItem.id)}`, {
+        method: "DELETE"
+      });
+      console.log(`retired stale demo product: ${productItem.name}`);
+    }
   }
 
   return savedProducts;
@@ -2135,6 +2164,36 @@ async function ensureProducts(api, brands, categories) {
 
 function normalizedImageUrl(value) {
   return String(value ?? "").split("?")[0];
+}
+
+function isUsableUploadUrl(value) {
+  const rawValue = String(value ?? "").trim();
+
+  return Boolean(rawValue) && !/%3CUNKNOWN%3E|<UNKNOWN>/i.test(rawValue);
+}
+
+function toAbsoluteUploadUrl(value) {
+  const rawValue = String(value ?? "").trim();
+  // Railway's upload service may return '<UNKNOWN>/catalog/...' when its
+  // public-base environment value is not available. Treat that as the
+  // managed uploads path instead of persisting a broken encoded URL.
+  const normalizedValue = rawValue.replace(/^<[^>]+>\/?/, "/");
+
+  try {
+    return new URL(normalizedValue).toString();
+  } catch {
+    // Uploads from a proxied API can be returned as a root-relative path.
+  }
+
+  const uploadPublicBaseUrl = process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL ?? "";
+
+  if (!uploadPublicBaseUrl) {
+    throw new Error(
+      "DEMO_SEED_UPLOAD_PUBLIC_BASE_URL is required when uploads return relative URLs."
+    );
+  }
+
+  return new URL(normalizedValue, uploadPublicBaseUrl).toString();
 }
 
 function distinctExistingGalleryUrls(productItem) {
@@ -2155,7 +2214,7 @@ function distinctExistingGalleryUrls(productItem) {
   if (
     urls.length < PRODUCT_GALLERY_VIEWS.length ||
     distinctFiles.size < PRODUCT_GALLERY_VIEWS.length ||
-    !urls.every((url) => url.includes(ASSET_VERSION))
+    !urls.every((url) => url.includes(ASSET_VERSION) && isUsableUploadUrl(url))
   ) {
     return null;
   }
@@ -2456,9 +2515,11 @@ module.exports = {
   buildCatalogProductDefinitions,
   buildProductImageGallery,
   buildProductPayload,
+  distinctExistingGalleryUrls,
   flattenCategories,
   productLeafCategories,
-  skuFromName
+  skuFromName,
+  toAbsoluteUploadUrl
 };
 
 if (require.main === module) {

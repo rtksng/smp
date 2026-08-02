@@ -60,8 +60,8 @@ type ApiClientErrorDetails = {
   url?: string;
 };
 
-const BROWSER_API_PROXY_BASE_PATH = "/api/v1";
-const BROWSER_PROXY_HOST_SUFFIXES = [".up.railway.app"];
+const API_PROXY_BASE_PATH = "/api/v1";
+const API_PROXY_HOST_SUFFIXES = [".up.railway.app"];
 
 export class ApiClientError extends Error {
   readonly code: string;
@@ -237,24 +237,32 @@ function getApiBaseUrl() {
 
   const apiBaseUrl = parsed.data.replace(/\/+$/, "");
 
-  if (shouldUseBrowserApiProxy(apiBaseUrl)) {
-    return new URL(BROWSER_API_PROXY_BASE_PATH, window.location.origin)
-      .toString()
-      .replace(/\/+$/, "");
+  if (shouldUseApiProxy(apiBaseUrl)) {
+    const proxyOrigin = getApiProxyOrigin();
+
+    if (proxyOrigin) {
+      return new URL(API_PROXY_BASE_PATH, proxyOrigin).toString().replace(/\/+$/, "");
+    }
   }
 
   return apiBaseUrl;
 }
 
-function shouldUseBrowserApiProxy(apiBaseUrl: string) {
-  if (typeof window === "undefined") {
-    return false;
+function getApiProxyOrigin() {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
   }
 
+  const siteUrl = apiUrlSchema.safeParse(process.env.NEXT_PUBLIC_SITE_URL);
+
+  return siteUrl.success ? siteUrl.data : null;
+}
+
+function shouldUseApiProxy(apiBaseUrl: string) {
   try {
     const hostname = new URL(apiBaseUrl).hostname;
 
-    return BROWSER_PROXY_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+    return API_PROXY_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
   } catch {
     return false;
   }

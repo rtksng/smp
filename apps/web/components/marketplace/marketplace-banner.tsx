@@ -97,7 +97,7 @@ export function MarketplaceBanner({
 
           <div className="mt-6 h-1.5 w-24 rounded-full bg-[#3cb043]" />
 
-          <p className="mt-6 max-w-[42rem] text-base font-semibold leading-7 text-[#556b57] sm:text-xl sm:leading-8">
+          <p className="mt-6 max-w-[42rem] text-base font-medium leading-7 text-[#556b57] sm:text-xl sm:leading-8">
             {subtitle}
           </p>
 
@@ -117,7 +117,7 @@ export function MarketplaceBanner({
                 <span className="grid h-16 w-16 place-items-center rounded-full bg-[#ddf2e0] text-[#3cb043]">
                   <Icon aria-hidden="true" className="h-8 w-8" strokeWidth={2.4} />
                 </span>
-                <span className="max-w-36 text-sm font-black leading-5 sm:text-base">
+                <span className="max-w-36 text-sm font-medium leading-5 sm:text-base">
                   {label}
                 </span>
               </div>
@@ -154,33 +154,38 @@ export function MarketplaceProofStrip() {
   return (
     <section
       aria-label="Marketplace trust metrics"
-      className="bg-[#f4fbf5] pb-8 sm:pb-10"
+      className="overflow-hidden bg-[linear-gradient(90deg,#287c30_0%,#3cb043_100%)] py-3 text-white shadow-xl shadow-[#287c30]/20 sm:py-4"
       data-testid="hero-proof-section"
     >
-      <Container>
-        <div
-          className="grid gap-4 rounded-[1.35rem] bg-[linear-gradient(90deg,#287c30_0%,#3cb043_100%)] p-5 text-white shadow-xl shadow-[#287c30]/20 sm:grid-cols-2 md:grid-cols-4 md:items-center md:gap-0 md:p-5"
-          data-testid="hero-proof-strip"
-        >
-          {heroProof.map(({ Icon, label, value }) => (
-            <div
-              className="flex min-h-16 items-center gap-3 border-white/20 md:px-5 md:[&:not(:first-child)]:border-l"
-              key={label}
-            >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 border-white text-white">
-                <Icon aria-hidden="true" className="h-7 w-7" strokeWidth={2.4} />
-              </span>
-              <p className="text-base font-semibold leading-6">
-                {value ? (
-                  <span className="block text-xl font-black">{value}</span>
-                ) : null}
-                <span className="block">{label}</span>
-              </p>
-            </div>
-          ))}
-        </div>
-      </Container>
+      <div
+        className="proof-marquee-track flex w-max will-change-transform"
+        data-testid="hero-proof-strip"
+      >
+        <ProofMetrics />
+        <ProofMetrics ariaHidden />
+      </div>
     </section>
+  );
+}
+
+function ProofMetrics({ ariaHidden = false }: { ariaHidden?: boolean }) {
+  return (
+    <div aria-hidden={ariaHidden || undefined} className="flex shrink-0">
+      {heroProof.map(({ Icon, label, value }) => (
+        <div
+          className="flex min-h-16 w-[18rem] shrink-0 items-center gap-3 border-l border-white/25 px-6 sm:w-[21rem] sm:px-8"
+          key={label}
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border-2 border-white text-white">
+            <Icon aria-hidden="true" className="h-7 w-7" strokeWidth={2.4} />
+          </span>
+          <p className="text-base font-semibold leading-6">
+            <span className="block text-xl font-black">{value}</span>
+            <span className="block">{label}</span>
+          </p>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -9,7 +9,9 @@ const {
   buildProductPayload,
   flattenCategories,
   productLeafCategories,
-  skuFromName
+  skuFromName,
+  toAbsoluteUploadUrl,
+  distinctExistingGalleryUrls
 } = require("./seed-demo-catalog.cjs");
 
 const brands = [
@@ -145,5 +147,46 @@ test("demo catalog gallery rejects query-string variants of the same image", () 
         "https://cdn.example.com/products/generated.png?view=package"
       ]),
     /distinct gallery image URLs/
+  );
+});
+
+test("demo catalog resolves relative uploaded image paths against the public API origin", () => {
+  const originalUploadBaseUrl = process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL;
+  process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL = "https://api.example.com";
+
+  try {
+    assert.equal(
+      toAbsoluteUploadUrl("/uploads/catalog/products/images/forceps.png"),
+      "https://api.example.com/uploads/catalog/products/images/forceps.png"
+    );
+  } finally {
+    process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL = originalUploadBaseUrl;
+  }
+});
+
+test("demo catalog repairs Railway's unknown upload-base placeholder", () => {
+  const originalUploadBaseUrl = process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL;
+  process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL = "https://api.example.com";
+
+  try {
+    assert.equal(
+      toAbsoluteUploadUrl("<UNKNOWN>/catalog/products/images/forceps.png"),
+      "https://api.example.com/catalog/products/images/forceps.png"
+    );
+  } finally {
+    process.env.DEMO_SEED_UPLOAD_PUBLIC_BASE_URL = originalUploadBaseUrl;
+  }
+});
+
+test("demo catalog refreshes galleries with Railway's broken upload placeholder", () => {
+  assert.equal(
+    distinctExistingGalleryUrls({
+      images: [
+        { isPrimary: true, sortOrder: 0, url: "https://api.example.com/%3CUNKNOWN%3E/catalog/a-v2026.png" },
+        { sortOrder: 1, url: "https://api.example.com/%3CUNKNOWN%3E/catalog/b-v2026.png" },
+        { sortOrder: 2, url: "https://api.example.com/%3CUNKNOWN%3E/catalog/c-v2026.png" }
+      ]
+    }),
+    null
   );
 });

@@ -4,8 +4,9 @@ import {
   type CategoryNavigationItem
 } from "./customer-navigation";
 
-const LANDING_CATEGORY_LIMIT = 10;
+const LANDING_CATEGORY_LIMIT = 8;
 const FEATURED_CATEGORY_SECTION_LIMIT = 5;
+const FEATURED_CATEGORY_PRODUCT_LIMIT = 5;
 const LANDING_PRODUCT_LIMIT = 4;
 const HOME_BRAND_PREVIEW_LIMIT = 8;
 
@@ -26,6 +27,10 @@ export function getLandingProductLimit() {
 
 export function getFeaturedCategorySectionLimit() {
   return FEATURED_CATEGORY_SECTION_LIMIT;
+}
+
+export function getFeaturedCategoryProductLimit() {
+  return FEATURED_CATEGORY_PRODUCT_LIMIT;
 }
 
 export function getHomeBrandPreviewLimit() {
@@ -50,7 +55,7 @@ export function selectProductReadyFeaturedCategories(
   categories: CategoryNavigationItem[],
   productsByCategorySlug: Record<string, ProductList | undefined>,
   limit = FEATURED_CATEGORY_SECTION_LIMIT,
-  minimumProducts = LANDING_PRODUCT_LIMIT
+  minimumProducts = FEATURED_CATEGORY_PRODUCT_LIMIT
 ) {
   return categories
     .filter(

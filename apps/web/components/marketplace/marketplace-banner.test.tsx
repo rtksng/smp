@@ -84,9 +84,9 @@ describe("MarketplaceBanner", () => {
 
     expect(screen.getByTestId("hero-proof-section").tagName).toBe("SECTION");
     expect(screen.getByTestId("hero-proof-strip")).not.toHaveClass("md:-mt-16");
-    expect(screen.getByText("10,000+")).toBeInTheDocument();
-    expect(screen.getByText("5,000+")).toBeInTheDocument();
-    expect(screen.getByText("99%")).toBeInTheDocument();
-    expect(screen.getByText("GST Billing")).toBeInTheDocument();
+    expect(screen.getAllByText("10,000+")).toHaveLength(2);
+    expect(screen.getAllByText("5,000+")).toHaveLength(2);
+    expect(screen.getAllByText("99%")).toHaveLength(2);
+    expect(screen.getAllByText("GST Billing")).toHaveLength(2);
   });
 });

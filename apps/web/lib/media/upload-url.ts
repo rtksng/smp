@@ -6,6 +6,17 @@ const STALE_UPLOAD_HOSTS = new Set([
 ]);
 
 export function resolveCustomerUploadUrl(value: string) {
+  const legacyUploadPath = getLegacyUploadPath(value);
+
+  if (legacyUploadPath) {
+    if (isStaticUploadFallbackEnabled()) {
+      return legacyUploadPath;
+    }
+
+    const apiOrigin = getConfiguredApiOrigin();
+    return apiOrigin ? `${apiOrigin}${legacyUploadPath}` : legacyUploadPath;
+  }
+
   try {
     const parsedUrl = new URL(value);
 
@@ -18,7 +29,11 @@ export function resolveCustomerUploadUrl(value: string) {
     }
 
     if (isStaticUploadFallbackEnabled()) {
-      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+      const proxyPath = parsedUrl.pathname.startsWith("/catalog/")
+        ? `/uploads${parsedUrl.pathname}`
+        : parsedUrl.pathname;
+
+      return `${proxyPath}${parsedUrl.search}${parsedUrl.hash}`;
     }
 
     const apiOrigin = getConfiguredApiOrigin();
@@ -31,6 +46,10 @@ export function resolveCustomerUploadUrl(value: string) {
   } catch {
     if (value.startsWith("/uploads/")) {
       return value;
+    }
+
+    if (value.startsWith("/catalog/")) {
+      return `/uploads${value}`;
     }
 
     return value;
@@ -56,11 +75,37 @@ function getConfiguredApiOrigin() {
 }
 
 function isManagedUploadPath(pathname: string) {
-  return pathname === "/uploads" || pathname.startsWith("/uploads/");
+  return (
+    pathname === "/uploads" ||
+    pathname.startsWith("/uploads/") ||
+    pathname === "/catalog" ||
+    pathname.startsWith("/catalog/")
+  );
 }
 
 function isStaticUploadFallbackEnabled() {
+  // Customer uploads are served through the local /uploads proxy by default.
+  // This lets the same Railway DNS fallback used for API calls serve media.
   return process.env.NEXT_PUBLIC_STATIC_UPLOAD_FALLBACK !== "false";
+}
+
+function getLegacyUploadPath(value: string) {
+  const rawValue = String(value ?? "").trim();
+  let legacyValue = rawValue;
+
+  try {
+    legacyValue = decodeURIComponent(new URL(rawValue).pathname).replace(/^\/+/, "");
+  } catch {
+    // Raw values such as '<UNKNOWN>/catalog/...' are handled below.
+  }
+
+  const match = legacyValue.match(/^<?UNKNOWN>\/?(.+)$/i) ?? rawValue.match(/^<[^>]+>\/?(.+)$/i);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return `/uploads/${match[1].replace(/^(uploads\/?)?/i, "")}`;
 }
 
 function isKnownManagedUploadHost(hostname: string) {
