@@ -206,10 +206,7 @@ export function ProductListingPage({
       <main className="bg-[#f4fbf5]">
         <section className="border-b border-[#cfe9d2] bg-[#f4fbf5] pt-5 sm:pt-6 lg:py-7">
           <Container>
-            <div
-              className="grid gap-5 lg:grid-cols-[minmax(18rem,0.42fr)_minmax(0,1fr)] items-center lg:items-start"
-              data-testid="catalog-hero"
-            >
+            <div className="grid gap-5" data-testid="catalog-hero">
               <div className="max-w-2xl lg:max-w-md">
                 <h1 className="text-2xl font-semibold leading-tight text-[#173b1d] sm:text-3xl lg:text-4xl">
                   {pageHeading}
@@ -218,34 +215,14 @@ export function ProductListingPage({
                   {pageDescription}
                 </p>
               </div>
-              <div
-                className="grid gap-4 lg:justify-items-end"
-                data-testid="catalog-hero-action-panel"
-              >
-                <div
-                  className="hidden flex-wrap gap-3 md:flex lg:justify-end"
-                  data-testid="desktop-catalog-hero-actions"
-                >
-                  <Button className="whitespace-nowrap" href={availableHref}>
-                    In-stock only
-                  </Button>
-                  <Button
-                    className="whitespace-nowrap"
-                    href={pathname}
-                    variant="outline"
-                  >
-                    Reset filters
-                  </Button>
-                </div>
-                {(context.type === "category" || context.type === "subcategory") &&
-                  categoryQuery.data ? (
-                  <SubcategoryNav
-                    category={categoryQuery.data}
-                    filters={filters}
-                    lockedFilters={lockedFilters}
-                  />
-                ) : null}
-              </div>
+              {(context.type === "category" || context.type === "subcategory") &&
+              categoryQuery.data ? (
+                <SubcategoryNav
+                  category={categoryQuery.data}
+                  filters={filters}
+                  lockedFilters={lockedFilters}
+                />
+              ) : null}
               {categoryQuery.isError ? (
                 <div className="lg:col-span-2">
                   <ErrorState
@@ -360,7 +337,7 @@ export function ProductListingPage({
               {productsQuery.isSuccess && productsQuery.data.items.length > 0 ? (
                 <>
                   <div
-                    className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4"
                     data-testid="product-results-grid"
                   >
                     {productsQuery.data.items.map((product) => (

@@ -186,7 +186,6 @@ async function fetchCustomerApiProxyWithPublicDns(
 
 function shouldRetryWithPublicDns(upstreamUrl: URL, error: unknown) {
   return (
-    process.env.NODE_ENV !== "production" &&
     upstreamUrl.protocol === "https:" &&
     upstreamUrl.hostname.endsWith(RAILWAY_HOST_SUFFIX) &&
     hasRetryableDnsError(error)

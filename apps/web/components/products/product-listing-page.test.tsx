@@ -174,7 +174,8 @@ describe("ProductListingPage", () => {
 
     expect(screen.getByTestId("product-results-grid")).toHaveClass(
       "grid-cols-2",
-      "items-stretch"
+      "items-stretch",
+      "xl:grid-cols-4"
     );
     expect(
       screen.getByRole("heading", { name: "SurgiPro Artery Forceps" })
@@ -272,26 +273,7 @@ describe("ProductListingPage", () => {
     expect(screen.getByText("Active filters")).toHaveClass("text-[10px]");
   });
 
-  it("resets filters without leaving the current category route", () => {
-    pathname = "/categories/dental";
-
-    renderListing({
-      context: {
-        slug: "dental",
-        type: "category"
-      },
-      initialData: {
-        category: categories[1]
-      }
-    });
-
-    expect(screen.getAllByRole("link", { name: "Reset filters" })).toHaveLength(1);
-    for (const resetLink of screen.getAllByRole("link", { name: "Reset filters" })) {
-      expect(resetLink).toHaveAttribute("href", "/categories/dental");
-    }
-  });
-
-  it("groups the desktop category hero actions and chips into a tidy right panel", () => {
+  it("shows category navigation without redundant desktop hero actions", () => {
     pathname = "/categories/dental";
 
     renderListing({
@@ -305,24 +287,13 @@ describe("ProductListingPage", () => {
     });
 
     const hero = screen.getByTestId("catalog-hero");
-    const actionPanel = screen.getByTestId("catalog-hero-action-panel");
-    const desktopActions = screen.getByTestId("desktop-catalog-hero-actions");
     const subcategoryNav = screen.getByRole("navigation", {
       name: "Dental subcategories"
     });
 
-    expect(hero).toHaveClass(
-      "lg:grid-cols-[minmax(18rem,0.42fr)_minmax(0,1fr)]",
-      "lg:items-start"
-    );
-    expect(actionPanel).toHaveClass("lg:justify-items-end");
-    expect(desktopActions).toHaveClass("lg:justify-end");
-    expect(screen.getByRole("link", { name: "In-stock only" })).toHaveClass(
-      "whitespace-nowrap"
-    );
-    expect(screen.getByRole("link", { name: "Reset filters" })).toHaveClass(
-      "whitespace-nowrap"
-    );
+    expect(hero).toHaveClass("grid", "gap-5");
+    expect(screen.queryByRole("link", { name: "In-stock only" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Reset filters" })).not.toBeInTheDocument();
     expect(subcategoryNav).toHaveClass("lg:max-w-[68rem]");
     expect(subcategoryNav).not.toHaveClass("mt-6");
   });
@@ -370,8 +341,6 @@ describe("ProductListingPage", () => {
       "shrink-0",
       "whitespace-nowrap"
     );
-    expect(screen.getAllByRole("link", { name: "Reset filters" })[0])
-      .toHaveAttribute("href", "/categories/dental/endodontics");
   });
 
   it("updates subcategory choices when the category filter changes", async () => {

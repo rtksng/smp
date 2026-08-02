@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const urlSchema = z.string().url();
+const RAILWAY_HOST_SUFFIX = ".up.railway.app";
+const DEFAULT_RAILWAY_UPLOAD_BASE_URL =
+  "https://pxseurailproxy-production-1f3a.up.railway.app";
 
 type UploadProxyContext = {
   params: Promise<{
@@ -59,9 +62,27 @@ export async function GET(request: NextRequest, { params }: UploadProxyContext) 
 }
 
 function getUploadBaseUrl() {
-  return (
+  const storageBaseUrl =
     process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL ??
-    process.env.STORAGE_PUBLIC_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL
-  );
+    process.env.STORAGE_PUBLIC_BASE_URL;
+
+  if (storageBaseUrl) {
+    return storageBaseUrl;
+  }
+
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (apiBaseUrl && isRailwayUrl(apiBaseUrl)) {
+    return DEFAULT_RAILWAY_UPLOAD_BASE_URL;
+  }
+
+  return apiBaseUrl;
+}
+
+function isRailwayUrl(value: string) {
+  try {
+    return new URL(value).hostname.endsWith(RAILWAY_HOST_SUFFIX);
+  } catch {
+    return false;
+  }
 }
