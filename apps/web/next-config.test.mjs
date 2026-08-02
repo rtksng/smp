@@ -24,6 +24,9 @@ describe("next config", () => {
     );
 
     expect(hostnames).toContain("smp-production-bfda.up.railway.app");
+    expect(hostnames).toContain(
+      "pxseurailproxy-production-1f3a.up.railway.app"
+    );
     expect(hostnames).not.toContain("smp-production-b700.up.railway.app");
   });
 

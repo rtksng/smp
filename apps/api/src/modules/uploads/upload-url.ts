@@ -1,5 +1,7 @@
 const DEFAULT_STORAGE_PUBLIC_BASE_URL = "http://localhost:4000/uploads";
 const DEFAULT_STORAGE_PUBLIC_PATH = "uploads";
+const DEFAULT_RAILWAY_STORAGE_PUBLIC_BASE_URL =
+  "https://pxseurailproxy-production-1f3a.up.railway.app";
 
 export function resolveStoredUploadUrl(value: string | null | undefined) {
   if (!value) {
@@ -18,10 +20,24 @@ export function resolveStoredUploadUrl(value: string | null | undefined) {
   return `${storagePublicBaseUrl()}/${key}`;
 }
 
+export function resolveStoragePublicBaseUrl(value?: string) {
+  const configuredValue = (
+    value ?? process.env.STORAGE_PUBLIC_BASE_URL ?? DEFAULT_STORAGE_PUBLIC_BASE_URL
+  )
+    .trim()
+    .replace(/\/+$/, "");
+
+  if (isValidPublicBaseUrl(configuredValue)) {
+    return configuredValue;
+  }
+
+  return process.env.NODE_ENV === "production"
+    ? DEFAULT_RAILWAY_STORAGE_PUBLIC_BASE_URL
+    : DEFAULT_STORAGE_PUBLIC_BASE_URL;
+}
+
 function storagePublicBaseUrl() {
-  return (
-    process.env.STORAGE_PUBLIC_BASE_URL ?? DEFAULT_STORAGE_PUBLIC_BASE_URL
-  ).replace(/\/+$/, "");
+  return resolveStoragePublicBaseUrl();
 }
 
 function extractUploadKey(value: string, publicPath: string) {
@@ -37,12 +53,29 @@ function extractUploadKey(value: string, publicPath: string) {
       return segments.slice(publicPathIndex + 1).join("/");
     }
   } catch {
-    const normalizedValue = value.replace(/\\/g, "/").replace(/^\/+/, "");
+    const normalizedValue = value
+      .replace(/\\/g, "/")
+      .replace(/^<UNKNOWN>\/?/i, "")
+      .replace(/^\/+/, "");
 
     if (normalizedValue.startsWith(`${normalizedPublicPath}/`)) {
       return normalizedValue.slice(normalizedPublicPath.length + 1);
     }
+
+    if (normalizedValue.startsWith("catalog/")) {
+      return normalizedValue;
+    }
   }
 
   return null;
+}
+
+function isValidPublicBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }

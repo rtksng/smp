@@ -25,6 +25,10 @@ const nextConfig = {
         protocol: "https"
       },
       {
+        hostname: "pxseurailproxy-production-1f3a.up.railway.app",
+        protocol: "https"
+      },
+      {
         hostname: "localhost",
         protocol: "http"
       },

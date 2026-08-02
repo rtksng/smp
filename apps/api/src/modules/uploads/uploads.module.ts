@@ -10,6 +10,7 @@ import {
 } from "./uploads.constants";
 import { LocalStorageProvider } from "./storage/local-storage.provider";
 import { S3StorageProvider } from "./storage/s3-storage.provider";
+import { resolveStoragePublicBaseUrl } from "./upload-url";
 import {
   AdminUploadsController,
   CustomerUploadsController,
@@ -51,7 +52,9 @@ import { UploadsService } from "./uploads.service";
             bucket: requiredConfig(configService, "s3Bucket"),
             endpoint: configService.get<string>("s3Endpoint") || undefined,
             forcePathStyle: configService.get<boolean>("s3ForcePathStyle", false),
-            publicBaseUrl: requiredConfig(configService, "storagePublicBaseUrl"),
+            publicBaseUrl: resolveStoragePublicBaseUrl(
+              requiredConfig(configService, "storagePublicBaseUrl")
+            ),
             region: requiredConfig(configService, "s3Region"),
             secretAccessKey: configService.get<string>("s3SecretAccessKey")
           });
@@ -65,9 +68,11 @@ import { UploadsService } from "./uploads.service";
           localRoot: resolve(
             configService.get<string>("storageLocalRoot", "storage/uploads")
           ),
-          publicBaseUrl: configService.get<string>(
-            "storagePublicBaseUrl",
-            "http://localhost:4000/uploads"
+          publicBaseUrl: resolveStoragePublicBaseUrl(
+            configService.get<string>(
+              "storagePublicBaseUrl",
+              "http://localhost:4000/uploads"
+            )
           )
         });
       }
