@@ -5,7 +5,8 @@ import {
   buildCustomerApiProxyHeaders,
   buildCustomerApiProxyResponse,
   buildCustomerApiProxyUrl,
-  fetchCustomerApiProxy
+  fetchCustomerApiProxy,
+  normalizeCustomerApiBaseUrl
 } from "../../../../lib/api/proxy";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ function getApiBaseUrl() {
     throw new Error("NEXT_PUBLIC_API_URL must be set to proxy customer API calls.");
   }
 
-  return parsed.data;
+  return normalizeCustomerApiBaseUrl(parsed.data);
 }
 
 export const GET = proxyCustomerApi;

@@ -23,6 +23,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 const DEFAULT_CUSTOMER_API_PROXY_TIMEOUT_MS = 30_000;
 const PUBLIC_DNS_SERVERS = ["1.1.1.1", "8.8.8.8"];
 const RAILWAY_HOST_SUFFIX = ".up.railway.app";
+const CUSTOMER_API_VERSION_PATH = "/api/v1";
 const RETRYABLE_DNS_ERROR_CODES = new Set(["EAI_AGAIN", "ENOTFOUND"]);
 
 export class CustomerApiProxyTimeoutError extends Error {
@@ -109,6 +110,17 @@ export async function fetchCustomerApiProxy(
   } finally {
     timeout.cleanup();
   }
+}
+
+export function normalizeCustomerApiBaseUrl(value: string) {
+  const url = new URL(value);
+  const normalizedPath = url.pathname.replace(/\/+$/, "");
+
+  url.pathname = normalizedPath.endsWith(CUSTOMER_API_VERSION_PATH)
+    ? normalizedPath
+    : `${normalizedPath}${CUSTOMER_API_VERSION_PATH}`.replace(/\/\/{2,}/g, "/");
+
+  return url.toString().replace(/\/+$/, "");
 }
 
 async function fetchCustomerApiProxyWithPublicDns(

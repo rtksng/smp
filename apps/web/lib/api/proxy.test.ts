@@ -5,7 +5,8 @@ import {
   buildCustomerApiProxyErrorResponse,
   buildCustomerApiProxyResponse,
   buildCustomerApiProxyUrl,
-  fetchCustomerApiProxy
+  fetchCustomerApiProxy,
+  normalizeCustomerApiBaseUrl
 } from "./proxy";
 
 describe("customer API proxy helpers", () => {
@@ -24,6 +25,17 @@ describe("customer API proxy helpers", () => {
     expect(url.toString()).toBe(
       "https://api.example.com/api/v1/products/demo%20forceps/related?limit=4"
     );
+  });
+
+  it("normalizes Railway API origins that omit the version path", () => {
+    expect(
+      normalizeCustomerApiBaseUrl("https://smp-production-bfda.up.railway.app")
+    ).toBe("https://smp-production-bfda.up.railway.app/api/v1");
+    expect(
+      normalizeCustomerApiBaseUrl(
+        "https://smp-production-bfda.up.railway.app/api/v1/"
+      )
+    ).toBe("https://smp-production-bfda.up.railway.app/api/v1");
   });
 
   it("keeps API headers while removing hop-by-hop request headers", () => {
