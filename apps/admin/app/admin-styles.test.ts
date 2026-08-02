@@ -180,6 +180,15 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/\.workspace\s*{[^}]*margin-left:\s*var\(--admin-sidebar-width\);/s);
   });
 
+  it("keeps the guide table of contents sticky while the page scrolls", () => {
+    expect(globalsCss).toMatch(
+      /\.workspace:has\(\.adminGuidePage\)\s*{[^}]*overflow-x:\s*clip;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminGuideToc\s*{[^}]*position:\s*sticky;[^}]*top:\s*18px;/s
+    );
+  });
+
   it("preserves sidebar scroll position across route changes", () => {
     expect(adminShellSource).toContain("function SidebarNavScroller");
     expect(adminShellSource).toContain("SIDEBAR_SCROLL_STORAGE_KEY");

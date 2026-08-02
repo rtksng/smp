@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Badge,
   BarChart3,
+  BookOpenCheck,
   Boxes,
   Circle,
   CircleDollarSign,
@@ -41,6 +42,7 @@ import {
 
 const navIconMap: Record<string, LucideIcon> = {
   Brands: Badge,
+  "Admin Guide": BookOpenCheck,
   Categories: FolderTree,
   Coupons: TicketPercent,
   Customers: Users,
