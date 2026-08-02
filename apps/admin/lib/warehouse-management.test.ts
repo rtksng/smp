@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  WAREHOUSE_ANALYTICS_PATH,
   WAREHOUSE_CREATE_PATH,
   WAREHOUSE_LIST_PATH,
   buildWarehouseCreatePath,
@@ -104,8 +105,12 @@ describe("warehouse management helpers", () => {
 
   it("builds the list-to-edit warehouse route and normalizes edit search params", () => {
     expect(WAREHOUSE_CREATE_PATH).toBe("/warehouses/create");
+    expect(WAREHOUSE_ANALYTICS_PATH).toBe("/warehouses");
     expect(WAREHOUSE_LIST_PATH).toBe("/warehouses/list");
     expect(buildWarehouseCreatePath()).toBe("/warehouses/create");
+    expect(buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)).toBe(
+      "/warehouses/create?returnTo=%2Fwarehouses"
+    );
     expect(buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)).toBe(
       "/warehouses/create?returnTo=%2Fwarehouses%2Flist"
     );
@@ -115,6 +120,9 @@ describe("warehouse management helpers", () => {
     expect(getWarehouseEditId(" warehouse-1 ")).toBe("warehouse-1");
     expect(getWarehouseEditId(["warehouse-2", "warehouse-3"])).toBe("warehouse-2");
     expect(getWarehouseEditId("")).toBeNull();
+    expect(getWarehouseReturnToPath(WAREHOUSE_ANALYTICS_PATH)).toBe(
+      WAREHOUSE_ANALYTICS_PATH
+    );
     expect(getWarehouseReturnToPath(WAREHOUSE_LIST_PATH)).toBe(WAREHOUSE_LIST_PATH);
     expect(getWarehouseReturnToPath(["/warehouses/list", "/settings"])).toBe(
       WAREHOUSE_LIST_PATH

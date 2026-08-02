@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Eye, RefreshCw, Search } from "lucide-react";
+import { Eye, RefreshCw, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { AdminShell } from "../../admin-shell";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
@@ -47,37 +48,9 @@ import {
 
 const ORDERS_PAGE_SIZE = 20;
 
-type OrdersView = "overview" | "list";
-
-const orderSections: Array<{
-  description: string;
-  href: string;
-  id: OrdersView;
-  title: string;
-}> = [
-  {
-    description: "Order metrics and shortcuts into the operational table.",
-    href: "/orders",
-    id: "overview",
-    title: "Overview"
-  },
-  {
-    description: "Filter warehouse-scoped orders and open order detail pages.",
-    href: "/orders/list",
-    id: "list",
-    title: "Order list"
-  }
-];
-
-const orderCopy: Record<OrdersView, { summary: string; title: string }> = {
-  list: {
-    summary: "Review warehouse-scoped customer orders, payment state, dates, and fulfillment status in one table.",
-    title: "Order list"
-  },
-  overview: {
-    summary: "Review order workload and open the focused order management table.",
-    title: "Orders"
-  }
+const orderCopy = {
+  summary: "Review order workload, filter results, and open order detail pages.",
+  title: "Orders"
 };
 
 export function OrdersRoute({ children }: { children: ReactNode }) {
@@ -91,14 +64,10 @@ export function OrdersRoute({ children }: { children: ReactNode }) {
 }
 
 export function OrdersLandingPage() {
-  return <OrdersContent view="overview" />;
+  return <OrdersContent />;
 }
 
-export function OrderListPage() {
-  return <OrdersContent view="list" />;
-}
-
-function OrdersContent({ view }: { view: OrdersView }) {
+function OrdersContent() {
   const { api } = useAdminSession();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -112,6 +81,7 @@ function OrdersContent({ view }: { view: OrdersView }) {
   const [appliedFilters, setAppliedFilters] = useState<OrderFilters>(
     urlFilters
   );
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [filterError, setFilterError] = useState<string | null>(null);
 
@@ -166,6 +136,7 @@ function OrdersContent({ view }: { view: OrdersView }) {
     setFilterError(null);
     setPage(1);
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
@@ -177,23 +148,20 @@ function OrdersContent({ view }: { view: OrdersView }) {
   }
 
   const paidVisibleCount = orders.filter((order) => order.paymentStatus === "PAID").length;
-  const pageCopy = orderCopy[view];
-
   return (
     <>
       <section className="panel orderOverviewPanel">
-        <OrderSectionNav active={view} />
         <PageHeader
           actions={
             <div className="actionRow">
-              {view === "overview" ? (
-                <Button asChild className="iconTextButton">
-                  <Link href="/orders/list">
-                    <Search aria-hidden size={16} />
-                    <span>Open orders</span>
-                  </Link>
-                </Button>
-              ) : null}
+              <Button
+                className="iconTextButton"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                type="button"
+              >
+                <SlidersHorizontal aria-hidden size={16} />
+                <span>Add filter</span>
+              </Button>
               <Button
                 className="iconTextButton"
                 onClick={() => void ordersQuery.refetch()}
@@ -207,8 +175,8 @@ function OrdersContent({ view }: { view: OrdersView }) {
           }
           className="orderPageHeader"
           eyebrow="Orders"
-          summary={pageCopy.summary}
-          title={pageCopy.title}
+          summary={orderCopy.summary}
+          title={orderCopy.title}
         />
 
         <div className="metricGrid resourceMetrics orderMetricGrid">
@@ -219,149 +187,71 @@ function OrdersContent({ view }: { view: OrdersView }) {
         </div>
       </section>
 
-      {view === "overview" ? (
-        <OrderHub
-          openOrders={openOrders}
-          paidVisibleCount={paidVisibleCount}
-          totalOrders={pagination?.total ?? orders.length}
-          visibleOrders={orders.length}
+      <FilterDrawer
+        error={filterError}
+        isOpen={isFilterDrawerOpen}
+        isSubmitting={ordersQuery.isFetching}
+        onApply={applyFilters}
+        onOpenChange={setIsFilterDrawerOpen}
+        onReset={resetFilters}
+        summary="Filter by status, payment, warehouse, customer mobile, date, or order number."
+        title="Order filters"
+      >
+        <OrderFilterFields
+          filters={draftFilters}
+          isWarehouseLoading={warehousesQuery.isLoading}
+          onChange={setDraftFilters}
+          warehouses={warehouses}
         />
-      ) : null}
+      </FilterDrawer>
 
-      {view === "list" ? (
-        <section className="panel orderListPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow="Order table"
-            level={2}
-            summary="Filter by status, payment, warehouse, customer mobile, date, or order number."
-            title="Warehouse-scoped results"
-          />
-          <OrderFilterForm
-            filters={draftFilters}
-            isWarehouseLoading={warehousesQuery.isLoading}
-            onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={applyFilters}
-            warehouses={warehouses}
-          />
-          {filterError ? (
-            <p className="formError" role="alert">
-              {filterError}
-            </p>
-          ) : null}
-          {warehousesQuery.isError ? (
-            <p className="formError" role="alert">
-              {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-            </p>
-          ) : null}
+      <section className="panel orderListPanel mt-3">
+        <PageHeader
+          className="settingsSectionHeader"
+          eyebrow="Order table"
+          level={2}
+          title="Warehouse-scoped results"
+        />
+        {warehousesQuery.isError ? (
+          <p className="formError" role="alert">
+            {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
+          </p>
+        ) : null}
 
-          {ordersQuery.isLoading ? <LoadingState label="Loading orders..." /> : null}
-          {ordersQuery.isError ? (
-            <p className="formError" role="alert">
-              {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
-            </p>
-          ) : null}
-          {!ordersQuery.isLoading && !ordersQuery.isError ? (
-            <OrdersTable orders={orders} />
-          ) : null}
-          {pagination ? (
-            <PaginationControls
-              onChange={setPage}
-              page={pagination.page}
-              totalPages={Math.max(pagination.totalPages, 1)}
-            />
-          ) : null}
-        </section>
-      ) : null}
+        {ordersQuery.isLoading ? <LoadingState label="Loading orders..." /> : null}
+        {ordersQuery.isError ? (
+          <p className="formError" role="alert">
+            {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
+          </p>
+        ) : null}
+        {!ordersQuery.isLoading && !ordersQuery.isError ? (
+          <OrdersTable orders={orders} />
+        ) : null}
+        {pagination ? (
+          <PaginationControls
+            onChange={setPage}
+            page={pagination.page}
+            totalPages={Math.max(pagination.totalPages, 1)}
+          />
+        ) : null}
+      </section>
     </>
   );
 }
 
-function OrderSectionNav({ active }: { active: OrdersView }) {
-  return (
-    <nav className="orderSectionNav" aria-label="Order sections">
-      {orderSections.map((section) => (
-        <Link
-          aria-current={active === section.id ? "page" : undefined}
-          href={section.href}
-          key={section.id}
-        >
-          {section.title}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function OrderHub({
-  openOrders,
-  paidVisibleCount,
-  totalOrders,
-  visibleOrders
-}: {
-  openOrders: number;
-  paidVisibleCount: number;
-  totalOrders: number;
-  visibleOrders: number;
-}) {
-  const cards = [
-    {
-      description: "Open the filterable order table for operations and detail review.",
-      href: "/orders/list",
-      metric: totalOrders,
-      title: "Order records"
-    },
-    {
-      description: "Review the current page of warehouse-scoped order matches.",
-      href: "/orders/list",
-      metric: visibleOrders,
-      title: "Visible orders"
-    },
-    {
-      description: "Track orders still moving through fulfillment or delivery.",
-      href: "/orders/list",
-      metric: openOrders,
-      title: "Open visible"
-    },
-    {
-      description: "Check visible orders with successful payment collection.",
-      href: "/orders/list",
-      metric: paidVisibleCount,
-      title: "Paid visible"
-    }
-  ];
-
-  return (
-    <section className="orderHubGrid">
-      {cards.map((card) => (
-        <Link className="orderHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
-  );
-}
-
-function OrderFilterForm({
+function OrderFilterFields({
   filters,
   isWarehouseLoading,
   onChange,
-  onReset,
-  onSubmit,
   warehouses
 }: {
   filters: OrderFilters;
   isWarehouseLoading: boolean;
   onChange: (filters: OrderFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   warehouses: WarehouseListResponse["items"];
 }) {
   return (
-    <form className="ordersFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Select
         aria-label="Order status"
         onValueChange={(value) =>
@@ -372,7 +262,7 @@ function OrderFilterForm({
         }
         value={filters.status}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
@@ -394,7 +284,7 @@ function OrderFilterForm({
         }
         value={filters.paymentStatus}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any payment" />
         </SelectTrigger>
         <SelectContent>
@@ -409,6 +299,7 @@ function OrderFilterForm({
       <label>
         From
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, dateFrom: event.target.value })}
           type="date"
           value={filters.dateFrom}
@@ -417,6 +308,7 @@ function OrderFilterForm({
       <label>
         To
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, dateTo: event.target.value })}
           type="date"
           value={filters.dateTo}
@@ -425,6 +317,7 @@ function OrderFilterForm({
       <label>
         Customer mobile
         <Input
+          className="filterDrawerControl"
           inputMode="tel"
           onChange={(event) =>
             onChange({ ...filters, customerMobile: event.target.value })
@@ -436,6 +329,7 @@ function OrderFilterForm({
       <label>
         Order number
         <Input
+          className="filterDrawerControl"
           onChange={(event) =>
             onChange({ ...filters, orderNumber: event.target.value.toUpperCase() })
           }
@@ -449,7 +343,7 @@ function OrderFilterForm({
         onValueChange={(value) => onChange({ ...filters, warehouseId: value })}
         value={filters.warehouseId}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="All visible warehouses" />
         </SelectTrigger>
         <SelectContent>
@@ -461,16 +355,7 @@ function OrderFilterForm({
           ))}
         </SelectContent>
       </Select>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 

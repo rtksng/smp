@@ -324,7 +324,7 @@ function OrderDetailContent() {
 
       {order ? (
         <>
-          <div className="orderDetailGrid">
+          <div className="orderDetailGrid my-3">
             <section className="panel">
               <div className="panelHeader">
                 <div>
@@ -372,7 +372,7 @@ function OrderDetailContent() {
             <OrderItemsTable order={order} />
           </section>
 
-          <div className="orderDetailGrid">
+          <div className="orderDetailGrid my-3">
             <section className="panel">
               <div className="panelHeader">
                 <div>
@@ -446,7 +446,7 @@ function OrderDetailContent() {
             </section>
           </div>
 
-          <section className="panel">
+          <section className="panel my-3">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Timeline</p>

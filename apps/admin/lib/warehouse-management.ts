@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { QueryParams } from "./admin-api";
 
 export const WAREHOUSE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
+export const WAREHOUSE_ANALYTICS_PATH = "/warehouses";
 export const WAREHOUSE_CREATE_PATH = "/warehouses/create";
 export const WAREHOUSE_LIST_PATH = "/warehouses/list";
 
@@ -235,7 +236,10 @@ export function getWarehouseReturnToPath(
   const rawValue = Array.isArray(value) ? value[0] : value;
   const returnToPath = rawValue?.trim();
 
-  return returnToPath === WAREHOUSE_LIST_PATH ? WAREHOUSE_LIST_PATH : null;
+  return returnToPath === WAREHOUSE_ANALYTICS_PATH ||
+    returnToPath === WAREHOUSE_LIST_PATH
+    ? returnToPath
+    : null;
 }
 
 export function shouldShowWarehouseFilters(

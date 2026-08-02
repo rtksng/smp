@@ -1,8 +1,9 @@
 "use client";
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   CheckCircle2,
+  Eye,
   FileText,
   RefreshCw,
   Search,
@@ -10,7 +11,25 @@ import {
   XCircle
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode
+} from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { AdminShell } from "../../admin-shell";
 import {
   ConfirmationDialog,
@@ -73,6 +92,12 @@ import {
 } from "../../../lib/delivery-management";
 
 const DELIVERY_PAGE_SIZE = 20;
+const deliveryChartColors = {
+  accent: "#5f756f",
+  muted: "#94a3b8",
+  primary: "#287c30",
+  warning: "#b87605"
+};
 const emptyAssignmentForm: AssignDeliveryValues = {
   deliveryPartnerId: "",
   note: "",
@@ -151,6 +176,38 @@ export function DeliveryPartnersPage() {
   return <DeliveryContent view="partners" />;
 }
 
+export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) {
+  const { api } = useAdminSession();
+  const partnerQuery = useQuery({
+    queryFn: () =>
+      api.request<AdminDeliveryPartner>(`/admin/delivery-partners/${partnerId}`),
+    queryKey: ["admin", "delivery", "partner", partnerId]
+  });
+
+  return (
+    <section className="panel deliveryPartnerDetailPagePanel">
+      <PageHeader
+        actions={
+          <Button asChild className="buttonLink iconTextButton" variant="outline">
+            <Link href="/delivery/partners">
+              <ArrowLeft aria-hidden size={16} />
+              <span>Back</span>
+            </Link>
+          </Button>
+        }
+        className="settingsSectionHeader"
+        eyebrow="Partner detail"
+        title={partnerQuery.data?.fullName ?? "Delivery partner"}
+      />
+      <PartnerDetail
+        isLoading={partnerQuery.isLoading}
+        partner={partnerQuery.data ?? null}
+        queryError={partnerQuery.error}
+      />
+    </section>
+  );
+}
+
 export function DeliveryAssignmentsPage() {
   return <DeliveryContent view="assignments" />;
 }
@@ -167,7 +224,6 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
   const [partnerPage, setPartnerPage] = useState(1);
   const [assignmentPage, setAssignmentPage] = useState(1);
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [partnerDraftFilters, setPartnerDraftFilters] =
     useState<DeliveryPartnerFilters>(createEmptyDeliveryPartnerFilters());
   const [partnerFilters, setPartnerFilters] = useState<DeliveryPartnerFilters>(
@@ -203,14 +259,6 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
         }
       ),
     queryKey: ["admin", "delivery", "partners", partnerQuery]
-  });
-  const partnerDetailQuery = useQuery({
-    enabled: Boolean(selectedPartnerId),
-    queryFn: () =>
-      api.request<AdminDeliveryPartner>(
-        `/admin/delivery-partners/${selectedPartnerId}`
-      ),
-    queryKey: ["admin", "delivery", "partner", selectedPartnerId]
   });
   const assignmentsQuery = useQuery({
     queryFn: () =>
@@ -264,11 +312,6 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
     () => orders.filter((order) => canAssignDelivery(order.status)),
     [orders]
   );
-  const selectedPartner =
-    partnerDetailQuery.data ??
-    partners.find((partner) => partner.id === selectedPartnerId) ??
-    null;
-
   const approveMutation = useMutation({
     mutationFn: (partnerId: string) =>
       api.request<AdminDeliveryPartner>(
@@ -301,24 +344,10 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
     getErrorMessage(rejectMutation.error) ??
     getErrorMessage(assignMutation.error);
 
-  useEffect(() => {
-    const firstPartner = partners[0];
-
-    if (!firstPartner) {
-      setSelectedPartnerId(null);
-      return;
-    }
-
-    if (!selectedPartnerId || !partners.some((partner) => partner.id === selectedPartnerId)) {
-      setSelectedPartnerId(firstPartner.id);
-    }
-  }, [partners, selectedPartnerId]);
-
   async function refreshDeliveryData() {
     await Promise.all([
       partnersQuery.refetch(),
-      assignmentsQuery.refetch(),
-      partnerDetailQuery.refetch()
+      assignmentsQuery.refetch()
     ]);
   }
 
@@ -456,90 +485,65 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics deliveryMetricGrid">
-          <MetricCard label="Partners" tone="primary" value={totalPartners} />
-          <MetricCard label="Active visible" value={activeVisibleCount} />
-          <MetricCard label="Pending visible" tone="warning" value={pendingVisibleCount} />
-          <MetricCard label="Online visible" tone="primary" value={onlineVisibleCount} />
-          <MetricCard label="Assignments" value={totalAssignments} />
-          <MetricCard label="In progress" tone="warning" value={pendingAssignmentCount} />
-        </div>
+        {view === "overview" ? (
+          <div className="metricGrid resourceMetrics deliveryMetricGrid">
+            <MetricCard label="Partners" tone="primary" value={totalPartners} />
+            <MetricCard label="Active visible" value={activeVisibleCount} />
+            <MetricCard label="Pending visible" tone="warning" value={pendingVisibleCount} />
+            <MetricCard label="Online visible" tone="primary" value={onlineVisibleCount} />
+            <MetricCard label="Assignments" value={totalAssignments} />
+            <MetricCard label="In progress" tone="warning" value={pendingAssignmentCount} />
+          </div>
+        ) : null}
       </section>
 
       {view === "overview" ? (
-        <DeliveryHub
-          activeVisibleCount={activeVisibleCount}
-          onlineVisibleCount={onlineVisibleCount}
-          pendingAssignmentCount={pendingAssignmentCount}
-          pendingVisibleCount={pendingVisibleCount}
-          totalAssignments={totalAssignments}
-          totalPartners={totalPartners}
-        />
+        <DeliveryOverviewCharts assignments={assignments} partners={partners} />
       ) : null}
 
       {view === "partners" ? (
-        <div
-          className={
-            selectedPartner
-              ? "deliveryWorkspaceGrid"
-              : "deliveryWorkspaceGrid deliveryWorkspaceGrid--single"
-          }
-        >
-          <section className="panel deliveryPartnersPanel">
-            <PageHeader
-              className="settingsSectionHeader"
-              eyebrow="Partners"
-              level={2}
-              summary="Filter partner records, approve verification, and open one profile for document review."
-              title="Partner approvals"
-            />
-            <PartnerFilterForm
-              filters={partnerDraftFilters}
-              onChange={setPartnerDraftFilters}
-              onReset={resetPartnerFilters}
-              onSubmit={applyPartnerFilters}
-            />
-            {partnersQuery.isLoading ? (
-              <LoadingState label="Loading delivery partners..." />
-            ) : null}
-            {partnersQuery.isError ? (
-              <p className="formError" role="alert">
-                {getErrorMessage(partnersQuery.error) ??
-                  "Unable to load delivery partners."}
-              </p>
-            ) : null}
-            {!partnersQuery.isLoading && !partnersQuery.isError ? (
-              <PartnerList
-                isMutating={isMutating}
-                onAction={requestPartnerAction}
-                onSelect={setSelectedPartnerId}
-                partners={partners}
-                selectedPartnerId={selectedPartnerId}
-              />
-            ) : null}
-            {partnersQuery.data?.pagination ? (
-              <SharedPaginationControls
-                onChange={setPartnerPage}
-                page={partnersQuery.data.pagination.page}
-                totalPages={Math.max(partnersQuery.data.pagination.totalPages, 1)}
-              />
-            ) : null}
-          </section>
-
-          {selectedPartner ? (
-            <aside className="panel deliveryPartnerDetailPanel">
-              <PartnerDetail
-                isLoading={partnerDetailQuery.isLoading}
-                partner={selectedPartner}
-                queryError={partnerDetailQuery.error}
-              />
-            </aside>
+        <section className="panel deliveryPartnersPanel mt-3">
+          <PageHeader
+            className="settingsSectionHeader"
+            eyebrow="Partners"
+            level={2}
+            summary="Filter partner records, approve verification, and open one profile for document review."
+            title="Partner approvals"
+          />
+          <PartnerFilterForm
+            filters={partnerDraftFilters}
+            onChange={setPartnerDraftFilters}
+            onReset={resetPartnerFilters}
+            onSubmit={applyPartnerFilters}
+          />
+          {partnersQuery.isLoading ? (
+            <LoadingState label="Loading delivery partners..." />
           ) : null}
-        </div>
+          {partnersQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(partnersQuery.error) ??
+                "Unable to load delivery partners."}
+            </p>
+          ) : null}
+          {!partnersQuery.isLoading && !partnersQuery.isError ? (
+            <PartnerList
+              isMutating={isMutating}
+              onAction={requestPartnerAction}
+              partners={partners}
+            />
+          ) : null}
+          {partnersQuery.data?.pagination ? (
+            <SharedPaginationControls
+              onChange={setPartnerPage}
+              page={partnersQuery.data.pagination.page}
+              totalPages={Math.max(partnersQuery.data.pagination.totalPages, 1)}
+            />
+          ) : null}
+        </section>
       ) : null}
 
       {view === "assignments" ? (
-        <section className="panel deliveryAssignmentsPanel">
+        <section className="panel deliveryAssignmentsPanel mt-3">
           <PageHeader
             className="settingsSectionHeader"
             eyebrow="Assignments"
@@ -585,7 +589,7 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
 
       {view === "assign" ? (
         <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
-          <section className="panel deliveryAssignPanel">
+          <section className="panel deliveryAssignPanel mt-3">
             <PageHeader
               className="settingsSectionHeader"
               eyebrow="Assignment"
@@ -658,71 +662,336 @@ function DeliverySectionNav({ active }: { active: DeliveryView }) {
   );
 }
 
-function DeliveryHub({
-  activeVisibleCount,
-  onlineVisibleCount,
-  pendingAssignmentCount,
-  pendingVisibleCount,
-  totalAssignments,
-  totalPartners
+type DeliveryStatusChartRow = {
+  count: number;
+  label: string;
+  status: string;
+};
+
+type DeliveryTrendChartRow = {
+  count: number;
+  dateKey: string;
+  label: string;
+};
+
+function DeliveryOverviewCharts({
+  assignments,
+  partners
 }: {
-  activeVisibleCount: number;
-  onlineVisibleCount: number;
-  pendingAssignmentCount: number;
-  pendingVisibleCount: number;
-  totalAssignments: number;
-  totalPartners: number;
+  assignments: AdminDeliveryAssignment[];
+  partners: AdminDeliveryPartner[];
 }) {
-  const cards = [
-    {
-      description: "Open partner verification, document review, and approve or reject actions.",
-      href: "/delivery/partners",
-      metric: totalPartners,
-      title: "Partner approvals"
-    },
-    {
-      description: "Track assigned orders, proof, issues, and delivery progress.",
-      href: "/delivery/assignments",
-      metric: totalAssignments,
-      title: "Assignments table"
-    },
-    {
-      description: "Create a fresh order-to-partner delivery assignment.",
-      href: "/delivery/assign",
-      metric: "Assign",
-      title: "Dispatch order"
-    },
-    {
-      description: "Review visible partners waiting for verification.",
-      href: "/delivery/partners",
-      metric: pendingVisibleCount,
-      title: "Pending partners"
-    },
-    {
-      description: "Check active and online capacity before assigning orders.",
-      href: "/delivery/partners",
-      metric: `${activeVisibleCount}/${onlineVisibleCount}`,
-      title: "Active / online"
-    },
-    {
-      description: "Monitor deliveries currently assigned, accepted, or picked up.",
-      href: "/delivery/assignments",
-      metric: pendingAssignmentCount,
-      title: "In progress"
-    }
-  ];
+  const partnerStatusData = buildPartnerStatusChartData(partners);
+  const assignmentStatusData = buildAssignmentStatusChartData(assignments);
+  const assignmentTrendData = buildAssignmentTrendChartData(assignments);
 
   return (
-    <section className="deliveryHubGrid">
-      {cards.map((card) => (
-        <Link className="deliveryHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
+    <section className="deliveryChartsGrid" aria-label="Delivery overview charts">
+      <DeliveryChartPanel
+        emptyState="No delivery partners found."
+        isEmpty={false}
+        summary="Current partner verification mix from the visible partner result set."
+        title="Partner status mix"
+      >
+        <DeliveryStatusChart data={partnerStatusData} valueLabel="partners" />
+      </DeliveryChartPanel>
+
+      <DeliveryChartPanel
+        emptyState="No delivery assignments found."
+        isEmpty={false}
+        summary="Visible assignment workload grouped by delivery status."
+        title="Assignment workload"
+      >
+        <DeliveryStatusChart data={assignmentStatusData} valueLabel="assignments" />
+      </DeliveryChartPanel>
+
+      <DeliveryChartPanel
+        emptyState="No recent delivery assignments found."
+        isEmpty={false}
+        summary="Assignment volume over the latest seven-day window in the visible data."
+        title="Recent assignment volume"
+        wide
+      >
+        <DeliveryAssignmentTrendChart data={assignmentTrendData} />
+      </DeliveryChartPanel>
     </section>
   );
+}
+
+function DeliveryStatusChart({
+  data,
+  valueLabel
+}: {
+  data: DeliveryStatusChartRow[];
+  valueLabel: string;
+}) {
+  return (
+    <DeliveryChartFrame>
+      {(width) => (
+        <BarChart
+          data={data}
+          height={280}
+          layout="vertical"
+          margin={{ bottom: 4, left: 6, right: 18, top: 4 }}
+          width={width}
+        >
+          <CartesianGrid horizontal={false} stroke="#e4ece9" />
+          <XAxis
+            allowDecimals={false}
+            axisLine={false}
+            domain={[0, (dataMax: number) => Math.max(dataMax, 1)]}
+            fontSize={12}
+            tickLine={false}
+            type="number"
+          />
+          <YAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            type="category"
+            width={104}
+          />
+          <RechartsTooltip
+            formatter={(value) => [`${value} ${valueLabel}`, "Count"]}
+          />
+          <Bar
+            background={{ fill: "#e4ece9", radius: 6 }}
+            dataKey="count"
+            name={valueLabel}
+            radius={[0, 6, 6, 0]}
+          >
+            {data.map((item, index) => (
+              <Cell
+                fill={getDeliveryStatusChartColor(item.status, index)}
+                key={item.status}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      )}
+    </DeliveryChartFrame>
+  );
+}
+
+function DeliveryAssignmentTrendChart({ data }: { data: DeliveryTrendChartRow[] }) {
+  return (
+    <DeliveryChartFrame height={300}>
+      {(width) => (
+        <LineChart
+          data={data}
+          height={300}
+          margin={{ bottom: 4, left: 0, right: 18, top: 12 }}
+          width={width}
+        >
+          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <XAxis
+            axisLine={false}
+            dataKey="label"
+            fontSize={12}
+            tickLine={false}
+            tickMargin={10}
+          />
+          <YAxis
+            allowDecimals={false}
+            axisLine={false}
+            domain={[0, (dataMax: number) => Math.max(dataMax, 1)]}
+            fontSize={12}
+            tickLine={false}
+            width={34}
+          />
+          <RechartsTooltip formatter={(value) => [`${value} assignments`, "Volume"]} />
+          <Line
+            activeDot={{ r: 6 }}
+            dataKey="count"
+            dot={{ r: 4 }}
+            name="Assignments"
+            stroke={deliveryChartColors.primary}
+            strokeWidth={3}
+            type="monotone"
+          />
+        </LineChart>
+      )}
+    </DeliveryChartFrame>
+  );
+}
+
+function DeliveryChartFrame({
+  children,
+  height = 280
+}: {
+  children: (width: number) => ReactNode;
+  height?: number;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(760);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+
+    if (!frame) {
+      return;
+    }
+
+    const syncWidth = () => {
+      const nextWidth = Math.floor(frame.getBoundingClientRect().width);
+
+      if (nextWidth > 0) {
+        setWidth(nextWidth);
+      }
+    };
+    const resizeObserver = new ResizeObserver(syncWidth);
+
+    syncWidth();
+    resizeObserver.observe(frame);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  return (
+    <div className="dashboardChartFrame" ref={frameRef} style={{ height }}>
+      {children(width)}
+    </div>
+  );
+}
+
+function DeliveryChartPanel({
+  children,
+  emptyState,
+  isEmpty,
+  summary,
+  title,
+  wide = false
+}: {
+  children: ReactNode;
+  emptyState: string;
+  isEmpty: boolean;
+  summary: string;
+  title: string;
+  wide?: boolean;
+}) {
+  return (
+    <section
+      className="panel dashboardChartPanel deliveryChartPanel"
+      data-wide={wide ? "true" : undefined}
+    >
+      <div className="dashboardChartHeader">
+        <span>
+          <strong>{title}</strong>
+          <em>{summary}</em>
+        </span>
+      </div>
+      {isEmpty ? <div className="emptyPanel smallEmpty">{emptyState}</div> : children}
+    </section>
+  );
+}
+
+function buildPartnerStatusChartData(
+  partners: AdminDeliveryPartner[]
+): DeliveryStatusChartRow[] {
+  return DELIVERY_PARTNER_STATUSES.map((status) => ({
+    count: partners.filter((partner) => partner.status === status).length,
+    label: formatDeliveryLabel(status),
+    status
+  }));
+}
+
+function buildAssignmentStatusChartData(
+  assignments: AdminDeliveryAssignment[]
+): DeliveryStatusChartRow[] {
+  return DELIVERY_ASSIGNMENT_STATUSES.map((status) => ({
+    count: assignments.filter((assignment) => assignment.status === status).length,
+    label: formatDeliveryLabel(status),
+    status
+  }));
+}
+
+function buildAssignmentTrendChartData(
+  assignments: AdminDeliveryAssignment[]
+): DeliveryTrendChartRow[] {
+  const assignmentDates = assignments
+    .map((assignment) => new Date(assignment.assignedAt || assignment.createdAt))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((left, right) => right.getTime() - left.getTime());
+  const endDate = assignmentDates[0] ?? new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 6);
+  startDate.setHours(0, 0, 0, 0);
+
+  const rows = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+
+    return {
+      count: 0,
+      dateKey: getDeliveryChartDateKey(date),
+      label: formatDeliveryChartDateLabel(date)
+    };
+  });
+  const rowsByDate = new Map(rows.map((row) => [row.dateKey, row]));
+
+  assignments.forEach((assignment) => {
+    const date = new Date(assignment.assignedAt || assignment.createdAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return;
+    }
+
+    const row = rowsByDate.get(getDeliveryChartDateKey(date));
+
+    if (row) {
+      row.count += 1;
+    }
+  });
+
+  return rows;
+}
+
+function getDeliveryStatusChartColor(status: string, index: number) {
+  const normalizedStatus = status.toLowerCase();
+
+  if (
+    normalizedStatus.includes("active") ||
+    normalizedStatus.includes("delivered") ||
+    normalizedStatus.includes("accepted")
+  ) {
+    return deliveryChartColors.primary;
+  }
+
+  if (
+    normalizedStatus.includes("pending") ||
+    normalizedStatus.includes("assigned") ||
+    normalizedStatus.includes("picked") ||
+    normalizedStatus.includes("out_for_delivery")
+  ) {
+    return deliveryChartColors.warning;
+  }
+
+  if (
+    normalizedStatus.includes("inactive") ||
+    normalizedStatus.includes("failed") ||
+    normalizedStatus.includes("cancelled") ||
+    normalizedStatus.includes("rejected") ||
+    normalizedStatus.includes("suspended")
+  ) {
+    return "#b91c1c";
+  }
+
+  return index % 2 === 0 ? deliveryChartColors.accent : deliveryChartColors.muted;
+}
+
+function getDeliveryChartDateKey(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function formatDeliveryChartDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short"
+  }).format(date);
 }
 
 function PartnerFilterForm({
@@ -874,15 +1143,11 @@ function AssignmentFilterForm({
 function PartnerList({
   isMutating,
   onAction,
-  onSelect,
-  partners,
-  selectedPartnerId
+  partners
 }: {
   isMutating: boolean;
   onAction: (action: "approve" | "reject", partner: AdminDeliveryPartner) => void;
-  onSelect: (partnerId: string) => void;
   partners: AdminDeliveryPartner[];
-  selectedPartnerId: string | null;
 }) {
   if (partners.length === 0) {
     return (
@@ -902,25 +1167,16 @@ function PartnerList({
             <TableHead>Status</TableHead>
             <TableHead>Availability</TableHead>
             <TableHead>Documents</TableHead>
+            <TableHead>Detail</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {partners.map((partner) => (
-            <TableRow
-              data-active={partner.id === selectedPartnerId}
-              key={partner.id}
-            >
+            <TableRow key={partner.id}>
               <TableCell>
-                <Button
-                  className="plainTableButton"
-                  onClick={() => onSelect(partner.id)}
-                  type="button"
-                  variant="ghost"
-                >
-                  <strong>{partner.fullName}</strong>
-                  <em>{partner.mobileNumber}</em>
-                </Button>
+                <strong>{partner.fullName}</strong>
+                <em>{partner.mobileNumber}</em>
               </TableCell>
               <TableCell>
                 <StatusBadge status={partner.status} />
@@ -929,6 +1185,14 @@ function PartnerList({
                 <AvailabilityBadge isOnline={partner.isOnline} />
               </TableCell>
               <TableCell>{partner.documents.length} files</TableCell>
+              <TableCell>
+                <Button asChild className="iconTextButton" size="sm" variant="outline">
+                  <Link href={`/delivery/partners/${partner.id}`}>
+                    <Eye aria-hidden size={14} />
+                    <span>View</span>
+                  </Link>
+                </Button>
+              </TableCell>
               <TableCell>
                 <div className="tableActions">
                   <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
@@ -1251,7 +1515,6 @@ function AssignmentForm({
           </SelectContent>
         </Select>
         <label>
-          Note
           <Input
             onChange={(event) =>
               onChange({

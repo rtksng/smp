@@ -46,6 +46,12 @@ async function proxyAdminApi(
 
     return buildAdminApiProxyResponse(upstreamResponse);
   } catch (error) {
+    console.error("[admin-api-proxy] upstream request failed", {
+      error: error instanceof Error ? error.message : String(error),
+      method: request.method,
+      path: request.nextUrl.pathname
+    });
+
     return buildAdminApiProxyErrorResponse(error, {
       method: request.method,
       path: request.nextUrl.pathname

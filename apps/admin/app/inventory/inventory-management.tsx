@@ -18,6 +18,7 @@ import {
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
@@ -140,6 +141,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>(
     urlFilters
   );
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [stockInValues, setStockInValues] = useState<StockInInputValues>(
     createEmptyStockInFormValues()
   );
@@ -162,6 +164,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const isOverviewView = view === "overview";
   const isActionsView = view === "actions";
   const isMovementsView = view === "movements";
+  const hasFilters = isOverviewView || isMovementsView;
 
   useEffect(() => {
     setDraftFilters(urlFilters);
@@ -290,6 +293,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
 
     if (parsed.success) {
       setAppliedFilters(parsed.data);
+      setIsFilterDrawerOpen(false);
     }
   }
 
@@ -383,15 +387,27 @@ function InventoryContent({ view }: { view: InventoryView }) {
         <PageHeader
           level={2}
           actions={
-            <Button
-              className="iconTextButton"
-              onClick={() => void refreshInventory()}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCw aria-hidden size={16} />
-              <span>Refresh</span>
-            </Button>
+            <>
+              {hasFilters ? (
+                <Button
+                  className="iconTextButton"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  type="button"
+                >
+                  <SlidersHorizontal aria-hidden size={16} />
+                  <span>Add filter</span>
+                </Button>
+              ) : null}
+              <Button
+                className="iconTextButton"
+                onClick={() => void refreshInventory()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            </>
           }
           eyebrow="Inventory control"
           summary={viewContent.summary}
@@ -431,23 +447,31 @@ function InventoryContent({ view }: { view: InventoryView }) {
         ) : null}
       </Card>
 
-      {view === "overview" || view === "movements" ? (
-        <Card className="panel">
-          <PageHeader
-            level={2}
-            eyebrow="Filters"
-            title={isMovementsView ? "Find movements" : "Find stock"}
-          />
-          <InventoryFilterForm
-            filters={draftFilters}
-            isLoading={productsQuery.isLoading || warehousesQuery.isLoading}
-            onChange={setDraftFilters}
+      {hasFilters ? (
+        <>
+          <FilterDrawer
+            isOpen={isFilterDrawerOpen}
+            isSubmitting={
+              inventoryQuery.isFetching ||
+              lowStockQuery.isFetching ||
+              nearExpiryQuery.isFetching ||
+              movementsQuery.isFetching
+            }
+            onApply={handleFilterSubmit}
+            onOpenChange={setIsFilterDrawerOpen}
             onReset={resetFilters}
-            onSubmit={handleFilterSubmit}
-            products={products}
-            showWarningFilters={view === "overview"}
-            warehouses={warehouses}
-          />
+            summary="Search and refine inventory stock, warning, and movement records."
+            title={isMovementsView ? "Movement filters" : "Inventory filters"}
+          >
+            <InventoryFilterFields
+              filters={draftFilters}
+              isLoading={productsQuery.isLoading || warehousesQuery.isLoading}
+              onChange={setDraftFilters}
+              products={products}
+              showWarningFilters={isOverviewView}
+              warehouses={warehouses}
+            />
+          </FilterDrawer>
           {productsQuery.isError ? (
             <p className="formError" role="alert">
               {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
@@ -458,7 +482,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
               {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
             </p>
           ) : null}
-        </Card>
+        </>
       ) : null}
 
       {isActionsView ? (
@@ -471,7 +495,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
           }
           permission={ADMIN_PERMISSION.InventoryUpdate}
         >
-          <Card className="panel">
+          <Card className="panel mt-3">
             <PageHeader
               level={2}
               eyebrow="Stock actions"
@@ -525,7 +549,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
 
       {view === "overview" ? (
         <>
-          <Card className="panel">
+          <Card className="panel my-3">
             <PageHeader
               level={2}
               eyebrow="Stock table"
@@ -585,7 +609,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
       ) : null}
 
       {view === "movements" ? (
-        <Card className="panel">
+        <Card className="panel mt-3">
           <PageHeader level={2} eyebrow="Movement history" title="Stock movement audit trail" />
           {movementsQuery.isLoading ? (
             <LoadingState label="Loading movement history..." />
@@ -635,12 +659,10 @@ function InventorySubTabs({ activeView }: { activeView: InventoryView }) {
   );
 }
 
-function InventoryFilterForm({
+function InventoryFilterFields({
   filters,
   isLoading,
   onChange,
-  onReset,
-  onSubmit,
   products,
   showWarningFilters = true,
   warehouses
@@ -648,19 +670,18 @@ function InventoryFilterForm({
   filters: InventoryFilters;
   isLoading: boolean;
   onChange: (filters: InventoryFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   products: AdminProduct[];
   showWarningFilters?: boolean;
   warehouses: AdminWarehouse[];
 }) {
   return (
-    <form className="inventoryFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Label>
         Search
         <span className="searchInput">
           <Search aria-hidden size={16} />
           <Input
+            className="filterDrawerControl"
             onChange={(event) => onChange({ ...filters, search: event.target.value })}
             placeholder="Product or SKU"
             value={filters.search}
@@ -703,16 +724,7 @@ function InventoryFilterForm({
           </Label>
         </>
       ) : null}
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -1250,44 +1262,46 @@ function StockTable({
   }
 
   return (
-    <Table className="inventoryTable">
-      <TableHeader>
-        <TableRow className="inventoryTableHeader">
-          <TableHead>Product</TableHead>
-          <TableHead>Warehouse</TableHead>
-          <TableHead>Available</TableHead>
-          <TableHead>Reserved</TableHead>
-          <TableHead>Threshold</TableHead>
-          <TableHead>Warnings</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {stocks.map((stock) => {
-          const key = stockKey(stock);
-          const low = lowStockKeys.has(key) || isLowStock(stock);
-          const nearExpiry = nearExpiryKeys.has(key);
+    <div className="brandTableScroll inventoryTableScroll">
+      <Table className="brandDataTable inventoryDataTable">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead>Warehouse</TableHead>
+            <TableHead>Available</TableHead>
+            <TableHead>Reserved</TableHead>
+            <TableHead>Threshold</TableHead>
+            <TableHead>Warnings</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stocks.map((stock) => {
+            const key = stockKey(stock);
+            const low = lowStockKeys.has(key) || isLowStock(stock);
+            const nearExpiry = nearExpiryKeys.has(key);
 
-          return (
-            <TableRow className="inventoryTableRow" key={stock.id}>
-              <TableCell>
-                <strong>
-                  {productLabel(products, stock.productId, stock.variantId)}
-                </strong>
-              </TableCell>
-              <TableCell>{warehouseLabel(warehouses, stock.warehouseId)}</TableCell>
-              <TableCell>{stock.availableQuantity}</TableCell>
-              <TableCell>{stock.reservedQuantity}</TableCell>
-              <TableCell>{stock.lowStockThreshold}</TableCell>
-              <TableCell className="flagList">
-                {low ? <b>Low stock</b> : null}
-                {nearExpiry ? <b>Near expiry</b> : null}
-                {!low && !nearExpiry ? <span>-</span> : null}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+            return (
+              <TableRow key={stock.id}>
+                <TableCell>
+                  <strong>
+                    {productLabel(products, stock.productId, stock.variantId)}
+                  </strong>
+                </TableCell>
+                <TableCell>{warehouseLabel(warehouses, stock.warehouseId)}</TableCell>
+                <TableCell>{stock.availableQuantity}</TableCell>
+                <TableCell>{stock.reservedQuantity}</TableCell>
+                <TableCell>{stock.lowStockThreshold}</TableCell>
+                <TableCell className="flagList">
+                  {low ? <b>Low stock</b> : null}
+                  {nearExpiry ? <b>Near expiry</b> : null}
+                  {!low && !nearExpiry ? <span>-</span> : null}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
@@ -1307,42 +1321,41 @@ function BatchTable({
   }
 
   return (
-    <Table className="inventoryTable">
-      <TableHeader>
-        <TableRow className="inventoryTableHeader batchInventoryTableHeader">
-          <TableHead>Batch</TableHead>
-          <TableHead>Product</TableHead>
-          <TableHead>Warehouse</TableHead>
-          <TableHead>Quantity</TableHead>
-          <TableHead>Expiry</TableHead>
-          <TableHead>Prices</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {batches.map((batch) => (
-          <TableRow
-            className="inventoryTableRow batchInventoryTableRow"
-            key={batch.id}
-          >
-            <TableCell>
-              <strong>{batch.batchNumber}</strong>
-            </TableCell>
-            <TableCell>
-              {productLabel(products, batch.productId, batch.variantId)}
-            </TableCell>
-            <TableCell>{warehouseLabel(warehouses, batch.warehouseId)}</TableCell>
-            <TableCell>{batch.quantity}</TableCell>
-            <TableCell className="flagList">
-              <span>{formatDate(batch.expiryDate)}</span>
-              {isNearExpiry(batch.expiryDate) ? <b>Near expiry</b> : null}
-            </TableCell>
-            <TableCell>
-              {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
-            </TableCell>
+    <div className="brandTableScroll inventoryTableScroll">
+      <Table className="brandDataTable inventoryDataTable">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Batch</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Warehouse</TableHead>
+            <TableHead>Quantity</TableHead>
+            <TableHead>Expiry</TableHead>
+            <TableHead>Prices</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {batches.map((batch) => (
+            <TableRow key={batch.id}>
+              <TableCell>
+                <strong>{batch.batchNumber}</strong>
+              </TableCell>
+              <TableCell>
+                {productLabel(products, batch.productId, batch.variantId)}
+              </TableCell>
+              <TableCell>{warehouseLabel(warehouses, batch.warehouseId)}</TableCell>
+              <TableCell>{batch.quantity}</TableCell>
+              <TableCell className="flagList">
+                <span>{formatDate(batch.expiryDate)}</span>
+                {isNearExpiry(batch.expiryDate) ? <b>Near expiry</b> : null}
+              </TableCell>
+              <TableCell>
+                {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
@@ -1365,31 +1378,30 @@ function MovementTable({
   }
 
   return (
-    <Table className="inventoryTable">
-      <TableHeader>
-        <TableRow className="inventoryTableHeader movementTableHeader">
-          <TableHead>Type</TableHead>
-          <TableHead>Product</TableHead>
-          <TableHead>Warehouse</TableHead>
-          <TableHead>Quantity</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {movements.map((movement) => (
-          <TableRow
-            className="inventoryTableRow movementTableRow"
-            key={movement.id}
-          >
-            <TableCell>{formatMovementType(movement.type)}</TableCell>
-            <TableCell>
-              {productLabel(products, movement.productId, movement.variantId)}
-            </TableCell>
-            <TableCell>{warehouseLabel(warehouses, movement.warehouseId)}</TableCell>
-            <TableCell>{movement.quantity}</TableCell>
+    <div className="brandTableScroll inventoryTableScroll">
+      <Table className="brandDataTable inventoryDataTable">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Type</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Warehouse</TableHead>
+            <TableHead>Quantity</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {movements.map((movement) => (
+            <TableRow key={movement.id}>
+              <TableCell>{formatMovementType(movement.type)}</TableCell>
+              <TableCell>
+                {productLabel(products, movement.productId, movement.variantId)}
+              </TableCell>
+              <TableCell>{warehouseLabel(warehouses, movement.warehouseId)}</TableCell>
+              <TableCell>{movement.quantity}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

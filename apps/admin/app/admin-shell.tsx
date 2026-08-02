@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -57,6 +57,8 @@ const navIconMap: Record<string, LucideIcon> = {
   Settings,
   Warehouses: Warehouse
 };
+const SIDEBAR_SCROLL_STORAGE_KEY = "surgical.admin.sidebarScrollTop";
+const MOBILE_SIDEBAR_SCROLL_STORAGE_KEY = "surgical.admin.mobileSidebarScrollTop";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -99,9 +101,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         <aside className="sidebar">
           <SidebarBrand />
-          <div className="sidebarNavScroller">
+          <SidebarNavScroller
+            restoreKey={pathname}
+            storageKey={SIDEBAR_SCROLL_STORAGE_KEY}
+          >
             {renderNavigation(visibleNavItems, pathname)}
-          </div>
+          </SidebarNavScroller>
           <SidebarFooter
             adminDisplayName={adminDisplayName}
             adminEmail={admin?.email}
@@ -122,11 +127,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <SidebarBrand />
             </DrawerHeader>
             <DrawerBody>
-              <div className="sidebarNavScroller">
+              <SidebarNavScroller
+                restoreKey={pathname}
+                storageKey={MOBILE_SIDEBAR_SCROLL_STORAGE_KEY}
+              >
                 {renderNavigation(visibleNavItems, pathname, () =>
                   setIsMobileNavOpen(false)
                 )}
-              </div>
+              </SidebarNavScroller>
               <SidebarFooter
                 adminDisplayName={adminDisplayName}
                 adminEmail={admin?.email}
@@ -141,6 +149,53 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <section className="workspace">{children}</section>
       </main>
     </ProtectedRoute>
+  );
+}
+
+function SidebarNavScroller({
+  children,
+  restoreKey,
+  storageKey
+}: {
+  children: ReactNode;
+  restoreKey: string;
+  storageKey: string;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+
+    if (!scroller) {
+      return;
+    }
+
+    const storedScrollTop = Number(window.sessionStorage.getItem(storageKey));
+
+    if (!Number.isFinite(storedScrollTop)) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      scroller.scrollTop = storedScrollTop;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [restoreKey, storageKey]);
+
+  return (
+    <div
+      className="sidebarNavScroller"
+      onScroll={(event) => {
+        window.sessionStorage.setItem(
+          storageKey,
+          String(event.currentTarget.scrollTop)
+        );
+      }}
+      ref={scrollerRef}
+    >
+      {children}
+    </div>
   );
 }
 

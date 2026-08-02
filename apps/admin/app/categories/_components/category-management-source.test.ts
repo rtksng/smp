@@ -29,6 +29,7 @@ describe("category management route flow", () => {
   });
 
   it("summarizes child categories in the table and opens a modal to choose one", () => {
+    expect(categoryManagementSource).toContain("filterRootCategories");
     expect(categoryManagementSource).toContain("formatChildCategoryCount");
     expect(categoryManagementSource).toContain("ChildCategoryModal");
     expect(categoryManagementSource).toContain("setChildCategoryModal(category)");

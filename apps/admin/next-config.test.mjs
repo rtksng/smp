@@ -26,16 +26,11 @@ describe("next config", () => {
     expect(hostnames).not.toContain("smp-production-b700.up.railway.app");
   });
 
-  it("rewrites local admin API proxy requests to the configured API base", async () => {
+  it("leaves admin API proxy requests to the route handler", async () => {
     process.env.NEXT_PUBLIC_API_URL =
       "https://smp-production-bfda.up.railway.app/api/v1";
     const { default: nextConfig } = await import("./next.config.mjs");
 
-    await expect(nextConfig.rewrites()).resolves.toEqual([
-      {
-        destination: "https://smp-production-bfda.up.railway.app/api/v1/:path*",
-        source: "/api/v1/:path*"
-      }
-    ]);
+    expect(nextConfig.rewrites).toBeUndefined();
   });
 });

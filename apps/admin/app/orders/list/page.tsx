@@ -1,9 +1,5 @@
-import { OrderListPage, OrdersRoute } from "../_components/order-sections";
+import { redirect } from "next/navigation";
 
 export default function OrderListRoutePage() {
-  return (
-    <OrdersRoute>
-      <OrderListPage />
-    </OrdersRoute>
-  );
+  redirect("/orders");
 }

@@ -1,9 +1,5 @@
-import { CustomerListPage, CustomersRoute } from "../_components/customer-sections";
+import { redirect } from "next/navigation";
 
 export default function CustomerListRoutePage() {
-  return (
-    <CustomersRoute>
-      <CustomerListPage />
-    </CustomersRoute>
-  );
+  redirect("/customers");
 }

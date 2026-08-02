@@ -15,7 +15,6 @@ export function PageHeader({
   className,
   eyebrow,
   level = 1,
-  summary,
   title
 }: PageHeaderProps) {
   const Heading = `h${level}` as const;
@@ -24,8 +23,7 @@ export function PageHeader({
     <header className={cn("adminPageHeader", className)}>
       <div>
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <Heading>{title}</Heading>
-        {summary ? <p className="panelSummary">{summary}</p> : null}
+        <Heading className="adminPageHeaderTitle">{title}</Heading>
       </div>
       {actions ? <div className="adminPageActions">{actions}</div> : null}
     </header>

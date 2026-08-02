@@ -787,6 +787,24 @@ h2 {
   min-width: 0;
 }
 
+.adminPageHeader > div {
+  min-width: 0;
+}
+
+.adminPageHeader .eyebrow {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.adminPageHeader h1,
+.adminPageHeader h2,
+.adminPageHeader h3,
+.adminPageHeaderTitle {
+  font-size: 28px;
+  line-height: 1.2;
+  max-width: 760px;
+}
+
 .adminPageActions {
   align-items: center;
   display: flex;
@@ -1112,24 +1130,143 @@ h2 {
   background: var(--background);
   display: grid;
   min-height: 100vh;
+}
+
+.loginScreen {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
+}
+
+.stateScreen {
   padding: 24px;
   place-items: center;
 }
 
+.loginIntro {
+  align-self: stretch;
+  background: #1f4330;
+  color: #f8fbf9;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(28px, 5vw, 72px);
+  position: relative;
+}
+
+.loginIntro::before,
+.loginIntro::after {
+  border: 1px solid rgba(237, 247, 239, 0.08);
+  content: "";
+  pointer-events: none;
+  position: absolute;
+}
+
+.loginIntro::before {
+  height: min(36vw, 500px);
+  right: -14%;
+  top: 18%;
+  transform: rotate(15deg);
+  width: min(36vw, 500px);
+}
+
+.loginIntro::after {
+  bottom: -18%;
+  height: min(28vw, 380px);
+  left: -10%;
+  transform: rotate(15deg);
+  width: min(28vw, 380px);
+}
+
+.loginIntroBrand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.loginIntroBrand .brand {
+  color: #f8fbf9;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.loginIntroContent {
+  align-self: center;
+  max-width: 490px;
+  position: relative;
+  z-index: 1;
+}
+
+.loginIntro .eyebrow {
+  color: #bcd7c2;
+  margin-bottom: 10px;
+}
+
+.loginIntro h1 {
+  color: #f8fbf9;
+  font-size: 52px;
+  line-height: 1.06;
+  max-width: 420px;
+}
+
+.loginIntroCopy {
+  color: #d3e1d6;
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 18px 0 0;
+}
+
+.loginIntroFooter {
+  color: #bcd7c2;
+  font-size: 13px;
+  font-weight: 750;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.loginFormPane {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: clamp(28px, 6vw, 88px);
+}
+
 .loginPanel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   display: grid;
   gap: 28px;
   max-width: 440px;
-  padding: 30px;
   width: min(100%, 440px);
 }
 
 .loginPanel .brand {
   color: var(--text);
   margin-bottom: 0;
+}
+
+.loginMobileBrand {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .loginScreen {
+    display: block;
+  }
+
+  .loginIntro {
+    display: none;
+  }
+
+  .loginFormPane {
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  .loginMobileBrand {
+    display: block;
+  }
 }
 
 .formStack {
@@ -1200,6 +1337,7 @@ h2 {
 .warehouseManagementGrid,
 .settingsManagementGrid,
 .deliveryManagementGrid,
+.deliveryChartsGrid,
 .reportChartsGrid,
 .orderDetailGrid,
 .orderActionsGrid {
@@ -1212,6 +1350,7 @@ h2 {
 .warehouseManagementGrid > *,
 .settingsManagementGrid > *,
 .deliveryManagementGrid > *,
+.deliveryChartsGrid > *,
 .reportChartsGrid > *,
 .orderDetailGrid > *,
 .orderActionsGrid > * {
@@ -1391,6 +1530,51 @@ h2 {
 
 .categoryDataTable {
   min-width: 940px;
+}
+
+.inventoryTableScroll {
+  max-height: 420px;
+}
+
+.inventoryTableScroll .adminTableViewport {
+  max-height: 420px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+}
+
+.inventoryTableScroll [data-slot="table"] {
+  margin: 0;
+}
+
+.inventoryDataTable {
+  min-width: 980px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.inventoryDataTable th:nth-child(1),
+.inventoryDataTable td:nth-child(1) {
+  width: 28%;
+}
+
+.inventoryDataTable th:nth-child(2),
+.inventoryDataTable td:nth-child(2) {
+  width: 22%;
+}
+
+.inventoryDataTable th:nth-child(3),
+.inventoryDataTable td:nth-child(3),
+.inventoryDataTable th:nth-child(4),
+.inventoryDataTable td:nth-child(4),
+.inventoryDataTable th:nth-child(5),
+.inventoryDataTable td:nth-child(5) {
+  width: 12%;
+}
+
+.inventoryDataTable th:nth-child(6),
+.inventoryDataTable td:nth-child(6) {
+  width: 14%;
 }
 
 .productDataTable {
@@ -1704,8 +1888,6 @@ h2 {
 .quoteRequestSectionNav,
 .productFeedbackSectionNav,
 .deliverySectionNav,
-.customerSectionNav,
-.orderSectionNav,
 .returnsRefundsSectionNav {
   align-items: center;
   background: var(--surface-muted);
@@ -1726,8 +1908,6 @@ h2 {
 .quoteRequestSectionNav a,
 .productFeedbackSectionNav a,
 .deliverySectionNav a,
-.customerSectionNav a,
-.orderSectionNav a,
 .returnsRefundsSectionNav a {
   align-items: center;
   background: transparent;
@@ -1753,8 +1933,6 @@ h2 {
 .quoteRequestSectionNav a:hover,
 .productFeedbackSectionNav a:hover,
 .deliverySectionNav a:hover,
-.customerSectionNav a:hover,
-.orderSectionNav a:hover,
 .returnsRefundsSectionNav a:hover {
   background: var(--surface);
   border-color: var(--border);
@@ -1768,8 +1946,6 @@ h2 {
 .quoteRequestSectionNav a[aria-current="page"],
 .productFeedbackSectionNav a[aria-current="page"],
 .deliverySectionNav a[aria-current="page"],
-.customerSectionNav a[aria-current="page"],
-.orderSectionNav a[aria-current="page"],
 .returnsRefundsSectionNav a[aria-current="page"] {
   background: var(--primary);
   border-color: var(--primary);
@@ -1829,9 +2005,6 @@ h2 {
 .couponHubGrid,
 .quoteRequestHubGrid,
 .productFeedbackHubGrid,
-.deliveryHubGrid,
-.customerHubGrid,
-.orderHubGrid,
 .returnsRefundsHubGrid {
   display: grid;
   gap: 18px;
@@ -1844,9 +2017,6 @@ h2 {
 .couponHubCard,
 .quoteRequestHubCard,
 .productFeedbackHubCard,
-.deliveryHubCard,
-.customerHubCard,
-.orderHubCard,
 .returnsRefundsHubCard {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1868,9 +2038,6 @@ h2 {
 .couponHubCard:hover,
 .quoteRequestHubCard:hover,
 .productFeedbackHubCard:hover,
-.deliveryHubCard:hover,
-.customerHubCard:hover,
-.orderHubCard:hover,
 .returnsRefundsHubCard:hover {
   border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
   box-shadow: 0 16px 38px rgba(15, 23, 42, 0.1);
@@ -1882,9 +2049,6 @@ h2 {
 .couponHubCard span,
 .quoteRequestHubCard span,
 .productFeedbackHubCard span,
-.deliveryHubCard span,
-.customerHubCard span,
-.orderHubCard span,
 .returnsRefundsHubCard span {
   color: var(--muted);
   font-size: 13px;
@@ -1897,9 +2061,6 @@ h2 {
 .couponHubCard strong,
 .quoteRequestHubCard strong,
 .productFeedbackHubCard strong,
-.deliveryHubCard strong,
-.customerHubCard strong,
-.orderHubCard strong,
 .returnsRefundsHubCard strong {
   color: var(--text);
   font-size: 28px;
@@ -1912,9 +2073,6 @@ h2 {
 .couponHubCard p,
 .quoteRequestHubCard p,
 .productFeedbackHubCard p,
-.deliveryHubCard p,
-.customerHubCard p,
-.orderHubCard p,
 .returnsRefundsHubCard p {
   color: var(--muted);
   font-size: 14px;
@@ -2020,6 +2178,7 @@ h2 {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.customerMetricGrid,
 .orderMetricGrid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -2052,7 +2211,7 @@ h2 {
 .quoteRequestResponsePanel,
 .productFeedbackListPanel,
 .deliveryPartnersPanel,
-.deliveryPartnerDetailPanel,
+.deliveryPartnerDetailPagePanel,
 .deliveryAssignmentsPanel,
 .deliveryAssignPanel,
 .customerListPanel,
@@ -2068,7 +2227,7 @@ h2 {
 .quoteRequestResponsePanel .settingsSectionHeader,
 .productFeedbackListPanel .settingsSectionHeader,
 .deliveryPartnersPanel .settingsSectionHeader,
-.deliveryPartnerDetailPanel .settingsSectionHeader,
+.deliveryPartnerDetailPagePanel .settingsSectionHeader,
 .deliveryAssignmentsPanel .settingsSectionHeader,
 .deliveryAssignPanel .settingsSectionHeader,
 .customerListPanel .settingsSectionHeader,
@@ -2125,7 +2284,7 @@ h2 {
 }
 
 .deliveryPartnerDataTable [data-slot="table"] {
-  min-width: 920px;
+  min-width: 1040px;
 }
 
 .deliveryAssignmentDataTable [data-slot="table"] {
@@ -2133,19 +2292,30 @@ h2 {
 }
 
 .customerTable [data-slot="table"] {
+  margin: 0;
   min-width: 1080px;
 }
 
+.customerTable,
+.customerTable .adminTableViewport {
+  scrollbar-gutter: auto;
+}
+
 .ordersTable [data-slot="table"] {
+  margin: 0;
   min-width: 1120px;
+}
+
+.ordersTable,
+.ordersTable .adminTableViewport {
+  scrollbar-gutter: auto;
 }
 
 .returnsRefundsTable [data-slot="table"] {
   min-width: 1480px;
 }
 
-.quoteRequestTable [data-active="true"],
-.deliveryPartnerDataTable [data-active="true"] {
+.quoteRequestTable [data-active="true"] {
   background: #eaf7eb;
   box-shadow: inset 4px 0 0 var(--primary);
 }
@@ -2286,8 +2456,6 @@ h2 {
 }
 
 .productFilters,
-.warehouseFilters,
-.customerFilters,
 .settingsFilters,
 .inventoryFilters,
 .ordersFilters,
@@ -2295,14 +2463,6 @@ h2 {
 .reportFilters {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-}
-
-.warehouseFilters {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
-}
-
-.customerFilters {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
@@ -2333,8 +2493,6 @@ h2 {
 }
 
 .productFilters label,
-.warehouseFilters label,
-.customerFilters label,
 .settingsFilters label,
 .inventoryFilters label,
 .ordersFilters label,
@@ -2355,12 +2513,6 @@ h2 {
 .productFilters [data-slot="input"],
 .productFilters [data-slot="textarea"],
 .productFilters [data-slot="select"],
-.warehouseFilters [data-slot="input"],
-.warehouseFilters [data-slot="textarea"],
-.warehouseFilters [data-slot="select"],
-.customerFilters [data-slot="input"],
-.customerFilters [data-slot="textarea"],
-.customerFilters [data-slot="select"],
 .settingsFilters [data-slot="input"],
 .settingsFilters [data-slot="textarea"],
 .settingsFilters [data-slot="select"],
@@ -2651,6 +2803,59 @@ h2 {
   grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.9fr) auto;
 }
 
+.warehouseTable,
+.warehouseAnalyticsTable {
+  max-height: 420px;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.warehouseTable .adminTableViewport,
+.warehouseAnalyticsTable .adminTableViewport {
+  margin: 0 !important;
+  max-height: 420px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 !important;
+  scrollbar-gutter: auto;
+}
+
+.warehouseTable [data-slot="table"],
+.warehouseAnalyticsTable [data-slot="table"] {
+  border-spacing: 0 !important;
+  margin: 0;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+.warehouseTable [data-slot="table-head"]:first-child,
+.warehouseTable [data-slot="table-cell"]:first-child,
+.warehouseAnalyticsTable [data-slot="table-head"]:first-child,
+.warehouseAnalyticsTable [data-slot="table-cell"]:first-child {
+  padding-left: 0 !important;
+}
+
+.warehouseTable [data-slot="table-head"]:last-child,
+.warehouseTable [data-slot="table-cell"]:last-child,
+.warehouseAnalyticsTable [data-slot="table-head"]:last-child,
+.warehouseAnalyticsTable [data-slot="table-cell"]:last-child {
+  padding-right: 0 !important;
+}
+
+.warehouseTable .adminTableViewport tr > th:first-child,
+.warehouseTable .adminTableViewport tr > td:first-child,
+.warehouseAnalyticsTable .adminTableViewport tr > th:first-child,
+.warehouseAnalyticsTable .adminTableViewport tr > td:first-child {
+  padding-left: 0 !important;
+}
+
+.warehouseTable .adminTableViewport tr > th:last-child,
+.warehouseTable .adminTableViewport tr > td:last-child,
+.warehouseAnalyticsTable .adminTableViewport tr > th:last-child,
+.warehouseAnalyticsTable .adminTableViewport tr > td:last-child {
+  padding-right: 0 !important;
+}
+
 .warehouseTableRow {
   grid-template-columns:
     minmax(220px, 1.2fr) minmax(180px, 0.95fr) minmax(180px, 0.95fr)
@@ -2671,62 +2876,6 @@ h2 {
 
 .inventoryActionForm h3 svg {
   color: var(--primary);
-}
-
-.inventoryTable {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  max-width: 100%;
-  min-width: 0;
-  overflow: auto;
-}
-
-.inventoryTableHeader,
-.inventoryTableRow {
-  display: grid;
-  gap: 14px;
-  grid-template-columns:
-    minmax(220px, 1.3fr) minmax(180px, 1fr) minmax(100px, 0.55fr)
-    minmax(100px, 0.55fr) minmax(110px, 0.55fr) minmax(190px, 1fr);
-  min-width: 980px;
-  padding: 13px 16px;
-}
-
-.inventoryTableHeader {
-  background: #e8efed;
-}
-
-.inventoryTableRow {
-  align-items: center;
-  background: var(--surface-muted);
-}
-
-.inventoryTableRow + .inventoryTableRow {
-  border-top: 1px solid var(--border);
-}
-
-.inventoryTableRow span {
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-.inventoryTableRow span strong {
-  color: var(--text);
-}
-
-.batchInventoryTableHeader,
-.batchInventoryTableRow {
-  grid-template-columns:
-    minmax(160px, 0.9fr) minmax(220px, 1.2fr) minmax(180px, 1fr)
-    minmax(100px, 0.5fr) minmax(190px, 1fr) minmax(170px, 0.9fr);
-}
-
-.movementTableHeader,
-.movementTableRow {
-  grid-template-columns:
-    minmax(150px, 0.8fr) minmax(240px, 1.3fr) minmax(200px, 1fr)
-    minmax(100px, 0.5fr);
-  min-width: 760px;
 }
 
 .productTable {
@@ -3227,6 +3376,22 @@ h2 {
   width: 1px;
 }
 
+.singleAssetRow {
+  grid-template-columns: minmax(0, 1fr) max-content !important;
+}
+
+.singleAssetRow > :nth-child(1),
+.singleAssetRow > :nth-child(2) {
+  grid-column: auto !important;
+}
+
+.singleAssetRow .fileUploadButton {
+  align-self: end;
+  flex-direction: row !important;
+  height: 50px;
+  width: auto !important;
+}
+
 .iconOnlyButton {
   align-self: end;
   min-width: 40px;
@@ -3404,10 +3569,28 @@ h2 {
 }
 
 .orderDetailGrid {
-  align-items: start;
+  align-items: stretch;
   display: grid;
   gap: 18px;
+  grid-auto-rows: minmax(0, 1fr);
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.orderDetailGrid > .panel {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 100%;
+}
+
+.orderDetailGrid > .panel > .detailGrid,
+.orderDetailGrid > .panel > .emptyPanel {
+  flex: 1 1 auto;
+}
+
+.orderDetailGrid > .panel > .detailGrid {
+  grid-auto-rows: minmax(76px, 1fr);
 }
 
 .orderActionsGrid {
@@ -3549,23 +3732,6 @@ h2 {
   font-size: 12px;
   font-style: normal;
   margin-top: 4px;
-}
-
-.plainTableButton {
-  background: transparent;
-  border: 0;
-  color: var(--text);
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-  padding: 0;
-  text-align: left;
-}
-
-.plainTableButton em {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
 }
 
 .documentList {
@@ -3833,10 +3999,19 @@ h2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.deliveryChartsGrid {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
 .reportChartPanel {
   margin-top: 0;
 }
 
+.deliveryChartPanel[data-wide="true"],
 .reportChartPanel[data-wide="true"] {
   grid-column: 1 / -1;
 }
@@ -4015,9 +4190,6 @@ h2 {
   .couponHubGrid,
   .quoteRequestHubGrid,
   .productFeedbackHubGrid,
-  .deliveryHubGrid,
-  .customerHubGrid,
-  .orderHubGrid,
   .returnsRefundsHubGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4071,6 +4243,7 @@ h2 {
   .reportMetricGrid,
   .dashboardKpiGrid,
   .reportChartsGrid,
+  .deliveryChartsGrid,
   .deliveryAssignmentFilters,
   .customerAddressGrid,
   .orderActionsGrid {
@@ -4091,9 +4264,6 @@ h2 {
   .couponHubGrid,
   .quoteRequestHubGrid,
   .productFeedbackHubGrid,
-  .deliveryHubGrid,
-  .customerHubGrid,
-  .orderHubGrid,
   .returnsRefundsHubGrid,
   .deliveryManagementGrid,
   .orderDetailGrid {
@@ -4164,14 +4334,12 @@ h2 {
   .formGrid,
   .inlineForm,
   .productFilters,
-  .customerFilters,
   .settingsFilters,
   .deliveryChargeFilters,
   .couponFilters,
   .quoteRequestFilters,
   .productFeedbackFilters,
   .returnsRefundsFilters,
-  .warehouseFilters,
   .warehouseStaffPicker,
   .inventoryFilters,
   .ordersFilters,
@@ -4188,6 +4356,7 @@ h2 {
   .orderMetricGrid,
   .returnsRefundsMetricGrid,
   .reportChartsGrid,
+  .deliveryChartsGrid,
   .dashboardChartGrid,
   .customerAddressGrid,
   .detailGrid,
@@ -4208,8 +4377,6 @@ h2 {
   .quoteRequestSectionNav,
   .productFeedbackSectionNav,
   .deliverySectionNav,
-  .customerSectionNav,
-  .orderSectionNav,
   .returnsRefundsSectionNav,
   .paginationControls {
     justify-content: stretch;
@@ -4222,8 +4389,6 @@ h2 {
   .quoteRequestSectionNav,
   .productFeedbackSectionNav,
   .deliverySectionNav,
-  .customerSectionNav,
-  .orderSectionNav,
   .returnsRefundsSectionNav {
     width: 100%;
   }
@@ -4237,8 +4402,6 @@ h2 {
   .quoteRequestSectionNav a,
   .productFeedbackSectionNav a,
   .deliverySectionNav a,
-  .customerSectionNav a,
-  .orderSectionNav a,
   .returnsRefundsSectionNav a,
   .paginationControls button,
   .fileUploadButton {

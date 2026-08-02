@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   CheckCircle2,
   Pencil,
   Plus,
@@ -11,6 +12,7 @@ import {
   PowerOff,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   UserPlus,
   X
 } from "lucide-react";
@@ -18,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
@@ -50,6 +53,7 @@ import {
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import {
   WAREHOUSE_STATUSES,
+  WAREHOUSE_ANALYTICS_PATH,
   WAREHOUSE_LIST_PATH,
   buildWarehouseCreatePath,
   buildWarehouseEditPath,
@@ -117,6 +121,7 @@ function WarehousesContent({
   const [appliedFilters, setAppliedFilters] = useState<WarehouseFilters>(
     createEmptyWarehouseFilters()
   );
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(
     initialEditWarehouseId
   );
@@ -222,6 +227,17 @@ function WarehousesContent({
     statusMutation.isPending ||
     assignStaffMutation.isPending ||
     removeStaffMutation.isPending;
+  const warehouseFilterAction = showWarehouseFilters ? (
+    <Button
+      className="iconTextButton"
+      onClick={() => setIsFilterDrawerOpen(true)}
+      type="button"
+    >
+      <SlidersHorizontal aria-hidden size={16} />
+      <span>Add filter</span>
+    </Button>
+  ) : null;
+  const warehouseBackPath = returnToPath ?? WAREHOUSE_ANALYTICS_PATH;
 
   useEffect(() => {
     if (view === "create" && initialEditWarehouseId) {
@@ -277,6 +293,7 @@ function WarehousesContent({
   function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
@@ -431,7 +448,8 @@ function WarehousesContent({
           <PageHeader
             level={2}
             actions={
-              <>
+              <div className="actionRow">
+                {warehouseFilterAction}
                 <Button
                   className="iconTextButton"
                   onClick={() => void warehousesQuery.refetch()}
@@ -443,13 +461,13 @@ function WarehousesContent({
                 </Button>
                 {canManage ? (
                   <Button asChild className="buttonLink iconTextButton">
-                    <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
+                    <Link href={buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)}>
                       <Plus aria-hidden size={16} />
                       <span>New warehouse</span>
                     </Link>
                   </Button>
                 ) : null}
-              </>
+              </div>
             }
             eyebrow="Warehouse analytics"
             summary="Track warehouse coverage, status mix, and filtered operating footprint."
@@ -462,25 +480,38 @@ function WarehousesContent({
               {mutationError}
             </p>
           ) : null}
+
+          <div className="metricGrid resourceMetrics">
+            <MetricCard label="Total warehouses" tone="primary" value={totalCount} />
+            <MetricCard label="Visible after filter" value={analytics.visible} />
+            <MetricCard label="Active" tone="primary" value={analytics.active} />
+            <MetricCard label="Inactive" tone="warning" value={analytics.inactive} />
+          </div>
         </Card>
       ) : null}
 
       {showWarehouseFilters ? (
-        <Card className="panel">
-          <WarehouseFilterForm
+        <FilterDrawer
+          applyLabel={warehouseFilterContent.submitLabel}
+          isOpen={isFilterDrawerOpen}
+          isSubmitting={warehousesQuery.isFetching}
+          onApply={handleFilterSubmit}
+          onOpenChange={setIsFilterDrawerOpen}
+          onReset={resetFilters}
+          summary="Filter warehouses by name, code, city, state, or status."
+          title="Warehouse filters"
+        >
+          <WarehouseFilterFields
             content={warehouseFilterContent}
             filters={draftFilters}
             onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={handleFilterSubmit}
           />
-        </Card>
+        </FilterDrawer>
       ) : null}
 
       {view === "analytics" ? (
         <WarehouseAnalytics
           analytics={analytics}
-          totalCount={totalCount}
           warehouses={warehouses}
         />
       ) : null}
@@ -490,14 +521,17 @@ function WarehousesContent({
           <PageHeader
             level={2}
             actions={
-              canManage ? (
-                <Button asChild className="buttonLink iconTextButton">
-                  <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
-                    <Plus aria-hidden size={16} />
-                    <span>Create warehouse</span>
-                  </Link>
-                </Button>
-              ) : null
+              <div className="actionRow">
+                {warehouseFilterAction}
+                {canManage ? (
+                  <Button asChild className="buttonLink iconTextButton">
+                    <Link href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}>
+                      <Plus aria-hidden size={16} />
+                      <span>Create warehouse</span>
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             }
             eyebrow="Warehouse list"
             title="Filtered warehouse table"
@@ -551,12 +585,20 @@ function WarehousesContent({
               <PageHeader
                 level={2}
                 actions={
-                  editingWarehouseId ? (
-                    <Button className="iconTextButton" onClick={startCreate} type="button" variant="outline">
-                      <X aria-hidden size={16} />
-                      <span>Clear</span>
+                  <div className="actionRow">
+                    <Button asChild className="buttonLink iconTextButton" variant="outline">
+                      <Link href={warehouseBackPath}>
+                        <ArrowLeft aria-hidden size={16} />
+                        <span>Back</span>
+                      </Link>
                     </Button>
-                  ) : null
+                    {editingWarehouseId ? (
+                      <Button className="iconTextButton" onClick={startCreate} type="button" variant="outline">
+                        <X aria-hidden size={16} />
+                        <span>Clear</span>
+                      </Button>
+                    ) : null}
+                  </div>
                 }
                 eyebrow={editingWarehouseId ? "Edit warehouse" : "Create warehouse"}
                 title={editingWarehouseId ? selectedWarehouse?.name ?? "Warehouse" : "New warehouse"}
@@ -603,6 +645,7 @@ function WarehousesContent({
           <Card className="panel">
             <PageHeader
               level={2}
+              actions={<div className="actionRow">{warehouseFilterAction}</div>}
               eyebrow="Warehouse staff"
               title={selectedWarehouse?.name ?? "Select a warehouse"}
             />
@@ -739,11 +782,9 @@ function WarehousesContent({
 
 function WarehouseAnalytics({
   analytics,
-  totalCount,
   warehouses
 }: {
   analytics: ReturnType<typeof getWarehouseAnalytics>;
-  totalCount: number;
   warehouses: AdminWarehouse[];
 }) {
   const stateRows = Array.from(
@@ -769,56 +810,45 @@ function WarehouseAnalytics({
     .sort((left, right) => right.total - left.total || left.state.localeCompare(right.state));
 
   return (
-    <>
-      <Card className="panel">
-        <div className="metricGrid resourceMetrics">
-          <MetricCard label="Total warehouses" tone="primary" value={totalCount} />
-          <MetricCard label="Visible after filter" value={analytics.visible} />
-          <MetricCard label="Active" tone="primary" value={analytics.active} />
-          <MetricCard label="Inactive" tone="warning" value={analytics.inactive} />
-        </div>
-      </Card>
-
-      <Card className="panel">
-        <PageHeader
-          level={2}
-          actions={<span>{analytics.states} states</span>}
-          eyebrow="Coverage"
-          title="Warehouse footprint by state"
-        />
-        {stateRows.length > 0 ? (
-          <div className="resourceTable warehouseAnalyticsTable">
-            <Table>
-              <TableHeader>
-                <TableRow className="warehouseAnalyticsTableRow">
-                  <TableHead>State</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead>Inactive</TableHead>
+    <Card className="panel mt-3">
+      <PageHeader
+        level={2}
+        actions={<span>{analytics.states} states</span>}
+        eyebrow="Coverage"
+        title="Warehouse footprint by state"
+      />
+      {stateRows.length > 0 ? (
+        <div className="resourceTable warehouseAnalyticsTable">
+          <Table>
+            <TableHeader>
+              <TableRow className="warehouseAnalyticsTableRow">
+                <TableHead>State</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead>Inactive</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stateRows.map((row) => (
+                <TableRow className="warehouseAnalyticsTableRow" key={row.state}>
+                  <TableCell>
+                    <strong>{row.state}</strong>
+                  </TableCell>
+                  <TableCell>{row.total}</TableCell>
+                  <TableCell>{row.active}</TableCell>
+                  <TableCell>{row.inactive}</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stateRows.map((row) => (
-                  <TableRow className="warehouseAnalyticsTableRow" key={row.state}>
-                    <TableCell>
-                  <strong>{row.state}</strong>
-                    </TableCell>
-                    <TableCell>{row.total}</TableCell>
-                    <TableCell>{row.active}</TableCell>
-                    <TableCell>{row.inactive}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <EmptyState
-            body="No warehouses match the selected filters."
-            title="No warehouses found"
-          />
-        )}
-      </Card>
-    </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <EmptyState
+          body="No warehouses match the selected filters."
+          title="No warehouses found"
+        />
+      )}
+    </Card>
   );
 }
 
@@ -921,26 +951,23 @@ function WarehouseTable({
   );
 }
 
-function WarehouseFilterForm({
+function WarehouseFilterFields({
   content,
   filters,
-  onChange,
-  onReset,
-  onSubmit
+  onChange
 }: {
   content: ReturnType<typeof getWarehouseFilterContent>;
   filters: WarehouseFilters;
   onChange: (filters: WarehouseFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form className="warehouseFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Label>
         Search
         <span className="searchInput">
           <Search aria-hidden size={16} />
           <Input
+            className="filterDrawerControl"
             onChange={(event) => onChange({ ...filters, search: event.target.value })}
             placeholder={content.searchPlaceholder}
             value={filters.search}
@@ -950,6 +977,7 @@ function WarehouseFilterForm({
       <Label>
         State
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, state: event.target.value })}
           placeholder="Maharashtra"
           value={filters.state}
@@ -969,7 +997,7 @@ function WarehouseFilterForm({
           }
           value={filters.status || ALL_WAREHOUSE_STATUSES_VALUE}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="Any" />
           </SelectTrigger>
           <SelectContent>
@@ -982,16 +1010,7 @@ function WarehouseFilterForm({
           </SelectContent>
         </Select>
       </Label>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>{content.submitLabel}</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 

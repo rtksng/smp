@@ -18,6 +18,7 @@ export function FileUploadButton({
       className={cn(
         buttonVariants({ variant: "secondary" }),
         heroButtonClassName,
+        "fileUploadButton",
         "relative cursor-pointer",
         className
       )}

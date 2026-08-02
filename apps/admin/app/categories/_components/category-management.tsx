@@ -215,6 +215,10 @@ function CategoriesContent({
     await queryClient.invalidateQueries({
       queryKey: ["admin", "categories"]
     });
+    await queryClient.refetchQueries({
+      queryKey: ["admin", "categories", "managed"],
+      type: "active"
+    });
   }
 
   function updateValue<Key extends keyof CategoryFormValues>(

@@ -82,6 +82,18 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/\.panelHeader\s*>\s*span\s*{/);
   });
 
+  it("stretches order detail panels and their inner cards to equal heights", () => {
+    expect(globalsCss).toMatch(/\.orderDetailGrid\s*{[^}]*align-items:\s*stretch;/s);
+    expect(globalsCss).toMatch(/\.orderDetailGrid\s*{[^}]*grid-auto-rows:\s*minmax\(0,\s*1fr\);/s);
+    expect(globalsCss).toMatch(/\.orderDetailGrid > \.panel\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*min-height:\s*100%;/s);
+    expect(globalsCss).toMatch(
+      /\.orderDetailGrid > \.panel > \.detailGrid,[\s\S]*?\.orderDetailGrid > \.panel > \.emptyPanel\s*{[^}]*flex:\s*1 1 auto;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.orderDetailGrid > \.panel > \.detailGrid\s*{[^}]*grid-auto-rows:\s*minmax\(76px,\s*1fr\);/s
+    );
+  });
+
   it("wires the button wrapper through HeroUI", () => {
     expect(buttonSource).toContain('from "@heroui/button"');
     expect(buttonSource).toContain("buttonVariants");
@@ -166,6 +178,14 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(/\.sidebar\s*{[^}]*height:\s*100dvh;/s);
     expect(globalsCss).toMatch(/\.sidebarNavScroller\s*{[^}]*overflow-y:\s*auto;/s);
     expect(globalsCss).toMatch(/\.workspace\s*{[^}]*margin-left:\s*var\(--admin-sidebar-width\);/s);
+  });
+
+  it("preserves sidebar scroll position across route changes", () => {
+    expect(adminShellSource).toContain("function SidebarNavScroller");
+    expect(adminShellSource).toContain("SIDEBAR_SCROLL_STORAGE_KEY");
+    expect(adminShellSource).toContain("window.sessionStorage.setItem");
+    expect(adminShellSource).toContain("window.requestAnimationFrame");
+    expect(adminShellSource).toContain("restoreKey={pathname}");
   });
 
   it("moves admin identity and logout into a fixed sidebar footer", () => {

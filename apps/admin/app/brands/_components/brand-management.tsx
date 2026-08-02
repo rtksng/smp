@@ -403,7 +403,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
         </div>
       </Card>
 
-      <Card className="panel">
+      <Card className="panel my-3">
         <form className="productFilters" onSubmit={(event) => event.preventDefault()}>
           <Label>
             Search brands

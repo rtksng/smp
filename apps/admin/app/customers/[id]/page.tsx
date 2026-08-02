@@ -221,7 +221,7 @@ function CustomerDetailContent() {
 
       {customer ? (
         <>
-          <div className="orderDetailGrid">
+          <div className="orderDetailGrid my-3">
             <section className="panel">
               <div className="panelHeader">
                 <div>
@@ -308,7 +308,7 @@ function CustomerDetailContent() {
             <AddressGrid addresses={customer.addresses} />
           </section>
 
-          <section className="panel">
+          <section className="panel my-3">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Orders</p>

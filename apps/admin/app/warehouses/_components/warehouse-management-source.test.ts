@@ -77,8 +77,10 @@ describe("warehouse list edit flow source", () => {
     );
   });
 
-  it("links create actions to the create page with list return behavior", () => {
+  it("links create actions to the create page with source-aware return behavior", () => {
+    expect(source).toContain("buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)");
     expect(source).toContain("buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)");
+    expect(source).toContain("const warehouseBackPath = returnToPath ?? WAREHOUSE_ANALYTICS_PATH");
     expect(source).toContain("returnToPath");
   });
 });
