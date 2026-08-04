@@ -30,7 +30,8 @@ commands below assume a terminal at the repository root.
 
 - Git
 - Node.js 20 or newer
-- Docker Desktop
+- PostgreSQL 16 or newer running locally
+- Redis 7 or a Redis-compatible server running locally
 - Corepack-enabled pnpm `9.15.4`
 
 Install pnpm through Corepack if pnpm is not already available:
@@ -68,19 +69,21 @@ Install pnpm through Corepack if pnpm is not already available:
    Copy-Item apps/worker/.env.example apps/worker/.env
    ```
 
-3. Review local ports and env URLs.
+3. Review local database and Redis env URLs.
 
-   By default the examples use PostgreSQL on host port `5432`:
+   By default the examples use PostgreSQL on `localhost:5432` and Redis on
+   `localhost:6379`:
 
    ```bash
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/surgical_platform?schema=public
+   REDIS_URL=redis://localhost:6379
    ```
 
    If another PostgreSQL server is already using `5432`, set this project to
-   `5433` in `.env`, `apps/api/.env`, and `apps/worker/.env`:
+   your actual native PostgreSQL port in `.env`, `apps/api/.env`, and
+   `apps/worker/.env`:
 
    ```bash
-   POSTGRES_PORT=5433
    DATABASE_URL=postgresql://postgres:postgres@localhost:5433/surgical_platform?schema=public
    ```
 
@@ -88,7 +91,6 @@ Install pnpm through Corepack if pnpm is not already available:
 
    - `POSTGRES_USER`
    - `POSTGRES_PASSWORD`
-   - `POSTGRES_PORT`
    - `DATABASE_URL`
    - `REDIS_URL`
    - `REDIS_QUEUE_PREFIX`
@@ -96,23 +98,17 @@ Install pnpm through Corepack if pnpm is not already available:
    - `JWT_REFRESH_SECRET`
    - `RAZORPAY_*` values
 
-4. Start local infrastructure:
+4. Create the local PostgreSQL database and make sure Redis is running.
+
+   PostgreSQL example:
 
    ```bash
-   docker compose --env-file .env -f infra/docker/docker-compose.yml up -d
+   createdb -h localhost -U postgres surgical_platform
    ```
 
-   Local services:
-   - PostgreSQL: `localhost:${POSTGRES_PORT}` (`5432` by default, `5433` if you changed it)
-   - Redis: `redis://localhost:6379`
-   - Adminer: `http://localhost:8080`
-
-   Adminer login values from `.env`:
-   - System: `PostgreSQL`
-   - Server: `postgres`
-   - Database: `surgical_platform`
-   - Username: `POSTGRES_USER`
-   - Password: `POSTGRES_PASSWORD`
+   If the database already exists, leave it in place and continue with Prisma
+   migrations. The app does not start PostgreSQL or Redis for you; they must be
+   running as native local services before starting the API or worker.
 
 5. Generate the Prisma client:
 
@@ -150,13 +146,25 @@ Install pnpm through Corepack if pnpm is not already available:
    website and admin dashboard. This keeps the customer catalogue pages and
    admin login from rendering before the backend is ready.
 
+   If you want the local customer and admin frontends to use the deployed
+   Railway API instead of starting local API, PostgreSQL, and Redis, set
+   `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` and `apps/admin/.env.local`
+   to the Railway API base URL, then start only the frontends:
+
+   ```bash
+   corepack pnpm dev:frontends
+   ```
+
+   Do not use `corepack pnpm dev` for the Railway-backed frontend-only flow.
+   That command intentionally starts the local API and worker, which require
+   reachable `DATABASE_URL` and `REDIS_URL` values.
+
    Local app URLs:
 
    - Customer web: `http://localhost:3000`
    - Admin dashboard: `http://localhost:3001`
    - API: `http://localhost:4000/api/v1`
    - API docs: `http://localhost:4000/api/docs`
-   - Adminer: `http://localhost:8080`
 
    Seeded admin login email:
 
@@ -180,20 +188,19 @@ Copy three things to the new machine:
    apps/api/storage/uploads
    ```
 
-On the old machine, create a database dump from the running Docker container:
+On the old machine, create a database dump from native PostgreSQL:
 
 ```powershell
-docker exec surgical-platform-postgres pg_dump -U postgres -d surgical_platform --format=custom --file=/tmp/surgical_platform.dump
-docker cp surgical-platform-postgres:/tmp/surgical_platform.dump .\surgical_platform.dump
+pg_dump -h localhost -U postgres -d surgical_platform --format=custom --file=.\surgical_platform.dump
 ```
 
 Copy `surgical_platform.dump` and `apps/api/storage/uploads` to the new
-machine. After cloning the code and starting Docker on the new machine, restore
-the database:
+machine. After cloning the code and creating the native PostgreSQL database on
+the new machine, restore the database:
 
 ```powershell
-docker cp .\surgical_platform.dump surgical-platform-postgres:/tmp/surgical_platform.dump
-docker exec surgical-platform-postgres pg_restore -U postgres -d surgical_platform --clean --if-exists /tmp/surgical_platform.dump
+createdb -h localhost -U postgres surgical_platform
+pg_restore -h localhost -U postgres -d surgical_platform --clean --if-exists .\surgical_platform.dump
 ```
 
 Then copy the upload folder into the same path on the new machine:
@@ -210,6 +217,7 @@ add or repair seed records.
 
 ```bash
 corepack pnpm dev
+corepack pnpm dev:frontends
 corepack pnpm dev:parallel
 corepack pnpm dev:web
 corepack pnpm dev:admin
@@ -276,8 +284,8 @@ STORAGE_IMAGE_MAX_BYTES=5242880
 STORAGE_DOCUMENT_MAX_BYTES=10485760
 ```
 
-If `POSTGRES_PORT=5433` is used in the root `.env`, update `DATABASE_URL` here
-and in `apps/worker/.env` to use `localhost:5433`.
+If your local PostgreSQL server uses a non-default port, update `DATABASE_URL`
+here and in `apps/worker/.env` to use that port.
 
 Useful API routes:
 

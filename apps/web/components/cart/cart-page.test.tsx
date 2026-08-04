@@ -135,6 +135,14 @@ describe("CartPage", () => {
     );
   });
 
+  it("keeps a single cart item card from stretching to the price summary height", async () => {
+    renderCart();
+
+    expect(await screen.findByText("Curved Artery Forceps")).toBeInTheDocument();
+    expect(screen.getByTestId("cart-content-layout")).toHaveClass("items-start");
+    expect(screen.getByTestId("cart-item-list")).toHaveClass("self-start");
+  });
+
   it("renders the empty cart state with a shopping CTA", async () => {
     mocks.getCart.mockResolvedValue(emptyCart());
 

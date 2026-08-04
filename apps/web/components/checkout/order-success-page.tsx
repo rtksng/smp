@@ -42,7 +42,10 @@ export function OrderSuccessPage({ orderId }: { orderId: string }) {
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
+      <main
+        className="orderSuccessNoShadows bg-[#f4fbf5]"
+        data-testid="order-success-main"
+      >
         <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
             <OrderSuccessContent orderId={orderId} />

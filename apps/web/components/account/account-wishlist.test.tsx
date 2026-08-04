@@ -139,7 +139,18 @@ describe("AccountWishlist", () => {
         { timeout: 5000 }
       )
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(screen.getByTestId("wishlist-products-grid")).toHaveClass(
+      "grid-cols-2",
+      "items-stretch"
+    );
+    expect(
+      screen.getByRole("link", { name: "View SurgiPro Artery Forceps" })
+    ).toHaveClass("sm:hidden");
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveClass(
+      "w-full",
+      "!min-h-9",
+      "text-xs"
+    );
     expect(screen.queryByText(product.shortDescription)).not.toBeInTheDocument();
     expect(screen.queryByText("GST invoice ready")).not.toBeInTheDocument();
     expect(screen.queryByText("Delivery at checkout")).not.toBeInTheDocument();

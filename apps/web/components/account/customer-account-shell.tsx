@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import {
   ArrowLeft,
   FileText,
-  LayoutDashboard,
   LogOut,
   Heart,
   MapPin,
@@ -22,7 +21,6 @@ import { Container } from "../ui/container";
 import { ProtectedCustomerRoute } from "../auth/protected-customer-route";
 
 const accountLinks = [
-  { href: "/account", icon: LayoutDashboard, label: "Overview" },
   { href: "/account/profile", icon: UserRound, label: "Profile" },
   { href: "/account/orders", icon: Package, label: "Orders" },
   { href: "/account/wishlist", icon: Heart, label: "Wishlist" },
@@ -49,11 +47,12 @@ export function CustomerAccountShell({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const activeLink =
     accountLinks.find((link) => link.href === activePath) ?? {
-      href: "/account",
-      icon: LayoutDashboard,
-      label: "Overview"
+      href: "/account/profile",
+      icon: UserRound,
+      label: "Profile"
     };
-  const showBreadcrumb = activeLink.href !== "/account";
+  const showBreadcrumb = activePath !== "/account";
+  const isAccountLanding = activePath === "/account";
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -69,11 +68,17 @@ export function CustomerAccountShell({
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
+      <main
+        className="accountNoShadows bg-[#f4fbf5]"
+        data-testid="account-main"
+      >
         <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
             <div className="grid gap-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-6">
-              <aside className="grid gap-3 self-start rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:p-4 lg:sticky lg:top-24">
+              <aside
+                className="hidden gap-3 self-start rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:p-4 lg:sticky lg:top-24 lg:grid"
+                data-testid="desktop-account-sidebar"
+              >
                 <div>
                   <p className="text-xs font-semibold uppercase text-[#287c30]">
                     Customer account
@@ -120,7 +125,55 @@ export function CustomerAccountShell({
                 </Button>
               </aside>
 
-              <section className="grid min-w-0 gap-5">
+              {isAccountLanding ? (
+                <section
+                  aria-label="Account menu"
+                  className="grid gap-2 rounded-lg border border-[#cfe9d2] bg-white p-3 lg:hidden"
+                  data-testid="mobile-account-menu"
+                >
+                  {accountLinks.map((link) => {
+                    const Icon = link.icon;
+                    const isActive = activePath === link.href;
+
+                    return (
+                      <Link
+                        aria-current={isActive ? "page" : undefined}
+                        className={mobileAccountLinkClass(link.href, activePath)}
+                        href={link.href}
+                        key={link.href}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Icon
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0"
+                          />
+                          {link.label}
+                        </span>
+                        <span aria-hidden="true" className="text-[#7a8d7c]">
+                          ›
+                        </span>
+                      </Link>
+                    );
+                  })}
+                  <Button
+                    className="mt-1 w-full justify-start"
+                    disabled={isLoggingOut}
+                    onClick={handleLogout}
+                    variant="outline"
+                  >
+                    <LogOut aria-hidden="true" className="h-4 w-4" />
+                    {isLoggingOut ? "Logging out..." : "Logout"}
+                  </Button>
+                </section>
+              ) : null}
+
+              <section
+                className={[
+                  "min-w-0 gap-5",
+                  isAccountLanding ? "hidden lg:grid" : "grid"
+                ].join(" ")}
+                data-testid="account-content"
+              >
                 <div className="border-b border-[#cfe9d2] pb-4">
                   {showBreadcrumb ? (
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -163,6 +216,14 @@ export function CustomerAccountShell({
       </main>
       <Footer />
     </>
+  );
+}
+
+export function CustomerAccountLanding({ children }: { children?: ReactNode }) {
+  return (
+    <CustomerAccountShell activePath="/account" description="" title="Account">
+      {children}
+    </CustomerAccountShell>
   );
 }
 
@@ -286,5 +347,16 @@ function accountLinkClass(href: string, activePath: string | undefined) {
     isActive
       ? "border-[#287c30] bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20"
       : "border-[#cfe9d2] bg-[#f4fbf5] text-[#173b1d] hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+  ].join(" ");
+}
+
+function mobileAccountLinkClass(href: string, activePath: string | undefined) {
+  const isActive = activePath === href;
+
+  return [
+    "flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 text-sm font-semibold transition",
+    isActive
+      ? "border-[#287c30] bg-[#eaf7eb] text-[#173b1d]"
+      : "border-[#cfe9d2] bg-[#f8fcf8] text-[#173b1d] hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
   ].join(" ");
 }

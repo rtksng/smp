@@ -28,9 +28,20 @@ function createProductFeedbackPrismaMock(input?: {
     findFirstLog: [],
     findManyLog: [],
     findFirstProduct: [],
+    findManyProduct: [],
     findFirstUser: [],
     updateLog: []
   };
+  const products = [
+    {
+      deletedAt: null,
+      id: "product-1",
+      name: "SurgiPro Artery Forceps",
+      sku: "FORCEPS-001",
+      slug: "surgical-forceps",
+      status: "ACTIVE"
+    }
+  ];
 
   return {
     calls,
@@ -89,12 +100,11 @@ function createProductFeedbackPrismaMock(input?: {
         calls.findFirstProduct.push(args);
         return input?.productExists === false
           ? null
-          : {
-              deletedAt: null,
-              id: "product-1",
-              slug: "surgical-forceps",
-              status: "ACTIVE"
-            };
+          : products[0];
+      },
+      findMany: async (args: { where?: Record<string, unknown> }) => {
+        calls.findManyProduct.push(args);
+        return filterProducts(products, args.where ?? {});
       }
     },
     user: {
@@ -185,12 +195,24 @@ test("admin feedback listing filters questions and keeps answer context", async 
   assert.equal(listed.items[0]?.answer, "Yes, it supports standard autoclave cycles.");
   assert.equal(listed.items[0]?.customerName, "Asha Rao");
   assert.equal(listed.items[0]?.productId, "product-1");
+  assert.equal(listed.items[0]?.productName, "SurgiPro Artery Forceps");
   assert.equal(listed.items[0]?.question, "Is this autoclavable?");
   assert.equal(listed.items[0]?.status, "ANSWERED");
   assert.equal(listed.items[0]?.type, "QUESTION");
   assert.equal(listed.pagination.total, 1);
   assert.equal(listed.pagination.totalPages, 1);
   assert.equal(prisma.calls.countLog.length, 1);
+
+  const searched = await service.listAdminFeedback({
+    limit: 10,
+    page: 1,
+    productSearch: "forceps",
+    type: "QUESTION"
+  });
+
+  assert.equal(searched.items.length, 1);
+  assert.equal(searched.items[0]?.productName, "SurgiPro Artery Forceps");
+  assert.equal(prisma.calls.findManyProduct.length, 3);
 });
 
 test("public feedback only exposes approved reviews and answered questions", async () => {
@@ -296,7 +318,7 @@ function filterLogs<
       | undefined;
     const matchesDirectFilters =
       (where.channel === undefined || log.channel === where.channel) &&
-      (where.recipient === undefined || log.recipient === where.recipient) &&
+      matchesValue(log.recipient, where.recipient) &&
       matchesValue(log.status, where.status) &&
       (typeof templateKey === "string"
         ? log.templateKey === templateKey
@@ -330,4 +352,51 @@ function matchesValue(value: string, filter: unknown) {
   }
 
   return true;
+}
+
+function filterProducts<
+  T extends {
+    deletedAt: null | Date;
+    id: string;
+    name: string;
+    sku: string;
+    slug: string;
+  }
+>(products: T[], where: Record<string, unknown>) {
+  const idFilter = where.id as string | { in?: string[] } | undefined;
+  const orFilters = where.OR as Array<Record<string, unknown>> | undefined;
+
+  return products.filter((product) => {
+    const matchesDeletedAt =
+      where.deletedAt === undefined || product.deletedAt === where.deletedAt;
+    const matchesId = matchesValue(product.id, idFilter);
+    const matchesOr =
+      !orFilters?.length ||
+      orFilters.some((filter) => matchesProductSearchFilter(product, filter));
+
+    return matchesDeletedAt && matchesId && matchesOr;
+  });
+}
+
+function matchesProductSearchFilter(
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    slug: string;
+  },
+  filter: Record<string, unknown>
+) {
+  if (typeof filter.id === "string") {
+    return product.id === filter.id;
+  }
+
+  return ["name", "sku", "slug"].some((key) => {
+    const fieldFilter = filter[key] as { contains?: string } | undefined;
+    const search = fieldFilter?.contains?.toLowerCase();
+
+    return search
+      ? product[key as "name" | "sku" | "slug"].toLowerCase().includes(search)
+      : false;
+  });
 }

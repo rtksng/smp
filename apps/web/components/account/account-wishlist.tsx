@@ -40,7 +40,7 @@ export function AccountWishlist() {
       title="Wishlist"
     >
       {wishlistQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => (
             <Skeleton className="h-80" key={index} />
           ))}
@@ -72,15 +72,20 @@ export function AccountWishlist() {
             description={`${products.length} saved product${products.length === 1 ? "" : "s"}.`}
             title="Saved products"
           />
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            className="mt-4 grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3"
+            data-testid="wishlist-products-grid"
+          >
             {products.map((product) => (
               <div className="grid gap-3" key={product.id}>
                 <ProductCard
+                  compact
                   product={product}
                   showDescription={false}
                   showServiceBadges={false}
                 />
                 <Button
+                  className="w-full !min-h-9 !px-2 text-xs sm:!min-h-10 sm:text-sm"
                   disabled={removeMutation.isPending}
                   onClick={() => removeMutation.mutate(product.id)}
                   variant="outline"

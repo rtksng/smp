@@ -54,7 +54,8 @@ describe("CustomerAccountShell", () => {
       />
     );
 
-    const metricGrid = screen.getByText("Total orders").parentElement?.parentElement;
+    const metricGrid =
+      screen.getByText("Total orders").parentElement?.parentElement;
 
     expect(metricGrid).toHaveClass("grid-cols-2", "xl:grid-cols-4");
   });
@@ -70,9 +71,12 @@ describe("CustomerAccountShell", () => {
       </CustomerAccountShell>
     );
 
-    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    expect(
+      screen.queryByRole("link", { name: "Overview" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
       "href",
-      "/account"
+      "/account/profile"
     );
     expect(screen.getByRole("link", { name: "Orders" })).toHaveAttribute(
       "href",
@@ -86,6 +90,13 @@ describe("CustomerAccountShell", () => {
       "href",
       "/account/addresses"
     );
+    expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
+    expect(screen.getByTestId("desktop-account-sidebar")).toHaveClass(
+      "hidden",
+      "lg:grid"
+    );
+    expect(screen.queryByTestId("mobile-account-menu")).not.toBeInTheDocument();
+    expect(screen.getByTestId("account-content")).toHaveClass("grid");
 
     const activeTab = screen.getByRole("link", { name: "Profile" });
     expect(activeTab).toHaveAttribute("href", "/account/profile");
@@ -94,17 +105,70 @@ describe("CustomerAccountShell", () => {
     expect(activeTab.querySelector("svg")).toHaveClass("h-3.5", "w-3.5");
 
     const breadcrumb = screen.getByLabelText("Breadcrumb");
-    expect(within(breadcrumb).getByRole("link", { name: "Account" })).toHaveAttribute(
-      "href",
-      "/account"
-    );
+    expect(
+      within(breadcrumb).getByRole("link", { name: "Account" })
+    ).toHaveAttribute("href", "/account");
     expect(within(breadcrumb).getByText("Profile")).toHaveAttribute(
       "aria-current",
       "page"
     );
-    expect(screen.getByRole("link", { name: "Back to account" })).toHaveAttribute(
-      "href",
-      "/account"
+    expect(
+      screen.getByRole("link", { name: "Back to account" })
+    ).toHaveAttribute("href", "/account");
+  });
+
+  it("uses the account landing as the mobile vertical menu", () => {
+    render(
+      <CustomerAccountShell
+        activePath="/account"
+        description=""
+        title="Account"
+      >
+        <div>Profile content</div>
+      </CustomerAccountShell>
     );
+
+    const mobileMenu = screen.getByTestId("mobile-account-menu");
+    expect(mobileMenu).toHaveClass("grid", "lg:hidden");
+    expect(
+      within(mobileMenu).queryByRole("link", { name: /Overview/ })
+    ).not.toBeInTheDocument();
+    expect(
+      within(mobileMenu).getByRole("link", { name: /Profile/ })
+    ).toHaveAttribute("href", "/account/profile");
+    expect(
+      within(mobileMenu).getByRole("link", { name: /Orders/ })
+    ).toHaveAttribute("href", "/account/orders");
+    expect(
+      within(mobileMenu).getByRole("link", { name: /Wishlist/ })
+    ).toHaveAttribute("href", "/account/wishlist");
+    expect(
+      within(mobileMenu).getByRole("link", { name: /Addresses/ })
+    ).toHaveAttribute("href", "/account/addresses");
+    expect(
+      within(mobileMenu).getByRole("link", { name: /Quotes/ })
+    ).toHaveAttribute("href", "/account/quotes");
+    expect(
+      within(mobileMenu).getByRole("button", { name: "Logout" })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("account-content")).toHaveClass(
+      "hidden",
+      "lg:grid"
+    );
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
+  });
+
+  it("removes visual shadows from account pages and nested account surfaces", () => {
+    render(
+      <CustomerAccountShell
+        activePath="/account/orders"
+        description="Review order history."
+        title="Orders"
+      >
+        <div>Orders content</div>
+      </CustomerAccountShell>
+    );
+
+    expect(screen.getByTestId("account-main")).toHaveClass("accountNoShadows");
   });
 });

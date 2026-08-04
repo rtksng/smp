@@ -1,12 +1,11 @@
 "use client";
 
 import { APP_NAMES } from "@surgical/config";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   ChevronDown,
   Grid2X2,
-  LogOut,
   MapPin,
   Menu,
   PackageSearch,
@@ -19,7 +18,6 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { getCart } from "../../lib/api/cart";
 import { getCategories } from "../../lib/api/categories";
-import { createLogoutMutation } from "../../lib/api/mutation-helpers";
 import { customerQueryKeys } from "../../lib/api/query-keys";
 import { buildCategoryNavigation } from "../../lib/catalog/customer-navigation";
 import { getCurrentCustomerPath } from "../../lib/auth/current-path";
@@ -44,8 +42,6 @@ const fixedHeaderOffsetClassName = "h-[6.5rem]";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const closeLogin = useCustomerAuthStore((state) => state.closeLogin);
-  const logout = useCustomerAuthStore((state) => state.logout);
   const promptLogin = useCustomerAuthStore((state) => state.promptLogin);
   const session = useCustomerAuthStore((state) => state.session);
   const itemCount = useCartStore((state) => state.totalQuantity);
@@ -57,7 +53,7 @@ export function Header() {
     staleTime: 60_000
   });
   const categoryNavigation = useMemo(
-    () => buildCategoryNavigation(categoriesQuery.data, 10),
+    () => buildCategoryNavigation(categoriesQuery.data),
     [categoriesQuery.data]
   );
   const cartQuery = useQuery({
@@ -65,17 +61,6 @@ export function Header() {
     queryFn: () => getCart(),
     queryKey: customerQueryKeys.cart()
   });
-  const logoutMutation = useMutation(
-    createLogoutMutation({
-      logout,
-      onSettled: () => {
-        resetCartSummary();
-        setMenuOpen(false);
-        closeLogin();
-      }
-    })
-  );
-
   useEffect(() => {
     if (cartQuery.data) {
       setCartSummary(cartQuery.data);
@@ -100,10 +85,6 @@ export function Header() {
       document.body.style.overflow = previousOverflow;
     };
   }, [menuOpen]);
-
-  async function handleLogout() {
-    await logoutMutation.mutateAsync().catch(() => undefined);
-  }
 
   return (
     <>
@@ -147,18 +128,24 @@ export function Header() {
               <Search aria-hidden="true" className="h-4 w-4" />
             </button>
           </form>
-          <button
-            aria-label={session ? "Open account" : "Login or signup"}
-            className="grid h-10 w-8 place-items-center text-[#111827]"
-            onClick={() => {
-              if (!session) {
-                promptLogin(getCurrentCustomerPath());
-              }
-            }}
-            type="button"
-          >
-            <UserRound aria-hidden="true" className="h-5 w-5" />
-          </button>
+          {session ? (
+            <Link
+              aria-label="Open account"
+              className="grid h-10 w-8 place-items-center text-[#111827]"
+              href="/account"
+            >
+              <UserRound aria-hidden="true" className="h-5 w-5" />
+            </Link>
+          ) : (
+            <button
+              aria-label="Login or signup"
+              className="grid h-10 w-8 place-items-center text-[#111827]"
+              onClick={() => promptLogin(getCurrentCustomerPath())}
+              type="button"
+            >
+              <UserRound aria-hidden="true" className="h-5 w-5" />
+            </button>
+          )}
           <Link
             aria-label="Open cart"
             className="relative grid h-10 w-8 place-items-center text-[#111827]"
@@ -202,20 +189,10 @@ export function Header() {
               </span>
             </Button>
             {session ? (
-              <>
-                <Button href="/account" variant="secondary">
-                  <UserRound aria-hidden="true" className="h-4 w-4" />
-                  Account
-                </Button>
-                <Button
-                  aria-label="Logout"
-                  disabled={logoutMutation.isPending}
-                  onClick={handleLogout}
-                  variant="ghost"
-                >
-                  <LogOut aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              </>
+              <Button href="/account/profile" variant="secondary">
+                <UserRound aria-hidden="true" className="h-4 w-4" />
+                Account
+              </Button>
             ) : (
               <Button
                 onClick={() => promptLogin(getCurrentCustomerPath())}
@@ -318,23 +295,13 @@ export function Header() {
 
             <div className="mt-5 grid gap-2 border-t border-[#cfe9d2] pt-4 text-sm font-semibold">
               {session ? (
-                <>
-                  <Link
-                    className={mobileNavLinkClassName}
-                    href="/account"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Account
-                  </Link>
-                  <button
-                    className={`${mobileNavLinkClassName} text-left`}
-                    disabled={logoutMutation.isPending}
-                    onClick={handleLogout}
-                    type="button"
-                  >
-                    {logoutMutation.isPending ? "Logging out..." : "Logout"}
-                  </button>
-                </>
+                <Link
+                  className={mobileNavLinkClassName}
+                  href="/account"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Account
+                </Link>
               ) : (
                 <button
                   className={`${mobileNavLinkClassName} text-left`}
@@ -367,81 +334,148 @@ function CategoryMenu({
 }: {
   categoryNavigation: ReturnType<typeof buildCategoryNavigation>;
 }) {
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const activeCategory =
+    categoryNavigation.find((category) => category.id === activeCategoryId) ??
+    categoryNavigation[0] ??
+    null;
+
   return (
-    <details className="group relative hidden lg:block">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-4 text-sm font-semibold text-[#287c30] transition duration-200 hover:border-[#287c30] hover:bg-[#eaf7eb]">
+    <div
+      className="group relative hidden lg:block"
+      data-testid="desktop-category-menu"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setCategoriesOpen(false);
+        }
+      }}
+      onFocus={() => setCategoriesOpen(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setCategoriesOpen(false);
+        }
+      }}
+      onMouseEnter={() => setCategoriesOpen(true)}
+      onMouseLeave={() => setCategoriesOpen(false)}
+    >
+      <button
+        aria-expanded={categoriesOpen}
+        aria-haspopup="menu"
+        className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-4 text-sm font-semibold text-[#287c30] transition duration-200 hover:border-[#287c30] hover:bg-[#eaf7eb]"
+        type="button"
+      >
         <Grid2X2 aria-hidden="true" className="h-4 w-4" />
         Categories
         <ChevronDown
           aria-hidden="true"
-          className="h-4 w-4 transition group-open:rotate-180"
+          className={`h-4 w-4 transition ${
+            categoriesOpen ? "rotate-180" : ""
+          }`}
         />
-      </summary>
-      <div className="absolute left-0 top-14 z-50 w-[min(78vw,900px)] overflow-hidden rounded-[1.25rem] border border-[#cfe9d2] bg-white shadow-2xl shadow-[#287c30]/10">
-        <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[240px_1fr]">
-          <div className="border-r border-[#cfe9d2] bg-[#f4fbf5] p-3">
-            <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#287c30]">
-              Departments
-            </p>
-            <div className="grid gap-1">
-              {categoryNavigation.slice(0, 10).map((category) => (
-                <Link
-                  className="rounded-full px-3 py-2 text-sm font-semibold text-[#173b1d] hover:bg-white hover:text-[#287c30]"
-                  href={category.href}
-                  key={category.id}
+      </button>
+      {categoriesOpen ? (
+        <div className="absolute left-0 top-full z-50 w-[min(78vw,900px)] pt-2">
+          <div className="overflow-hidden rounded-[1.25rem] border border-[#cfe9d2] bg-white shadow-2xl shadow-[#287c30]/10">
+            <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[240px_1fr]">
+              <div className="grid max-h-[72vh] grid-rows-[auto_minmax(0,1fr)] border-r border-[#cfe9d2] bg-[#f4fbf5] p-3">
+                <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#287c30]">
+                  Departments
+                </p>
+                <div
+                  className="grid gap-1 overflow-y-auto pr-1"
+                  data-testid="desktop-department-list"
                 >
-                  {category.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-4 p-4">
-            {categoryNavigation.length === 0 ? (
-              <div className="flex min-h-36 items-center justify-center rounded-[1rem] border border-dashed border-[#cfe9d2] bg-[#f4fbf5] p-5 text-center">
-                <div>
-                  <PackageSearch
-                    aria-hidden="true"
-                    className="mx-auto h-8 w-8 text-[#287c30]"
-                  />
-                  <p className="mt-3 text-sm font-semibold text-[#173b1d]">
-                    Category navigation loads from the catalog API.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {categoryNavigation.slice(0, 6).map((category) => (
-                  <section
-                    className="rounded-[1rem] border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5"
-                    key={category.id}
-                  >
+                  {categoryNavigation.map((category) => (
                     <Link
-                      className="font-semibold text-[#173b1d] hover:text-[#287c30]"
+                      className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                        activeCategory?.id === category.id
+                          ? "bg-white text-[#287c30]"
+                          : "text-[#173b1d] hover:bg-white hover:text-[#287c30]"
+                      }`}
                       href={category.href}
+                      key={category.id}
+                      onClick={() => setCategoriesOpen(false)}
+                      onFocus={() => setActiveCategoryId(category.id)}
+                      onMouseEnter={() => setActiveCategoryId(category.id)}
                     >
                       {category.label}
                     </Link>
-                    {category.children.length > 0 ? (
-                      <div className="mt-3 grid gap-1">
-                        {category.children.slice(0, 3).map((subcategory) => (
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4 p-4">
+                {activeCategory === null ? (
+                  <div className="flex min-h-36 items-center justify-center rounded-[1rem] border border-dashed border-[#cfe9d2] bg-[#f4fbf5] p-5 text-center">
+                    <div>
+                      <PackageSearch
+                        aria-hidden="true"
+                        className="mx-auto h-8 w-8 text-[#287c30]"
+                      />
+                      <p className="mt-3 text-sm font-semibold text-[#173b1d]">
+                        Category navigation loads from the catalog API.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <section className="grid min-h-56 content-start gap-4 rounded-[1rem] border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#287c30]">
+                          Subcategories
+                        </p>
+                        <h3 className="mt-1 text-lg font-black text-[#173b1d]">
+                          {activeCategory.label}
+                        </h3>
+                        {activeCategory.description ? (
+                          <p className="mt-1 max-w-xl text-sm text-[#556b57]">
+                            {activeCategory.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Link
+                        className="rounded-full border border-[#cfe9d2] px-4 py-2 text-sm font-semibold text-[#287c30] transition hover:border-[#287c30] hover:bg-[#f4fbf5]"
+                        href={activeCategory.href}
+                        onClick={() => setCategoriesOpen(false)}
+                      >
+                        View all
+                      </Link>
+                    </div>
+                    {activeCategory.children.length > 0 ? (
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {activeCategory.children.map((subcategory) => (
                           <Link
-                            className="rounded-full px-2 py-1.5 text-xs font-semibold text-[#556b57] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+                            className="rounded-[0.9rem] border border-[#e1f2e3] bg-[#f8fcf8] px-4 py-3 text-sm font-semibold text-[#173b1d] transition hover:border-[#a9ddae] hover:bg-[#eef8ef] hover:text-[#287c30]"
                             href={subcategory.href}
                             key={subcategory.id}
+                            onClick={() => setCategoriesOpen(false)}
                           >
                             {subcategory.label}
                           </Link>
                         ))}
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="rounded-[1rem] border border-dashed border-[#cfe9d2] bg-[#f4fbf5] p-5">
+                        <p className="text-sm font-semibold text-[#173b1d]">
+                          No subcategories listed for this department yet.
+                        </p>
+                        <Link
+                          className="mt-3 inline-flex text-sm font-semibold text-[#287c30] hover:text-[#173b1d]"
+                          href={activeCategory.href}
+                          onClick={() => setCategoriesOpen(false)}
+                        >
+                          Browse all {activeCategory.label}
+                        </Link>
+                      </div>
+                    )}
                   </section>
-                ))}
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </details>
+      ) : null}
+    </div>
   );
 }
 

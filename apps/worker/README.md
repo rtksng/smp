@@ -10,11 +10,13 @@ NestJS BullMQ worker for background jobs.
    cp .env.example .env
    ```
 
-2. Start Redis from the repository root:
+2. Make sure native Redis is running and reachable at the configured
+   `REDIS_URL`.
 
-   ```bash
-   docker compose --env-file .env -f infra/docker/docker-compose.yml up -d redis
-   ```
+   If you run the worker locally against Railway-managed PostgreSQL or Redis,
+   use Railway's public connection URLs in `.env`. Railway internal hostnames
+   such as `*.railway.internal` are only reachable from Railway services, not
+   from a local laptop.
 
 3. Build shared packages and start the worker:
 

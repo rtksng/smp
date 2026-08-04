@@ -245,6 +245,25 @@ describe("CheckoutPage", () => {
     });
   });
 
+  it("removes visual shadows from checkout page surfaces", async () => {
+    renderCheckout();
+
+    expect(await screen.findByTestId("checkout-main")).toHaveClass(
+      "checkoutNoShadows"
+    );
+  });
+
+  it("does not render the checkout progress step strip", async () => {
+    renderCheckout();
+
+    expect(
+      await screen.findByRole("heading", { name: "Checkout" }, asyncUiTimeout)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Items ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("Address selected")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ready to submit")).not.toBeInTheDocument();
+  });
+
   it("renders dynamic cart totals and validates required address fields", async () => {
     mocks.listCustomerAddresses.mockResolvedValue([]);
 

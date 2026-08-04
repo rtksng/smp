@@ -8,6 +8,7 @@ export function createRedisConnectionOptions(
   if (redisUrl) {
     const parsedUrl = new URL(redisUrl);
     const database = parsedUrl.pathname.replace("/", "");
+    const usesTls = parsedUrl.protocol === "rediss:";
 
     return {
       db: database ? Number(database) : undefined,
@@ -17,6 +18,7 @@ export function createRedisConnectionOptions(
         ? decodeURIComponent(parsedUrl.password)
         : undefined,
       port: Number(parsedUrl.port || 6379),
+      tls: usesTls ? {} : undefined,
       username: parsedUrl.username
         ? decodeURIComponent(parsedUrl.username)
         : undefined

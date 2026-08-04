@@ -100,12 +100,12 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   const product = productQuery.data;
   const relatedProductsQuery = useQuery({
     enabled: Boolean(product?.slug),
-    queryFn: () => getRelatedProducts(product?.slug ?? slug, { limit: 4 }),
+    queryFn: () => getRelatedProducts(product?.slug ?? slug, { limit: 5 }),
     queryKey: ["related-products", product?.slug]
   });
   const similarCategoryQuery = useQuery({
     enabled: Boolean(product?.slug),
-    queryFn: () => getSimilarProducts(product?.slug ?? slug, { limit: 4 }),
+    queryFn: () => getSimilarProducts(product?.slug ?? slug, { limit: 5 }),
     queryKey: ["similar-products", product?.slug]
   });
   const feedbackQuery = useQuery({
@@ -322,7 +322,10 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
+      <main
+        className="productDetailNoShadows bg-[#f4fbf5]"
+        data-testid="product-detail-main"
+      >
         <Container className="py-4 sm:py-8">
           {productQuery.isLoading ? <ProductDetailSkeleton /> : null}
 
@@ -966,18 +969,56 @@ function ProductFeedbackSection({
 }) {
   const reviews = feedback?.reviews ?? [];
   const questions = feedback?.questions ?? [];
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((total, review) => total + review.rating, 0) /
+        reviews.length
+      : null;
 
   return (
-    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 xl:col-span-3">
       <SectionHeader
-        description="Customer reviews and product questions stay attached to the catalog item."
+        description="Read recent buyer feedback or ask a product-specific question before purchase."
         eyebrow="Customer feedback"
         size="compact"
         title="Reviews and Q&A"
       />
+
+      <div className="mt-4 grid gap-2 rounded-lg border border-[#dcefe0] bg-[#f8fbfa] p-3 text-xs font-semibold text-[#556b57] sm:grid-cols-3 sm:p-4">
+        <div>
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+            Average rating
+          </span>
+          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+            {averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"}
+          </strong>
+        </div>
+        <div>
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+            Reviews
+          </span>
+          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+            {reviews.length}
+          </strong>
+        </div>
+        <div>
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+            Questions
+          </span>
+          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+            {questions.length}
+          </strong>
+        </div>
+      </div>
+
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <div className="grid gap-4">
-          <h3 className="text-sm font-semibold text-[#17211f]">Reviews</h3>
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-[#17211f]">Reviews</h3>
+            <span className="rounded-full bg-[#eaf7eb] px-2.5 py-1 text-[11px] font-semibold text-[#287c30]">
+              {reviews.length} posted
+            </span>
+          </div>
           <div className="grid gap-3">
             {reviews.length > 0 ? (
               reviews.slice(0, 4).map((review) => (
@@ -985,15 +1026,35 @@ function ProductFeedbackSection({
                   className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={review.id}
                 >
-                  <p className="text-sm font-semibold text-[#17211f]">
-                    Rating {review.rating}/5 |{" "}
-                    {review.title ?? "Customer review"}
-                  </p>
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-sm font-semibold uppercase text-[#287c30]">
+                      {getCustomerInitials(review.customerName)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          aria-label={`${review.rating} out of 5 stars`}
+                          className="text-sm font-semibold tracking-[0.08em] text-[#f59e0b]"
+                        >
+                          {"★".repeat(review.rating)}
+                          <span className="text-[#d8dfdc]">
+                            {"★".repeat(5 - review.rating)}
+                          </span>
+                        </span>
+                        <span className="text-xs font-semibold text-[#687773]">
+                          {formatFeedbackDate(review.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-[#17211f]">
+                        {review.title ?? "Customer review"}
+                      </p>
+                    </div>
+                  </div>
                   <p className="mt-2 text-sm leading-6 text-[#687773]">
                     {review.comment}
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-[#687773]">
-                    {review.customerName}
+                  <p className="mt-3 text-xs font-semibold text-[#287c30]">
+                    {review.customerName} · Verified customer
                   </p>
                 </article>
               ))
@@ -1003,7 +1064,15 @@ function ProductFeedbackSection({
               </p>
             )}
           </div>
-          <div className="grid gap-3 md:rounded-lg md:border md:border-[#cfe9d2] md:bg-[#f8fbfa] md:p-4">
+          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+            <div>
+              <h4 className="text-sm font-semibold text-[#17211f]">
+                Write a review
+              </h4>
+              <p className="mt-1 text-xs font-semibold text-[#687773]">
+                Share what helped with purchase or clinical use.
+              </p>
+            </div>
             <select
               aria-label="Review rating"
               className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f]"
@@ -1032,8 +1101,13 @@ function ProductFeedbackSection({
             </Button>
           </div>
         </div>
-        <div className="grid gap-4">
-          <h3 className="text-sm font-semibold text-[#17211f]">Questions</h3>
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-[#17211f]">Questions</h3>
+            <span className="rounded-full bg-[#eaf7eb] px-2.5 py-1 text-[11px] font-semibold text-[#287c30]">
+              {questions.length} asked
+            </span>
+          </div>
           <div className="grid gap-3">
             {questions.length > 0 ? (
               questions.slice(0, 4).map((entry) => (
@@ -1041,11 +1115,27 @@ function ProductFeedbackSection({
                   className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
                   key={entry.id}
                 >
-                  <p className="text-sm font-semibold text-[#17211f]">
-                    {entry.question}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[#687773]">
-                    {entry.answer ?? "Awaiting answer."}
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-[#287c30]">
+                      Q
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#287c30]">
+                          Product question
+                        </span>
+                        <span className="text-xs font-semibold text-[#687773]">
+                          {formatFeedbackDate(entry.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#17211f]">
+                        {entry.question}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-[#687773]">
+                    <span className="font-semibold text-[#17211f]">Answer: </span>
+                    {entry.answer ?? "Awaiting answer from the team."}
                   </p>
                   <p className="mt-2 text-xs font-semibold text-[#687773]">
                     {entry.customerName}
@@ -1058,7 +1148,15 @@ function ProductFeedbackSection({
               </p>
             )}
           </div>
-          <div className="grid gap-3 md:rounded-lg md:border md:border-[#cfe9d2] md:bg-[#f8fbfa] md:p-4">
+          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+            <div>
+              <h4 className="text-sm font-semibold text-[#17211f]">
+                Ask a question
+              </h4>
+              <p className="mt-1 text-xs font-semibold text-[#687773]">
+                Ask about fit, pack size, compatibility, or delivery.
+              </p>
+            </div>
             <textarea
               aria-label="Product question"
               className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
@@ -1081,6 +1179,31 @@ function ProductFeedbackSection({
   );
 }
 
+function getCustomerInitials(name: string) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || "C";
+}
+
+function formatFeedbackDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Recently";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(date);
+}
+
 function RelatedSections({
   currentProductId,
   relatedProductsQuery,
@@ -1096,10 +1219,10 @@ function RelatedSections({
 }) {
   const related = relatedProductsQuery.data?.items
     .filter((product) => product.id !== currentProductId)
-    .slice(0, 4);
+    .slice(0, 5);
   const similar = similarCategoryQuery.data?.items
     .filter((product) => product.id !== currentProductId)
-    .slice(0, 4);
+    .slice(0, 5);
 
   return (
     <div className="mt-10 grid gap-10">
@@ -1121,7 +1244,7 @@ function RelatedSections({
           />
         ) : null}
         {related && related.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
             {related.map((product) => (
               <ProductCard compact key={product.id} product={product} />
             ))}
@@ -1147,7 +1270,7 @@ function RelatedSections({
           />
         ) : null}
         {similar && similar.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
             {similar.map((product) => (
               <ProductCard compact key={product.id} product={product} />
             ))}

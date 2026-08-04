@@ -21,7 +21,6 @@ The future customer mobile app will reuse customer APIs. The future delivery par
 - `packages/ui`: shared React UI components
 - `packages/types`: shared TypeScript interfaces
 - `packages/config`: shared constants
-- `infra/docker`: local infrastructure definitions
 
 ## Backend Boundaries
 

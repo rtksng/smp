@@ -11,6 +11,7 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
   if (redisUrl) {
     const parsedUrl = new URL(redisUrl);
     const database = parsedUrl.pathname.replace("/", "");
+    const usesTls = parsedUrl.protocol === "rediss:";
 
     return {
       db: database ? Number(database) : undefined,
@@ -20,6 +21,7 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
         ? decodeURIComponent(parsedUrl.password)
         : undefined,
       port: Number(parsedUrl.port || 6379),
+      tls: usesTls ? {} : undefined,
       username: parsedUrl.username
         ? decodeURIComponent(parsedUrl.username)
         : undefined

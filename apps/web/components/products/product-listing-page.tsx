@@ -173,6 +173,7 @@ export function ProductListingPage({
     { ...filters, availability: "available", page: 1 },
     lockedFilters
   );
+  const clearFiltersHref = getClearFiltersHref(context, pathname);
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -274,7 +275,7 @@ export function ProductListingPage({
             <a
               aria-label="Clear catalog filters"
               className={mobileCatalogIconButtonClassName}
-              href={pathname}
+              href={clearFiltersHref}
             >
               <RotateCcw aria-hidden="true" className="h-5 w-5" />
             </a>
@@ -294,6 +295,7 @@ export function ProductListingPage({
               lockedFilters={lockedFilters}
               onFiltersChange={handleFiltersChange}
               pathname={pathname}
+              clearHref={clearFiltersHref}
               subcategoryName={subcategoryName}
             />
           </aside>
@@ -307,6 +309,7 @@ export function ProductListingPage({
               filters={filters}
               lockedFilters={lockedFilters}
               pathname={pathname}
+              clearHref={clearFiltersHref}
             />
 
             <div
@@ -380,6 +383,7 @@ export function ProductListingPage({
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                   <ClearFiltersLink
                     className="min-h-10 rounded-full border border-[#a9ddae] bg-[#f8fbfa] px-3"
+                    href={clearFiltersHref}
                     pathname={pathname}
                   />
                   <button
@@ -404,6 +408,7 @@ export function ProductListingPage({
                 onFiltersChange={handleFiltersChange}
                 onApply={() => setFiltersOpen(false)}
                 pathname={pathname}
+                clearHref={clearFiltersHref}
                 showApplyButton
                 showClearLink={false}
                 showTitle={false}
@@ -423,6 +428,7 @@ function FiltersForm({
   brands,
   categories,
   categoryName,
+  clearHref,
   className = "grid gap-3 overflow-visible rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5",
   fieldsClassName = "grid gap-3 overflow-visible pb-1 pr-1",
   filters,
@@ -439,6 +445,7 @@ function FiltersForm({
   brands?: Brand[];
   categories?: Category[];
   categoryName?: string;
+  clearHref: string;
   className?: string;
   fieldsClassName?: string;
   filters: ProductFilters;
@@ -504,11 +511,13 @@ function FiltersForm({
               Narrow catalog results.
             </p>
           </div>
-          {showClearLink ? <ClearFiltersLink pathname={pathname} /> : null}
+          {showClearLink ? (
+            <ClearFiltersLink href={clearHref} pathname={pathname} />
+          ) : null}
         </div>
       ) : showClearLink ? (
         <div className="flex shrink-0 justify-end pb-3">
-          <ClearFiltersLink pathname={pathname} />
+          <ClearFiltersLink href={clearHref} pathname={pathname} />
         </div>
       ) : null}
 
@@ -741,9 +750,11 @@ function FiltersForm({
 
 function ClearFiltersLink({
   className,
+  href,
   pathname
 }: {
   className?: string;
+  href?: string;
   pathname: string;
 }) {
   return (
@@ -754,7 +765,7 @@ function ClearFiltersLink({
       ]
         .filter(Boolean)
         .join(" ")}
-      href={pathname}
+      href={href ?? pathname}
     >
       <RotateCcw aria-hidden="true" className="h-4 w-4" />
       Clear
@@ -876,10 +887,12 @@ function Checkbox({
 }
 
 function ActiveFilterSummary({
+  clearHref,
   filters,
   lockedFilters,
   pathname
 }: {
+  clearHref: string;
   filters: ProductFilters;
   lockedFilters: ProductFilterOverrides;
   pathname: string;
@@ -905,7 +918,7 @@ function ActiveFilterSummary({
       ))}
       <a
         className="text-[10px] font-semibold leading-3 text-[#287c30] sm:text-xs sm:leading-4"
-        href={pathname}
+        href={clearHref}
       >
         Clear
       </a>
@@ -1056,6 +1069,10 @@ function buildDescription(
   }
 
   return "Find surgical and medical supplies with simple filters and clear pricing.";
+}
+
+function getClearFiltersHref(context: ProductListingContext, pathname: string) {
+  return context.type === "all" ? pathname : "/products";
 }
 
 function getActiveFilterChips(

@@ -156,6 +156,17 @@ const relatedProduct: Product = {
   slug: "related-surgical-clamp"
 };
 
+const relatedProductCards: Product[] = [
+  relatedProduct,
+  ...Array.from({ length: 4 }, (_, index) => ({
+    ...relatedProduct,
+    id: `related-product-${index + 2}`,
+    name: `Related Surgical Clamp ${index + 2}`,
+    sku: `REL-CLAMP-${index + 2}`,
+    slug: `related-surgical-clamp-${index + 2}`
+  }))
+];
+
 const similarProduct: Product = {
   ...product,
   id: "similar-product",
@@ -166,12 +177,23 @@ const similarProduct: Product = {
   slug: "similar-category-scissor"
 };
 
+const similarProductCards: Product[] = [
+  similarProduct,
+  ...Array.from({ length: 4 }, (_, index) => ({
+    ...similarProduct,
+    id: `similar-product-${index + 2}`,
+    name: `Similar Category Scissor ${index + 2}`,
+    sku: `SIM-SCISSOR-${index + 2}`,
+    slug: `similar-category-scissor-${index + 2}`
+  }))
+];
+
 const emptyProducts: ProductList = {
   items: [],
   pagination: {
     hasNextPage: false,
     hasPreviousPage: false,
-    limit: 4,
+    limit: 5,
     page: 1,
     total: 0,
     totalPages: 0
@@ -179,25 +201,25 @@ const emptyProducts: ProductList = {
 };
 
 const relatedProducts: ProductList = {
-  items: [relatedProduct],
+  items: relatedProductCards,
   pagination: {
     hasNextPage: false,
     hasPreviousPage: false,
-    limit: 4,
+    limit: 5,
     page: 1,
-    total: 1,
+    total: 5,
     totalPages: 1
   }
 };
 
 const similarProducts: ProductList = {
-  items: [similarProduct],
+  items: similarProductCards,
   pagination: {
     hasNextPage: false,
     hasPreviousPage: false,
-    limit: 4,
+    limit: 5,
     page: 1,
-    total: 1,
+    total: 5,
     totalPages: 1
   }
 };
@@ -336,6 +358,55 @@ describe("ProductDetailPage", () => {
     expect(variantCard?.className).not.toContain("p-4");
   });
 
+  it("removes visual shadows from the product detail page surfaces", () => {
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    expect(screen.getByTestId("product-detail-main")).toHaveClass(
+      "productDetailNoShadows"
+    );
+  });
+
+  it("presents feedback as buyer reviews and product questions", async () => {
+    feedbackMocks.getProductFeedback.mockResolvedValueOnce({
+      questions: [
+        {
+          answer: null,
+          createdAt: "2026-06-15T10:00:00.000Z",
+          customerName: "Asha Rao",
+          id: "question-1",
+          question: "Is this sterile?",
+          status: "PENDING"
+        }
+      ],
+      reviews: [
+        {
+          comment: "Matched the SKU.",
+          createdAt: "2026-06-15T10:00:00.000Z",
+          customerName: "Asha Rao",
+          id: "review-1",
+          rating: 5,
+          title: "Reliable order"
+        }
+      ]
+    });
+
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    expect(await screen.findByText("Reliable order")).toBeInTheDocument();
+    expect(screen.getByText("5.0/5")).toBeInTheDocument();
+    expect(screen.getByText("Asha Rao · Verified customer")).toBeInTheDocument();
+    expect(screen.getByText("Product question")).toBeInTheDocument();
+    expect(
+      screen.getByText("Answer:", { exact: false }).parentElement
+    ).toHaveTextContent("Awaiting answer from the team.");
+    expect(screen.getByText("Write a review")).toBeInTheDocument();
+    expect(screen.getByText("Ask a question")).toBeInTheDocument();
+  });
+
   it("uses a tighter mobile product detail typography and spacing hierarchy", () => {
     renderWithQueryClient(
       <ProductDetailPage initialProduct={product} slug={product.slug} />
@@ -454,8 +525,8 @@ describe("ProductDetailPage", () => {
       .getByRole("heading", { name: "Similar category products" })
       .closest("section");
 
-    expect(getRelatedProducts).toHaveBeenCalledWith(product.slug, { limit: 4 });
-    expect(getSimilarProducts).toHaveBeenCalledWith(product.slug, { limit: 4 });
+    expect(getRelatedProducts).toHaveBeenCalledWith(product.slug, { limit: 5 });
+    expect(getSimilarProducts).toHaveBeenCalledWith(product.slug, { limit: 5 });
     expect(relatedSection).not.toBeNull();
     expect(similarSection).not.toBeNull();
     const relatedCard = within(relatedSection as HTMLElement)
@@ -468,8 +539,20 @@ describe("ProductDetailPage", () => {
     const similarGrid = similarCard?.parentElement;
     const relatedImagePanel = relatedCard?.firstElementChild;
 
-    expect(relatedGrid).toHaveClass("grid-cols-2", "gap-3", "sm:gap-4");
-    expect(similarGrid).toHaveClass("grid-cols-2", "gap-3", "sm:gap-4");
+    expect(relatedGrid).toHaveClass(
+      "grid-cols-2",
+      "gap-3",
+      "sm:gap-4",
+      "xl:grid-cols-5"
+    );
+    expect(similarGrid).toHaveClass(
+      "grid-cols-2",
+      "gap-3",
+      "sm:gap-4",
+      "xl:grid-cols-5"
+    );
+    expect(relatedSection?.querySelectorAll("article")).toHaveLength(5);
+    expect(similarSection?.querySelectorAll("article")).toHaveLength(5);
     expect(relatedCard).toHaveClass("min-h-[14.3rem]", "rounded-xl");
     expect(similarCard).toHaveClass("min-h-[14.3rem]", "rounded-xl");
     expect(relatedImagePanel).toHaveClass("h-24", "sm:h-36");

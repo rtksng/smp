@@ -10,11 +10,17 @@ NestJS backend for the Surgical Medical Equipment Platform.
    cp .env.example .env
    ```
 
-2. Start local infrastructure from the repository root:
+2. Make sure native PostgreSQL and Redis are running, then create the local
+   database if needed:
 
    ```bash
-   docker compose --env-file .env -f infra/docker/docker-compose.yml up -d
+   createdb -h localhost -U postgres surgical_platform
    ```
+
+   If you run the API locally against Railway-managed PostgreSQL or Redis, use
+   Railway's public connection URLs in `.env`. Railway internal hostnames such
+   as `*.railway.internal` are only reachable from Railway services, not from a
+   local laptop.
 
 3. Generate Prisma client:
 

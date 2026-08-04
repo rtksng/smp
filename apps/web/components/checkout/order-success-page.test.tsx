@@ -142,6 +142,14 @@ describe("OrderSuccessPage", () => {
       "/account/orders"
     );
   });
+
+  it("removes visual shadows from order success page cards and surfaces", async () => {
+    renderOrderSuccess();
+
+    expect(await screen.findByTestId("order-success-main")).toHaveClass(
+      "orderSuccessNoShadows"
+    );
+  });
 });
 
 function renderOrderSuccess() {

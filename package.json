@@ -15,6 +15,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:frontends": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --parallel --filter @surgical/web --filter @surgical/admin dev",
     "dev:parallel": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --parallel --filter @surgical/web --filter @surgical/admin --filter @surgical/api --filter @surgical/worker dev",
     "dev:web": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/web dev",
     "dev:admin": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm --filter @surgical/admin dev",

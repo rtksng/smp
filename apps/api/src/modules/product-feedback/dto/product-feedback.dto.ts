@@ -137,6 +137,12 @@ export class AdminProductFeedbackListQueryDto {
   @IsString()
   @MaxLength(120)
   productId?: string;
+
+  @ApiPropertyOptional({ example: "forceps" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  productSearch?: string;
 }
 
 export class ProductReviewResponseDto {
@@ -199,6 +205,9 @@ export class AdminProductFeedbackItemDto {
 
   @ApiProperty({ example: "product-id" })
   productId!: string;
+
+  @ApiProperty({ example: "SurgiPro Artery Forceps" })
+  productName!: string;
 
   @ApiProperty({ example: "Customer" })
   customerName!: string;

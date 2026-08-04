@@ -294,6 +294,13 @@ describe("ProductListingPage", () => {
     expect(hero).toHaveClass("grid", "gap-5");
     expect(screen.queryByRole("link", { name: "In-stock only" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Reset filters" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Clear catalog filters" })
+    ).toHaveAttribute("href", "/products");
+    expect(screen.getByRole("link", { name: "Clear" })).toHaveAttribute(
+      "href",
+      "/products"
+    );
     expect(subcategoryNav).toHaveClass("lg:max-w-[68rem]");
     expect(subcategoryNav).not.toHaveClass("mt-6");
   });

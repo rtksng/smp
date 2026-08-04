@@ -46,7 +46,7 @@ describe("admin support management helpers", () => {
       buildProductFeedbackQuery(
         {
           ...createEmptyProductFeedbackFilters(),
-          productId: "product-1",
+          productSearch: " forceps ",
           status: "PENDING",
           type: "QUESTION"
         },
@@ -56,7 +56,7 @@ describe("admin support management helpers", () => {
     ).toEqual({
       limit: 25,
       page: 4,
-      productId: "product-1",
+      productSearch: "forceps",
       status: "PENDING",
       type: "QUESTION"
     });

@@ -178,6 +178,7 @@ export type AdminProductFeedback = {
   customerName: string;
   id: string;
   productId: string;
+  productName: string;
   question: string | null;
   rating: number | null;
   moderatedAt: string | null;
@@ -189,6 +190,7 @@ export type AdminProductFeedback = {
 
 export type ProductFeedbackFilters = {
   productId: string;
+  productSearch: string;
   status: "" | ProductFeedbackStatus;
   type: "" | ProductFeedbackType;
 };
@@ -243,6 +245,7 @@ export function createEmptyCouponFormValues(): CouponFormValues {
 export function createEmptyProductFeedbackFilters(): ProductFeedbackFilters {
   return {
     productId: "",
+    productSearch: "",
     status: "",
     type: ""
   };
@@ -377,6 +380,7 @@ export function buildProductFeedbackQuery(
     limit,
     page,
     productId: trimmedOrUndefined(filters.productId),
+    productSearch: trimmedOrUndefined(filters.productSearch),
     status: filters.status || undefined,
     type: filters.type || undefined
   };

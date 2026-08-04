@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
+  Copy,
   EyeOff,
   RefreshCw,
   RotateCcw,
@@ -61,24 +62,17 @@ const PRODUCT_QUESTION_FILTER_STATUSES: ProductFeedbackStatus[] = [
   "HIDDEN"
 ];
 
-type ProductFeedbackView = "overview" | "reviews" | "questions";
-type ProductFeedbackListView = Exclude<ProductFeedbackView, "overview">;
+type ProductFeedbackListView = "reviews" | "questions";
 
 const productFeedbackSections: Array<{
   description: string;
   href: string;
-  id: ProductFeedbackView;
+  id: ProductFeedbackListView;
   title: string;
 }> = [
     {
-      description: "Feedback metrics and shortcuts into moderation queues.",
-      href: "/product-feedback",
-      id: "overview",
-      title: "Overview"
-    },
-    {
       description: "Approve, reject, hide, and audit product reviews.",
-      href: "/product-feedback/reviews",
+      href: "/product-feedback",
       id: "reviews",
       title: "Reviews"
     },
@@ -91,13 +85,9 @@ const productFeedbackSections: Array<{
   ];
 
 const productFeedbackCopy: Record<
-  ProductFeedbackView,
+  ProductFeedbackListView,
   { summary: string; title: string }
 > = {
-  overview: {
-    summary: "Review customer feedback volume and open focused moderation queues.",
-    title: "Product feedback"
-  },
   questions: {
     summary: "Answer customer product questions and control question visibility from a focused table.",
     title: "Customer questions"
@@ -119,7 +109,7 @@ export function ProductFeedbackRoute({ children }: { children: ReactNode }) {
 }
 
 export function ProductFeedbackLandingPage() {
-  return <ProductFeedbackContent view="overview" />;
+  return <ProductFeedbackContent view="reviews" />;
 }
 
 export function ProductReviewsPage() {
@@ -130,7 +120,7 @@ export function ProductQuestionsPage() {
   return <ProductFeedbackContent view="questions" />;
 }
 
-function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
+function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const canAnswer = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
@@ -142,9 +132,7 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
   const [page, setPage] = useState(1);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
-  const [moderationDrafts, setModerationDrafts] = useState<Record<string, string>>(
-    {}
-  );
+  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const feedbackQuery = useMemo(
     () => buildProductFeedbackQuery(appliedFilters, page, PAGE_SIZE),
@@ -173,12 +161,10 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
   const moderationMutation = useMutation({
     mutationFn: ({
       id,
-      moderationNote,
       status,
       type
     }: {
       id: string;
-      moderationNote: string;
       status: ProductFeedbackStatus;
       type: AdminProductFeedback["type"];
     }) =>
@@ -187,7 +173,7 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
         }/${id}/moderation`,
         {
           body: JSON.stringify(
-            buildProductFeedbackModerationPayload(status, moderationNote)
+            buildProductFeedbackModerationPayload(status, "")
           ),
           method: "PATCH"
         }
@@ -236,13 +222,6 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
     }));
   }
 
-  function updateModerationDraft(id: string, note: string) {
-    setModerationDrafts((current) => ({
-      ...current,
-      [id]: note
-    }));
-  }
-
   async function saveAnswer(item: AdminProductFeedback) {
     const answer = (answerDrafts[item.id] ?? item.answer ?? "").trim();
 
@@ -278,42 +257,30 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
   ) {
     await moderationMutation.mutateAsync({
       id: item.id,
-      moderationNote: moderationDrafts[item.id] ?? "",
       status,
       type: item.type
     });
     setMessage(`${formatSupportLabel(item.type)} marked ${formatSupportLabel(status)}.`);
-    setModerationDrafts((current) => {
-      const next = { ...current };
-      delete next[item.id];
-      return next;
-    });
     await refreshFeedback();
+  }
+
+  async function copyProductId(productId: string) {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(productId);
+      setCopiedProductId(productId);
+      window.setTimeout(() => {
+        setCopiedProductId((current) => (current === productId ? null : current));
+      }, 1500);
+    }
   }
 
   return (
     <>
-      <section className="panel productFeedbackOverviewPanel">
+      <section className="panel productFeedbackSummaryPanel">
         <ProductFeedbackSectionNav active={view} />
         <PageHeader
           actions={
             <div className="actionRow">
-              {view === "overview" ? (
-                <>
-                  <Button asChild className="iconTextButton">
-                    <Link href="/product-feedback/reviews">
-                      <Search aria-hidden size={16} />
-                      <span>Open reviews</span>
-                    </Link>
-                  </Button>
-                  <Button asChild className="iconTextButton" variant="outline">
-                    <Link href="/product-feedback/questions">
-                      <Search aria-hidden size={16} />
-                      <span>Open questions</span>
-                    </Link>
-                  </Button>
-                </>
-              ) : null}
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshFeedback()}
@@ -348,77 +315,65 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackView }) {
         </div>
       </section>
 
-      {view === "overview" ? (
-        <ProductFeedbackHub
-          hiddenVisibleCount={hiddenVisibleCount}
-          pendingVisibleCount={pendingVisibleCount}
-          questionVisibleCount={questionVisibleCount}
-          reviewVisibleCount={reviewVisibleCount}
-          totalFeedback={pagination?.total ?? 0}
+      <section className="panel productFeedbackListPanel mt-3">
+        <PageHeader
+          className="settingsSectionHeader"
+          eyebrow={view === "reviews" ? "Review table" : "Question table"}
+          level={2}
+          summary={
+            view === "reviews"
+              ? "Filter product reviews by product or moderation status before approving, rejecting, or hiding."
+              : "Filter product questions by product or status before answering or hiding them."
+          }
+          title={view === "reviews" ? "Review moderation" : "Question answers"}
         />
-      ) : null}
+        <ProductFeedbackFilterForm
+          filters={draftFilters}
+          onChange={setDraftFilters}
+          onReset={resetFilters}
+          onSubmit={applyFilters}
+          view={view}
+        />
 
-      {view !== "overview" ? (
-        <section className="panel productFeedbackListPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow={view === "reviews" ? "Review table" : "Question table"}
-            level={2}
-            summary={
-              view === "reviews"
-                ? "Filter product reviews by product or moderation status before approving, rejecting, or hiding."
-                : "Filter product questions by product or status before answering or hiding them."
-            }
-            title={view === "reviews" ? "Review moderation" : "Question answers"}
+        {feedbackListQuery.isLoading ? (
+          <LoadingState label={`Loading product ${view}...`} />
+        ) : null}
+        {!feedbackListQuery.isLoading &&
+          !feedbackListQuery.isError &&
+          feedback.length === 0 ? (
+          <EmptyState
+            body={`No product ${view} match the selected filters.`}
+            title={`No ${view} found`}
           />
-          <ProductFeedbackFilterForm
-            filters={draftFilters}
-            onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={applyFilters}
+        ) : null}
+        {feedback.length > 0 ? (
+          <ProductFeedbackTable
+            answerDrafts={answerDrafts}
+            answerErrors={answerErrors}
+            canAnswer={canAnswer}
+            copiedProductId={copiedProductId}
+            feedback={feedback}
+            isSaving={answerMutation.isPending || moderationMutation.isPending}
+            onAnswerChange={updateAnswerDraft}
+            onCopyProductId={copyProductId}
+            onModerate={moderateFeedback}
+            onSaveAnswer={saveAnswer}
             view={view}
           />
-
-          {feedbackListQuery.isLoading ? (
-            <LoadingState label={`Loading product ${view}...`} />
-          ) : null}
-          {!feedbackListQuery.isLoading &&
-            !feedbackListQuery.isError &&
-            feedback.length === 0 ? (
-            <EmptyState
-              body={`No product ${view} match the selected filters.`}
-              title={`No ${view} found`}
-            />
-          ) : null}
-          {feedback.length > 0 ? (
-            <ProductFeedbackTable
-              answerDrafts={answerDrafts}
-              answerErrors={answerErrors}
-              canAnswer={canAnswer}
-              feedback={feedback}
-              isSaving={answerMutation.isPending || moderationMutation.isPending}
-              moderationDrafts={moderationDrafts}
-              onAnswerChange={updateAnswerDraft}
-              onModerationChange={updateModerationDraft}
-              onModerate={moderateFeedback}
-              onSaveAnswer={saveAnswer}
-              view={view}
-            />
-          ) : null}
-          {pagination ? (
-            <PaginationControls
-              onChange={setPage}
-              page={pagination.page}
-              totalPages={Math.max(pagination.totalPages, 1)}
-            />
-          ) : null}
-        </section>
-      ) : null}
+        ) : null}
+        {pagination ? (
+          <PaginationControls
+            onChange={setPage}
+            page={pagination.page}
+            totalPages={Math.max(pagination.totalPages, 1)}
+          />
+        ) : null}
+      </section>
     </>
   );
 }
 
-function ProductFeedbackSectionNav({ active }: { active: ProductFeedbackView }) {
+function ProductFeedbackSectionNav({ active }: { active: ProductFeedbackListView }) {
   return (
     <nav className="productFeedbackSectionNav" aria-label="Product feedback sections">
       {productFeedbackSections.map((section) => (
@@ -431,65 +386,6 @@ function ProductFeedbackSectionNav({ active }: { active: ProductFeedbackView }) 
         </Link>
       ))}
     </nav>
-  );
-}
-
-function ProductFeedbackHub({
-  hiddenVisibleCount,
-  pendingVisibleCount,
-  questionVisibleCount,
-  reviewVisibleCount,
-  totalFeedback
-}: {
-  hiddenVisibleCount: number;
-  pendingVisibleCount: number;
-  questionVisibleCount: number;
-  reviewVisibleCount: number;
-  totalFeedback: number;
-}) {
-  const cards = [
-    {
-      description: "Open the review queue for approval, rejection, and hiding.",
-      href: "/product-feedback/reviews",
-      metric: reviewVisibleCount,
-      title: "Visible reviews"
-    },
-    {
-      description: "Open the question queue for customer-facing answers.",
-      href: "/product-feedback/questions",
-      metric: questionVisibleCount,
-      title: "Visible questions"
-    },
-    {
-      description: "Review all feedback currently matching the overview query.",
-      href: "/product-feedback/reviews",
-      metric: totalFeedback,
-      title: "Total matches"
-    },
-    {
-      description: "Prioritize feedback still awaiting moderation or response.",
-      href: "/product-feedback/reviews",
-      metric: pendingVisibleCount,
-      title: "Pending visible"
-    },
-    {
-      description: "Audit feedback that is currently hidden from customers.",
-      href: "/product-feedback/questions",
-      metric: hiddenVisibleCount,
-      title: "Hidden visible"
-    }
-  ];
-
-  return (
-    <section className="productFeedbackHubGrid">
-      {cards.map((card) => (
-        <Link className="productFeedbackHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
   );
 }
 
@@ -509,42 +405,43 @@ function ProductFeedbackFilterForm({
   return (
     <form className="productFilters productFeedbackFilters" onSubmit={onSubmit}>
       <label>
-        Product ID
+        Product search
         <Input
           onChange={(event) =>
             onChange({
               ...filters,
-              productId: event.target.value
+              productSearch: event.target.value
             })
           }
-          placeholder="Filter by product id"
-          value={filters.productId}
+          placeholder="Search by product name, SKU, or copied ID"
+          value={filters.productSearch}
         />
       </label>
-      <label >
+      <label>
         Status
         <Select
-        aria-label="Feedback status"
-        onValueChange={(value) =>
-          onChange({
-            ...filters,
-            status: value as ProductFeedbackFilters["status"]
-          })
-        }
-        value={filters.status}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Any status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">Any status</SelectItem>
-          {getFeedbackStatusOptions(view).map((status) => (
-            <SelectItem key={status} value={status}>
-              {formatSupportLabel(status)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select></label>
+          aria-label="Feedback status"
+          onValueChange={(value) =>
+            onChange({
+              ...filters,
+              status: value as ProductFeedbackFilters["status"]
+            })
+          }
+          value={filters.status}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Any status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Any status</SelectItem>
+            {getFeedbackStatusOptions(view).map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatSupportLabel(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
       <div className="productFilterActions">
         <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
@@ -562,11 +459,11 @@ function ProductFeedbackTable({
   answerDrafts,
   answerErrors,
   canAnswer,
+  copiedProductId,
   feedback,
   isSaving,
-  moderationDrafts,
   onAnswerChange,
-  onModerationChange,
+  onCopyProductId,
   onModerate,
   onSaveAnswer,
   view
@@ -574,11 +471,11 @@ function ProductFeedbackTable({
   answerDrafts: Record<string, string>;
   answerErrors: Record<string, string>;
   canAnswer: boolean;
+  copiedProductId: string | null;
   feedback: AdminProductFeedback[];
   isSaving: boolean;
-  moderationDrafts: Record<string, string>;
   onAnswerChange: (id: string, answer: string) => void;
-  onModerationChange: (id: string, note: string) => void;
+  onCopyProductId: (productId: string) => Promise<void>;
   onModerate: (
     item: AdminProductFeedback,
     status: ProductFeedbackStatus
@@ -615,7 +512,23 @@ function ProductFeedbackTable({
                 <strong>{item.customerName}</strong>
                 <em>{formatSupportLabel(item.type)}</em>
               </TableCell>
-              <TableCell>{item.productId}</TableCell>
+              <TableCell>
+                <div className="productFeedbackProductCell">
+                  <strong title={item.productName || "Product name unavailable"}>
+                    {item.productName || "Product name unavailable"}
+                  </strong>
+                  <button
+                    className="copyProductIdButton"
+                    onClick={() => void onCopyProductId(item.productId)}
+                    type="button"
+                  >
+                    <Copy aria-hidden size={13} />
+                    <span>
+                      {copiedProductId === item.productId ? "Copied" : "Copy ID"}
+                    </span>
+                  </button>
+                </div>
+              </TableCell>
               <TableCell>
                 {item.type === "REVIEW" ? (
                   <>
@@ -664,41 +577,33 @@ function ProductFeedbackTable({
               ) : null}
               <TableCell>
                 <StatusBadge status={getProductFeedbackStatusTone(item.status)} />
-                <em>{formatSupportLabel(item.status)}</em>
                 {item.moderatedAt ? (
                   <em>Moderated {formatSupportDateTime(item.moderatedAt)}</em>
                 ) : null}
-                {item.moderationNote ? <em>{item.moderationNote}</em> : null}
               </TableCell>
               <TableCell>
                 {canAnswer ? (
                   <div className="feedbackModerationPanel">
-                    <Textarea
-                      onChange={(event) =>
-                        onModerationChange(item.id, event.target.value)
-                      }
-                      placeholder="Moderation note"
-                      value={moderationDrafts[item.id] ?? ""}
-                    />
                     <div className="feedbackActionGroup">
                       {getModerationActions(item).map((status) => (
                         <Button
-                          className="iconTextButton"
+                          aria-label={getModerationActionLabel(status)}
+                          className="feedbackIconActionButton"
                           disabled={isSaving || item.status === status}
                           key={status}
                           onClick={() => void onModerate(item, status)}
                           size="sm"
+                          title={getModerationActionLabel(status)}
                           type="button"
                           variant={status === "PUBLISHED" ? "default" : "outline"}
                         >
                           {getModerationIcon(status)}
-                          <span>{getModerationActionLabel(status)}</span>
                         </Button>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <em>{item.moderationNote ?? "-"}</em>
+                  <em>-</em>
                 )}
               </TableCell>
               <TableCell>{formatSupportDateTime(item.createdAt)}</TableCell>
@@ -711,7 +616,7 @@ function ProductFeedbackTable({
 }
 
 function createProductFeedbackFiltersForView(
-  view: ProductFeedbackView
+  view: ProductFeedbackListView
 ): ProductFeedbackFilters {
   const filters = createEmptyProductFeedbackFilters();
 

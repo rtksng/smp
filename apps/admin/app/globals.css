@@ -1948,6 +1948,66 @@ h2 {
   gap: 8px;
 }
 
+.productFeedbackTable .feedbackModerationPanel {
+  min-width: 0;
+}
+
+.productFeedbackTable .feedbackActionGroup {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.feedbackIconActionButton {
+  align-items: center;
+  display: inline-grid;
+  height: 34px;
+  justify-content: center;
+  min-width: 34px;
+  padding: 0;
+  place-items: center;
+  width: 34px;
+}
+
+.feedbackIconActionButton svg {
+  display: block;
+  flex: 0 0 auto;
+  margin: auto;
+}
+
+.productFeedbackProductCell {
+  align-items: flex-start;
+  display: grid;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.productFeedbackProductCell strong {
+  color: var(--foreground);
+  line-height: 1.35;
+}
+
+.copyProductIdButton {
+  align-items: center;
+  align-self: start;
+  background: #f7fbf7;
+  border: 1px solid #cfe6d2;
+  border-radius: 999px;
+  color: #10661f;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 6px;
+  justify-self: start;
+  padding: 5px 10px;
+}
+
+.copyProductIdButton:hover {
+  background: #edf8ef;
+  border-color: #9fd1a8;
+}
+
 .inlineForm {
   align-items: center;
   display: grid;
@@ -2267,6 +2327,10 @@ h2 {
   vertical-align: -2px;
 }
 
+.resourceTable [data-slot="table-cell"] .feedbackIconActionButton svg {
+  margin: 0;
+}
+
 .tablePrimaryLink {
   color: var(--text);
   display: inline-block;
@@ -2353,7 +2417,7 @@ h2 {
 .deliveryChargeOverviewPanel,
 .couponOverviewPanel,
 .quoteRequestOverviewPanel,
-.productFeedbackOverviewPanel,
+.productFeedbackSummaryPanel,
 .deliveryOverviewPanel,
 .customerOverviewPanel,
 .orderOverviewPanel,
@@ -2526,7 +2590,6 @@ h2 {
 .deliveryChargeHubGrid,
 .couponHubGrid,
 .quoteRequestHubGrid,
-.productFeedbackHubGrid,
 .returnsRefundsHubGrid {
   display: grid;
   gap: 18px;
@@ -2538,7 +2601,6 @@ h2 {
 .deliveryChargeHubCard,
 .couponHubCard,
 .quoteRequestHubCard,
-.productFeedbackHubCard,
 .returnsRefundsHubCard {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2559,7 +2621,6 @@ h2 {
 .deliveryChargeHubCard:hover,
 .couponHubCard:hover,
 .quoteRequestHubCard:hover,
-.productFeedbackHubCard:hover,
 .returnsRefundsHubCard:hover {
   border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
   box-shadow: 0 16px 38px rgba(15, 23, 42, 0.1);
@@ -2570,7 +2631,6 @@ h2 {
 .deliveryChargeHubCard span,
 .couponHubCard span,
 .quoteRequestHubCard span,
-.productFeedbackHubCard span,
 .returnsRefundsHubCard span {
   color: var(--muted);
   font-size: 13px;
@@ -2582,7 +2642,6 @@ h2 {
 .deliveryChargeHubCard strong,
 .couponHubCard strong,
 .quoteRequestHubCard strong,
-.productFeedbackHubCard strong,
 .returnsRefundsHubCard strong {
   color: var(--text);
   font-size: 28px;
@@ -2594,7 +2653,6 @@ h2 {
 .deliveryChargeHubCard p,
 .couponHubCard p,
 .quoteRequestHubCard p,
-.productFeedbackHubCard p,
 .returnsRefundsHubCard p {
   color: var(--muted);
   font-size: 14px;
@@ -4711,7 +4769,6 @@ h2 {
   .deliveryChargeHubGrid,
   .couponHubGrid,
   .quoteRequestHubGrid,
-  .productFeedbackHubGrid,
   .returnsRefundsHubGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4785,7 +4842,6 @@ h2 {
   .deliveryWorkspaceGrid,
   .couponHubGrid,
   .quoteRequestHubGrid,
-  .productFeedbackHubGrid,
   .returnsRefundsHubGrid,
   .deliveryManagementGrid,
   .orderDetailGrid {

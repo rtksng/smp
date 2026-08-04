@@ -146,8 +146,11 @@ function CartContent() {
       ) : null}
 
       {cart && cart.items.length > 0 ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="grid gap-4">
+        <div
+          className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
+          data-testid="cart-content-layout"
+        >
+          <div className="grid self-start gap-4" data-testid="cart-item-list">
             {cart.items.map((item, index) => (
               <CartItemCard
                 isMutating={isMutating}

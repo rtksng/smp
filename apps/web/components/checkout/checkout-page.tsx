@@ -96,7 +96,10 @@ export function CheckoutPage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
+      <main
+        className="checkoutNoShadows bg-[#f4fbf5]"
+        data-testid="checkout-main"
+      >
         <Container className="py-8">
           <ProtectedCustomerRoute>
             <CheckoutContent />
@@ -454,11 +457,6 @@ function CheckoutContent() {
             </div>
           ) : null}
         </div>
-        <CheckoutStepStrip
-          hasAddress={Boolean(selectedAddressId)}
-          hasItems={Boolean(cart && cart.items.length > 0)}
-          paymentMethod={paymentMethod}
-        />
       </div>
 
       {cartQuery.isLoading || addressesQuery.isLoading ? (
@@ -563,80 +561,6 @@ function CheckoutContent() {
         </div>
       ) : null}
     </section>
-  );
-}
-
-function CheckoutStepStrip({
-  hasAddress,
-  hasItems,
-  paymentMethod
-}: {
-  hasAddress: boolean;
-  hasItems: boolean;
-  paymentMethod: PaymentMethod;
-}) {
-  const steps = [
-    {
-      active: hasItems,
-      icon: Truck,
-      label: "Cart review",
-      value: hasItems ? "Items ready" : "Add products"
-    },
-    {
-      active: hasAddress,
-      icon: MapPin,
-      label: "Delivery",
-      value: hasAddress ? "Address selected" : "Select address"
-    },
-    {
-      active: true,
-      icon: CreditCard,
-      label: "Payment",
-      value: paymentMethod === "COD" ? "Cash on delivery" : "Online payment"
-    },
-    {
-      active: hasItems && hasAddress,
-      icon: ShieldCheck,
-      label: "Confirmation",
-      value: hasItems && hasAddress ? "Ready to submit" : "Needs details"
-    }
-  ] as const;
-
-  return (
-    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {steps.map((step) => {
-        const Icon = step.icon;
-
-        return (
-          <div
-            className={[
-              "flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2",
-              step.active
-                ? "border-[#a9ddae] bg-[#f4fbf5]"
-                : "border-[#cfe9d2] bg-white"
-            ].join(" ")}
-            key={step.label}
-          >
-            <span
-              className={[
-                "grid h-10 w-10 shrink-0 place-items-center rounded-lg",
-                step.active ? "bg-white text-[#287c30]" : "bg-[#f4fbf5] text-[#556b57]"
-              ].join(" ")}
-            >
-              <Icon aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <span>
-              <span className="block text-xs font-semibold uppercase text-[#556b57]">
-                {step.label}
-              </span>
-              <strong className="mt-1 block text-sm leading-5 text-[#173b1d]">
-                {step.value}
-              </strong>
-            </span>
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

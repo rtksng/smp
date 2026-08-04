@@ -41,6 +41,18 @@ const emptyProfileForm: ProfileFormState = {
 };
 
 export function AccountProfile() {
+  return (
+    <CustomerAccountShell
+      activePath="/account/profile"
+      description="Keep billing and customer details current for orders and invoices."
+      title="Profile"
+    >
+      <AccountProfileContent />
+    </CustomerAccountShell>
+  );
+}
+
+export function AccountProfileContent() {
   const queryClient = useQueryClient();
   const profileQuery = useQuery({
     queryFn: getCustomerProfile,
@@ -99,11 +111,7 @@ export function AccountProfile() {
   }
 
   return (
-    <CustomerAccountShell
-      activePath="/account/profile"
-      description="Keep billing and customer details current for orders and invoices."
-      title="Profile"
-    >
+    <>
       {profileQuery.isLoading ? <ProfileSkeleton /> : null}
 
       {profileQuery.isError ? (
@@ -230,7 +238,7 @@ export function AccountProfile() {
           </AccountSection>
         </>
       ) : null}
-    </CustomerAccountShell>
+    </>
   );
 }
 

@@ -69,9 +69,19 @@ export class ProductFeedbackService {
     const type = query.type;
     const status = query.status?.trim().toUpperCase();
     const productId = query.productId?.trim();
+    const productSearch = query.productSearch?.trim();
+    const searchedProductIds = productSearch
+      ? await this.findProductIdsForAdminSearch(productSearch)
+      : null;
+    const productRecipientFilter =
+      productId || searchedProductIds
+        ? {
+            in: productId ? [productId] : (searchedProductIds ?? [])
+          }
+        : undefined;
     const where: Prisma.NotificationLogWhereInput = {
       channel: PRODUCT_FEEDBACK_CHANNEL,
-      recipient: productId || undefined,
+      recipient: productRecipientFilter,
       status: status || undefined,
       templateKey: type
         ? feedbackTypeToTemplateKey(type)
@@ -91,9 +101,14 @@ export class ProductFeedbackService {
       })
     ]);
     const totalPages = Math.ceil(total / limit);
+    const productNames = await this.getProductNameMap(
+      items.map((item) => item.recipient)
+    );
 
     return {
-      items: items.map((record) => serializeAdminFeedback(record)),
+      items: items.map((record) =>
+        serializeAdminFeedback(record, productNames.get(record.recipient))
+      ),
       pagination: {
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
@@ -290,6 +305,47 @@ export class ProductFeedbackService {
       }
     });
   }
+
+  private async findProductIdsForAdminSearch(search: string) {
+    const products = await this.prisma.product.findMany({
+      select: {
+        id: true
+      },
+      where: {
+        deletedAt: null,
+        OR: [
+          { id: search },
+          { name: { contains: search, mode: "insensitive" } },
+          { sku: { contains: search, mode: "insensitive" } },
+          { slug: { contains: search, mode: "insensitive" } }
+        ]
+      }
+    });
+
+    return products.map((product) => product.id);
+  }
+
+  private async getProductNameMap(productIds: string[]) {
+    const uniqueProductIds = [...new Set(productIds)];
+
+    if (uniqueProductIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const products = await this.prisma.product.findMany({
+      select: {
+        id: true,
+        name: true
+      },
+      where: {
+        id: {
+          in: uniqueProductIds
+        }
+      }
+    });
+
+    return new Map(products.map((product) => [product.id, product.name]));
+  }
 }
 
 function serializeReview(record: FeedbackLogRecord) {
@@ -318,7 +374,7 @@ function serializeQuestion(record: FeedbackLogRecord) {
   };
 }
 
-function serializeAdminFeedback(record: FeedbackLogRecord) {
+function serializeAdminFeedback(record: FeedbackLogRecord, productName = record.recipient) {
   const payload = readPayload(record.payload);
   const type: AdminProductFeedbackType =
     record.templateKey === QUESTION_TEMPLATE_KEY ? "QUESTION" : "REVIEW";
@@ -332,6 +388,7 @@ function serializeAdminFeedback(record: FeedbackLogRecord) {
     moderationNote: payload.moderationNote ?? null,
     moderatedAt: payload.moderatedAt ?? null,
     productId: record.recipient,
+    productName,
     question: type === "QUESTION" ? payload.question : null,
     rating: type === "REVIEW" ? payload.rating : null,
     status: record.status,
