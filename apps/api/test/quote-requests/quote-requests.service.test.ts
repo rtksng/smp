@@ -194,6 +194,11 @@ test("quote requests are saved, listed, and moved through admin status", async (
     }
   );
 
+  const fetched = await service.getAdminQuoteRequest("quote-1");
+
+  assert.equal(fetched.id, "quote-1");
+  assert.equal(fetched.name, "Dr Asha Rao");
+
   const updated = await service.updateAdminQuoteRequestStatus("quote-1", {
     status: "CONTACTED"
   });

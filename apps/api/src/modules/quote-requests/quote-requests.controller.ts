@@ -179,6 +179,19 @@ export class AdminQuoteRequestsController {
     return this.quoteRequestsService.listAdminQuoteRequests(query);
   }
 
+  @Get(":id")
+  @RequirePermission(PermissionCode.SettingsManage)
+  @ApiOperation({ summary: "Get a quote request for admin editing." })
+  @ApiOkResponse({
+    description: "Quote request returned.",
+    type: QuoteRequestResponseDto
+  })
+  @ApiNotFoundResponse({ description: "Quote request was not found." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  getQuoteRequest(@Param("id", ParseUUIDPipe) id: string) {
+    return this.quoteRequestsService.getAdminQuoteRequest(id);
+  }
+
   @Patch(":id/quotation")
   @RequirePermission(PermissionCode.SettingsManage)
   @ApiOperation({ summary: "Send an itemized quotation response to the customer." })

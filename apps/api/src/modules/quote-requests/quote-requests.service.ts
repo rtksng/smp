@@ -175,6 +175,12 @@ export class QuoteRequestsService {
     };
   }
 
+  async getAdminQuoteRequest(id: string) {
+    const request = await this.findQuoteRequest(id);
+
+    return serializeQuoteRequest(request);
+  }
+
   async sendAdminQuotation(id: string, input: SendQuoteResponseDto) {
     const request = await this.findQuoteRequest(id);
     const payload = readQuotePayload(request.payload);

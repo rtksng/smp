@@ -19,6 +19,14 @@ import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -132,6 +140,8 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
   const [page, setPage] = useState(1);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+  const [answerDialogItem, setAnswerDialogItem] =
+    useState<AdminProductFeedback | null>(null);
   const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const feedbackQuery = useMemo(
@@ -222,6 +232,31 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
     }));
   }
 
+  function openAnswerDialog(item: AdminProductFeedback) {
+    setAnswerDrafts((current) => ({
+      ...current,
+      [item.id]: item.answer ?? ""
+    }));
+    setAnswerErrors((current) => {
+      const next = { ...current };
+      delete next[item.id];
+      return next;
+    });
+    setAnswerDialogItem(item);
+  }
+
+  function closeAnswerDialog() {
+    if (answerDialogItem) {
+      setAnswerErrors((current) => {
+        const next = { ...current };
+        delete next[answerDialogItem.id];
+        return next;
+      });
+    }
+
+    setAnswerDialogItem(null);
+  }
+
   async function saveAnswer(item: AdminProductFeedback) {
     const answer = (answerDrafts[item.id] ?? item.answer ?? "").trim();
 
@@ -243,6 +278,7 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
       id: item.id
     });
     setMessage("Product question answered.");
+    setAnswerDialogItem(null);
     setAnswerDrafts((current) => {
       const next = { ...current };
       delete next[item.id];
@@ -348,16 +384,13 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
         ) : null}
         {feedback.length > 0 ? (
           <ProductFeedbackTable
-            answerDrafts={answerDrafts}
-            answerErrors={answerErrors}
             canAnswer={canAnswer}
             copiedProductId={copiedProductId}
             feedback={feedback}
             isSaving={answerMutation.isPending || moderationMutation.isPending}
-            onAnswerChange={updateAnswerDraft}
             onCopyProductId={copyProductId}
+            onOpenAnswer={openAnswerDialog}
             onModerate={moderateFeedback}
-            onSaveAnswer={saveAnswer}
             view={view}
           />
         ) : null}
@@ -369,6 +402,30 @@ function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
           />
         ) : null}
       </section>
+      <AnswerQuestionDialog
+        answer={
+          answerDialogItem
+            ? answerDrafts[answerDialogItem.id] ?? answerDialogItem.answer ?? ""
+            : ""
+        }
+        error={
+          answerDialogItem ? answerErrors[answerDialogItem.id] ?? null : null
+        }
+        isOpen={Boolean(answerDialogItem)}
+        isSaving={answerMutation.isPending}
+        item={answerDialogItem}
+        onAnswerChange={(answer) => {
+          if (answerDialogItem) {
+            updateAnswerDraft(answerDialogItem.id, answer);
+          }
+        }}
+        onClose={closeAnswerDialog}
+        onSave={() => {
+          if (answerDialogItem) {
+            void saveAnswer(answerDialogItem);
+          }
+        }}
+      />
     </>
   );
 }
@@ -456,31 +513,25 @@ function ProductFeedbackFilterForm({
 }
 
 function ProductFeedbackTable({
-  answerDrafts,
-  answerErrors,
   canAnswer,
   copiedProductId,
   feedback,
   isSaving,
-  onAnswerChange,
   onCopyProductId,
+  onOpenAnswer,
   onModerate,
-  onSaveAnswer,
   view
 }: {
-  answerDrafts: Record<string, string>;
-  answerErrors: Record<string, string>;
   canAnswer: boolean;
   copiedProductId: string | null;
   feedback: AdminProductFeedback[];
   isSaving: boolean;
-  onAnswerChange: (id: string, answer: string) => void;
   onCopyProductId: (productId: string) => Promise<void>;
+  onOpenAnswer: (item: AdminProductFeedback) => void;
   onModerate: (
     item: AdminProductFeedback,
     status: ProductFeedbackStatus
   ) => Promise<void>;
-  onSaveAnswer: (item: AdminProductFeedback) => Promise<void>;
   view: ProductFeedbackListView;
 }) {
   const isQuestionView = view === "questions";
@@ -544,32 +595,14 @@ function ProductFeedbackTable({
               {isQuestionView ? (
                 <TableCell>
                   {canAnswer ? (
-                    <form
-                      className="feedbackAnswerForm"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        void onSaveAnswer(item);
-                      }}
+                    <Button
+                      className="answerModalTriggerButton"
+                      onClick={() => onOpenAnswer(item)}
+                      type="button"
+                      variant={item.answer ? "outline" : "default"}
                     >
-                      <Textarea
-                        onChange={(event) =>
-                          onAnswerChange(item.id, event.target.value)
-                        }
-                        placeholder="Write answer"
-                        value={answerDrafts[item.id] ?? item.answer ?? ""}
-                      />
-                      {answerErrors[item.id] ? (
-                        <span className="fieldError">{answerErrors[item.id]}</span>
-                      ) : null}
-                      <Button
-                        className="iconTextButton"
-                        disabled={isSaving || item.status === "HIDDEN"}
-                        type="submit"
-                      >
-                        <CheckCircle2 aria-hidden size={16} />
-                        <span>{isSaving ? "Saving..." : "Save answer"}</span>
-                      </Button>
-                    </form>
+                      {item.answer ? "View answer" : "Add answer"}
+                    </Button>
                   ) : (
                     <em>{item.answer ?? "-"}</em>
                   )}
@@ -612,6 +645,80 @@ function ProductFeedbackTable({
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function AnswerQuestionDialog({
+  answer,
+  error,
+  isOpen,
+  isSaving,
+  item,
+  onAnswerChange,
+  onClose,
+  onSave
+}: {
+  answer: string;
+  error: string | null;
+  isOpen: boolean;
+  isSaving: boolean;
+  item: AdminProductFeedback | null;
+  onAnswerChange: (answer: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isSaving) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        className="productFeedbackAnswerDialog"
+        isDismissable={!isSaving}
+        isKeyboardDismissDisabled={isSaving}
+      >
+        <form
+          className="productFeedbackAnswerDialogForm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{item?.answer ? "View answer" : "Add answer"}</DialogTitle>
+            <DialogDescription>
+              {item?.question ?? "Write a customer-facing answer for this product question."}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            autoFocus
+            className="productFeedbackAnswerTextarea"
+            onChange={(event) => onAnswerChange(event.target.value)}
+            placeholder="Write answer"
+            value={answer}
+          />
+          {error ? <span className="fieldError">{error}</span> : null}
+          <DialogFooter className="productFeedbackAnswerDialogFooter">
+            <Button
+              disabled={isSaving}
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button className="iconTextButton" disabled={isSaving} type="submit">
+              <CheckCircle2 aria-hidden size={16} />
+              <span>{isSaving ? "Saving..." : "Save answer"}</span>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

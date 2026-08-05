@@ -21,6 +21,10 @@ describe("product feedback route split", () => {
     expect(sectionsSource).not.toContain('placeholder="Moderation note"');
     expect(sectionsSource).toContain("Product search");
     expect(sectionsSource).toContain("Copy ID");
+    expect(sectionsSource).toContain("Add answer");
+    expect(sectionsSource).toContain("View answer");
+    expect(sectionsSource).toContain("AnswerQuestionDialog");
+    expect(sectionsSource).toContain("productFeedbackAnswerDialogFooter");
     expect(landingPageSource).toContain("<ProductFeedbackLandingPage />");
   });
 

@@ -1,9 +1,18 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, Plus, RefreshCw, Search, Send, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2
+} from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
@@ -53,35 +62,11 @@ import {
 
 const PAGE_SIZE = 20;
 
-type QuoteRequestView = "overview" | "requests";
-
-const quoteRequestSections: Array<{
-  description: string;
-  href: string;
-  id: QuoteRequestView;
-  title: string;
-}> = [
-  {
-    description: "Quote request metrics and quick access to the response queue.",
-    href: "/quote-requests",
-    id: "overview",
-    title: "Overview"
-  },
-  {
-    description: "Search, filter, update status, and send quotations.",
-    href: "/quote-requests/requests",
-    id: "requests",
-    title: "Requests"
-  }
-];
+type QuoteRequestView = "requests";
 
 const quoteRequestCopy: Record<QuoteRequestView, { summary: string; title: string }> = {
-  overview: {
-    summary: "Review quote request activity and open the focused quotation response queue.",
-    title: "Quote requests"
-  },
   requests: {
-    summary: "Track bulk purchase enquiries, update statuses, and respond from a selected side panel.",
+    summary: "Track bulk purchase enquiries and open each request in a focused edit page.",
     title: "Bulk quote queue"
   }
 };
@@ -97,7 +82,7 @@ export function QuoteRequestsRoute({ children }: { children: ReactNode }) {
 }
 
 export function QuoteRequestsLandingPage() {
-  return <QuoteRequestsContent view="overview" />;
+  return <QuoteRequestsContent view="requests" />;
 }
 
 export function QuoteRequestQueuePage() {
@@ -114,12 +99,6 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
     createEmptyQuoteRequestFilters()
   );
   const [page, setPage] = useState(1);
-  const [message, setMessage] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [selectedQuoteRequestId, setSelectedQuoteRequestId] = useState<string | null>(
-    null
-  );
-  const [quoteDrafts, setQuoteDrafts] = useState<Record<string, QuoteResponseDraft>>({});
   const quoteQuery = useMemo(
     () => buildQuoteRequestQuery(appliedFilters, page, PAGE_SIZE),
     [appliedFilters, page]
@@ -134,32 +113,6 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
       ),
     queryKey: ["admin", "quote-requests", quoteQuery]
   });
-  const updateStatusMutation = useMutation({
-    mutationFn: ({
-      id,
-      status
-    }: {
-      id: string;
-      status: QuoteRequestStatus;
-    }) =>
-      api.request<AdminQuoteRequest>(`/admin/quote-requests/${id}/status`, {
-        body: JSON.stringify({ status }),
-        method: "PATCH"
-      })
-  });
-  const sendQuoteMutation = useMutation({
-    mutationFn: ({
-      id,
-      payload
-    }: {
-      id: string;
-      payload: ReturnType<typeof buildQuoteResponsePayload>;
-    }) =>
-      api.request<AdminQuoteRequest>(`/admin/quote-requests/${id}/quotation`, {
-        body: JSON.stringify(payload),
-        method: "PATCH"
-      })
-  });
   const quoteRequests = useMemo(
     () => quoteRequestsQuery.data?.items ?? [],
     [quoteRequestsQuery.data?.items]
@@ -173,13 +126,7 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
     (item) => item.status === "CLOSED"
   ).length;
   const quotedVisibleCount = quoteRequests.filter((item) => item.quotation).length;
-  const selectedQuoteRequest =
-    quoteRequests.find((item) => item.id === selectedQuoteRequestId) ?? null;
-  const error =
-    formError ??
-    getErrorMessage(quoteRequestsQuery.error) ??
-    getErrorMessage(updateStatusMutation.error) ??
-    getErrorMessage(sendQuoteMutation.error);
+  const error = getErrorMessage(quoteRequestsQuery.error);
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -198,65 +145,14 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
     await queryClient.invalidateQueries({ queryKey: ["admin", "quote-requests"] });
   }
 
-  async function updateStatus(
-    quoteRequest: AdminQuoteRequest,
-    status: QuoteRequestStatus
-  ) {
-    if (quoteRequest.status === status) {
-      return;
-    }
-
-    await updateStatusMutation.mutateAsync({
-      id: quoteRequest.id,
-      status
-    });
-    setMessage("Quote request status updated.");
-    await refreshQuoteRequests();
-  }
-
-  function updateDraft(id: string, draft: QuoteResponseDraft) {
-    setQuoteDrafts((current) => ({
-      ...current,
-      [id]: draft
-    }));
-  }
-
-  async function sendQuotation(quoteRequest: AdminQuoteRequest) {
-    const draft = quoteDrafts[quoteRequest.id] ?? quoteRequestToDraft(quoteRequest);
-    const errors = validateQuoteResponseDraft(draft);
-
-    if (errors.length > 0) {
-      setMessage(null);
-      setFormError(errors.join(" "));
-      return;
-    }
-
-    setFormError(null);
-    await sendQuoteMutation.mutateAsync({
-      id: quoteRequest.id,
-      payload: buildQuoteResponsePayload(draft)
-    });
-    setMessage("Quotation response sent.");
-    await refreshQuoteRequests();
-  }
-
   const pageCopy = quoteRequestCopy[view];
 
   return (
     <>
-      <section className="panel quoteRequestOverviewPanel">
-        <QuoteRequestSectionNav active={view} />
+      <section className="panel quoteRequestSummaryPanel">
         <PageHeader
           actions={
             <div className="actionRow">
-              {view === "overview" ? (
-                <Button asChild className="iconTextButton">
-                  <Link href="/quote-requests/requests">
-                    <MessageSquare aria-hidden size={16} />
-                    <span>Open requests</span>
-                  </Link>
-                </Button>
-              ) : null}
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshQuoteRequests()}
@@ -274,7 +170,6 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
           title={pageCopy.title}
         />
 
-        {message ? <p className="formSuccess">{message}</p> : null}
         {error ? (
           <p className="formError" role="alert">
             {error}
@@ -291,83 +186,231 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
         </div>
       </section>
 
-      {view === "overview" ? (
-        <QuoteRequestHub
-          contactedVisibleCount={contactedVisibleCount}
-          newVisibleCount={newVisibleCount}
-          quotedVisibleCount={quotedVisibleCount}
-          totalRequests={pagination?.total ?? 0}
+      <div className="quoteRequestWorkspaceGrid quoteRequestWorkspaceGrid--single">
+        <section className="panel quoteRequestListPanel mt-3">
+          <PageHeader
+            className="settingsSectionHeader"
+            eyebrow="Requests"
+            level={2}
+            summary="Filter the queue, then open one enquiry to update status or send a quotation."
+            title="Customer enquiries"
+          />
+
+          <QuoteRequestFiltersForm
+            filters={draftFilters}
+            onChange={setDraftFilters}
+            onReset={resetFilters}
+            onSubmit={applyFilters}
+          />
+
+          {quoteRequestsQuery.isLoading ? (
+            <LoadingState label="Loading quote requests..." />
+          ) : null}
+          {!quoteRequestsQuery.isLoading &&
+          !quoteRequestsQuery.isError &&
+          quoteRequests.length === 0 ? (
+            <EmptyState
+              body="No quote requests match the current filters."
+              title="No quote requests found"
+            />
+          ) : null}
+          {quoteRequests.length > 0 ? (
+            <QuoteRequestsTable quoteRequests={quoteRequests} />
+          ) : null}
+          {pagination ? (
+            <PaginationControls
+              onChange={setPage}
+              page={pagination.page}
+              totalPages={Math.max(pagination.totalPages, 1)}
+            />
+          ) : null}
+        </section>
+      </div>
+    </>
+  );
+}
+
+export function QuoteRequestDetailPage() {
+  const { api } = useAdminSession();
+  const queryClient = useQueryClient();
+  const params = useParams();
+  const quoteRequestId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const [draft, setDraft] = useState<QuoteResponseDraft>(
+    createEmptyQuoteResponseDraft()
+  );
+  const [message, setMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const quoteRequestQuery = useQuery({
+    enabled: Boolean(quoteRequestId),
+    queryFn: () =>
+      api.request<AdminQuoteRequest>(`/admin/quote-requests/${quoteRequestId}`),
+    queryKey: ["admin", "quote-requests", "detail", quoteRequestId]
+  });
+  const updateStatusMutation = useMutation({
+    mutationFn: (status: QuoteRequestStatus) =>
+      api.request<AdminQuoteRequest>(
+        `/admin/quote-requests/${quoteRequestId}/status`,
+        {
+          body: JSON.stringify({ status }),
+          method: "PATCH"
+        }
+      )
+  });
+  const sendQuoteMutation = useMutation({
+    mutationFn: (payload: ReturnType<typeof buildQuoteResponsePayload>) =>
+      api.request<AdminQuoteRequest>(
+        `/admin/quote-requests/${quoteRequestId}/quotation`,
+        {
+          body: JSON.stringify(payload),
+          method: "PATCH"
+        }
+      )
+  });
+  const quoteRequest = quoteRequestQuery.data ?? null;
+  const error =
+    formError ??
+    getErrorMessage(quoteRequestQuery.error) ??
+    getErrorMessage(updateStatusMutation.error) ??
+    getErrorMessage(sendQuoteMutation.error);
+
+  useEffect(() => {
+    if (quoteRequest) {
+      setDraft(quoteRequestToDraft(quoteRequest));
+    }
+  }, [quoteRequest]);
+
+  async function refreshQuoteRequest() {
+    await queryClient.invalidateQueries({ queryKey: ["admin", "quote-requests"] });
+  }
+
+  async function updateStatus(status: QuoteRequestStatus) {
+    if (!quoteRequest || quoteRequest.status === status) {
+      return;
+    }
+
+    setFormError(null);
+    await updateStatusMutation.mutateAsync(status);
+    setMessage("Quote request status updated.");
+    await refreshQuoteRequest();
+  }
+
+  async function sendQuotation() {
+    if (!quoteRequest) {
+      return;
+    }
+
+    const errors = validateQuoteResponseDraft(draft);
+
+    if (errors.length > 0) {
+      setMessage(null);
+      setFormError(errors.join(" "));
+      return;
+    }
+
+    setFormError(null);
+    await sendQuoteMutation.mutateAsync(buildQuoteResponsePayload(draft));
+    setMessage("Quotation response sent.");
+    await refreshQuoteRequest();
+  }
+
+  return (
+    <>
+      <section className="panel quoteRequestDetailPagePanel">
+        <PageHeader
+          actions={
+            <div className="actionRow">
+              <Button asChild className="iconTextButton" variant="outline">
+                <Link href="/quote-requests">
+                  <ArrowLeft aria-hidden size={16} />
+                  <span>Back</span>
+                </Link>
+              </Button>
+              <Button
+                className="iconTextButton"
+                onClick={() => void refreshQuoteRequest()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            </div>
+          }
+          className="quoteRequestPageHeader"
+          eyebrow="Quote request"
+          summary={
+            quoteRequest
+              ? `${quoteRequest.mobileNumber} - ${quoteRequest.email}`
+              : "Open and edit a customer quotation request."
+          }
+          title={quoteRequest?.name ?? "Quote request"}
+        />
+
+        {error ? (
+          <p className="formError" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </section>
+
+      {quoteRequestQuery.isLoading ? (
+        <LoadingState label="Loading quote request..." />
+      ) : null}
+      {!quoteRequestQuery.isLoading && !quoteRequest ? (
+        <EmptyState
+          body="The quote request could not be loaded."
+          title="Quote request not found"
         />
       ) : null}
-
-      {view === "requests" ? (
-        <div
-          className={
-            selectedQuoteRequest
-              ? "quoteRequestWorkspaceGrid"
-              : "quoteRequestWorkspaceGrid quoteRequestWorkspaceGrid--single"
-          }
-        >
-          <section className="panel quoteRequestListPanel">
+      {quoteRequest ? (
+        <div className="quoteRequestDetailGrid">
+          <section className="panel quoteRequestCustomerPanel">
             <PageHeader
               className="settingsSectionHeader"
-              eyebrow="Requests"
+              eyebrow="Customer"
               level={2}
-              summary="Filter the queue, then open one enquiry to update status or send a quotation."
-              title="Customer enquiries"
+              summary="Original enquiry and customer contact details."
+              title="Request details"
             />
-
-            <QuoteRequestFiltersForm
-              filters={draftFilters}
-              onChange={setDraftFilters}
-              onReset={resetFilters}
-              onSubmit={applyFilters}
-            />
-
-            {quoteRequestsQuery.isLoading ? (
-              <LoadingState label="Loading quote requests..." />
-            ) : null}
-            {!quoteRequestsQuery.isLoading &&
-            !quoteRequestsQuery.isError &&
-            quoteRequests.length === 0 ? (
-              <EmptyState
-                body="No quote requests match the current filters."
-                title="No quote requests found"
-              />
-            ) : null}
-            {quoteRequests.length > 0 ? (
-              <QuoteRequestsTable
-                onSelect={setSelectedQuoteRequestId}
-                quoteRequests={quoteRequests}
-                selectedQuoteRequestId={selectedQuoteRequestId}
-              />
-            ) : null}
-            {pagination ? (
-              <PaginationControls
-                onChange={setPage}
-                page={pagination.page}
-                totalPages={Math.max(pagination.totalPages, 1)}
-              />
-            ) : null}
+            <div className="quoteRequestDetailCards">
+              <div>
+                <span>Name</span>
+                <strong>{quoteRequest.name}</strong>
+              </div>
+              <div>
+                <span>Organization</span>
+                <strong>{quoteRequest.organization ?? "Individual customer"}</strong>
+              </div>
+              <div>
+                <span>Mobile</span>
+                <strong>{quoteRequest.mobileNumber}</strong>
+              </div>
+              <div>
+                <span>Email</span>
+                <strong>{quoteRequest.email}</strong>
+              </div>
+            </div>
+            <div className="quoteRequestPanelMeta">
+              <StatusBadge status={quoteRequest.status} />
+              <span>Created {formatSupportDateTime(quoteRequest.createdAt)}</span>
+            </div>
+            <div className="quoteRequestMessageBox">
+              <strong>Customer message</strong>
+              <p>{quoteRequest.message}</p>
+            </div>
           </section>
 
-          {selectedQuoteRequest ? (
-            <aside className="panel quoteRequestResponsePanel">
-              <QuoteRequestResponsePanel
-                draft={
-                  quoteDrafts[selectedQuoteRequest.id] ??
-                  quoteRequestToDraft(selectedQuoteRequest)
-                }
-                isSending={sendQuoteMutation.isPending}
-                isUpdating={updateStatusMutation.isPending}
-                onClose={() => setSelectedQuoteRequestId(null)}
-                onDraftChange={(draft) => updateDraft(selectedQuoteRequest.id, draft)}
-                onSendQuotation={() => sendQuotation(selectedQuoteRequest)}
-                onStatusChange={(status) => updateStatus(selectedQuoteRequest, status)}
-                quoteRequest={selectedQuoteRequest}
-              />
-            </aside>
-          ) : null}
+          <section className="panel quoteRequestResponsePanel quoteRequestEditPanel">
+            <QuoteRequestResponsePanel
+              draft={draft}
+              isSending={sendQuoteMutation.isPending}
+              isUpdating={updateStatusMutation.isPending}
+              onDraftChange={setDraft}
+              onSendQuotation={sendQuotation}
+              onStatusChange={updateStatus}
+              quoteRequest={quoteRequest}
+            />
+          </section>
         </div>
       ) : null}
     </>
@@ -375,13 +418,9 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
 }
 
 function QuoteRequestsTable({
-  onSelect,
-  quoteRequests,
-  selectedQuoteRequestId
+  quoteRequests
 }: {
-  onSelect: (id: string) => void;
   quoteRequests: AdminQuoteRequest[];
-  selectedQuoteRequestId: string | null;
 }) {
   return (
     <div className="resourceTable quoteRequestTable">
@@ -399,10 +438,7 @@ function QuoteRequestsTable({
         </TableHeader>
         <TableBody>
           {quoteRequests.map((quoteRequest) => (
-            <TableRow
-              data-active={quoteRequest.id === selectedQuoteRequestId}
-              key={quoteRequest.id}
-            >
+            <TableRow key={quoteRequest.id}>
               <TableCell>
                 <strong>{quoteRequest.name}</strong>
                 <em>{quoteRequest.organization ?? "Individual customer"}</em>
@@ -428,14 +464,15 @@ function QuoteRequestsTable({
               <TableCell>{formatSupportDateTime(quoteRequest.createdAt)}</TableCell>
               <TableCell>
                 <Button
+                  asChild
                   className="iconTextButton"
-                  onClick={() => onSelect(quoteRequest.id)}
                   size="sm"
-                  type="button"
                   variant="outline"
                 >
-                  <MessageSquare aria-hidden size={16} />
-                  <span>Open</span>
+                  <Link href={`/quote-requests/${quoteRequest.id}`}>
+                    <MessageSquare aria-hidden size={16} />
+                    <span>Open</span>
+                  </Link>
                 </Button>
               </TableCell>
             </TableRow>
@@ -443,73 +480,6 @@ function QuoteRequestsTable({
         </TableBody>
       </Table>
     </div>
-  );
-}
-
-function QuoteRequestSectionNav({ active }: { active: QuoteRequestView }) {
-  return (
-    <nav className="quoteRequestSectionNav" aria-label="Quote request sections">
-      {quoteRequestSections.map((section) => (
-        <Link
-          aria-current={active === section.id ? "page" : undefined}
-          href={section.href}
-          key={section.id}
-        >
-          {section.title}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function QuoteRequestHub({
-  contactedVisibleCount,
-  newVisibleCount,
-  quotedVisibleCount,
-  totalRequests
-}: {
-  contactedVisibleCount: number;
-  newVisibleCount: number;
-  quotedVisibleCount: number;
-  totalRequests: number;
-}) {
-  const cards = [
-    {
-      description: "Open the table-first quote response queue.",
-      href: "/quote-requests/requests",
-      metric: totalRequests,
-      title: "Request queue"
-    },
-    {
-      description: "Review fresh enquiries that still need first follow-up.",
-      href: "/quote-requests/requests",
-      metric: newVisibleCount,
-      title: "New visible"
-    },
-    {
-      description: "Track customers that have already been contacted.",
-      href: "/quote-requests/requests",
-      metric: contactedVisibleCount,
-      title: "Contacted visible"
-    },
-    {
-      description: "Review requests that already have admin quotation responses.",
-      href: "/quote-requests/requests",
-      metric: quotedVisibleCount,
-      title: "Quoted visible"
-    }
-  ];
-
-  return (
-    <section className="quoteRequestHubGrid">
-      {cards.map((card) => (
-        <Link className="quoteRequestHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
   );
 }
 
@@ -564,7 +534,6 @@ function QuoteRequestResponsePanel({
   draft,
   isSending,
   isUpdating,
-  onClose,
   onDraftChange,
   onSendQuotation,
   onStatusChange,
@@ -573,7 +542,6 @@ function QuoteRequestResponsePanel({
   draft: QuoteResponseDraft;
   isSending: boolean;
   isUpdating: boolean;
-  onClose: () => void;
   onDraftChange: (draft: QuoteResponseDraft) => void;
   onSendQuotation: () => Promise<void>;
   onStatusChange: (status: QuoteRequestStatus) => Promise<void>;
@@ -582,21 +550,11 @@ function QuoteRequestResponsePanel({
   return (
     <>
       <PageHeader
-        actions={
-          <Button
-            className="iconTextButton"
-            onClick={onClose}
-            type="button"
-            variant="outline"
-          >
-            <span>Close</span>
-          </Button>
-        }
         className="settingsSectionHeader"
         eyebrow="Quotation"
         level={2}
-        summary={quoteRequest.organization ?? quoteRequest.mobileNumber}
-        title={quoteRequest.name}
+        summary="Update status and prepare the itemized quotation response."
+        title="Edit quotation"
       />
       <div className="quoteRequestPanelMeta">
         <StatusBadge status={quoteRequest.status} />
@@ -619,10 +577,6 @@ function QuoteRequestResponsePanel({
           ))}
         </SelectContent>
       </Select>
-      <div className="quoteRequestMessageBox">
-        <strong>Customer message</strong>
-        <p>{quoteRequest.message}</p>
-      </div>
       <QuoteResponseEditor
         draft={draft}
         isSending={isSending}
