@@ -56,6 +56,7 @@ import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../../lib/offline/status-queue";
 import { validateDeliveryStatusForm } from "../../../lib/delivery/forms";
 import { formatDateTime } from "../../../lib/delivery/dashboard";
 import { useAuth } from "../../../lib/auth/auth-context";
+import { fonts } from "../../../lib/theme";
 
 type StatusFormErrors = Partial<{
   cashCollectedAmount: string;
@@ -687,11 +688,13 @@ const styles = StyleSheet.create({
   },
   customer: {
     color: "#475569",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   detailInfoLabel: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
     width: 78
@@ -704,12 +707,14 @@ const styles = StyleSheet.create({
   detailInfoValue: {
     color: "#0F172A",
     flex: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20
   },
   errorText: {
     color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
@@ -721,16 +726,19 @@ const styles = StyleSheet.create({
   infoText: {
     color: "#334155",
     flex: 1,
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   itemName: {
     color: "#0F172A",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
   itemQty: {
     color: "#475569",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "900"
   },
@@ -742,6 +750,7 @@ const styles = StyleSheet.create({
   },
   itemSku: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -751,16 +760,19 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700"
   },
   noteText: {
     color: "#334155",
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   orderNumber: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 21,
     fontWeight: "900"
   },
@@ -783,6 +795,7 @@ const styles = StyleSheet.create({
   queueText: {
     color: "#92400E",
     flex: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
@@ -804,6 +817,7 @@ const styles = StyleSheet.create({
   },
   timelineStatus: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"
   },

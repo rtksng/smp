@@ -4,6 +4,7 @@ import { FieldError } from "heroui-native/field-error";
 import { Input } from "heroui-native/input";
 import { Label } from "heroui-native/label";
 import { TextField } from "heroui-native/text-field";
+import { fonts } from "../../lib/theme";
 
 type FormFieldProps = ComponentProps<typeof Input> & {
   error?: string;
@@ -53,6 +54,7 @@ export function FormField({
 const styles = StyleSheet.create({
   error: {
     color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -62,21 +64,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     color: "#0F172A",
+    fontFamily: fonts.body,
     fontSize: 15,
-    minHeight: 50,
-    paddingHorizontal: 12
+    minHeight: 44,
+    paddingHorizontal: 9
   },
   inputInvalid: {
     borderColor: "#B91C1C"
   },
   label: {
     color: "#334155",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
   textArea: {
-    minHeight: 92,
-    paddingTop: 12,
+    minHeight: 84,
+    paddingTop: 10,
     textAlignVertical: "top"
   }
 });

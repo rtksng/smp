@@ -9,10 +9,14 @@ import {
   SectionCard
 } from "../../components/ui/delivery-card";
 import { errorMessage } from "../../components/ui/feedback";
-import { getCashSummary } from "../../lib/api/delivery";
+import {
+  getCashSummary,
+  getDeliveryDashboard
+} from "../../lib/api/delivery";
 import { formatCurrency } from "../../lib/api/status";
 import { useAuth } from "../../lib/auth/auth-context";
 import { formatDateTime } from "../../lib/delivery/dashboard";
+import { fonts } from "../../lib/theme";
 
 export default function CashScreen() {
   const { accessToken } = useAuth();
@@ -20,6 +24,11 @@ export default function CashScreen() {
     enabled: Boolean(accessToken),
     queryFn: () => getCashSummary(accessToken ?? ""),
     queryKey: ["delivery-cash"]
+  });
+  const dashboardQuery = useQuery({
+    enabled: Boolean(accessToken),
+    queryFn: () => getDeliveryDashboard(accessToken ?? ""),
+    queryKey: ["delivery-dashboard"]
   });
 
   if (cashQuery.isLoading) {
@@ -49,6 +58,21 @@ export default function CashScreen() {
   }
 
   const summary = cashQuery.data;
+  const dashboard = dashboardQuery.data ?? {
+    activeCount: 0,
+    codToCollect: 0,
+    completedCount: 0,
+    issueCount: 0,
+    statusCounts: {
+      ACCEPTED: 0,
+      ASSIGNED: 0,
+      CANCELLED: 0,
+      DELIVERED: 0,
+      FAILED: 0,
+      OUT_FOR_DELIVERY: 0,
+      PICKED_UP: 0
+    }
+  };
 
   return (
     <Screen>
@@ -72,6 +96,27 @@ export default function CashScreen() {
           value={formatCurrency(summary.settledAmount)}
         />
       </View>
+
+      <SectionCard title="Delivery summary">
+        <View style={styles.metrics}>
+          <MetricCard label="Active" value={String(dashboard.activeCount)} />
+          <MetricCard
+            label="COD to collect"
+            tone="warning"
+            value={formatCurrency(dashboard.codToCollect)}
+          />
+          <MetricCard
+            label="Completed"
+            tone="success"
+            value={String(dashboard.completedCount)}
+          />
+          <MetricCard
+            label="Issues"
+            tone={dashboard.issueCount > 0 ? "danger" : "default"}
+            value={String(dashboard.issueCount)}
+          />
+        </View>
+      </SectionCard>
 
       <SectionCard title="Earnings">
         <MoneyRow label="Available balance" value={summary.wallet.balance} />
@@ -153,18 +198,73 @@ function settlementLabel(status: string) {
 }
 
 const styles = StyleSheet.create({
-  amount: { color: "#0F172A", fontSize: 15, fontWeight: "900" },
+  amount: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
   cashMain: { flex: 1, gap: 3 },
-  cashRow: { alignItems: "center", borderTopColor: "#E2E8F0", borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 8, minHeight: 58, paddingVertical: 8 },
-  emptyText: { color: "#64748B", fontSize: 14, paddingVertical: 12, textAlign: "center" },
-  earningAmount: { color: "#166534", fontSize: 15, fontWeight: "900" },
-  helper: { color: "#64748B", fontSize: 13, lineHeight: 19 },
-  meta: { color: "#64748B", fontSize: 12, fontWeight: "700", textTransform: "capitalize" },
+  cashRow: {
+    alignItems: "center",
+    borderTopColor: "#E2E8F0",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 50,
+    paddingVertical: 6
+  },
+  emptyText: {
+    color: "#64748B",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    paddingVertical: 10,
+    textAlign: "center"
+  },
+  earningAmount: {
+    color: "#166534",
+    fontFamily: fonts.headingBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  helper: {
+    color: "#64748B",
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19
+  },
+  meta: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "capitalize"
+  },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  moneyLabel: { color: "#64748B", fontSize: 14, fontWeight: "700" },
+  moneyLabel: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "700"
+  },
   moneyRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  moneyValue: { color: "#0F172A", fontSize: 16, fontWeight: "900" },
-  orderNumber: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
-  payoutAmount: { color: "#9A3412", fontSize: 15, fontWeight: "900" },
+  moneyValue: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 16,
+    fontWeight: "900"
+  },
+  orderNumber: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 14,
+    fontWeight: "900"
+  },
+  payoutAmount: {
+    color: "#9A3412",
+    fontFamily: fonts.headingBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
   pressed: { opacity: 0.72 }
 });

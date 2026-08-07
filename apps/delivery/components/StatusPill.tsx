@@ -2,6 +2,7 @@ import { StyleSheet, Text } from "react-native";
 import { Chip } from "heroui-native/chip";
 import type { DeliveryStatus } from "../lib/api/types";
 import { statusLabel } from "../lib/api/status";
+import { fonts } from "../lib/theme";
 
 type StatusPillProps = {
   status: DeliveryStatus | string;
@@ -48,6 +49,7 @@ const styles = StyleSheet.create({
     color: "#991B1B"
   },
   label: {
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "800"
   },

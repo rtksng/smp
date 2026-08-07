@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { fonts } from "../../lib/theme";
 
 export function ConnectivityBanner({
   actionLabel,
@@ -60,6 +61,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     color: "#92400E",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900"
   },
@@ -88,6 +90,7 @@ const styles = StyleSheet.create({
   message: {
     color: "#92400E",
     flex: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
     lineHeight: 18

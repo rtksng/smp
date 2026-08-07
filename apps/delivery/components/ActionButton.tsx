@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { Button } from "heroui-native/button";
 import { Spinner } from "heroui-native/spinner";
+import { fonts } from "../lib/theme";
 
 type ActionButtonProps = PressableProps & {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -80,8 +81,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: 14
+    minHeight: 44,
+    paddingHorizontal: 10
   },
   disabled: {
     opacity: 0.55
@@ -93,6 +94,7 @@ const styles = StyleSheet.create({
   label: {
     color: "#FFFFFF",
     flexShrink: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 15,
     fontWeight: "800"
   },

@@ -15,6 +15,7 @@ import {
   storeDeliveryApplication
 } from "../lib/auth/application-store";
 import { formatDateTime } from "../lib/delivery/dashboard";
+import { fonts } from "../lib/theme";
 
 export default function ApplicationStatusScreen() {
   const [application, setApplication] = useState<DeliveryApplication | null>(null);
@@ -149,16 +150,64 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  error: { color: "#B91C1C", fontSize: 14, fontWeight: "700" },
-  explanation: { color: "#334155", fontSize: 15, lineHeight: 22 },
-  infoLabel: { color: "#64748B", fontSize: 13, fontWeight: "800", width: 74 },
+  error: {
+    color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  explanation: {
+    color: "#334155",
+    fontFamily: fonts.body,
+    fontSize: 15,
+    lineHeight: 22
+  },
+  infoLabel: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "800",
+    width: 74
+  },
   infoRow: { flexDirection: "row", gap: 8 },
-  infoValue: { color: "#0F172A", flex: 1, fontSize: 14, fontWeight: "700" },
-  meta: { color: "#64748B", fontSize: 14, fontWeight: "700" },
-  name: { color: "#0F172A", fontSize: 22, fontWeight: "900" },
-  reasonBox: { backgroundColor: "#FFF7ED", borderRadius: 8, gap: 4, padding: 10 },
-  reasonLabel: { color: "#9A3412", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-  reasonText: { color: "#7C2D12", fontSize: 14, lineHeight: 20 },
+  infoValue: {
+    color: "#0F172A",
+    flex: 1,
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  meta: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  name: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 22,
+    fontWeight: "900"
+  },
+  reasonBox: {
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    gap: 4,
+    padding: 7
+  },
+  reasonLabel: {
+    color: "#9A3412",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  reasonText: {
+    color: "#7C2D12",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20
+  },
   titleBlock: { flex: 1, gap: 4 },
   topRow: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between" }
 });

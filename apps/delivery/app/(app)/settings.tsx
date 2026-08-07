@@ -5,6 +5,7 @@ import { ActionButton } from "../../components/ActionButton";
 import { Screen } from "../../components/Screen";
 import { EmptyState, SectionCard } from "../../components/ui/delivery-card";
 import { getPermissionHealth, openAppSettings } from "../../lib/device/native";
+import { fonts } from "../../lib/theme";
 
 export default function SettingsScreen() {
   const permissionQuery = useQuery({
@@ -85,11 +86,50 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  denied: { color: "#92400E", fontSize: 13, fontWeight: "900", textTransform: "capitalize" },
-  error: { color: "#B91C1C", fontSize: 14, fontWeight: "700" },
-  granted: { color: "#166534", fontSize: 13, fontWeight: "900", textTransform: "capitalize" },
-  helper: { color: "#475569", fontSize: 14, lineHeight: 20 },
-  label: { color: "#64748B", fontSize: 14, fontWeight: "800" },
-  row: { alignItems: "center", borderTopColor: "#E2E8F0", borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", justifyContent: "space-between", minHeight: 46 },
-  value: { color: "#0F172A", fontSize: 14, fontWeight: "800" }
+  denied: {
+    color: "#92400E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "capitalize"
+  },
+  error: {
+    color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  granted: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "capitalize"
+  },
+  helper: {
+    color: "#475569",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  label: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  row: {
+    alignItems: "center",
+    borderTopColor: "#E2E8F0",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 42
+  },
+  value: {
+    color: "#0F172A",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "800"
+  }
 });

@@ -16,6 +16,7 @@ import {
   type ProofImageAsset
 } from "../../lib/device/native";
 import { formatDateTime } from "../../lib/delivery/dashboard";
+import { fonts } from "../../lib/theme";
 import { useState } from "react";
 
 const DOCUMENT_TYPES = [
@@ -164,18 +165,75 @@ export default function DocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  documentMeta: { color: "#64748B", fontSize: 12, fontWeight: "700" },
-  documentRow: { alignItems: "center", borderTopColor: "#E2E8F0", borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 8, minHeight: 58, paddingVertical: 8 },
+  documentMeta: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  documentRow: {
+    alignItems: "center",
+    borderTopColor: "#E2E8F0",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 50,
+    paddingVertical: 6
+  },
   documentText: { flex: 1, gap: 3 },
-  documentTitle: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
-  emptyText: { color: "#64748B", fontSize: 14, paddingVertical: 12, textAlign: "center" },
-  helper: { color: "#475569", fontSize: 14, lineHeight: 20 },
-  pending: { color: "#92400E", fontSize: 12, fontWeight: "900" },
+  documentTitle: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 14,
+    fontWeight: "900"
+  },
+  emptyText: {
+    color: "#64748B",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    paddingVertical: 10,
+    textAlign: "center"
+  },
+  helper: {
+    color: "#475569",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  pending: {
+    color: "#92400E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900"
+  },
   preview: { borderRadius: 10, height: 190, width: "100%" },
-  type: { backgroundColor: "#F1F5F9", borderColor: "#CBD5E1", borderRadius: 999, borderWidth: 1, minHeight: 44, paddingHorizontal: 12, paddingVertical: 11 },
+  type: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 38,
+    paddingHorizontal: 11,
+    paddingVertical: 8
+  },
   typeSelected: { backgroundColor: "#E8F5EC", borderColor: "#287C30" },
-  typeText: { color: "#334155", fontSize: 13, fontWeight: "800" },
-  typeTextSelected: { color: "#166534", fontSize: 13, fontWeight: "900" },
+  typeText: {
+    color: "#334155",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  typeTextSelected: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "900"
+  },
   types: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  verified: { color: "#166534", fontSize: 12, fontWeight: "900" }
+  verified: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900"
+  }
 });

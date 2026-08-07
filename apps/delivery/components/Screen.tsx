@@ -21,14 +21,14 @@ type ScreenProps = PropsWithChildren<{
 
 export function Screen({
   children,
-  edges = ["bottom", "left", "right"],
+  edges = ["top", "bottom", "left", "right"],
   footer,
   keyboardBottomOffset = 96,
   scroll = true,
   style
 }: ScreenProps) {
   const { width } = useWindowDimensions();
-  const horizontalPadding = width >= 768 ? 20 : 10;
+  const horizontalPadding = width >= 768 ? 16 : 6;
   const body = scroll ? (
     <KeyboardAwareScrollView
       bottomOffset={keyboardBottomOffset}
@@ -71,10 +71,10 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "stretch",
     alignSelf: "center",
-    gap: 10,
+    gap: 8,
     maxWidth: 920,
-    paddingBottom: 20,
-    paddingTop: 8,
+    paddingBottom: 16,
+    paddingTop: 6,
     width: "100%"
   },
   fill: {
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
     borderTopColor: "#E2E8F0",
     borderTopWidth: StyleSheet.hairlineWidth,
     maxWidth: 920,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     width: "100%"
   },
   safeArea: {

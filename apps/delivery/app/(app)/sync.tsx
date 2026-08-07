@@ -9,6 +9,7 @@ import { confirmAction } from "../../components/ui/feedback";
 import { formatDateTime } from "../../lib/delivery/dashboard";
 import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../lib/offline/status-queue";
 import { useStatusQueue } from "../../lib/offline/status-queue-context";
+import { fonts } from "../../lib/theme";
 
 export default function OfflineSyncScreen() {
   const netInfo = useNetInfo();
@@ -68,7 +69,7 @@ export default function OfflineSyncScreen() {
                     Delivery {item.assignmentId.slice(0, 8)}
                   </Text>
                   <Text selectable style={styles.meta}>
-                    {item.payload.status.replaceAll("_", " ")} · queued {formatDateTime(item.createdAt)}
+                    {item.payload.status.replaceAll("_", " ")} - queued {formatDateTime(item.createdAt)}
                   </Text>
                 </View>
                 <Text style={needsAttention ? styles.failed : styles.waiting}>
@@ -134,15 +135,59 @@ function Summary({ label, value }: { label: string; value: number }) {
 
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  assignmentId: { color: "#0F172A", fontSize: 15, fontWeight: "900" },
-  failed: { color: "#B91C1C", fontSize: 12, fontWeight: "900" },
+  assignmentId: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  failed: {
+    color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900"
+  },
   itemText: { flex: 1, gap: 3 },
   itemTop: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between" },
-  meta: { color: "#64748B", fontSize: 12, fontWeight: "700", textTransform: "capitalize" },
-  proofNote: { color: "#64748B", fontSize: 13, lineHeight: 19, paddingHorizontal: 4 },
+  meta: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "capitalize"
+  },
+  proofNote: {
+    color: "#64748B",
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    paddingHorizontal: 4
+  },
   summary: { flexDirection: "row", gap: 8 },
-  summaryItem: { backgroundColor: "#F8FAFC", borderRadius: 8, flex: 1, gap: 2, padding: 10 },
-  summaryLabel: { color: "#64748B", fontSize: 12, fontWeight: "800", textTransform: "uppercase" },
-  summaryValue: { color: "#0F172A", fontSize: 22, fontWeight: "900" },
-  waiting: { color: "#92400E", fontSize: 12, fontWeight: "900" }
+  summaryItem: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    flex: 1,
+    gap: 2,
+    padding: 7
+  },
+  summaryLabel: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  summaryValue: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 22,
+    fontWeight: "900"
+  },
+  waiting: {
+    color: "#92400E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900"
+  }
 });

@@ -23,6 +23,7 @@ import {
   type ProofImageAsset
 } from "../../lib/device/native";
 import { formatDateTime } from "../../lib/delivery/dashboard";
+import { fonts } from "../../lib/theme";
 
 const INCIDENT_TYPES: Array<[DeliveryIncidentType, string]> = [
   ["CUSTOMER_UNREACHABLE", "Customer unreachable"],
@@ -110,7 +111,7 @@ export default function SupportScreen() {
       <SectionCard title="Report an incident">
         {!assignmentId ? (
           <Text selectable style={styles.warning}>
-            Open the affected delivery and choose “Report delivery incident” so the report is linked to the correct order.
+            Open the affected delivery and choose "Report delivery incident" so the report is linked to the correct order.
           </Text>
         ) : (
           <>
@@ -217,19 +218,86 @@ export default function SupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  assignment: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
-  helper: { color: "#64748B", fontSize: 14, lineHeight: 20 },
-  incidentRow: { alignItems: "center", borderTopColor: "#E2E8F0", borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 8, minHeight: 58, paddingVertical: 8 },
+  assignment: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 14,
+    fontWeight: "900"
+  },
+  helper: {
+    color: "#64748B",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  incidentRow: {
+    alignItems: "center",
+    borderTopColor: "#E2E8F0",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 50,
+    paddingVertical: 6
+  },
   incidentText: { flex: 1, gap: 3 },
-  incidentTitle: { color: "#0F172A", fontSize: 14, fontWeight: "900", textTransform: "capitalize" },
-  meta: { color: "#64748B", fontSize: 12, fontWeight: "700" },
-  open: { color: "#B91C1C", fontSize: 12, fontWeight: "900", textTransform: "capitalize" },
+  incidentTitle: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 14,
+    fontWeight: "900",
+    textTransform: "capitalize"
+  },
+  meta: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  open: {
+    color: "#B91C1C",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "capitalize"
+  },
   preview: { borderRadius: 10, height: 190, width: "100%" },
-  resolved: { color: "#166534", fontSize: 12, fontWeight: "900", textTransform: "capitalize" },
-  type: { backgroundColor: "#F1F5F9", borderColor: "#CBD5E1", borderRadius: 999, borderWidth: 1, minHeight: 44, paddingHorizontal: 12, paddingVertical: 11 },
+  resolved: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "capitalize"
+  },
+  type: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 38,
+    paddingHorizontal: 11,
+    paddingVertical: 8
+  },
   typeSelected: { backgroundColor: "#E8F5EC", borderColor: "#287C30" },
-  typeText: { color: "#334155", fontSize: 13, fontWeight: "800" },
-  typeTextSelected: { color: "#166534", fontSize: 13, fontWeight: "900" },
+  typeText: {
+    color: "#334155",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  typeTextSelected: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "900"
+  },
   types: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  warning: { backgroundColor: "#FFF7ED", borderRadius: 8, color: "#9A3412", fontSize: 14, lineHeight: 20, padding: 10 }
+  warning: {
+    backgroundColor: "#FFF7ED",
+    borderRadius: 8,
+    color: "#9A3412",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    lineHeight: 20,
+    padding: 7
+  }
 });

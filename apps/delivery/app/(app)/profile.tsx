@@ -7,7 +7,6 @@ import { Screen } from "../../components/Screen";
 import { StatusPill } from "../../components/StatusPill";
 import {
   EmptyState,
-  MetricCard,
   SectionCard
 } from "../../components/ui/delivery-card";
 import {
@@ -15,7 +14,6 @@ import {
   errorMessage,
   useAppFeedback
 } from "../../components/ui/feedback";
-import { formatCurrency } from "../../lib/api/status";
 import {
   getMyProfile,
   revokeMyDevices,
@@ -23,6 +21,7 @@ import {
 } from "../../lib/api/delivery";
 import { formatDateTime } from "../../lib/delivery/dashboard";
 import { useAuth } from "../../lib/auth/auth-context";
+import { fonts } from "../../lib/theme";
 
 export default function ProfileScreen() {
   const { accessToken, signOut } = useAuth();
@@ -109,15 +108,6 @@ export default function ProfileScreen() {
           />
         </View>
       </SectionCard>
-
-      <View style={styles.metrics}>
-        <MetricCard label="Balance" value={formatCurrency(profile.wallet.balance)} />
-        <MetricCard
-          label="Earnings"
-          tone="success"
-          value={formatCurrency(profile.wallet.totalEarnings)}
-        />
-      </View>
 
       <SectionCard title="Location">
         <Info
@@ -216,6 +206,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
     width: 78
@@ -228,21 +219,19 @@ const styles = StyleSheet.create({
   infoValue: {
     color: "#0F172A",
     flex: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   meta: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
-  metrics: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6
-  },
   name: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 24,
     fontWeight: "900"
   },
@@ -268,6 +257,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
   }

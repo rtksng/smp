@@ -6,7 +6,6 @@ import {
   View,
   type PressableProps
 } from "react-native";
-import { Card } from "heroui-native/card";
 import { Skeleton } from "heroui-native/skeleton";
 import { StatusPill } from "../StatusPill";
 import {
@@ -15,6 +14,7 @@ import {
 } from "../../lib/api/status";
 import type { DeliveryAssignment } from "../../lib/api/types";
 import { formatDateTime, nextActionLabel } from "../../lib/delivery/dashboard";
+import { fonts } from "../../lib/theme";
 
 export function MetricCard({
   label,
@@ -26,12 +26,10 @@ export function MetricCard({
   value: string;
 }) {
   return (
-    <Card className="min-w-[145px] flex-1 rounded-xl border border-slate-200 bg-white">
-      <Card.Body className="gap-1 px-2 py-2.5">
-        <Text style={styles.metricLabel}>{label}</Text>
-        <Text style={[styles.metricValue, toneStyles[tone]]}>{value}</Text>
-      </Card.Body>
-    </Card>
+    <View style={styles.metricCard}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={[styles.metricValue, toneStyles[tone]]}>{value}</Text>
+    </View>
   );
 }
 
@@ -43,12 +41,10 @@ export function SectionCard({
   title?: string;
 }) {
   return (
-    <Card className="w-full rounded-xl border border-slate-200 bg-white">
-      <Card.Body className="gap-2 px-2 py-2.5">
-        {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
-        {children}
-      </Card.Body>
-    </Card>
+    <View style={styles.sectionCard}>
+      {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
+      {children}
+    </View>
   );
 }
 
@@ -81,42 +77,40 @@ export function AssignmentCard({
         typeof style === "function" ? style(state) : style
       ]}
     >
-      <Card className="w-full rounded-xl border border-slate-200 bg-white">
-        <Card.Body className="gap-2 px-2 py-2.5">
-          <View style={styles.cardTop}>
-            <View style={styles.titleBlock}>
-              <Text numberOfLines={1} style={styles.orderNumber}>
-                {assignment.orderNumber}
-              </Text>
-              <Text numberOfLines={1} style={styles.customer}>
-                {customer}
-              </Text>
-            </View>
-            <StatusPill status={assignment.status} />
-          </View>
-          <InfoLine icon="location-outline" value={assignmentDestination(assignment)} />
-          <InfoLine
-            icon="cash-outline"
-            value={
-              assignment.payment.method === "COD"
-                ? `COD ${formatCurrency(assignment.payment.codAmount)}`
-                : "Paid online"
-            }
-          />
-          <InfoLine
-            icon="cube-outline"
-            value={`${assignment.items.length} item${
-              assignment.items.length === 1 ? "" : "s"
-            }`}
-          />
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>
-              Assigned {formatDateTime(assignment.assignedAt)}
+      <View style={styles.assignmentCard}>
+        <View style={styles.cardTop}>
+          <View style={styles.titleBlock}>
+            <Text numberOfLines={1} style={styles.orderNumber}>
+              {assignment.orderNumber}
             </Text>
-            <Text style={styles.nextAction}>{nextActionLabel(assignment.status)}</Text>
+            <Text numberOfLines={1} style={styles.customer}>
+              {customer}
+            </Text>
           </View>
-        </Card.Body>
-      </Card>
+          <StatusPill status={assignment.status} />
+        </View>
+        <InfoLine icon="location-outline" value={assignmentDestination(assignment)} />
+        <InfoLine
+          icon="cash-outline"
+          value={
+            assignment.payment.method === "COD"
+              ? `COD ${formatCurrency(assignment.payment.codAmount)}`
+              : "Paid online"
+          }
+        />
+        <InfoLine
+          icon="cube-outline"
+          value={`${assignment.items.length} item${
+            assignment.items.length === 1 ? "" : "s"
+          }`}
+        />
+        <View style={styles.footerRow}>
+          <Text style={styles.footerText}>
+            Assigned {formatDateTime(assignment.assignedAt)}
+          </Text>
+          <Text style={styles.nextAction}>{nextActionLabel(assignment.status)}</Text>
+        </View>
+      </View>
     </Pressable>
   );
 }
@@ -182,6 +176,16 @@ const toneStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  assignmentCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: "100%"
+  },
   assignmentPressable: {
     minHeight: 44
   },
@@ -193,6 +197,7 @@ const styles = StyleSheet.create({
   },
   customer: {
     color: "#475569",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -204,12 +209,14 @@ const styles = StyleSheet.create({
   },
   emptyMessage: {
     color: "#64748B",
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center"
   },
   emptyTitle: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "800",
     textAlign: "center"
@@ -221,11 +228,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
-    paddingTop: 9
+    paddingTop: 7
   },
   footerText: {
     color: "#64748B",
     flex: 1,
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -237,37 +245,64 @@ const styles = StyleSheet.create({
   infoText: {
     color: "#334155",
     flex: 1,
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   loadingStack: {
     gap: 10
   },
+  metricCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    minWidth: 145,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
   metricLabel: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
   },
   metricValue: {
+    fontFamily: fonts.headingBold,
     fontSize: 21,
     fontWeight: "900"
   },
   nextAction: {
     color: "#287C30",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "900"
   },
   orderNumber: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 17,
     fontWeight: "900"
   },
   pressed: {
     opacity: 0.78
   },
+  sectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: "100%"
+  },
   sectionTitle: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
   },

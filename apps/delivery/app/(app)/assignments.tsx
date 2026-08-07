@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { Switch } from "heroui-native/switch";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   useInfiniteQuery,
   useMutation,
@@ -26,14 +28,12 @@ import {
   AssignmentCard,
   EmptyState,
   LoadingCards,
-  MetricCard,
   SectionCard
 } from "../../components/ui/delivery-card";
 import {
   errorMessage,
   useAppFeedback
 } from "../../components/ui/feedback";
-import { formatCurrency } from "../../lib/api/status";
 import {
   getMyProfile,
   getDeliveryDashboard,
@@ -48,6 +48,7 @@ import {
 import { useAuth } from "../../lib/auth/auth-context";
 import { useStatusQueue } from "../../lib/offline/status-queue-context";
 import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../lib/offline/status-queue";
+import { fonts } from "../../lib/theme";
 
 export default function AssignmentsScreen() {
   const { accessToken } = useAuth();
@@ -62,6 +63,7 @@ export default function AssignmentsScreen() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"NEWEST" | "OLDEST">("NEWEST");
   const [dateRange, setDateRange] = useState<"ALL" | "TODAY" | "7_DAYS">("ALL");
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const numColumns = width >= 768 ? 2 : 1;
 
   const profileQuery = useQuery({
@@ -140,6 +142,9 @@ export default function AssignmentsScreen() {
   const stalledCount = queuedUpdates.filter(
     (item) => item.attempts >= MAX_STATUS_UPDATE_ATTEMPTS
   ).length;
+  const activeFilterCount =
+    (dateRange === "ALL" ? 0 : 1) + (sort === "NEWEST" ? 0 : 1);
+  const filterSummary = `${dateRangeLabel(dateRange)} - ${sortLabel(sort)}`;
 
   function refresh() {
     void profileQuery.refetch();
@@ -198,34 +203,58 @@ export default function AssignmentsScreen() {
             ) : null}
             <SectionCard>
               <View style={styles.statusPanel}>
-                <View style={styles.statusText}>
-                  <Text style={styles.eyebrow}>Delivery workspace</Text>
-                  <Text style={styles.name}>
-                    {profileQuery.data?.fullName ?? "Delivery partner"}
-                  </Text>
-                  <Text style={styles.meta}>
-                    {profileQuery.data?.isOnline ? "Online" : "Offline"}
-                  </Text>
+                <Text
+                  style={[
+                    styles.availabilityText,
+                    !(profileQuery.data?.isOnline ?? false) &&
+                      styles.availabilityTextOffline
+                  ]}
+                >
+                  {profileQuery.data?.isOnline ? "Online" : "Offline"}
+                </Text>
+                <View style={styles.statusControls}>
+                  <IconActionButton
+                    compact
+                    disabled={isRefreshing}
+                    icon="refresh-outline"
+                    label="Refresh deliveries"
+                    onPress={refresh}
+                    tone="secondary"
+                  />
+                  <Switch
+                    accessibilityLabel="Delivery availability"
+                    isDisabled={onlineMutation.isPending || profileQuery.isLoading}
+                    isSelected={profileQuery.data?.isOnline ?? false}
+                    onSelectedChange={(value) => onlineMutation.mutate(value)}
+                  />
                 </View>
-                <Switch
-                  accessibilityLabel="Delivery availability"
-                  isDisabled={onlineMutation.isPending || profileQuery.isLoading}
-                  isSelected={profileQuery.data?.isOnline ?? false}
-                  onSelectedChange={(value) => onlineMutation.mutate(value)}
-                />
               </View>
               <View style={styles.headerActions}>
-                <ActionButton
+                <WorkspaceBadge
                   icon="notifications-outline"
-                  label={`Alerts ${notificationsQuery.data?.unreadCount ?? 0}`}
+                  label="Alerts"
                   onPress={() => router.push("/(app)/notifications")}
-                  tone="secondary"
+                  tone={
+                    (notificationsQuery.data?.unreadCount ?? 0) > 0
+                      ? "warning"
+                      : "neutral"
+                  }
+                  value={String(notificationsQuery.data?.unreadCount ?? 0)}
                 />
-                <ActionButton
+                <WorkspaceBadge
                   icon="cloud-upload-outline"
                   label="Sync"
                   onPress={() => router.push("/(app)/sync")}
-                  tone="secondary"
+                  tone={
+                    stalledCount > 0
+                      ? "danger"
+                      : queuedUpdates.length > 0
+                        ? "warning"
+                        : "neutral"
+                  }
+                  value={
+                    queuedUpdates.length > 0 ? String(queuedUpdates.length) : "Ready"
+                  }
                 />
               </View>
             </SectionCard>
@@ -237,20 +266,27 @@ export default function AssignmentsScreen() {
                   autoCorrect={false}
                   onChangeText={setSearchDraft}
                   onSubmitEditing={() => setSearch(searchDraft.trim())}
-                  placeholder="Order, customer, business or mobile"
+                  placeholder="Search"
                   placeholderTextColor="#94A3B8"
                   returnKeyType="search"
                   style={styles.searchInput}
                   value={searchDraft}
                 />
-                <ActionButton
+                <IconActionButton
                   icon="search-outline"
-                  label="Search"
+                  label="Search deliveries"
                   onPress={() => setSearch(searchDraft.trim())}
                 />
+                <IconActionButton
+                  badge={activeFilterCount}
+                  icon="filter-outline"
+                  label="Open delivery filters"
+                  onPress={() => setFilterSheetVisible(true)}
+                  tone="secondary"
+                />
               </View>
-              <View style={styles.searchActions}>
-                {search ? (
+              {search ? (
+                <View style={styles.searchActions}>
                   <ActionButton
                     icon="close-outline"
                     label="Clear search"
@@ -260,63 +296,12 @@ export default function AssignmentsScreen() {
                     }}
                     tone="secondary"
                   />
-                ) : null}
-                <ActionButton
-                  icon="swap-vertical-outline"
-                  label={sort === "NEWEST" ? "Newest first" : "Oldest first"}
-                  onPress={() =>
-                    setSort((value) => value === "NEWEST" ? "OLDEST" : "NEWEST")
-                  }
-                  tone="secondary"
-                />
-                <ActionButton
-                  icon="refresh-outline"
-                  label="Refresh"
-                  loading={isRefreshing}
-                  onPress={refresh}
-                  tone="secondary"
-                />
-              </View>
-              <View style={styles.dateFilters}>
-                <Text style={styles.dateLabel}>Assigned date</Text>
-                {(["ALL", "TODAY", "7_DAYS"] as const).map((value) => {
-                  const selected = dateRange === value;
-
-                  return (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      key={value}
-                      onPress={() => setDateRange(value)}
-                      style={[styles.datePill, selected && styles.datePillSelected]}
-                    >
-                      <Text style={selected ? styles.selectedFilterText : styles.filterText}>
-                        {value === "ALL" ? "All dates" : value === "TODAY" ? "Today" : "Last 7 days"}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                </View>
+              ) : null}
+              <Text selectable style={styles.filterSummary}>
+                {filterSummary}
+              </Text>
             </SectionCard>
-
-            <View style={styles.metrics}>
-              <MetricCard label="Active" value={String(metrics.activeCount)} />
-              <MetricCard
-                label="COD to collect"
-                tone="warning"
-                value={formatCurrency(metrics.codToCollect)}
-              />
-              <MetricCard
-                label="Completed"
-                tone="success"
-                value={String(metrics.completedCount)}
-              />
-              <MetricCard
-                label="Issues"
-                tone={metrics.issueCount > 0 ? "danger" : "default"}
-                value={String(metrics.issueCount)}
-              />
-            </View>
 
             <ScrollView
               contentContainerStyle={styles.filters}
@@ -385,6 +370,19 @@ export default function AssignmentsScreen() {
           ) : null
         }
       />
+      <DeliveryFilterSheet
+        activeFilterCount={activeFilterCount}
+        dateRange={dateRange}
+        onApply={() => setFilterSheetVisible(false)}
+        onDateRangeChange={setDateRange}
+        onReset={() => {
+          setDateRange("ALL");
+          setSort("NEWEST");
+        }}
+        onSortChange={setSort}
+        sort={sort}
+        visible={filterSheetVisible}
+      />
     </Screen>
   );
 }
@@ -409,7 +407,273 @@ function assignmentDateFilter(range: "ALL" | "TODAY" | "7_DAYS") {
   return { dateFrom: from.toISOString() };
 }
 
+function sortLabel(sort: "NEWEST" | "OLDEST") {
+  return sort === "NEWEST" ? "Newest first" : "Oldest first";
+}
+
+function dateRangeLabel(range: "ALL" | "TODAY" | "7_DAYS") {
+  switch (range) {
+    case "ALL":
+      return "All assigned dates";
+    case "TODAY":
+      return "Assigned today";
+    case "7_DAYS":
+      return "Last 7 assigned days";
+  }
+}
+
+function IconActionButton({
+  badge = 0,
+  compact = false,
+  disabled = false,
+  icon,
+  label,
+  onPress,
+  tone = "primary"
+}: {
+  badge?: number;
+  compact?: boolean;
+  disabled?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  tone?: "primary" | "secondary";
+}) {
+  const secondary = tone === "secondary";
+
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.iconAction,
+        compact && styles.iconActionCompact,
+        secondary && styles.iconActionSecondary,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed
+      ]}
+    >
+      <Ionicons
+        color={secondary ? "#0F172A" : "#FFFFFF"}
+        name={icon}
+        size={compact ? 20 : 22}
+      />
+      {badge > 0 ? (
+        <View style={styles.iconBadge}>
+          <Text style={styles.iconBadgeText}>{badge}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function WorkspaceBadge({
+  icon,
+  label,
+  onPress,
+  tone,
+  value
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  tone: "danger" | "neutral" | "warning";
+  value: string;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${label} ${value}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.workspaceBadge,
+        tone === "warning" && styles.workspaceBadgeWarning,
+        tone === "danger" && styles.workspaceBadgeDanger,
+        pressed && styles.pressed
+      ]}
+    >
+      <Ionicons color={workspaceBadgeIconColor(tone)} name={icon} size={16} />
+      <Text style={styles.workspaceBadgeLabel}>{label}</Text>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.workspaceBadgeValue,
+          tone === "warning" && styles.workspaceBadgeValueWarning,
+          tone === "danger" && styles.workspaceBadgeValueDanger
+        ]}
+      >
+        {value}
+      </Text>
+    </Pressable>
+  );
+}
+
+function workspaceBadgeIconColor(tone: "danger" | "neutral" | "warning") {
+  if (tone === "danger") {
+    return "#991B1B";
+  }
+
+  if (tone === "warning") {
+    return "#92400E";
+  }
+
+  return "#287C30";
+}
+
+function DeliveryFilterSheet({
+  activeFilterCount,
+  dateRange,
+  onApply,
+  onDateRangeChange,
+  onReset,
+  onSortChange,
+  sort,
+  visible
+}: {
+  activeFilterCount: number;
+  dateRange: "ALL" | "TODAY" | "7_DAYS";
+  onApply: () => void;
+  onDateRangeChange: (value: "ALL" | "TODAY" | "7_DAYS") => void;
+  onReset: () => void;
+  onSortChange: (value: "NEWEST" | "OLDEST") => void;
+  sort: "NEWEST" | "OLDEST";
+  visible: boolean;
+}) {
+  return (
+    <Modal animationType="slide" onRequestClose={onApply} transparent visible={visible}>
+      <View style={styles.modalRoot}>
+        <Pressable
+          accessibilityLabel="Close delivery filters"
+          accessibilityRole="button"
+          onPress={onApply}
+          style={styles.modalBackdrop}
+        />
+        <View style={styles.filterSheet}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHeader}>
+            <View style={styles.sheetTitleBlock}>
+              <Text style={styles.sheetTitle}>Delivery filters</Text>
+              <Text style={styles.sheetSubtitle}>
+                {activeFilterCount > 0
+                  ? `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}`
+                  : "Default delivery order"}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel="Close filters"
+              accessibilityRole="button"
+              onPress={onApply}
+              style={({ pressed }) => [
+                styles.sheetClose,
+                pressed && styles.pressed
+              ]}
+            >
+              <Ionicons color="#0F172A" name="close-outline" size={24} />
+            </Pressable>
+          </View>
+
+          <FilterSection title="Assigned date">
+            <View style={styles.optionGrid}>
+              {(["ALL", "TODAY", "7_DAYS"] as const).map((value) => (
+                <FilterOption
+                  key={value}
+                  label={dateRangeLabel(value)}
+                  onPress={() => onDateRangeChange(value)}
+                  selected={dateRange === value}
+                />
+              ))}
+            </View>
+          </FilterSection>
+
+          <FilterSection title="Sort">
+            <View style={styles.optionGrid}>
+              {(["NEWEST", "OLDEST"] as const).map((value) => (
+                <FilterOption
+                  key={value}
+                  label={sortLabel(value)}
+                  onPress={() => onSortChange(value)}
+                  selected={sort === value}
+                />
+              ))}
+            </View>
+          </FilterSection>
+
+          <View style={styles.sheetActions}>
+            <ActionButton
+              icon="refresh-outline"
+              label="Reset"
+              onPress={onReset}
+              style={styles.sheetActionButton}
+              tone="secondary"
+            />
+            <ActionButton
+              icon="checkmark-outline"
+              label="Apply filters"
+              onPress={onApply}
+              style={styles.sheetActionButton}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function FilterSection({
+  children,
+  title
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <View style={styles.filterSection}>
+      <Text style={styles.filterSectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function FilterOption({
+  label,
+  onPress,
+  selected
+}: {
+  label: string;
+  onPress: () => void;
+  selected: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.sheetOption,
+        selected && styles.sheetOptionSelected,
+        pressed && styles.pressed
+      ]}
+    >
+      <Text style={selected ? styles.sheetOptionTextSelected : styles.sheetOptionText}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  availabilityText: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  availabilityTextOffline: {
+    color: "#475569"
+  },
   columnItem: {
     flex: 1
   },
@@ -421,14 +685,12 @@ const styles = StyleSheet.create({
     maxWidth: 430,
     width: "100%"
   },
-  eyebrow: {
-    color: "#287C30",
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase"
+  disabled: {
+    opacity: 0.5
   },
   filterText: {
     color: "#334155",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
@@ -439,8 +701,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 11
+    minHeight: 38,
+    paddingHorizontal: 9
   },
   filterPillSelected: {
     backgroundColor: "#E8F5EC",
@@ -450,36 +712,100 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingRight: 0
   },
-  header: {
+  filterSection: {
     gap: 10
+  },
+  filterSectionTitle: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 14,
+    fontWeight: "900"
+  },
+  filterSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    gap: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingTop: 8
+  },
+  filterSummary: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18
+  },
+  header: {
+    gap: 8
   },
   headerActions: {
     flexDirection: "row",
-    gap: 8
+    flexWrap: "wrap",
+    gap: 6
+  },
+  iconAction: {
+    alignItems: "center",
+    backgroundColor: "#287C30",
+    borderColor: "#287C30",
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    position: "relative",
+    width: 46
+  },
+  iconActionCompact: {
+    borderRadius: 999,
+    height: 40,
+    width: 40
+  },
+  iconActionSecondary: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#CBD5E1"
+  },
+  iconBadge: {
+    alignItems: "center",
+    backgroundColor: "#B91C1C",
+    borderColor: "#FFFFFF",
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 20,
+    justifyContent: "center",
+    position: "absolute",
+    right: -5,
+    top: -6,
+    width: 20
+  },
+  iconBadgeText: {
+    color: "#FFFFFF",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 11,
+    fontWeight: "900"
   },
   list: {
-    gap: 10,
-    paddingBottom: 12,
+    gap: 8,
+    paddingBottom: 10,
     paddingHorizontal: 0,
     paddingTop: 0
-  },
-  meta: {
-    color: "#64748B",
-    fontSize: 14,
-    fontWeight: "700"
   },
   metrics: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6
   },
-  name: {
-    color: "#0F172A",
-    fontSize: 24,
-    fontWeight: "900"
+  modalBackdrop: {
+    flex: 1
+  },
+  modalRoot: {
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    flex: 1,
+    justifyContent: "flex-end"
   },
   selectedFilterText: {
     color: "#166534",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900"
   },
@@ -509,8 +835,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5EC",
     borderColor: "#287C30"
   },
+  optionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  pressed: {
+    opacity: 0.72
+  },
   loadingMore: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700",
     paddingVertical: 16,
@@ -528,28 +863,141 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: "#0F172A",
     flex: 1,
+    fontFamily: fonts.body,
     fontSize: 15,
-    minHeight: 50,
-    minWidth: 190,
-    paddingHorizontal: 12
+    minHeight: 44,
+    minWidth: 0,
+    paddingHorizontal: 9
   },
   searchRow: {
     alignItems: "stretch",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8
+    gap: 6
+  },
+  sheetActionButton: {
+    flex: 1
+  },
+  sheetActions: {
+    borderTopColor: "#E2E8F0",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 10,
+    paddingTop: 12
+  },
+  sheetClose: {
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    width: 40
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    backgroundColor: "#CBD5E1",
+    borderRadius: 999,
+    height: 4,
+    width: 48
+  },
+  sheetHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between"
+  },
+  sheetOption: {
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 38,
+    paddingHorizontal: 10
+  },
+  sheetOptionSelected: {
+    backgroundColor: "#E8F5EC",
+    borderColor: "#287C30"
+  },
+  sheetOptionText: {
+    color: "#334155",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  sheetOptionTextSelected: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "900"
+  },
+  sheetSubtitle: {
+    color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  sheetTitle: {
+    color: "#0F172A",
+    fontFamily: fonts.headingBold,
+    fontSize: 20,
+    fontWeight: "900"
+  },
+  sheetTitleBlock: {
+    flex: 1,
+    gap: 3
   },
   statusPanel: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     justifyContent: "space-between"
   },
-  statusText: {
-    flex: 1,
-    gap: 4
+  statusControls: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6
   },
   tabletColumnItem: {
     maxWidth: "50%"
+  },
+  workspaceBadge: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 5,
+    minHeight: 32,
+    paddingHorizontal: 8
+  },
+  workspaceBadgeDanger: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5"
+  },
+  workspaceBadgeLabel: {
+    color: "#334155",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "800"
+  },
+  workspaceBadgeValue: {
+    color: "#166534",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "900",
+    maxWidth: 48
+  },
+  workspaceBadgeValueDanger: {
+    color: "#991B1B"
+  },
+  workspaceBadgeValueWarning: {
+    color: "#92400E"
+  },
+  workspaceBadgeWarning: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#FCD34D"
   }
 });

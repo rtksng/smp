@@ -23,6 +23,7 @@ import {
   validateLoginForm,
   validateRegistrationForm
 } from "../lib/delivery/forms";
+import { fonts } from "../lib/theme";
 
 type Mode = "login" | "register";
 
@@ -492,13 +493,14 @@ function SegmentButton({
 const styles = StyleSheet.create({
   brand: {
     color: "#287C30",
+    fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
   },
   cardContent: {
-    gap: 14,
-    paddingHorizontal: 6,
-    paddingVertical: 6
+    gap: 10,
+    paddingHorizontal: 2,
+    paddingVertical: 2
   },
   container: {
     alignSelf: "center",
@@ -519,12 +521,14 @@ const styles = StyleSheet.create({
   },
   devOtpLabel: {
     color: "#287C30",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase"
   },
   devOtpValue: {
     color: "#287C30",
+    fontFamily: fonts.headingBold,
     fontSize: 24,
     fontVariant: ["tabular-nums"],
     fontWeight: "900",
@@ -532,6 +536,7 @@ const styles = StyleSheet.create({
   },
   devOtpMissingText: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 17,
@@ -552,6 +557,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
     textAlign: "center"
@@ -566,6 +572,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     color: "#991B1B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
     lineHeight: 18
@@ -580,17 +587,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12
+    paddingHorizontal: 10,
+    paddingVertical: 8
   },
   otpStatusLabel: {
     color: "#687773",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase"
   },
   otpStatusMobile: {
     color: "#17211F",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -613,7 +622,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flex: 1,
     justifyContent: "center",
-    minHeight: 44
+    minHeight: 42
   },
   segmentButtonActive: {
     backgroundColor: "#E8F5EC",
@@ -622,6 +631,7 @@ const styles = StyleSheet.create({
   },
   segmentLabel: {
     color: "#475569",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
@@ -630,6 +640,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: "#64748B",
+    fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20,
@@ -638,6 +649,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#0F172A",
+    fontFamily: fonts.headingBold,
     fontSize: 28,
     fontWeight: "900",
     textAlign: "center"
