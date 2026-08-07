@@ -7,6 +7,22 @@ import {
 } from "./schemas";
 import { requestCustomerApi } from "./customer-client";
 
+export const updateCustomerProfileInputSchema = z.object({
+  businessName: z.string().trim().max(160).nullable().optional(),
+  email: z.string().trim().email("Enter a valid email.").max(254).nullable().optional(),
+  gstNumber: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(
+      /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
+      "Enter a valid GSTIN."
+    )
+    .nullable()
+    .optional(),
+  name: z.string().trim().min(1, "Name is required.").max(160).optional()
+});
+
 export function getCustomerProfile() {
   return requestCustomerApi("/me", customerProfileSchema);
 }
@@ -18,7 +34,7 @@ export function updateCustomerProfile(input: {
   name?: string;
 }) {
   return requestCustomerApi("/me", customerProfileSchema, {
-    body: input,
+    body: updateCustomerProfileInputSchema.parse(input),
     method: "PATCH"
   });
 }

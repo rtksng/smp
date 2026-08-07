@@ -95,6 +95,26 @@ enum DeliveryPartnerStatus {
   SUSPENDED
 }
 
+enum DeliveryIncidentType {
+  CUSTOMER_UNREACHABLE
+  INCORRECT_ADDRESS
+  PACKAGE_DAMAGED
+  PACKAGE_MISSING
+  VEHICLE_BREAKDOWN
+  PAYMENT_DISPUTE
+  OTHER
+}
+
+enum DeliveryIncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum DeliveryLedgerEntryType {
+  DELIVERY_EARNING
+  PAYOUT
+}
+
 enum WarehouseStatus {
   ACTIVE
   INACTIVE
@@ -835,26 +855,29 @@ model DeliveryChargeRule {
 }
 
 model DeliveryPartner {
-  id             String                    @id @default(uuid())
-  mobileNumber   String                    @unique
-  email          String?                   @unique
+  id             String                       @id @default(uuid())
+  mobileNumber   String                       @unique
+  email          String?                      @unique
   passwordHash   String?
   fullName       String
-  status         DeliveryPartnerStatus     @default(PENDING_VERIFICATION)
-  isOnline       Boolean                   @default(false)
-  lastLatitude   Decimal?                  @db.Decimal(10, 7)
-  lastLongitude  Decimal?                  @db.Decimal(10, 7)
+  status         DeliveryPartnerStatus        @default(PENDING_VERIFICATION)
+  isOnline       Boolean                      @default(false)
+  lastLatitude   Decimal?                     @db.Decimal(10, 7)
+  lastLongitude  Decimal?                     @db.Decimal(10, 7)
   lastLocationAt DateTime?
   lastSeenAt     DateTime?
   vehicleNumber  String?
-  walletBalance  Decimal                   @default(0) @db.Decimal(12, 2)
-  totalEarnings  Decimal                   @default(0) @db.Decimal(12, 2)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  walletBalance  Decimal                      @default(0) @db.Decimal(12, 2)
+  totalEarnings  Decimal                      @default(0) @db.Decimal(12, 2)
+  statusReason   String?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
   deletedAt      DateTime?
   assignments    DeliveryAssignment[]
   devices        DeliveryPartnerDevice[]
   documents      DeliveryPartnerDocument[]
+  incidents      DeliveryIncident[]
+  ledgerEntries  DeliveryPartnerLedgerEntry[]
   sessions       DeliveryPartnerSession[]
 
   @@index([mobileNumber])
@@ -933,6 +956,7 @@ model DeliveryAssignment {
   deliveryPartner      DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id])
   order                Order                   @relation(fields: [orderId], references: [id])
   pickupWarehouse      Warehouse?              @relation("DeliveryPickupWarehouse", fields: [pickupWarehouseId], references: [id])
+  incidents            DeliveryIncident[]
   statusHistory        DeliveryStatusHistory[]
 
   @@index([orderId])
@@ -942,6 +966,41 @@ model DeliveryAssignment {
   @@index([deliveryPartnerId, status])
   @@index([pickupWarehouseId, status])
   @@index([status, assignedAt])
+}
+
+model DeliveryIncident {
+  id                   String                 @id @default(uuid())
+  deliveryAssignmentId String
+  deliveryPartnerId    String
+  type                 DeliveryIncidentType
+  status               DeliveryIncidentStatus @default(OPEN)
+  note                 String?
+  photoUrl             String?
+  photoKey             String?
+  resolvedAt           DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  deliveryAssignment   DeliveryAssignment     @relation(fields: [deliveryAssignmentId], references: [id], onDelete: Cascade)
+  deliveryPartner      DeliveryPartner        @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryAssignmentId])
+  @@index([deliveryPartnerId, status, createdAt])
+  @@index([type])
+}
+
+model DeliveryPartnerLedgerEntry {
+  id                String                  @id @default(uuid())
+  deliveryPartnerId String
+  type              DeliveryLedgerEntryType
+  amount            Decimal                 @db.Decimal(12, 2)
+  description       String
+  reference         String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deliveryPartner   DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryPartnerId, createdAt])
+  @@index([type])
 }
 
 model DeliveryStatusHistory {

@@ -21,10 +21,12 @@ export function SectionHeader({
       }}
     >
       <Text
+        numberOfLines={2}
         selectable
         style={{
           color: colors.ink,
           flex: 1,
+          flexShrink: 1,
           fontFamily: fonts.headingBold,
           fontSize: 18
         }}
@@ -47,9 +49,11 @@ export function SectionHeader({
             }}
           >
             <Text
+              numberOfLines={1}
               selectable
               style={{
                 color: colors.primaryDark,
+                flexShrink: 0,
                 fontFamily: fonts.bodySemiBold,
                 fontSize: 11
               }}

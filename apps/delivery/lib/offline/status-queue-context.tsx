@@ -160,6 +160,11 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
       .then(async () => {
         await persistQueue(markStatusUpdateSucceeded(queuedUpdates, next.id));
         await queryClient.invalidateQueries({ queryKey: ["delivery-assignments"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["delivery-assignment", next.assignmentId]
+        });
+        await queryClient.invalidateQueries({ queryKey: ["delivery-dashboard"] });
+        await queryClient.invalidateQueries({ queryKey: ["delivery-cash"] });
       })
       .catch(async (error) => {
         const status = error instanceof ApiError ? error.status : undefined;

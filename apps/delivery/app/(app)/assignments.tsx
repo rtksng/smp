@@ -6,12 +6,18 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions
 } from "react-native";
 import { Switch } from "heroui-native/switch";
 import { router } from "expo-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient
+} from "@tanstack/react-query";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { ActionButton } from "../../components/ActionButton";
 import { Screen } from "../../components/Screen";
@@ -30,12 +36,13 @@ import {
 import { formatCurrency } from "../../lib/api/status";
 import {
   getMyProfile,
+  getDeliveryDashboard,
   listAssignments,
+  listNotifications,
   updateOnlineStatus
 } from "../../lib/api/delivery";
 import {
-  dashboardMetrics,
-  deliveryFilterOptions,
+  deliveryFilterOptionsFromCounts,
   type DeliveryStatusFilter
 } from "../../lib/delivery/dashboard";
 import { useAuth } from "../../lib/auth/auth-context";
@@ -51,6 +58,10 @@ export default function AssignmentsScreen() {
   const { queuedUpdates } = useStatusQueue();
   const [selectedStatus, setSelectedStatus] =
     useState<DeliveryStatusFilter>("ALL");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"NEWEST" | "OLDEST">("NEWEST");
+  const [dateRange, setDateRange] = useState<"ALL" | "TODAY" | "7_DAYS">("ALL");
   const numColumns = width >= 768 ? 2 : 1;
 
   const profileQuery = useQuery({
@@ -58,19 +69,34 @@ export default function AssignmentsScreen() {
     queryFn: () => getMyProfile(accessToken ?? ""),
     queryKey: ["delivery-profile"]
   });
-  const allAssignmentsQuery = useQuery({
+  const dashboardQuery = useQuery({
     enabled: Boolean(accessToken),
-    queryFn: () => listAssignments(accessToken ?? ""),
-    queryKey: ["delivery-assignments", "all"]
+    queryFn: () => getDeliveryDashboard(accessToken ?? ""),
+    queryKey: ["delivery-dashboard"]
   });
-  const assignmentsQuery = useQuery({
+  const assignmentsQuery = useInfiniteQuery({
     enabled: Boolean(accessToken),
-    queryFn: () =>
-      listAssignments(
-        accessToken ?? "",
-        selectedStatus === "ALL" ? undefined : selectedStatus
-      ),
-    queryKey: ["delivery-assignments", selectedStatus]
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const dateFilter = assignmentDateFilter(dateRange);
+
+      return listAssignments(accessToken ?? "", {
+          ...dateFilter,
+          limit: 20,
+          page: pageParam,
+          search: search || undefined,
+          sort,
+          status: selectedStatus === "ALL" ? undefined : selectedStatus
+        });
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.hasNextPage ? lastPage.pagination.page + 1 : undefined,
+    queryKey: ["delivery-assignments", selectedStatus, search, sort, dateRange]
+  });
+  const notificationsQuery = useQuery({
+    enabled: Boolean(accessToken),
+    queryFn: () => listNotifications(accessToken ?? ""),
+    queryKey: ["delivery-notifications"]
   });
   const onlineMutation = useMutation({
     mutationFn: (isOnline: boolean) => updateOnlineStatus(accessToken ?? "", isOnline),
@@ -81,13 +107,33 @@ export default function AssignmentsScreen() {
     }
   });
 
-  const allAssignments = allAssignmentsQuery.data?.items ?? [];
-  const assignments = assignmentsQuery.data?.items ?? [];
-  const metrics = dashboardMetrics(allAssignments);
-  const filterOptions = deliveryFilterOptions(allAssignments);
+  const assignments = assignmentsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const metrics = dashboardQuery.data ?? {
+    activeCount: 0,
+    codToCollect: 0,
+    completedCount: 0,
+    issueCount: 0,
+    statusCounts: {
+      ACCEPTED: 0,
+      ASSIGNED: 0,
+      CANCELLED: 0,
+      DELIVERED: 0,
+      FAILED: 0,
+      OUT_FOR_DELIVERY: 0,
+      PICKED_UP: 0
+    }
+  };
+  const totalAssignments = Object.values(metrics.statusCounts).reduce(
+    (total, count) => total + count,
+    0
+  );
+  const filterOptions = deliveryFilterOptionsFromCounts(
+    metrics.statusCounts,
+    totalAssignments
+  );
   const isRefreshing =
     profileQuery.isFetching ||
-    allAssignmentsQuery.isFetching ||
+    dashboardQuery.isFetching ||
     assignmentsQuery.isFetching;
   const isOffline =
     netInfo.isConnected === false || netInfo.isInternetReachable === false;
@@ -97,13 +143,15 @@ export default function AssignmentsScreen() {
 
   function refresh() {
     void profileQuery.refetch();
-    void allAssignmentsQuery.refetch();
+    void dashboardQuery.refetch();
     void assignmentsQuery.refetch();
+    void notificationsQuery.refetch();
   }
 
   return (
     <Screen scroll={false}>
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         ListEmptyComponent={
           assignmentsQuery.isLoading ? (
             <LoadingCards />
@@ -168,9 +216,57 @@ export default function AssignmentsScreen() {
               </View>
               <View style={styles.headerActions}>
                 <ActionButton
-                  icon="person-circle-outline"
-                  label="Profile"
-                  onPress={() => router.push("/(app)/profile")}
+                  icon="notifications-outline"
+                  label={`Alerts ${notificationsQuery.data?.unreadCount ?? 0}`}
+                  onPress={() => router.push("/(app)/notifications")}
+                  tone="secondary"
+                />
+                <ActionButton
+                  icon="cloud-upload-outline"
+                  label="Sync"
+                  onPress={() => router.push("/(app)/sync")}
+                  tone="secondary"
+                />
+              </View>
+            </SectionCard>
+
+            <SectionCard>
+              <View style={styles.searchRow}>
+                <TextInput
+                  accessibilityLabel="Search deliveries"
+                  autoCorrect={false}
+                  onChangeText={setSearchDraft}
+                  onSubmitEditing={() => setSearch(searchDraft.trim())}
+                  placeholder="Order, customer, business or mobile"
+                  placeholderTextColor="#94A3B8"
+                  returnKeyType="search"
+                  style={styles.searchInput}
+                  value={searchDraft}
+                />
+                <ActionButton
+                  icon="search-outline"
+                  label="Search"
+                  onPress={() => setSearch(searchDraft.trim())}
+                />
+              </View>
+              <View style={styles.searchActions}>
+                {search ? (
+                  <ActionButton
+                    icon="close-outline"
+                    label="Clear search"
+                    onPress={() => {
+                      setSearchDraft("");
+                      setSearch("");
+                    }}
+                    tone="secondary"
+                  />
+                ) : null}
+                <ActionButton
+                  icon="swap-vertical-outline"
+                  label={sort === "NEWEST" ? "Newest first" : "Oldest first"}
+                  onPress={() =>
+                    setSort((value) => value === "NEWEST" ? "OLDEST" : "NEWEST")
+                  }
                   tone="secondary"
                 />
                 <ActionButton
@@ -181,6 +277,26 @@ export default function AssignmentsScreen() {
                   tone="secondary"
                 />
               </View>
+              <View style={styles.dateFilters}>
+                <Text style={styles.dateLabel}>Assigned date</Text>
+                {(["ALL", "TODAY", "7_DAYS"] as const).map((value) => {
+                  const selected = dateRange === value;
+
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      key={value}
+                      onPress={() => setDateRange(value)}
+                      style={[styles.datePill, selected && styles.datePillSelected]}
+                    >
+                      <Text style={selected ? styles.selectedFilterText : styles.filterText}>
+                        {value === "ALL" ? "All dates" : value === "TODAY" ? "Today" : "Last 7 days"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </SectionCard>
 
             <View style={styles.metrics}>
@@ -188,7 +304,7 @@ export default function AssignmentsScreen() {
               <MetricCard
                 label="COD to collect"
                 tone="warning"
-                value={formatCurrency(metrics.codAmount)}
+                value={formatCurrency(metrics.codToCollect)}
               />
               <MetricCard
                 label="Completed"
@@ -232,6 +348,12 @@ export default function AssignmentsScreen() {
         keyExtractor={(item) => item.id}
         key={`assignments-${numColumns}`}
         numColumns={numColumns}
+        onEndReached={() => {
+          if (assignmentsQuery.hasNextPage && !assignmentsQuery.isFetchingNextPage) {
+            void assignmentsQuery.fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.35}
         refreshControl={
           <RefreshControl
             onRefresh={refresh}
@@ -257,9 +379,34 @@ export default function AssignmentsScreen() {
             />
           </View>
         )}
+        ListFooterComponent={
+          assignmentsQuery.isFetchingNextPage ? (
+            <Text style={styles.loadingMore}>Loading more deliveries…</Text>
+          ) : null
+        }
       />
     </Screen>
   );
+}
+
+function assignmentDateFilter(range: "ALL" | "TODAY" | "7_DAYS") {
+  if (range === "ALL") {
+    return {};
+  }
+
+  const now = new Date();
+  const from = new Date(now);
+  const to = new Date(now);
+
+  if (range === "TODAY") {
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+    return { dateFrom: from.toISOString(), dateTo: to.toISOString() };
+  }
+
+  from.setDate(from.getDate() - 6);
+  from.setHours(0, 0, 0, 0);
+  return { dateFrom: from.toISOString() };
 }
 
 const styles = StyleSheet.create({
@@ -335,6 +482,62 @@ const styles = StyleSheet.create({
     color: "#166534",
     fontSize: 13,
     fontWeight: "900"
+  },
+  dateFilters: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  dateLabel: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  datePill: {
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 44,
+    paddingHorizontal: 11,
+    justifyContent: "center"
+  },
+  datePillSelected: {
+    backgroundColor: "#E8F5EC",
+    borderColor: "#287C30"
+  },
+  loadingMore: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "700",
+    paddingVertical: 16,
+    textAlign: "center"
+  },
+  searchActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  searchInput: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: "#0F172A",
+    flex: 1,
+    fontSize: 15,
+    minHeight: 50,
+    minWidth: 190,
+    paddingHorizontal: 12
+  },
+  searchRow: {
+    alignItems: "stretch",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
   },
   statusPanel: {
     alignItems: "center",

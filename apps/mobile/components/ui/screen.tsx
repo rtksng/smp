@@ -1,19 +1,25 @@
 import type { PropsWithChildren } from "react";
 import {
-  ScrollView,
   View,
   useWindowDimensions,
   type ScrollViewProps
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { colors } from "@/lib/theme";
 
 type ScreenProps = PropsWithChildren<
   ScrollViewProps & {
     gap?: number;
+    keyboardBottomOffset?: number;
   }
 >;
 
-export function Screen({ children, gap = 16, ...props }: ScreenProps) {
+export function Screen({
+  children,
+  gap = 16,
+  keyboardBottomOffset = 96,
+  ...props
+}: ScreenProps) {
   const { width } = useWindowDimensions();
   const horizontalPadding = width >= 768 ? 24 : 16;
   const {
@@ -25,8 +31,8 @@ export function Screen({ children, gap = 16, ...props }: ScreenProps) {
   } = props;
 
   return (
-    <ScrollView
-      automaticallyAdjustKeyboardInsets={process.env.EXPO_OS === "ios"}
+    <KeyboardAwareScrollView
+      bottomOffset={keyboardBottomOffset}
       contentContainerStyle={[
         {
           alignSelf: "center",
@@ -50,7 +56,7 @@ export function Screen({ children, gap = 16, ...props }: ScreenProps) {
       {...scrollProps}
     >
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

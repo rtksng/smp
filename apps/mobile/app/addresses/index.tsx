@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Alert, Text, View } from "react-native";
+import { AccountPageHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
 import {
@@ -52,7 +53,8 @@ export default function AddressesScreen() {
 
   if (!isReady || query.isLoading) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Manage delivery and billing addresses for faster checkout." title="Addresses" />
         <LoadingState label="Loading saved addresses" />
       </Screen>
     );
@@ -60,7 +62,8 @@ export default function AddressesScreen() {
 
   if (query.isError) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Manage delivery and billing addresses for faster checkout." title="Addresses" />
         <ErrorState
           message={getErrorMessage(query.error, "Unable to load addresses.")}
           onRetry={() => void query.refetch()}
@@ -70,25 +73,8 @@ export default function AddressesScreen() {
   }
 
   return (
-    <Screen>
-      <View style={{ gap: 5 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.headingBold,
-            fontSize: 24
-          }}
-        >
-          Saved addresses
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.muted, fontFamily: fonts.body, lineHeight: 20 }}
-        >
-          Manage delivery locations for checkout and order records.
-        </Text>
-      </View>
+    <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+      <AccountPageHeader description="Manage delivery and billing addresses for faster checkout." title="Addresses" />
       <Button href="/addresses/form">Add new address</Button>
       {query.data?.length === 0 ? (
         <EmptyState
@@ -169,7 +155,7 @@ function AddressCard({
   onSetDefault: () => void;
 }) {
   return (
-    <View style={{ ...cardStyle, gap: 13, padding: 16 }}>
+    <View style={{ ...cardStyle, borderRadius: 8, gap: 13, padding: 16 }}>
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View
           style={{

@@ -12,7 +12,7 @@ export function getWishlist() {
 
 export function addWishlistItem(productId: string) {
   return requestCustomerApi("/wishlist", productListSchema, {
-    body: JSON.stringify(wishlistItemInputSchema.parse({ productId })),
+    body: wishlistItemInputSchema.parse({ productId }),
     method: "POST"
   });
 }

@@ -42,7 +42,7 @@ function assignment(
     payment: {
       cashCollectedAmount: null,
       cashCollectedAt: null,
-      cashSettlementStatus: "PENDING",
+      cashSettlementStatus: "COLLECTED",
       codAmount: status === "DELIVERED" ? 0 : 1225,
       method: status === "DELIVERED" ? "ONLINE" : "COD",
       status: "PENDING"

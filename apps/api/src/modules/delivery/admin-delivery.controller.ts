@@ -2,6 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -29,8 +32,10 @@ import { DeliveryService } from "./delivery.service";
 import {
   AdminDeliveryAssignmentListQueryDto,
   AssignDeliveryDto,
+  DeliveryIncidentResponseDto,
   DeliveryAssignmentListResponseDto,
-  DeliveryAssignmentResponseDto
+  DeliveryAssignmentResponseDto,
+  UpdateCashSettlementDto
 } from "./dto/delivery.dto";
 
 @ApiBearerAuth()
@@ -72,6 +77,39 @@ export class AdminDeliveryController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.deliveryService.assignOrder(body, getAdminActionContext(request));
+  }
+
+  @Patch("assignments/:id/cash-settlement")
+  @RequirePermission(PermissionCode.DeliveryAssign)
+  @ApiOperation({ summary: "Submit or settle collected COD cash." })
+  @ApiOkResponse({
+    description: "Cash settlement status updated.",
+    type: DeliveryAssignmentResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Cash settlement transition is invalid." })
+  @ApiNotFoundResponse({ description: "Delivery assignment was not found." })
+  updateCashSettlement(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: UpdateCashSettlementDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.updateCashSettlement(
+      id,
+      body,
+      getAdminActionContext(request)
+    );
+  }
+
+  @Patch("incidents/:id/resolve")
+  @RequirePermission(PermissionCode.DeliveryAssign)
+  @ApiOperation({ summary: "Resolve a delivery partner incident." })
+  @ApiOkResponse({ type: DeliveryIncidentResponseDto })
+  @ApiNotFoundResponse({ description: "Delivery incident was not found." })
+  resolveIncident(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.resolveIncident(id, getAdminActionContext(request));
   }
 }
 

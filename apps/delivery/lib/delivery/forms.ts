@@ -170,8 +170,14 @@ export function validateDeliveryStatusForm(input: {
     }
   }
 
-  if (input.status === "FAILED" && !values.failureReason) {
-    errors.failureReason = "Enter a failure reason.";
+  if (
+    (input.status === "FAILED" || input.status === "CANCELLED") &&
+    !values.failureReason
+  ) {
+    errors.failureReason =
+      input.status === "CANCELLED"
+        ? "Enter a cancellation reason."
+        : "Enter a failure reason.";
   }
 
   return {

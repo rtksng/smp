@@ -7,6 +7,12 @@ export type DeliveryStatus =
   | "FAILED"
   | "CANCELLED";
 
+export type CashSettlementStatus =
+  | "NOT_REQUIRED"
+  | "COLLECTED"
+  | "SUBMITTED"
+  | "SETTLED";
+
 export type DeliveryAssignment = {
   id: string;
   orderId: string;
@@ -48,7 +54,7 @@ export type DeliveryAssignment = {
     codAmount: number;
     cashCollectedAmount: number | null;
     cashCollectedAt?: string | null;
-    cashSettlementStatus: string;
+    cashSettlementStatus: CashSettlementStatus;
   };
   totals: {
     subtotal: number;
@@ -110,6 +116,7 @@ export type DeliveryPartnerProfile = {
   email: string | null;
   vehicleNumber: string | null;
   status: "PENDING_VERIFICATION" | "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  statusReason: string | null;
   isOnline: boolean;
   lastSeenAt: string | null;
   lastKnownLocation: {
@@ -122,6 +129,100 @@ export type DeliveryPartnerProfile = {
     currency: "INR";
     totalEarnings: number;
   };
+  documents: DeliveryPartnerDocument[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DeliveryPartnerDocument = {
+  id: string;
+  type: string;
+  title: string;
+  fileUrl: string;
+  fileKey: string;
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
+export type DeliveryAssignmentListParams = {
+  page?: number;
+  limit?: number;
+  status?: DeliveryStatus;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: "NEWEST" | "OLDEST";
+};
+
+export type DeliveryDashboard = {
+  activeCount: number;
+  completedCount: number;
+  issueCount: number;
+  codToCollect: number;
+  statusCounts: Record<DeliveryStatus, number>;
+};
+
+export type DeliveryCashSummary = {
+  cashInHand: number;
+  submittedAmount: number;
+  settledAmount: number;
+  pendingCount: number;
+  wallet: DeliveryPartnerProfile["wallet"];
+  items: Array<{
+    assignmentId: string;
+    orderNumber: string;
+    amount: number;
+    settlementStatus: CashSettlementStatus;
+    collectedAt: string | null;
+  }>;
+  ledgerEntries: Array<{
+    id: string;
+    type: "DELIVERY_EARNING" | "PAYOUT";
+    amount: number;
+    description: string;
+    reference: string | null;
+    createdAt: string;
+  }>;
+};
+
+export type DeliveryNotification = {
+  id: string;
+  title: string;
+  body: string;
+  assignmentId: string | null;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
+export type DeliveryIncidentType =
+  | "CUSTOMER_UNREACHABLE"
+  | "INCORRECT_ADDRESS"
+  | "PACKAGE_DAMAGED"
+  | "PACKAGE_MISSING"
+  | "VEHICLE_BREAKDOWN"
+  | "PAYMENT_DISPUTE"
+  | "OTHER";
+
+export type DeliveryIncident = {
+  id: string;
+  deliveryAssignmentId: string;
+  type: DeliveryIncidentType;
+  status: "OPEN" | "RESOLVED";
+  note: string | null;
+  photoUrl: string | null;
+  createdAt: string;
+};
+
+export type DeliveryApplication = {
+  id: string;
+  fullName: string;
+  mobileNumber: string;
+  email: string | null;
+  vehicleNumber: string | null;
+  status: "PENDING_VERIFICATION" | "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  statusReason?: string | null;
+  updatedAt?: string;
 };
 
 export type DeliverySession = {

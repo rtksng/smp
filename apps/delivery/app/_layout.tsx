@@ -60,6 +60,10 @@ export default function RootLayout() {
                       headerShown: false
                     }}
                   />
+                  <Stack.Screen
+                    name="application-status"
+                    options={{ title: "Application status" }}
+                  />
                   <Stack.Screen name="(app)" options={{ headerShown: false }} />
                 </Stack>
               </StatusQueueProvider>

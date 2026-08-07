@@ -49,6 +49,7 @@ export interface SendOtpJobData {
 }
 
 export const NOTIFICATION_JOB_NAMES = {
+  sendDeliveryAssignment: "send-delivery-assignment",
   sendOrderConfirmation: "send-order-confirmation"
 } as const;
 
@@ -93,6 +94,16 @@ export interface ProcessPaymentWebhookJobData {
   signature: string;
   version: 1;
   webhookId: string;
+}
+
+export interface SendDeliveryAssignmentNotificationJobData {
+  assignmentId: string | null;
+  body: string;
+  deliveryPartnerId: string;
+  notificationId: string;
+  requestedAt: string;
+  title: string;
+  version: 1;
 }
 
 export const LOW_STOCK_ALERT_JOB_NAMES = {

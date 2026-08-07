@@ -26,8 +26,8 @@ export function StoreHeader() {
         backgroundColor: "rgba(255,255,255,0.98)",
         borderBottomColor: colors.border,
         borderBottomWidth: 1,
-        gap: 10,
-        paddingBottom: 10,
+        gap: 12,
+        paddingBottom: 8,
         paddingHorizontal: 16,
         paddingTop: insets.top + 8
       }}
@@ -48,7 +48,7 @@ export function StoreHeader() {
               flex: 1,
               flexDirection: "row",
               gap: 8,
-              minHeight: 44
+              minHeight: 32
             }}
           >
             <View
@@ -153,7 +153,7 @@ export function StoreHeader() {
             <MaterialCommunityIcons color={colors.text} name="magnify" size={20} />
           </Pressable>
         </View>
-        <Link asChild href="/account">
+        <Link asChild href={session ? "/account" : "/login?returnTo=/account"}>
           <Pressable
             accessibilityLabel={session ? "Open account" : "Login or signup"}
             style={{

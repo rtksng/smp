@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
@@ -43,6 +51,13 @@ export class DeliveryPartnerAuthController {
   @ApiBadRequestResponse({ description: "Delivery partner is already registered." })
   register(@Body() dto: DeliveryPartnerRegisterDto) {
     return this.deliveryPartnerAuthService.registerPartner(dto);
+  }
+
+  @Get("applications/:id")
+  @ApiOperation({ summary: "Get a delivery partner application status." })
+  @ApiOkResponse({ description: "Delivery partner application status returned." })
+  getApplicationStatus(@Param("id", ParseUUIDPipe) id: string) {
+    return this.deliveryPartnerAuthService.getApplicationStatus(id);
   }
 
   @Post("verify-otp")

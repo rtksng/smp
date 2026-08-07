@@ -51,7 +51,7 @@ export function createProductReview(
     `/products/${encodeURIComponent(slug)}/feedback/reviews`,
     productFeedbackSchema,
     {
-      body: JSON.stringify(createReviewInputSchema.parse(input)),
+      body: createReviewInputSchema.parse(input),
       method: "POST"
     }
   );
@@ -65,7 +65,7 @@ export function createProductQuestion(
     `/products/${encodeURIComponent(slug)}/feedback/questions`,
     productFeedbackSchema,
     {
-      body: JSON.stringify(createQuestionInputSchema.parse(input)),
+      body: createQuestionInputSchema.parse(input),
       method: "POST"
     }
   );

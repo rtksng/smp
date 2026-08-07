@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { Image } from "expo-image";
+import { router, type Href } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
+import { TextField } from "@/components/ui/text-field";
 import {
   EmptyState,
   ErrorState,
   LoadingState
 } from "@/components/ui/state-view";
 import { getCart } from "@/lib/api/cart";
-import { listAddresses } from "@/lib/api/customer";
+import { createAddress, listAddresses, updateAddress } from "@/lib/api/customer";
 import { validateCoupon, type CouponValidation } from "@/lib/api/coupons";
 import { createOrder } from "@/lib/api/orders";
 import {
@@ -20,11 +22,11 @@ import {
   getPaymentGatewayStatus,
   verifyRazorpayPayment
 } from "@/lib/api/payments";
-import type { Address, PaymentMethod } from "@/lib/api/schemas";
+import { addressInputSchema, type Address, type AddressInput, type AddressType, type CartItem, type PaymentMethod } from "@/lib/api/schemas";
 import { useAuth } from "@/lib/auth/auth-context";
 import { buildCheckoutIdempotencyKey } from "@/lib/commerce/checkout";
 import { getErrorMessage } from "@/lib/errors";
-import { formatRupees } from "@/lib/format";
+import { formatRupees, formatStatus } from "@/lib/format";
 import {
   normalizeRazorpayContact,
   openRazorpayCheckout
@@ -36,6 +38,7 @@ export default function CheckoutScreen() {
   const { isReady, session } = useAuth();
   const queryClient = useQueryClient();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState<Address | "new" | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null);
@@ -130,7 +133,9 @@ export default function CheckoutScreen() {
     );
   }
 
-  const hasBlockingStockIssue = cart.items.some((item) => !item.isAvailable);
+  const hasBlockingStockIssue = cart.items.some(
+    (item) => !item.isAvailable || item.quantity > item.availableQuantity
+  );
   const selectedAddress = addressesQuery.data?.find(
     (address) => address.id === selectedAddressId
   );
@@ -222,13 +227,10 @@ export default function CheckoutScreen() {
 
       if (paymentMethod === "ONLINE" && orderId) {
         await invalidateCheckoutQueries();
-        router.replace({
-          pathname: "/orders/[id]",
-          params: {
-            id: orderId,
-            paymentError: getErrorMessage(error, "Payment was not completed.")
-          }
-        });
+        const reason = getErrorMessage(error, "Payment was not completed.");
+        router.replace(
+          `/payment-failed?orderId=${encodeURIComponent(orderId)}&reason=${encodeURIComponent(reason)}` as Href
+        );
         return;
       }
 
@@ -247,7 +249,7 @@ export default function CheckoutScreen() {
 
   return (
     <Screen>
-      <View style={{ ...cardStyle, gap: 10, padding: 18 }}>
+      <View style={{ ...cardStyle, borderRadius: 8, gap: 10, padding: 18 }}>
         <Text
           selectable
           style={{
@@ -305,65 +307,23 @@ export default function CheckoutScreen() {
 
       <CheckoutSection
         icon="shopping-outline"
-        subtitle={`${cart.totalQuantity} units in ${cart.itemCount} line items`}
-        title="1. Review cart"
+        subtitle={`${cart.itemCount} product${cart.itemCount === 1 ? "" : "s"} / ${cart.totalQuantity} unit${cart.totalQuantity === 1 ? "" : "s"}`}
+        title="Cart review"
       >
         {cart.items.map((item) => (
-          <View
-            key={item.id}
-            style={{
-              backgroundColor: colors.surfaceMuted,
-              borderColor: colors.border,
-              borderRadius: 10,
-              borderWidth: 1,
-              gap: 3,
-              padding: 11
-            }}
-          >
-            <Text
-              selectable
-              style={{
-                color: colors.text,
-                fontFamily: fonts.bodySemiBold,
-                fontSize: 13
-              }}
-            >
-              {item.name}
-            </Text>
-            <Text
-              selectable
-              style={{
-                color: colors.muted,
-                fontFamily: fonts.body,
-                fontSize: 11
-              }}
-            >
-              Qty {item.quantity} · {formatRupees(item.total)}
-            </Text>
-            {!item.isAvailable ? (
-              <Text
-                accessibilityRole="alert"
-                selectable
-                style={{
-                  color: colors.danger,
-                  fontFamily: fonts.bodySemiBold,
-                  fontSize: 11
-                }}
-              >
-                Currently unavailable
-              </Text>
-            ) : null}
-          </View>
+          <CheckoutCartItem item={item} key={item.id} />
         ))}
-        <Button href="/cart" variant="outline">
-          Edit cart
-        </Button>
+        <View style={{ borderTopColor: colors.border, borderTopWidth: 1, gap: 10, paddingTop: 14 }}>
+          <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>Need to change quantities or remove items?</Text>
+          <Button href="/cart" variant="outline">Back to cart</Button>
+        </View>
       </CheckoutSection>
 
       <CheckoutSection
+        action={<Button onPress={() => setAddressForm("new")} variant="outline">Add address</Button>}
         icon="map-marker-outline"
-        subtitle="Choose where this order should be delivered"
-        title="2. Delivery address"
+        subtitle="Choose a saved address or add a new one."
+        title="Delivery address"
       >
         {addressesQuery.data?.length ? (
           addressesQuery.data.map((address) => (
@@ -371,6 +331,7 @@ export default function CheckoutScreen() {
               address={address}
               checked={address.id === selectedAddressId}
               key={address.id}
+              onEdit={() => setAddressForm(address)}
               onPress={() => setSelectedAddressId(address.id)}
             />
           ))
@@ -386,15 +347,24 @@ export default function CheckoutScreen() {
             Add a delivery address before placing your order.
           </Text>
         )}
-        <Button href="/addresses/form" variant="outline">
-          Add new address
-        </Button>
       </CheckoutSection>
+
+      {addressForm ? (
+        <CheckoutAddressForm
+          address={addressForm === "new" ? null : addressForm}
+          key={addressForm === "new" ? "new" : addressForm.id}
+          onCancel={() => setAddressForm(null)}
+          onSaved={(address) => {
+            setSelectedAddressId(address.id);
+            setAddressForm(null);
+          }}
+        />
+      ) : null}
 
       <CheckoutSection
         icon="credit-card-outline"
         subtitle="Choose a supported payment method"
-        title="3. Payment"
+        title="Payment method"
       >
         <PaymentChoice
           active={paymentMethod === "COD"}
@@ -417,100 +387,37 @@ export default function CheckoutScreen() {
         />
       </CheckoutSection>
 
-      <CheckoutSection
-        icon="ticket-percent-outline"
-        subtitle="Apply an eligible promo code"
-        title="4. Coupon"
-      >
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <TextInput
-            accessibilityLabel="Promo code"
-            autoCapitalize="characters"
-            autoComplete="off"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            onChangeText={(value) => {
-              setCouponCode(value);
-              couponMutation.reset();
-            }}
-            placeholder="Promo code"
-            placeholderTextColor={colors.muted}
-            returnKeyType="done"
-            onSubmitEditing={() => {
-              if (couponCode.trim() && !couponMutation.isPending) {
-                couponMutation.mutate(couponCode);
-              }
-            }}
-            style={{
-              backgroundColor: colors.surface,
-              borderColor: "#A9DDAE",
-              borderRadius: 999,
-              borderWidth: 1,
-              color: colors.text,
-              flex: 1,
-              fontFamily: fonts.bodySemiBold,
-              minHeight: 48,
-              paddingHorizontal: 16
-            }}
-            value={couponCode}
-          />
-          <Button
-            disabled={!couponCode.trim()}
-            loading={couponMutation.isPending}
-            onPress={() => couponMutation.mutate(couponCode)}
-            variant="outline"
-          >
-            Apply
-          </Button>
+      <View style={{ ...cardStyle, borderRadius: 8, gap: 16, padding: 16 }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 12 }}>
+          <View style={{ alignItems: "center", backgroundColor: colors.background, borderRadius: 8, height: 40, justifyContent: "center", width: 40 }}><MaterialCommunityIcons color={colors.primaryDark} name="shield-check-outline" size={20} /></View>
+          <View style={{ flex: 1, gap: 3 }}><Text style={{ color: colors.text, fontFamily: fonts.heading, fontSize: 18 }}>Order summary</Text><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>{cart.totalQuantity} unit{cart.totalQuantity === 1 ? "" : "s"} ready for confirmation.</Text></View>
         </View>
-        {appliedCoupon ? (
-          <Text
-            selectable
-            style={{
-              backgroundColor: colors.primarySoft,
-              borderRadius: 10,
-              color: colors.primaryDark,
-              fontFamily: fonts.bodySemiBold,
-              padding: 12
-            }}
-          >
-            {appliedCoupon.message}
-          </Text>
-        ) : null}
-        {couponMutation.error ? (
-          <Text
-            accessibilityRole="alert"
-            selectable
-            style={{
-              backgroundColor: colors.dangerBackground,
-              borderRadius: 10,
-              color: colors.danger,
-              fontFamily: fonts.bodySemiBold,
-              padding: 12
-            }}
-          >
-            {getErrorMessage(couponMutation.error, "Unable to apply promo code.")}
-          </Text>
-        ) : null}
-      </CheckoutSection>
 
-      <View style={{ ...cardStyle, gap: 11, padding: 18 }}>
-        <Text
-          selectable
-          style={{ color: colors.ink, fontFamily: fonts.heading, fontSize: 18 }}
-        >
-          Order summary
-        </Text>
-        <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
-        <SummaryRow label="Tax" value={cart.totals.tax} />
-        <SummaryRow label="Delivery" value={cart.totals.deliveryCharge} />
-        <SummaryRow
-          label="Discount"
-          value={-(appliedCoupon?.discount ?? cart.totals.discount)}
-        />
-        <View style={{ borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 11 }}>
-          <SummaryRow label="Amount payable" strong value={payableTotal} />
+        <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 8, padding: 16 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}><MaterialCommunityIcons color={colors.primaryDark} name="truck-outline" size={16} /><Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Delivery</Text></View>
+          <Text style={{ color: selectedAddress ? colors.muted : colors.danger, fontFamily: fonts.bodySemiBold, fontSize: 13, lineHeight: 21 }}>{selectedAddress ? `${selectedAddress.fullName}, ${[selectedAddress.addressLine1, selectedAddress.addressLine2, selectedAddress.city, selectedAddress.state, selectedAddress.pincode].filter(Boolean).join(", ")}` : "Select a delivery address."}</Text>
         </View>
+
+        <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}><MaterialCommunityIcons color={colors.primaryDark} name="ticket-percent-outline" size={16} /><Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Promo code</Text></View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput accessibilityLabel="Promo code" autoCapitalize="characters" autoCorrect={false} editable={!appliedCoupon} onChangeText={(value) => { setCouponCode(value); couponMutation.reset(); }} placeholder="Enter code" placeholderTextColor={colors.muted} style={{ backgroundColor: colors.surface, borderColor: "#A9DDAE", borderRadius: 999, borderWidth: 1, color: colors.text, flex: 1, fontFamily: fonts.bodySemiBold, minHeight: 48, paddingHorizontal: 16 }} value={couponCode} />
+            <Button disabled={!appliedCoupon && !couponCode.trim()} loading={!appliedCoupon && couponMutation.isPending} onPress={() => { if (appliedCoupon) { setAppliedCoupon(null); setCouponCode(""); couponMutation.reset(); } else { couponMutation.mutate(couponCode); } }} variant="outline">{appliedCoupon ? "Remove" : "Apply"}</Button>
+          </View>
+          {appliedCoupon ? <Text style={{ backgroundColor: colors.primarySoft, borderRadius: 8, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 10 }}>{appliedCoupon.message}</Text> : null}
+          {couponMutation.error ? <Text accessibilityRole="alert" style={{ backgroundColor: colors.dangerBackground, borderRadius: 8, color: "#7A271A", fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 10 }}>{getErrorMessage(couponMutation.error, "Unable to apply promo code.")}</Text> : null}
+        </View>
+
+        <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+          <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>Price details</Text>
+          <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
+          <SummaryRow label="Discount" value={-(appliedCoupon?.discount ?? cart.totals.discount)} />
+          <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
+          <SummaryRow label="Tax/GST" value={cart.totals.tax} />
+          <View style={{ borderTopColor: colors.border, borderTopWidth: 1, paddingTop: 12 }}><SummaryRow label="Total payable" strong value={payableTotal} /></View>
+        </View>
+        <Text style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 12 }}>Payment: <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold }}>{paymentMethod === "COD" ? "Cash on delivery" : "Online payment"}</Text></Text>
+        {hasBlockingStockIssue ? <Text accessibilityRole="alert" style={{ backgroundColor: colors.dangerBackground, borderColor: "#F4C7C3", borderRadius: 8, borderWidth: 1, color: "#7A271A", fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 12 }}>Some cart quantities are no longer available. Update your cart before checkout.</Text> : null}
         {submitError ? (
           <Text
             accessibilityRole="alert"
@@ -534,23 +441,144 @@ export default function CheckoutScreen() {
         >
           {paymentMethod === "ONLINE" ? "Place order and pay" : "Place COD order"}
         </Button>
+        <Button href="/cart" variant="outline">Back to cart</Button>
       </View>
     </Screen>
   );
 }
 
+function CheckoutCartItem({ item }: { item: CartItem }) {
+  return (
+    <View
+      style={{
+        backgroundColor: colors.surfaceMuted,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        gap: 12,
+        padding: 12
+      }}
+    >
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, height: 72, overflow: "hidden", width: 72 }}>
+          {item.imageUrl ? (
+            <Image accessibilityLabel={item.name} contentFit="cover" source={{ uri: item.imageUrl }} style={{ height: "100%", width: "100%" }} />
+          ) : (
+            <View style={{ alignItems: "center", flex: 1, justifyContent: "center" }}><MaterialCommunityIcons color={colors.primaryDark} name="medical-bag" size={28} /></View>
+          )}
+        </View>
+        <View style={{ flex: 1, gap: 5 }}>
+          <Text numberOfLines={2} selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14, lineHeight: 20 }}>{item.name}</Text>
+          <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>SKU {item.sku}{item.variantName ? ` | ${item.variantName}` : ""} | Qty {item.quantity} | {item.taxRate}% GST</Text>
+          {!item.isAvailable || item.quantity > item.availableQuantity ? <Text accessibilityRole="alert" selectable style={{ backgroundColor: colors.dangerBackground, borderColor: "#F4C7C3", borderRadius: 8, borderWidth: 1, color: "#7A271A", fontFamily: fonts.bodySemiBold, fontSize: 12, padding: 8 }}>Only {item.availableQuantity} currently available.</Text> : null}
+        </View>
+      </View>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <CheckoutMetric label="Unit" value={formatRupees(item.unitPrice)} />
+        <CheckoutMetric label="Tax" value={formatRupees(item.tax)} />
+        <CheckoutMetric label="Total" value={formatRupees(item.total)} />
+      </View>
+    </View>
+  );
+}
+
+function CheckoutMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, flex: 1, gap: 2, paddingHorizontal: 10, paddingVertical: 8 }}>
+      <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 10, textTransform: "uppercase" }}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{value}</Text>
+    </View>
+  );
+}
+
+const checkoutAddressTypes: AddressType[] = ["CLINIC", "HOSPITAL", "WORK", "HOME", "OTHER"];
+
+function CheckoutAddressForm({ address, onCancel, onSaved }: { address: Address | null; onCancel: () => void; onSaved: (address: Address) => void }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<AddressInput>({
+    addressLine1: address?.addressLine1 ?? "",
+    addressLine2: address?.addressLine2 ?? null,
+    city: address?.city ?? "",
+    fullName: address?.fullName ?? "",
+    landmark: address?.landmark ?? null,
+    phone: address?.phone ?? "+91",
+    pincode: address?.pincode ?? "",
+    state: address?.state ?? "",
+    type: address?.type ?? "CLINIC"
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const mutation = useMutation({
+    mutationFn: (input: AddressInput) => address ? updateAddress(address.id, input) : createAddress(input),
+    onSuccess: async (savedAddress) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.addresses });
+      onSaved(savedAddress);
+    }
+  });
+
+  function updateField<Field extends keyof AddressInput>(field: Field, value: AddressInput[Field]) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: "" }));
+  }
+
+  function submit() {
+    const parsed = addressInputSchema.safeParse({ ...form, addressLine2: form.addressLine2?.trim() || null, landmark: form.landmark?.trim() || null });
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) errors[String(issue.path[0] ?? "form")] ??= issue.message;
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+    mutation.mutate(parsed.data);
+  }
+
+  return (
+    <View style={{ ...cardStyle, borderRadius: 8, gap: 16, padding: 16 }}>
+      <View style={{ gap: 4 }}>
+        <Text style={{ color: colors.text, fontFamily: fonts.heading, fontSize: 16 }}>{address ? "Edit delivery address" : "Add delivery address"}</Text>
+        <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 13, lineHeight: 20 }}>Use an address that can receive medical equipment deliveries.</Text>
+      </View>
+      <TextField error={fieldErrors.fullName} label="Full name" onChangeText={(value) => updateField("fullName", value)} value={form.fullName} />
+      <TextField error={fieldErrors.phone} keyboardType="phone-pad" label="Mobile number" onChangeText={(value) => updateField("phone", value)} value={form.phone} />
+      <View style={{ gap: 8 }}>
+        <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>Address type</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {checkoutAddressTypes.map((type) => (
+            <Pressable key={type} onPress={() => updateField("type", type)} style={{ backgroundColor: form.type === type ? colors.primaryDark : colors.surface, borderColor: colors.primaryDark, borderRadius: 999, borderWidth: 1, justifyContent: "center", minHeight: 38, paddingHorizontal: 13 }}>
+              <Text style={{ color: form.type === type ? colors.surface : colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatStatus(type)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <TextField error={fieldErrors.addressLine1} label="Address line 1" multiline onChangeText={(value) => updateField("addressLine1", value)} style={{ borderRadius: 8, minHeight: 76, paddingTop: 13, textAlignVertical: "top" }} value={form.addressLine1} />
+      <TextField label="Address line 2 (optional)" onChangeText={(value) => updateField("addressLine2", value)} value={form.addressLine2 ?? ""} />
+      <TextField label="Landmark (optional)" onChangeText={(value) => updateField("landmark", value)} value={form.landmark ?? ""} />
+      <TextField error={fieldErrors.city} label="City" onChangeText={(value) => updateField("city", value)} value={form.city} />
+      <TextField error={fieldErrors.state} label="State" onChangeText={(value) => updateField("state", value)} value={form.state} />
+      <TextField error={fieldErrors.pincode} keyboardType="number-pad" label="Pincode" maxLength={6} onChangeText={(value) => updateField("pincode", value)} value={form.pincode} />
+      {mutation.isError ? <Text accessibilityRole="alert" style={{ backgroundColor: colors.dangerBackground, borderRadius: 8, color: colors.danger, fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 12 }}>{getErrorMessage(mutation.error, "Unable to save address.")}</Text> : null}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <Button loading={mutation.isPending} onPress={submit}>{address ? "Update address" : "Save address"}</Button>
+        <Button disabled={mutation.isPending} onPress={onCancel} variant="outline">Cancel</Button>
+      </View>
+    </View>
+  );
+}
+
 function CheckoutSection({
+  action,
   children,
   icon,
   subtitle,
   title
 }: PropsWithChildren<{
+  action?: ReactNode;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   subtitle: string;
   title: string;
 }>) {
   return (
-    <View style={{ ...cardStyle, gap: 13, padding: 16 }}>
+    <View style={{ ...cardStyle, borderRadius: 8, gap: 13, padding: 16 }}>
       <View style={{ alignItems: "center", flexDirection: "row", gap: 10 }}>
         <View
           style={{
@@ -582,6 +610,7 @@ function CheckoutSection({
             {subtitle}
           </Text>
         </View>
+        {action}
       </View>
       {children}
     </View>
@@ -591,10 +620,12 @@ function CheckoutSection({
 function AddressChoice({
   address,
   checked,
+  onEdit,
   onPress
 }: {
   address: Address;
   checked: boolean;
+  onEdit: () => void;
   onPress: () => void;
 }) {
   return (
@@ -636,6 +667,26 @@ function AddressChoice({
           {address.addressLine1}, {address.city}, {address.state} {address.pincode}
         </Text>
       </View>
+      <Pressable
+        accessibilityLabel={`Edit ${address.fullName} address`}
+        accessibilityRole="button"
+        onPress={(event) => {
+          event.stopPropagation();
+          onEdit();
+        }}
+        style={({ pressed }) => ({
+          alignItems: "center",
+          borderColor: colors.border,
+          borderRadius: 8,
+          borderWidth: 1,
+          height: 34,
+          justifyContent: "center",
+          opacity: pressed ? 0.72 : 1,
+          width: 34
+        })}
+      >
+        <MaterialCommunityIcons color={colors.primaryDark} name="pencil-outline" size={16} />
+      </Pressable>
     </Pressable>
   );
 }

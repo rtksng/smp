@@ -130,4 +130,23 @@ describe("delivery form validation", () => {
       isValid: false
     });
   });
+
+  test("requires a reason before cancelling an assignment", () => {
+    expect(
+      validateDeliveryStatusForm({
+        cashCollectedAmount: "",
+        expectedCodAmount: 0,
+        failureReason: " ",
+        isCod: false,
+        proofSelected: false,
+        receiverName: "",
+        status: "CANCELLED"
+      })
+    ).toMatchObject({
+      errors: {
+        failureReason: "Enter a cancellation reason."
+      },
+      isValid: false
+    });
+  });
 });

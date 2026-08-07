@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   View
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNetInfo } from "@react-native-community/netinfo";
 import { ActionButton } from "../../../components/ActionButton";
@@ -37,7 +37,7 @@ import type {
   StatusUpdateInput
 } from "../../../lib/api/types";
 import {
-  listAssignments,
+  getAssignment,
   updateAssignmentStatus,
   updateLocation,
   uploadDeliveryProof
@@ -85,27 +85,30 @@ export default function AssignmentDetailScreen() {
   );
   const cashRef = useRef<TextInput>(null);
   const noteRef = useRef<TextInput>(null);
-  const assignmentsQuery = useQuery({
-    enabled: Boolean(accessToken),
-    queryFn: () => listAssignments(accessToken ?? ""),
-    queryKey: ["delivery-assignments", "all"]
+  const assignmentQuery = useQuery({
+    enabled: Boolean(accessToken && id),
+    queryFn: () => getAssignment(accessToken ?? "", id),
+    queryKey: ["delivery-assignment", id]
   });
-  const assignment = useMemo(
-    () => assignmentsQuery.data?.items.find((item) => item.id === id) ?? null,
-    [assignmentsQuery.data?.items, id]
-  );
+  const assignment = assignmentQuery.data ?? null;
   const statusMutation = useMutation({
     mutationFn: (input: { assignmentId: string; payload: StatusUpdateInput }) =>
       updateAssignmentStatus(accessToken ?? "", input.assignmentId, input.payload),
-    onSuccess: async () => {
+    onSuccess: async (updatedAssignment) => {
       await successHaptic();
       feedback.success("Delivery status updated.");
       resetStatusForm();
+      queryClient.setQueryData(
+        ["delivery-assignment", updatedAssignment.id],
+        updatedAssignment
+      );
       await queryClient.invalidateQueries({ queryKey: ["delivery-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["delivery-dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["delivery-cash"] });
     }
   });
 
-  if (assignmentsQuery.isLoading) {
+  if (assignmentQuery.isLoading) {
     return (
       <Screen>
         <EmptyState icon="cube-outline" title="Loading delivery" />
@@ -119,7 +122,7 @@ export default function AssignmentDetailScreen() {
         <EmptyState
           icon="warning-outline"
           message={
-            assignmentsQuery.isError ? errorMessage(assignmentsQuery.error) : undefined
+            assignmentQuery.isError ? errorMessage(assignmentQuery.error) : undefined
           }
           title="Delivery not found"
         />
@@ -131,6 +134,7 @@ export default function AssignmentDetailScreen() {
   const transitions = nextStatuses(assignment.status);
   const canDeliver = transitions.includes("DELIVERED");
   const canFail = transitions.includes("FAILED");
+  const canCancel = transitions.includes("CANCELLED");
   const isOffline =
     netInfo.isConnected === false || netInfo.isInternetReachable === false;
   const queuedForAssignment = queuedUpdates.find(
@@ -375,6 +379,42 @@ export default function AssignmentDetailScreen() {
               .filter(Boolean)
               .join(", ")}
           />
+          <View style={styles.buttonRow}>
+            <ActionButton
+              icon="navigate-outline"
+              label="Warehouse maps"
+              onPress={() => {
+                const warehouse = assignment.pickupWarehouse;
+
+                if (!warehouse) {
+                  return;
+                }
+
+                void openMapsDestination({
+                  latitude: warehouse.latitude,
+                  longitude: warehouse.longitude,
+                  query: [warehouse.address, warehouse.city, warehouse.state, warehouse.pincode]
+                    .filter(Boolean)
+                    .join(", ")
+                }).catch((error) => feedback.error(errorMessage(error)));
+              }}
+              tone="secondary"
+            />
+            <ActionButton
+              icon="call-outline"
+              label="Call warehouse"
+              onPress={() => {
+                const phone = assignment.pickupWarehouse?.contactNumber;
+
+                if (phone) {
+                  void openPhoneNumber(phone).catch((error) =>
+                    feedback.error(errorMessage(error))
+                  );
+                }
+              }}
+              tone="secondary"
+            />
+          </View>
         </SectionCard>
       ) : null}
 
@@ -390,7 +430,27 @@ export default function AssignmentDetailScreen() {
         <Info label="Subtotal" value={formatCurrency(assignment.totals.subtotal)} />
         <Info label="Tax" value={formatCurrency(assignment.totals.taxTotal)} />
         <Info label="Grand total" value={formatCurrency(assignment.totals.grandTotal)} />
+        {isCod ? (
+          <Info
+            label="Settlement"
+            value={assignment.payment.cashSettlementStatus
+              .toLowerCase()
+              .replaceAll("_", " ")}
+          />
+        ) : null}
       </SectionCard>
+
+      <ActionButton
+        icon="warning-outline"
+        label="Report delivery incident"
+        onPress={() =>
+          router.push({
+            params: { assignmentId: assignment.id },
+            pathname: "/(app)/support"
+          })
+        }
+        tone="secondary"
+      />
 
       <SectionCard title="Items">
         {assignment.items.map((item) => (
@@ -412,7 +472,7 @@ export default function AssignmentDetailScreen() {
         </SectionCard>
       ) : null}
 
-      {canDeliver || canFail ? (
+      {canDeliver || canFail || canCancel ? (
         <SectionCard title="Update delivery">
           {canDeliver ? (
             <>
@@ -502,10 +562,10 @@ export default function AssignmentDetailScreen() {
             </>
           ) : null}
 
-          {canFail ? (
+          {canFail || canCancel ? (
             <FormField
               error={formErrors.failureReason}
-              label="Failure reason"
+              label={canCancel ? "Cancellation reason" : "Failure reason"}
               multiline
               onChangeText={setFailureReason}
               returnKeyType="next"

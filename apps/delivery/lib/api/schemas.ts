@@ -2,6 +2,10 @@ import { z } from "zod";
 import type {
   DeliveryAssignment,
   DeliveryAssignmentList,
+  DeliveryCashSummary,
+  DeliveryDashboard,
+  DeliveryIncident,
+  DeliveryNotification,
   DeliveryPartnerProfile,
   DeliverySession,
   TokenPair
@@ -37,6 +41,7 @@ export const deliveryPartnerProfileSchema = z.object({
   email: nullableStringSchema,
   vehicleNumber: nullableStringSchema,
   status: z.enum(["PENDING_VERIFICATION", "ACTIVE", "INACTIVE", "SUSPENDED"]),
+  statusReason: nullableStringSchema,
   isOnline: z.boolean(),
   lastSeenAt: nullableStringSchema,
   lastKnownLocation: z
@@ -50,7 +55,20 @@ export const deliveryPartnerProfileSchema = z.object({
     balance: z.number(),
     currency: z.literal("INR"),
     totalEarnings: z.number()
-  })
+  }),
+  documents: z.array(
+    z.object({
+      id: z.string(),
+      type: z.string(),
+      title: z.string(),
+      fileUrl: z.string(),
+      fileKey: z.string(),
+      verifiedAt: nullableStringSchema,
+      createdAt: z.string()
+    })
+  ),
+  createdAt: z.string(),
+  updatedAt: z.string()
 }) satisfies z.ZodType<DeliveryPartnerProfile>;
 
 export const deliveryStatusSchema = z.enum([
@@ -108,7 +126,12 @@ export const deliveryAssignmentSchema = z.object({
     codAmount: z.number(),
     cashCollectedAmount: nullableNumberSchema,
     cashCollectedAt: nullableStringSchema.optional(),
-    cashSettlementStatus: z.string()
+    cashSettlementStatus: z.enum([
+      "NOT_REQUIRED",
+      "COLLECTED",
+      "SUBMITTED",
+      "SETTLED"
+    ])
   }),
   totals: z.object({
     subtotal: z.number(),
@@ -166,6 +189,87 @@ export const deliveryAssignmentListSchema = z.object({
     hasPreviousPage: z.boolean()
   })
 }) satisfies z.ZodType<DeliveryAssignmentList>;
+
+export const deliveryDashboardSchema = z.object({
+  activeCount: z.number(),
+  completedCount: z.number(),
+  issueCount: z.number(),
+  codToCollect: z.number(),
+  statusCounts: z.record(deliveryStatusSchema, z.number())
+}) satisfies z.ZodType<DeliveryDashboard>;
+
+export const deliveryCashSummarySchema = z.object({
+  cashInHand: z.number(),
+  submittedAmount: z.number(),
+  settledAmount: z.number(),
+  pendingCount: z.number(),
+  wallet: z.object({
+    balance: z.number(),
+    currency: z.literal("INR"),
+    totalEarnings: z.number()
+  }),
+  items: z.array(
+    z.object({
+      assignmentId: z.string(),
+      orderNumber: z.string(),
+      amount: z.number(),
+      settlementStatus: z.enum([
+        "NOT_REQUIRED",
+        "COLLECTED",
+        "SUBMITTED",
+        "SETTLED"
+      ]),
+      collectedAt: nullableStringSchema
+    })
+  ),
+  ledgerEntries: z.array(
+    z.object({
+      id: z.string(),
+      type: z.enum(["DELIVERY_EARNING", "PAYOUT"]),
+      amount: z.number(),
+      description: z.string(),
+      reference: nullableStringSchema,
+      createdAt: z.string()
+    })
+  )
+}) satisfies z.ZodType<DeliveryCashSummary>;
+
+export const deliveryNotificationSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  assignmentId: nullableStringSchema,
+  type: z.string(),
+  isRead: z.boolean(),
+  createdAt: z.string()
+}) satisfies z.ZodType<DeliveryNotification>;
+
+export const deliveryNotificationListSchema = z.object({
+  items: z.array(deliveryNotificationSchema),
+  unreadCount: z.number()
+});
+
+export const deliveryIncidentSchema = z.object({
+  id: z.string(),
+  deliveryAssignmentId: z.string(),
+  type: z.enum([
+    "CUSTOMER_UNREACHABLE",
+    "INCORRECT_ADDRESS",
+    "PACKAGE_DAMAGED",
+    "PACKAGE_MISSING",
+    "VEHICLE_BREAKDOWN",
+    "PAYMENT_DISPUTE",
+    "OTHER"
+  ]),
+  status: z.enum(["OPEN", "RESOLVED"]),
+  note: nullableStringSchema,
+  photoUrl: nullableStringSchema,
+  createdAt: z.string()
+}) satisfies z.ZodType<DeliveryIncident>;
+
+export const deliveryIncidentListSchema = z.object({
+  items: z.array(deliveryIncidentSchema)
+});
 
 export function validateStatusUpdatePayload(input: {
   status: string;

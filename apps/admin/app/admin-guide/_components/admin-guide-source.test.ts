@@ -21,7 +21,7 @@ describe("admin guide source", () => {
       "Product feedback",
       "Dashboard and reports",
       "Settings and access"
-    ].forEach((title) => expect(source).toContain(`title: \"${title}\"`));
+    ].forEach((title) => expect(source).toContain(`title: "${title}"`));
   });
 
   it("includes searchable navigation, safe working guidance, and visual workflows", () => {

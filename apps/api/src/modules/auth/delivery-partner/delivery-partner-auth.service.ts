@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException
 } from "@nestjs/common";
 import { PrismaService } from "../../../database/prisma.service";
@@ -55,6 +56,31 @@ export class DeliveryPartnerAuthService {
     });
 
     if (existingPartner) {
+      if (
+        existingPartner.mobileNumber === mobileNumber &&
+        existingPartner.status === DeliveryPartnerStatus.INACTIVE
+      ) {
+        const resubmitted = await this.prisma.deliveryPartner.update({
+          data: {
+            email,
+            fullName: normalizeRequiredText(dto.fullName, "Full name"),
+            status: DeliveryPartnerStatus.PENDING_VERIFICATION,
+            statusReason: null,
+            vehicleNumber: normalizeNullableVehicle(dto.vehicleNumber)
+          },
+          where: { id: existingPartner.id }
+        });
+
+        return {
+          email: resubmitted.email,
+          fullName: resubmitted.fullName,
+          id: resubmitted.id,
+          mobileNumber: resubmitted.mobileNumber,
+          status: resubmitted.status,
+          vehicleNumber: resubmitted.vehicleNumber
+        };
+      }
+
       throw new BadRequestException("Delivery partner is already registered.");
     }
 
@@ -133,6 +159,27 @@ export class DeliveryPartnerAuthService {
       },
       tokens: toTokenResponse(tokenPair)
     };
+  }
+
+  async getApplicationStatus(id: string) {
+    const application = await this.prisma.deliveryPartner.findFirst({
+      select: {
+        id: true,
+        status: true,
+        statusReason: true,
+        updatedAt: true
+      },
+      where: {
+        deletedAt: null,
+        id
+      }
+    });
+
+    if (!application) {
+      throw new NotFoundException("Delivery partner application was not found.");
+    }
+
+    return application;
   }
 
   async refresh(dto: RefreshTokenDto, context: AuthRequestContext) {

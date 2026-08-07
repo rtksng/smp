@@ -73,11 +73,16 @@ export function Button({
         <ActivityIndicator color={buttonTextColor(variant)} size="small" />
       ) : null}
       <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        numberOfLines={1}
         pointerEvents="none"
         style={{
           color: buttonTextColor(variant),
+          flexShrink: 1,
           fontFamily: fonts.bodySemiBold,
-          fontSize: 14
+          fontSize: 14,
+          textAlign: "center"
         }}
       >
         {children}

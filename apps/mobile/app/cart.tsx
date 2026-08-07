@@ -77,6 +77,11 @@ export default function CartScreen() {
   }
 
   const cart = cartQuery.data;
+  const hasBlockingStockIssue =
+    cart?.items.some(
+      (item) => !item.isAvailable || item.quantity > item.availableQuantity
+    ) ?? false;
+  const isMutating = updateMutation.isPending || removeMutation.isPending;
 
   if (!cart || cart.items.length === 0) {
     return (
@@ -92,24 +97,6 @@ export default function CartScreen() {
 
   return (
     <Screen>
-      <View style={{ gap: 5 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.headingBold,
-            fontSize: 24
-          }}
-        >
-          Your cart
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13 }}
-        >
-          Review quantity, availability, and price before checkout.
-        </Text>
-      </View>
       {cart.items.map((item) => (
         <CartItemCard
           isRemoving={removeMutation.isPending && removeMutation.variables === item.id}
@@ -142,21 +129,22 @@ export default function CartScreen() {
           )}
         </Text>
       ) : null}
-      <View style={{ ...cardStyle, gap: 12, padding: 18 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.heading,
-            fontSize: 18
-          }}
-        >
-          Price summary
-        </Text>
+      <View style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 20 }}>
+        <View style={{ alignItems: "center", flexDirection: "row", gap: 12 }}>
+          <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 8, height: 40, justifyContent: "center", width: 40 }}>
+            <MaterialCommunityIcons color={colors.primaryDark} name="shopping-outline" size={20} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text selectable style={{ color: colors.ink, fontFamily: fonts.heading, fontSize: 18 }}>Price summary</Text>
+            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>
+              {cart.totalQuantity} item{cart.totalQuantity === 1 ? "" : "s"}
+            </Text>
+          </View>
+        </View>
         <SummaryRow label="Subtotal" value={cart.totals.subtotal} />
-        <SummaryRow label="Tax" value={cart.totals.tax} />
-        <SummaryRow label="Delivery" value={cart.totals.deliveryCharge} />
         <SummaryRow label="Discount" value={-cart.totals.discount} />
+        <SummaryRow label="Delivery charge" value={cart.totals.deliveryCharge} />
+        <SummaryRow label="Tax/GST" value={cart.totals.tax} />
         <View
           style={{
             borderTopColor: colors.border,
@@ -164,9 +152,14 @@ export default function CartScreen() {
             paddingTop: 12
           }}
         >
-          <SummaryRow label="Total" strong value={cart.totals.grandTotal} />
+          <SummaryRow label="Grand total" strong value={cart.totals.grandTotal} />
         </View>
-        <Button href="/checkout">Proceed to checkout</Button>
+        {hasBlockingStockIssue ? (
+          <Text accessibilityRole="alert" selectable style={{ backgroundColor: colors.dangerBackground, borderRadius: 8, color: "#7A271A", fontFamily: fonts.bodySemiBold, fontSize: 14, padding: 12 }}>
+            Resolve stock warnings to continue checkout.
+          </Text>
+        ) : null}
+        <Button disabled={hasBlockingStockIssue || isMutating} href="/checkout">Proceed to checkout</Button>
         <Button href="/search" variant="outline">
           Continue shopping
         </Button>
@@ -189,7 +182,7 @@ function CartItemCard({
   onUpdate: (quantity: number) => void;
 }) {
   return (
-    <View style={{ ...cardStyle, gap: 12, padding: 12 }}>
+    <View style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 12 }}>
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View
           style={{
@@ -198,16 +191,16 @@ function CartItemCard({
             borderColor: colors.border,
             borderRadius: 10,
             borderWidth: 1,
-            height: 90,
+            height: 96,
             justifyContent: "center",
             overflow: "hidden",
-            width: 90
+            width: 96
           }}
         >
           {item.imageUrl ? (
             <Image
               accessibilityLabel={item.name}
-              contentFit="contain"
+              contentFit="cover"
               source={{ uri: item.imageUrl }}
               style={{ height: "100%", width: "100%" }}
             />
@@ -220,16 +213,11 @@ function CartItemCard({
           )}
         </View>
         <View style={{ flex: 1, gap: 5 }}>
-          <Text
-            selectable
-            style={{
-              color: colors.primaryDark,
-              fontFamily: fonts.bodySemiBold,
-              fontSize: 11
-            }}
-          >
-            {item.brand.name}
-          </Text>
+          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.brand.name}</Text>
+            <Text selectable style={{ color: "#A3B1AD", fontFamily: fonts.bodySemiBold, fontSize: 11 }}>/</Text>
+            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.category.name}</Text>
+          </View>
           <Text
             numberOfLines={2}
             selectable
@@ -242,26 +230,7 @@ function CartItemCard({
           >
             {item.name}
           </Text>
-          <Text
-            selectable
-            style={{
-              color: colors.muted,
-              fontFamily: fonts.bodySemiBold,
-              fontSize: 11
-            }}
-          >
-            SKU {item.sku}
-          </Text>
-          <Text
-            selectable
-            style={{
-              color: colors.ink,
-              fontFamily: fonts.headingBold,
-              fontSize: 16
-            }}
-          >
-            {formatRupees(item.total)}
-          </Text>
+          <Text selectable style={{ alignSelf: "flex-start", backgroundColor: colors.surfaceMuted, borderRadius: 8, color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 8, paddingVertical: 4 }}>SKU {item.sku}</Text>
         </View>
         <Pressable
           accessibilityLabel={`Remove ${item.name}`}
@@ -374,6 +343,20 @@ function CartItemCard({
           </Pressable>
         </View>
       </View>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <CartMetric label="Unit" value={formatRupees(item.unitPrice)} />
+        <CartMetric label="Tax" value={formatRupees(item.tax)} />
+        <CartMetric label="Total" value={formatRupees(item.total)} />
+      </View>
+    </View>
+  );
+}
+
+function CartMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, flex: 1, gap: 2, paddingHorizontal: 10, paddingVertical: 8 }}>
+      <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 10, textTransform: "uppercase" }}>{label}</Text>
+      <Text selectable style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{value}</Text>
     </View>
   );
 }

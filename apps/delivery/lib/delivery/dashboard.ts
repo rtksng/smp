@@ -75,6 +75,17 @@ export function deliveryFilterOptions(assignments: DeliveryAssignment[]) {
   }));
 }
 
+export function deliveryFilterOptionsFromCounts(
+  counts: Record<DeliveryStatus, number>,
+  total: number
+) {
+  return FILTER_STATUSES.map((status) => ({
+    count: status === "ALL" ? total : counts[status],
+    label: status === "ALL" ? "All" : statusLabel(status),
+    status
+  }));
+}
+
 export function nextActionLabel(status: DeliveryStatus) {
   switch (status) {
     case "ASSIGNED":

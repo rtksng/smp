@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import {
   type SendLowStockAlertJobData,
   type SendNearExpiryAlertJobData,
+  type SendDeliveryAssignmentNotificationJobData,
   type SendOrderConfirmationJobData
 } from "@surgical/types";
 import { Pool, type QueryResultRow } from "pg";
@@ -22,6 +23,9 @@ export type NotificationRecord = {
 };
 
 export abstract class NotificationLogRepository {
+  abstract sendDeliveryAssignment(
+    data: SendDeliveryAssignmentNotificationJobData
+  ): Promise<void>;
   abstract createLowStockAlert(data: SendLowStockAlertJobData): Promise<void>;
   abstract createNearExpiryAlert(data: SendNearExpiryAlertJobData): Promise<void>;
   abstract createOrderConfirmation(
@@ -59,6 +63,62 @@ export class PgNotificationLogRepository
     );
   }
 
+  async sendDeliveryAssignment(
+    data: SendDeliveryAssignmentNotificationJobData
+  ) {
+    const devices = await this.pool.query<{ pushToken: string }>(
+      `SELECT "pushToken"
+       FROM "DeliveryPartnerDevice"
+       WHERE "deliveryPartnerId" = $1
+         AND "notificationsEnabled" = true
+         AND "revokedAt" IS NULL`,
+      [data.deliveryPartnerId]
+    );
+    const tokens = devices.rows
+      .map((device) => device.pushToken)
+      .filter((token) => token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken["));
+
+    if (tokens.length === 0) {
+      await this.updateDeliveryNotification(data.notificationId, {
+        providerRef: null,
+        status: "NO_RECIPIENTS"
+      });
+      return;
+    }
+
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      body: JSON.stringify(
+        tokens.map((to) => ({
+          body: data.body,
+          data: { assignmentId: data.assignmentId },
+          sound: "default",
+          title: data.title,
+          to
+        }))
+      ),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      method: "POST"
+    });
+    const responseBody = (await response.json().catch(() => null)) as
+      | { data?: Array<{ id?: string; message?: string; status?: string }> }
+      | null;
+    const tickets = responseBody?.data ?? [];
+    const failed = !response.ok || tickets.some((ticket) => ticket.status === "error");
+    const providerRef = tickets.find((ticket) => ticket.id)?.id ?? null;
+
+    await this.updateDeliveryNotification(data.notificationId, {
+      providerRef,
+      status: failed ? "FAILED" : "SENT"
+    });
+
+    if (failed) {
+      throw new Error("Expo rejected the delivery assignment notification.");
+    }
+  }
+
   async createLowStockAlert(data: SendLowStockAlertJobData) {
     await upsertNotification(this.pool, buildLowStockAlertNotificationRecord(data));
   }
@@ -67,6 +127,21 @@ export class PgNotificationLogRepository
     await upsertNotification(
       this.pool,
       buildNearExpiryAlertNotificationRecord(data)
+    );
+  }
+
+  private async updateDeliveryNotification(
+    notificationId: string,
+    input: { providerRef: string | null; status: string }
+  ) {
+    await this.pool.query(
+      `UPDATE "NotificationLog"
+       SET "providerRef" = $1,
+           "status" = $2,
+           "sentAt" = CASE WHEN $2 = 'SENT' THEN NOW() ELSE "sentAt" END,
+           "updatedAt" = NOW()
+       WHERE "id" = $3`,
+      [input.providerRef, input.status, notificationId]
     );
   }
 }

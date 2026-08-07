@@ -1477,6 +1477,39 @@ export class OrdersService {
           status: DeliveryStatus.CANCELLED
         }
       });
+      if (this.queueService) {
+        const notification = await tx.notificationLog.create({
+          data: {
+            channel: "delivery_partner",
+            payload: {
+              assignmentId: assignment.id,
+              body: `Order ${order.orderNumber} is no longer assigned to you.`,
+              readAt: null,
+              title: "Delivery cancelled",
+              type: "ASSIGNMENT_CANCELLED"
+            },
+            recipient: assignment.deliveryPartnerId,
+            status: "PENDING",
+            templateKey: "delivery_assignment_cancelled"
+          }
+        });
+        await this.queueService
+          .enqueueDeliveryAssignmentNotification({
+            assignmentId: assignment.id,
+            body: `Order ${order.orderNumber} is no longer assigned to you.`,
+            deliveryPartnerId: assignment.deliveryPartnerId,
+            notificationId: notification.id,
+            requestedAt: new Date().toISOString(),
+            title: "Delivery cancelled",
+            version: 1
+          })
+          .catch(async () => {
+            await tx.notificationLog.update({
+              data: { status: "QUEUE_FAILED" },
+              where: { id: notification.id }
+            });
+          });
+      }
     }
   }
 

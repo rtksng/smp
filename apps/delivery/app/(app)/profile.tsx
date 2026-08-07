@@ -16,7 +16,11 @@ import {
   useAppFeedback
 } from "../../components/ui/feedback";
 import { formatCurrency } from "../../lib/api/status";
-import { getMyProfile, updateOnlineStatus } from "../../lib/api/delivery";
+import {
+  getMyProfile,
+  revokeMyDevices,
+  updateOnlineStatus
+} from "../../lib/api/delivery";
 import { formatDateTime } from "../../lib/delivery/dashboard";
 import { useAuth } from "../../lib/auth/auth-context";
 
@@ -82,6 +86,13 @@ export default function ProfileScreen() {
         </View>
         <Info label="Vehicle" value={profile.vehicleNumber ?? "Not set"} />
         <Info label="Email" value={profile.email ?? "Not set"} />
+        <Info
+          label="Documents"
+          value={`${profile.documents.filter((document) => document.verifiedAt).length}/${profile.documents.length} verified`}
+        />
+        {profile.statusReason ? (
+          <Info label="Review note" value={profile.statusReason} />
+        ) : null}
       </SectionCard>
 
       <SectionCard>
@@ -135,9 +146,33 @@ export default function ProfileScreen() {
 
       <View style={styles.actions}>
         <ActionButton
-          icon="arrow-back-outline"
-          label="Deliveries"
-          onPress={() => router.replace("/(app)/assignments")}
+          icon="create-outline"
+          label="Edit profile"
+          onPress={() => router.push("/(app)/edit-profile")}
+          tone="secondary"
+        />
+        <ActionButton
+          icon="documents-outline"
+          label="Documents & verification"
+          onPress={() => router.push("/(app)/documents")}
+          tone="secondary"
+        />
+        <ActionButton
+          icon="settings-outline"
+          label="Permissions & settings"
+          onPress={() => router.push("/(app)/settings")}
+          tone="secondary"
+        />
+        <ActionButton
+          icon="cloud-upload-outline"
+          label="Offline sync"
+          onPress={() => router.push("/(app)/sync")}
+          tone="secondary"
+        />
+        <ActionButton
+          icon="help-buoy-outline"
+          label="Help & incidents"
+          onPress={() => router.push("/(app)/support")}
           tone="secondary"
         />
         <ActionButton
@@ -149,7 +184,10 @@ export default function ProfileScreen() {
               confirmLabel: "Sign out",
               destructive: true,
               onConfirm: () => {
-                void signOut().then(() => router.replace("/login"));
+                void revokeMyDevices(accessToken ?? "")
+                  .catch(() => undefined)
+                  .then(signOut)
+                  .then(() => router.replace("/login"));
               },
               title: "Sign out?"
             })

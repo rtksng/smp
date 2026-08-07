@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthCommonModule } from "../auth/common/auth-common.module";
+import { ApiQueuesModule } from "../../queues/api-queues.module";
 import { WarehousesModule } from "../warehouses/warehouses.module";
 import { AdminDeliveryController } from "./admin-delivery.controller";
 import { AdminDeliveryPartnersController } from "./admin-delivery-partners.controller";
@@ -13,7 +14,7 @@ import { DeliveryService } from "./delivery.service";
     DeliveryController
   ],
   exports: [DeliveryService],
-  imports: [AuthCommonModule, WarehousesModule],
+  imports: [ApiQueuesModule, AuthCommonModule, WarehousesModule],
   providers: [DeliveryService]
 })
 export class DeliveryModule {}

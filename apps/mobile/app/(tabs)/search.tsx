@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   Text,
-  TextInput,
   View,
   useWindowDimensions
 } from "react-native";
@@ -17,7 +16,6 @@ import {
   type CatalogFilters
 } from "@/components/catalog-filter-sheet";
 import { ProductCard } from "@/components/product-card";
-import { StoreHeader } from "@/components/store-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/state-view";
 import { getBrands, getCategories, getProducts } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
@@ -25,16 +23,23 @@ import { queryKeys } from "@/lib/query";
 import { colors, fonts } from "@/lib/theme";
 
 export default function SearchScreen() {
+  return <ProductListingScreen />;
+}
+
+export function ProductListingScreen({
+  brand: brandOverride
+}: {
+  brand?: string;
+} = {}) {
   const params = useLocalSearchParams<{
     brand?: string;
     category?: string;
     q?: string;
-    title?: string;
   }>();
-  const [search, setSearch] = useState(params.q ?? "");
+  const activeBrand = brandOverride ?? params.brand;
   const [filters, setFilters] = useState<CatalogFilters>({
     ...defaultCatalogFilters,
-    brand: params.brand,
+    brand: activeBrand,
     category: params.category,
     search: params.q ?? ""
   });
@@ -78,97 +83,35 @@ export default function SearchScreen() {
   });
 
   useEffect(() => {
-    setSearch(params.q ?? "");
     setFilters((current) => ({
       ...current,
-      brand: params.brand,
+      brand: activeBrand,
       category: params.category,
       search: params.q ?? "",
       subcategory: undefined
     }));
-  }, [params.brand, params.category, params.q]);
-
-  function submitSearch() {
-    setFilters((current) => ({ ...current, search }));
-  }
+  }, [activeBrand, params.category, params.q]);
 
   function clearFilters() {
-    setSearch("");
-    setFilters(defaultCatalogFilters);
+    setFilters({
+      ...defaultCatalogFilters,
+      brand: brandOverride,
+      category: brandOverride ? undefined : params.category
+    });
   }
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
-      <StoreHeader />
       <View
         style={{
-          backgroundColor: colors.surface,
+          backgroundColor: colors.background,
           borderBottomColor: colors.border,
           borderBottomWidth: 1,
-          gap: 10,
-          paddingBottom: 16,
+          paddingBottom: 12,
           paddingHorizontal: 16,
           paddingTop: 12
         }}
       >
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.headingBold,
-            fontSize: 22
-          }}
-        >
-          {params.title ?? "Search catalog"}
-        </Text>
-        <View
-          style={{
-            alignItems: "center",
-            borderColor: colors.primaryDark,
-            borderRadius: 999,
-            borderWidth: 1,
-            flexDirection: "row",
-            minHeight: 48,
-            paddingHorizontal: 16
-          }}
-        >
-          <TextInput
-            accessibilityLabel="Search products or SKU"
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            onChangeText={setSearch}
-            onSubmitEditing={submitSearch}
-            placeholder="Search products or SKU"
-            placeholderTextColor={colors.muted}
-            returnKeyType="search"
-            style={{
-              color: colors.text,
-              flex: 1,
-              fontFamily: fonts.bodySemiBold,
-              fontSize: 14
-            }}
-            value={search}
-          />
-          <Pressable
-            accessibilityLabel="Search catalog"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPress={submitSearch}
-            style={{
-              alignItems: "center",
-              height: 44,
-              justifyContent: "center",
-              width: 44
-            }}
-          >
-            <MaterialCommunityIcons
-              color={colors.primaryDark}
-              name="magnify"
-              size={22}
-            />
-          </Pressable>
-        </View>
         <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
           <Pressable
             accessibilityLabel="Show in-stock products"
@@ -273,7 +216,6 @@ export default function SearchScreen() {
         filters={filters}
         onApply={(nextFilters) => {
           setFilters(nextFilters);
-          setSearch(nextFilters.search);
           setFiltersOpen(false);
         }}
         onClose={() => setFiltersOpen(false)}

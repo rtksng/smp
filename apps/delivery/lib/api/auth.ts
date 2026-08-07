@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { apiRequest } from "./client";
 import { deliverySessionSchema, tokenPairSchema } from "./schemas";
+import type { DeliveryApplication } from "./types";
 
 const requestOtpSchema = z.object({
   devOtp: z.string().regex(/^\d{6}$/).optional(),
@@ -14,8 +15,15 @@ const registrationSchema = z.object({
   fullName: z.string(),
   mobileNumber: z.string(),
   email: z.string().nullable(),
-  status: z.string(),
+  status: z.enum(["PENDING_VERIFICATION", "ACTIVE", "INACTIVE", "SUSPENDED"]),
   vehicleNumber: z.string().nullable()
+}) satisfies z.ZodType<DeliveryApplication>;
+
+const applicationStatusSchema = z.object({
+  id: z.string(),
+  status: z.enum(["PENDING_VERIFICATION", "ACTIVE", "INACTIVE", "SUSPENDED"]),
+  statusReason: z.string().nullable(),
+  updatedAt: z.string()
 });
 
 export type DeliveryOtpRequest = z.infer<typeof requestOtpSchema>;
@@ -40,6 +48,13 @@ export function registerDeliveryPartner(input: {
     },
     method: "POST"
   });
+}
+
+export function getDeliveryApplicationStatus(applicationId: string) {
+  return apiRequest(
+    `/auth/delivery/applications/${encodeURIComponent(applicationId)}`,
+    applicationStatusSchema
+  );
 }
 
 export function verifyDeliveryOtp(input: { mobileNumber: string; otp: string }) {

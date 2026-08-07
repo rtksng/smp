@@ -415,7 +415,8 @@ test("rejectDeliveryPartner marks the partner inactive, offline, and writes an a
       .data,
     {
       isOnline: false,
-      status: "INACTIVE"
+      status: "INACTIVE",
+      statusReason: "Application was not approved."
     }
   );
   assert.equal(prisma.calls.adminAuditLogCreate.length, 1);

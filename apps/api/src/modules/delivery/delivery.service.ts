@@ -3,11 +3,16 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../database/prisma.service";
 import {
   CashCollectionStatus,
+  DeliveryIncidentStatus,
+  DeliveryIncidentType,
+  DeliveryLedgerEntryType,
   DeliveryPartnerStatus,
   DeliveryStatus,
   OrderStatus,
@@ -15,19 +20,31 @@ import {
   WarehouseStatus
 } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
+import { ApiQueueService } from "../../queues/api-queue.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
 import type {
   AddDeliveryPartnerDocumentDto,
   AdminDeliveryAssignmentListQueryDto,
   AssignDeliveryDto,
+  CreateDeliveryLedgerEntryDto,
+  CreateDeliveryIncidentDto,
   DeliveryAssignmentListQueryDto,
   DeliveryPartnerDeviceDto,
   DeliveryPartnerLocationDto,
   DeliveryPartnerListQueryDto,
   DeliveryPartnerOnlineStatusDto,
+  UpdateCashSettlementDto,
+  UpdateDeliveryPartnerProfileDto,
   UpdateDeliveryAssignmentStatusDto
 } from "./dto/delivery.dto";
+
+const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
+  DeliveryStatus.ASSIGNED,
+  DeliveryStatus.ACCEPTED,
+  DeliveryStatus.PICKED_UP,
+  DeliveryStatus.OUT_FOR_DELIVERY
+] as const;
 
 const PARTNER_INCLUDE = {
   documents: {
@@ -104,13 +121,16 @@ type DeliveryClient =
       Prisma.TransactionClient,
       | "adminAuditLog"
       | "deliveryAssignment"
+      | "deliveryIncident"
       | "deliveryPartner"
       | "deliveryPartnerDevice"
       | "deliveryPartnerDocument"
+      | "deliveryPartnerLedgerEntry"
       | "deliveryStatusHistory"
       | "inventoryStock"
       | "order"
       | "orderStatusHistory"
+      | "notificationLog"
       | "warehouse"
     >
   | PrismaService;
@@ -125,7 +145,9 @@ type DeliveryAssignmentRecord = Prisma.DeliveryAssignmentGetPayload<{
 export class DeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly warehouseAccessService: WarehouseAccessService
+    private readonly warehouseAccessService: WarehouseAccessService,
+    @Optional() private readonly apiQueueService?: ApiQueueService,
+    @Optional() private readonly configService?: ConfigService
   ) {}
 
   async listAdminDeliveryPartners(query: DeliveryPartnerListQueryDto) {
@@ -171,7 +193,8 @@ export class DeliveryService {
     const partner = await this.prisma.$transaction(async (tx) => {
       const updatedPartner = await tx.deliveryPartner.update({
         data: {
-          status: DeliveryPartnerStatus.ACTIVE
+          status: DeliveryPartnerStatus.ACTIVE,
+          statusReason: null
         },
         include: PARTNER_INCLUDE,
         where: {
@@ -193,7 +216,11 @@ export class DeliveryService {
     return this.serializePartner(partner);
   }
 
-  async rejectDeliveryPartner(id: string, context: AdminActionContext) {
+  async rejectDeliveryPartner(
+    id: string,
+    context: AdminActionContext,
+    reason?: string
+  ) {
     const existingPartner = await this.findPartnerById(this.prisma, id, {
       requireActive: false
     });
@@ -201,7 +228,8 @@ export class DeliveryService {
       const updatedPartner = await tx.deliveryPartner.update({
         data: {
           isOnline: false,
-          status: DeliveryPartnerStatus.INACTIVE
+          status: DeliveryPartnerStatus.INACTIVE,
+          statusReason: reason?.trim() || "Application was not approved."
         },
         include: PARTNER_INCLUDE,
         where: {
@@ -224,7 +252,7 @@ export class DeliveryService {
   }
 
   async assignOrder(input: AssignDeliveryDto, context: AdminActionContext) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findFirst({
         include: {
           items: true
@@ -310,8 +338,57 @@ export class DeliveryService {
         entityType: "DeliveryAssignment"
       });
 
-      return this.serializeAssignment(await this.findAssignmentById(tx, assignment.id));
+      const serializedAssignment = this.serializeAssignment(
+        await this.findAssignmentById(tx, assignment.id)
+      );
+      const notification = this.apiQueueService
+        ? await tx.notificationLog.create({
+            data: {
+              channel: "delivery_partner",
+              payload: {
+                assignmentId: assignment.id,
+                body: `Order ${serializedAssignment.orderNumber} is ready for pickup.`,
+                readAt: null,
+                title: "New delivery assigned",
+                type: "NEW_ASSIGNMENT"
+              },
+              recipient: deliveryPartner.id,
+              status: "PENDING",
+              templateKey: "delivery_assignment"
+            }
+          })
+        : null;
+
+      return {
+        assignment: serializedAssignment,
+        notificationId: notification?.id ?? null
+      };
     });
+
+    if (!this.apiQueueService || !result.notificationId) {
+      return result.assignment;
+    }
+
+    const notificationId = result.notificationId;
+
+    await this.apiQueueService
+      .enqueueDeliveryAssignmentNotification({
+        assignmentId: result.assignment.id,
+        body: `Order ${result.assignment.orderNumber} is ready for pickup.`,
+        deliveryPartnerId: result.assignment.deliveryPartnerId,
+        notificationId,
+        requestedAt: new Date().toISOString(),
+        title: "New delivery assigned",
+        version: 1
+      })
+      .catch(async () => {
+        await this.prisma.notificationLog.update({
+          data: { status: "QUEUE_FAILED" },
+          where: { id: notificationId }
+        });
+      });
+
+    return result.assignment;
   }
 
   async listAdminDeliveryAssignments(query: AdminDeliveryAssignmentListQueryDto = {}) {
@@ -333,15 +410,18 @@ export class DeliveryService {
             ]
           }
         : undefined;
+    const assignmentFilters = stripUndefined(buildAssignmentFilters(query));
     const where: Prisma.DeliveryAssignmentWhereInput = {
-      ...warehouseFilter,
+      ...(query.search && warehouseFilter
+        ? { AND: [warehouseFilter, assignmentFilters] }
+        : { ...warehouseFilter, ...assignmentFilters }),
       deliveryPartnerId: query.deliveryPartnerId,
       status: query.status
     };
     const [items, total] = await Promise.all([
       this.prisma.deliveryAssignment.findMany({
         include: ASSIGNMENT_INCLUDE,
-        orderBy: [{ assignedAt: "desc" }, { id: "asc" }],
+        orderBy: assignmentOrderBy(query.sort),
         skip: (page - 1) * limit,
         take: limit,
         where: stripUndefined(where)
@@ -471,13 +551,14 @@ export class DeliveryService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const where: Prisma.DeliveryAssignmentWhereInput = {
+      ...stripUndefined(buildAssignmentFilters(query)),
       deliveryPartnerId,
       status: query.status
     };
     const [items, total] = await Promise.all([
       this.prisma.deliveryAssignment.findMany({
         include: ASSIGNMENT_INCLUDE,
-        orderBy: [{ assignedAt: "desc" }, { id: "asc" }],
+        orderBy: assignmentOrderBy(query.sort),
         skip: (page - 1) * limit,
         take: limit,
         where: stripUndefined(where)
@@ -493,6 +574,536 @@ export class DeliveryService {
       page,
       limit
     );
+  }
+
+  async revokeMyDevices(deliveryPartnerId: string) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const result = await this.prisma.deliveryPartnerDevice.updateMany({
+      data: {
+        notificationsEnabled: false,
+        revokedAt: new Date()
+      },
+      where: {
+        deliveryPartnerId,
+        revokedAt: null
+      }
+    });
+
+    return { revokedDevices: result.count };
+  }
+
+  async updateMyProfile(
+    deliveryPartnerId: string,
+    input: UpdateDeliveryPartnerProfileDto
+  ) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const partner = await this.prisma.deliveryPartner.update({
+      data: {
+        email:
+          input.email === undefined
+            ? undefined
+            : input.email?.trim().toLowerCase() || null,
+        fullName: input.fullName?.trim() || undefined,
+        vehicleNumber:
+          input.vehicleNumber === undefined
+            ? undefined
+            : input.vehicleNumber?.trim().toUpperCase() || null
+      },
+      include: PARTNER_INCLUDE,
+      where: { id: deliveryPartnerId }
+    });
+
+    return this.serializePartner(partner);
+  }
+
+  async getMyAssignment(deliveryPartnerId: string, assignmentId: string) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+
+    return this.serializeAssignment(
+      await this.findPartnerAssignment(
+        this.prisma,
+        deliveryPartnerId,
+        assignmentId
+      )
+    );
+  }
+
+  async getMyDashboard(deliveryPartnerId: string) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const assignments = await this.prisma.deliveryAssignment.findMany({
+      select: {
+        order: {
+          select: {
+            grandTotal: true,
+            payments: {
+              orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+              select: { method: true },
+              take: 1
+            }
+          }
+        },
+        status: true
+      },
+      where: { deliveryPartnerId }
+    });
+    const statusCounts = Object.fromEntries(
+      Object.values(DeliveryStatus).map((status) => [status, 0])
+    ) as Record<DeliveryStatus, number>;
+    let activeCount = 0;
+    let codToCollect = 0;
+    let completedCount = 0;
+    let issueCount = 0;
+
+    for (const assignment of assignments) {
+      statusCounts[assignment.status] += 1;
+
+      if (ACTIVE_DELIVERY_STATUSES.includes(assignment.status)) {
+        activeCount += 1;
+
+        if (assignment.order.payments[0]?.method === PaymentMethod.COD) {
+          codToCollect += decimalToNumber(assignment.order.grandTotal);
+        }
+      } else if (assignment.status === DeliveryStatus.DELIVERED) {
+        completedCount += 1;
+      } else if (
+        assignment.status === DeliveryStatus.FAILED ||
+        assignment.status === DeliveryStatus.CANCELLED
+      ) {
+        issueCount += 1;
+      }
+    }
+
+    return {
+      activeCount,
+      codToCollect,
+      completedCount,
+      issueCount,
+      statusCounts
+    };
+  }
+
+  async getMyCashSummary(deliveryPartnerId: string) {
+    const partner = await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const [assignments, ledgerEntries] = await Promise.all([
+      this.prisma.deliveryAssignment.findMany({
+        include: ASSIGNMENT_INCLUDE,
+        orderBy: [{ cashCollectedAt: "desc" }, { assignedAt: "desc" }],
+        take: 100,
+        where: {
+          cashCollectedAmount: { not: null },
+          deliveryPartnerId
+        }
+      }),
+      this.prisma.deliveryPartnerLedgerEntry.findMany({
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        take: 100,
+        where: { deliveryPartnerId }
+      })
+    ]);
+    let cashInHand = 0;
+    let submittedAmount = 0;
+    let settledAmount = 0;
+    let pendingCount = 0;
+
+    const items = assignments.map((assignment) => {
+      const amount = decimalToNumberOrNull(assignment.cashCollectedAmount) ?? 0;
+
+      if (assignment.cashSettlementStatus === CashCollectionStatus.COLLECTED) {
+        cashInHand += amount;
+        pendingCount += 1;
+      } else if (
+        assignment.cashSettlementStatus === CashCollectionStatus.SUBMITTED
+      ) {
+        submittedAmount += amount;
+      } else if (
+        assignment.cashSettlementStatus === CashCollectionStatus.SETTLED
+      ) {
+        settledAmount += amount;
+      }
+
+      return {
+        amount,
+        assignmentId: assignment.id,
+        collectedAt: assignment.cashCollectedAt,
+        orderNumber: assignment.order.orderNumber,
+        settlementStatus: assignment.cashSettlementStatus
+      };
+    });
+
+    return {
+      cashInHand,
+      items,
+      ledgerEntries: ledgerEntries.map((entry) => ({
+        amount: decimalToNumber(entry.amount),
+        createdAt: entry.createdAt,
+        description: entry.description,
+        id: entry.id,
+        reference: entry.reference,
+        type: entry.type
+      })),
+      pendingCount,
+      settledAmount,
+      submittedAmount,
+      wallet: {
+        balance: decimalToNumber(partner.walletBalance),
+        currency: "INR" as const,
+        totalEarnings: decimalToNumber(partner.totalEarnings)
+      }
+    };
+  }
+
+  async listMyNotifications(deliveryPartnerId: string) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const notifications = await this.prisma.notificationLog.findMany({
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: 100,
+      where: {
+        channel: "delivery_partner",
+        recipient: deliveryPartnerId
+      }
+    });
+    const items = notifications.map((notification) =>
+      serializeDeliveryNotification(notification)
+    );
+
+    return {
+      items,
+      unreadCount: items.filter((item) => !item.isRead).length
+    };
+  }
+
+  async markMyNotificationRead(
+    deliveryPartnerId: string,
+    notificationId: string
+  ) {
+    const notification = await this.prisma.notificationLog.findFirst({
+      where: {
+        channel: "delivery_partner",
+        id: notificationId,
+        recipient: deliveryPartnerId
+      }
+    });
+
+    if (!notification) {
+      throw new NotFoundException("Delivery notification was not found.");
+    }
+
+    const payload = jsonRecord(notification.payload);
+    const updated = await this.prisma.notificationLog.update({
+      data: {
+        payload: {
+          ...payload,
+          readAt: typeof payload.readAt === "string" ? payload.readAt : new Date().toISOString()
+        }
+      },
+      where: { id: notification.id }
+    });
+
+    return serializeDeliveryNotification(updated);
+  }
+
+  async markAllMyNotificationsRead(deliveryPartnerId: string) {
+    const notifications = await this.prisma.notificationLog.findMany({
+      where: {
+        channel: "delivery_partner",
+        recipient: deliveryPartnerId
+      }
+    });
+    const readAt = new Date().toISOString();
+
+    await this.prisma.$transaction(
+      notifications.map((notification) => {
+        const payload = jsonRecord(notification.payload);
+
+        return this.prisma.notificationLog.update({
+          data: {
+            payload: {
+              ...payload,
+              readAt: typeof payload.readAt === "string" ? payload.readAt : readAt
+            }
+          },
+          where: { id: notification.id }
+        });
+      })
+    );
+
+    return { markedRead: notifications.length };
+  }
+
+  async createMyIncident(
+    deliveryPartnerId: string,
+    assignmentId: string,
+    input: CreateDeliveryIncidentDto
+  ) {
+    await this.findPartnerAssignment(
+      this.prisma,
+      deliveryPartnerId,
+      assignmentId
+    );
+    const incident = await this.prisma.deliveryIncident.create({
+      data: {
+        deliveryAssignmentId: assignmentId,
+        deliveryPartnerId,
+        note: input.note?.trim() || null,
+        photoKey: input.photoKey ?? null,
+        photoUrl: input.photoUrl ?? null,
+        status: DeliveryIncidentStatus.OPEN,
+        type: input.type
+      }
+    });
+
+    return serializeDeliveryIncident(incident);
+  }
+
+  async listMyIncidents(deliveryPartnerId: string) {
+    await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+    const incidents = await this.prisma.deliveryIncident.findMany({
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: 100,
+      where: { deliveryPartnerId }
+    });
+
+    return {
+      items: incidents.map((incident) => serializeDeliveryIncident(incident))
+    };
+  }
+
+  getSupportContact() {
+    return {
+      email: this.configService?.get<string>("DELIVERY_SUPPORT_EMAIL") ?? null,
+      phone: this.configService?.get<string>("DELIVERY_SUPPORT_PHONE") ?? null
+    };
+  }
+
+  async updateCashSettlement(
+    assignmentId: string,
+    input: UpdateCashSettlementDto,
+    context: AdminActionContext
+  ) {
+    const existing = await this.findAssignmentById(this.prisma, assignmentId);
+
+    if (existing.cashCollectedAmount === null) {
+      throw new BadRequestException("No collected COD cash exists for this delivery.");
+    }
+
+    if (
+      input.status === CashCollectionStatus.SUBMITTED &&
+      existing.cashSettlementStatus !== CashCollectionStatus.COLLECTED
+    ) {
+      throw new BadRequestException("Only collected cash can be submitted.");
+    }
+
+    if (
+      input.status === CashCollectionStatus.SETTLED &&
+      existing.cashSettlementStatus !== CashCollectionStatus.SUBMITTED
+    ) {
+      throw new BadRequestException("Cash must be submitted before settlement.");
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const assignment = await tx.deliveryAssignment.update({
+        data: { cashSettlementStatus: input.status },
+        include: ASSIGNMENT_INCLUDE,
+        where: { id: assignmentId }
+      });
+
+      await this.writeAuditLog(tx, context, {
+        action: "delivery.cash_settlement",
+        after: assignment,
+        before: existing,
+        entityId: assignmentId,
+        entityType: "DeliveryAssignment"
+      });
+
+      return assignment;
+    });
+
+    const serialized = this.serializeAssignment(updated);
+
+    if (this.apiQueueService) {
+      const title =
+        input.status === CashCollectionStatus.SETTLED
+          ? "COD cash settled"
+          : "COD cash submitted";
+      const body = `${serialized.orderNumber}: ${decimalToNumber(
+        updated.cashCollectedAmount ?? 0
+      ).toFixed(2)} INR ${input.status.toLowerCase()}.`;
+      const notification = await this.prisma.notificationLog.create({
+        data: {
+          channel: "delivery_partner",
+          payload: {
+            assignmentId,
+            body,
+            readAt: null,
+            title,
+            type: "CASH_SETTLEMENT"
+          },
+          recipient: updated.deliveryPartnerId,
+          status: "PENDING",
+          templateKey: "delivery_cash_settlement"
+        }
+      });
+
+      await this.apiQueueService
+        .enqueueDeliveryAssignmentNotification({
+          assignmentId,
+          body,
+          deliveryPartnerId: updated.deliveryPartnerId,
+          notificationId: notification.id,
+          requestedAt: new Date().toISOString(),
+          title,
+          version: 1
+        })
+        .catch(async () => {
+          await this.prisma.notificationLog.update({
+            data: { status: "QUEUE_FAILED" },
+            where: { id: notification.id }
+          });
+        });
+    }
+
+    return serialized;
+  }
+
+  async createLedgerEntry(
+    deliveryPartnerId: string,
+    input: CreateDeliveryLedgerEntryDto,
+    context: AdminActionContext
+  ) {
+    const existingPartner = await this.findPartnerById(
+      this.prisma,
+      deliveryPartnerId,
+      { requireActive: true }
+    );
+    const amount = input.amount;
+
+    if (
+      input.type === DeliveryLedgerEntryType.PAYOUT &&
+      decimalToNumber(existingPartner.walletBalance) < amount
+    ) {
+      throw new BadRequestException("Payout exceeds the partner wallet balance.");
+    }
+
+    const entry = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.deliveryPartnerLedgerEntry.create({
+        data: {
+          amount,
+          deliveryPartnerId,
+          description: input.description.trim(),
+          reference: input.reference?.trim() || null,
+          type: input.type
+        }
+      });
+      await tx.deliveryPartner.update({
+        data: {
+          totalEarnings:
+            input.type === DeliveryLedgerEntryType.DELIVERY_EARNING
+              ? { increment: amount }
+              : undefined,
+          walletBalance:
+            input.type === DeliveryLedgerEntryType.PAYOUT
+              ? { decrement: amount }
+              : { increment: amount }
+        },
+        where: { id: deliveryPartnerId }
+      });
+      await this.writeAuditLog(tx, context, {
+        action: "delivery_partner.ledger.create",
+        after: created,
+        before: existingPartner,
+        entityId: created.id,
+        entityType: "DeliveryPartnerLedgerEntry"
+      });
+
+      return created;
+    });
+
+    if (this.apiQueueService) {
+      const isPayout = input.type === DeliveryLedgerEntryType.PAYOUT;
+      const title = isPayout ? "Payout recorded" : "Delivery earning added";
+      const body = `${amount.toFixed(2)} INR ${isPayout ? "paid out" : "added to your wallet"}.`;
+      const notification = await this.prisma.notificationLog.create({
+        data: {
+          channel: "delivery_partner",
+          payload: { body, readAt: null, title, type: "WALLET_UPDATE" },
+          recipient: deliveryPartnerId,
+          status: "PENDING",
+          templateKey: "delivery_wallet_update"
+        }
+      });
+
+      await this.apiQueueService
+        .enqueueDeliveryAssignmentNotification({
+          assignmentId: null,
+          body,
+          deliveryPartnerId,
+          notificationId: notification.id,
+          requestedAt: new Date().toISOString(),
+          title,
+          version: 1
+        })
+        .catch(async () => {
+          await this.prisma.notificationLog.update({
+            data: { status: "QUEUE_FAILED" },
+            where: { id: notification.id }
+          });
+        });
+    }
+
+    return {
+      amount: decimalToNumber(entry.amount),
+      createdAt: entry.createdAt,
+      description: entry.description,
+      id: entry.id,
+      reference: entry.reference,
+      type: entry.type
+    };
+  }
+
+  async resolveIncident(incidentId: string, context: AdminActionContext) {
+    const existing = await this.prisma.deliveryIncident.findUnique({
+      where: { id: incidentId }
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Delivery incident was not found.");
+    }
+
+    const incident = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.deliveryIncident.update({
+        data: {
+          resolvedAt: new Date(),
+          status: DeliveryIncidentStatus.RESOLVED
+        },
+        where: { id: incidentId }
+      });
+
+      await this.writeAuditLog(tx, context, {
+        action: "delivery.incident.resolve",
+        after: updated,
+        before: existing,
+        entityId: incidentId,
+        entityType: "DeliveryIncident"
+      });
+
+      return updated;
+    });
+
+    return serializeDeliveryIncident(incident);
   }
 
   async updateAssignmentStatus(
@@ -683,11 +1294,14 @@ export class DeliveryService {
     }
 
     if (
-      input.status === DeliveryStatus.FAILED &&
+      (input.status === DeliveryStatus.FAILED ||
+        input.status === DeliveryStatus.CANCELLED) &&
       !trimToUndefined(input.failureReason ?? input.note)
     ) {
       throw new BadRequestException(
-        "A failure reason is required before marking failed."
+        input.status === DeliveryStatus.CANCELLED
+          ? "A cancellation reason is required before cancelling."
+          : "A failure reason is required before marking failed."
       );
     }
   }
@@ -828,6 +1442,7 @@ export class DeliveryService {
       lastSeenAt: partner.lastSeenAt,
       mobileNumber: partner.mobileNumber,
       status: partner.status,
+      statusReason: partner.statusReason,
       updatedAt: partner.updatedAt,
       vehicleNumber: partner.vehicleNumber,
       wallet: {
@@ -963,6 +1578,105 @@ export class DeliveryService {
       updatedAt: assignment.updatedAt
     };
   }
+}
+
+function buildAssignmentFilters(
+  query: DeliveryAssignmentListQueryDto
+): Prisma.DeliveryAssignmentWhereInput {
+  const search = query.search?.trim();
+
+  return {
+    assignedAt:
+      query.dateFrom || query.dateTo
+        ? {
+            gte: query.dateFrom ? new Date(query.dateFrom) : undefined,
+            lte: query.dateTo ? new Date(query.dateTo) : undefined
+          }
+        : undefined,
+    OR: search
+      ? [
+          {
+            order: {
+              orderNumber: { contains: search, mode: "insensitive" }
+            }
+          },
+          {
+            order: {
+              user: { firstName: { contains: search, mode: "insensitive" } }
+            }
+          },
+          {
+            order: {
+              user: { lastName: { contains: search, mode: "insensitive" } }
+            }
+          },
+          {
+            order: {
+              user: { businessName: { contains: search, mode: "insensitive" } }
+            }
+          },
+          {
+            order: {
+              user: { mobileNumber: { contains: search } }
+            }
+          }
+        ]
+      : undefined
+  };
+}
+
+function assignmentOrderBy(
+  sort: DeliveryAssignmentListQueryDto["sort"]
+): Prisma.DeliveryAssignmentOrderByWithRelationInput[] {
+  return sort === "OLDEST"
+    ? [{ assignedAt: "asc" }, { id: "asc" }]
+    : [{ assignedAt: "desc" }, { id: "asc" }];
+}
+
+function jsonRecord(value: Prisma.JsonValue | null) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function serializeDeliveryNotification(notification: {
+  id: string;
+  payload: Prisma.JsonValue | null;
+  createdAt: Date;
+}) {
+  const payload = jsonRecord(notification.payload);
+
+  return {
+    assignmentId:
+      typeof payload.assignmentId === "string" ? payload.assignmentId : null,
+    body: typeof payload.body === "string" ? payload.body : "Delivery update",
+    createdAt: notification.createdAt,
+    id: notification.id,
+    isRead: typeof payload.readAt === "string",
+    title:
+      typeof payload.title === "string" ? payload.title : "Delivery notification",
+    type: typeof payload.type === "string" ? payload.type : "DELIVERY_UPDATE"
+  };
+}
+
+function serializeDeliveryIncident(incident: {
+  id: string;
+  deliveryAssignmentId: string;
+  type: DeliveryIncidentType;
+  status: DeliveryIncidentStatus;
+  note: string | null;
+  photoUrl: string | null;
+  createdAt: Date;
+}) {
+  return {
+    createdAt: incident.createdAt,
+    deliveryAssignmentId: incident.deliveryAssignmentId,
+    id: incident.id,
+    note: incident.note,
+    photoUrl: incident.photoUrl,
+    status: incident.status,
+    type: incident.type
+  };
 }
 
 function decimalToNumber(value: DecimalValue) {

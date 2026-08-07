@@ -17,7 +17,6 @@ import {
   ShoppingCart,
   TicketPercent,
   Truck,
-  UserRound,
   Users,
   Warehouse,
   X

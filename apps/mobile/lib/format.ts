@@ -6,6 +6,14 @@ export function formatRupees(value: number) {
   }).format(value);
 }
 
+export function formatCatalogRupees(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    currency: "INR",
+    maximumFractionDigits: 0,
+    style: "currency"
+  }).format(value);
+}
+
 export function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-IN", {
     day: "numeric",

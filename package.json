@@ -24,7 +24,7 @@
     "build": "corepack pnpm -r --sort build",
     "format": "prettier --write .",
     "lint": "corepack pnpm -r --sort lint",
-    "test": "node --test scripts/*.test.mjs && corepack pnpm -r --sort --if-present test",
+    "test": "node --test scripts/*.test.mjs && corepack pnpm -r --sort --workspace-concurrency=1 --if-present test",
     "typecheck": "corepack pnpm --filter @surgical/config --filter @surgical/types --filter @surgical/ui build && corepack pnpm -r --sort typecheck"
   },
   "devDependencies": {

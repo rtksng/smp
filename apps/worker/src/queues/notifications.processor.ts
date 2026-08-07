@@ -3,6 +3,7 @@ import { QUEUE_NAMES } from "@surgical/config";
 import {
   NOTIFICATION_JOB_NAMES,
   type NotificationJobName,
+  type SendDeliveryAssignmentNotificationJobData,
   type SendOrderConfirmationJobData
 } from "@surgical/types";
 import type { Job } from "bullmq";
@@ -28,16 +29,35 @@ export class NotificationsProcessor extends WorkerHost {
   }
 
   async process(
-    job: Job<SendOrderConfirmationJobData, void, NotificationJobName>
+    job: Job<
+      SendDeliveryAssignmentNotificationJobData | SendOrderConfirmationJobData,
+      void,
+      NotificationJobName
+    >
   ) {
     const startedAtMs = Date.now();
 
     try {
-      assertJobName(
-        job,
-        NOTIFICATION_JOB_NAMES.sendOrderConfirmation,
-        "notification"
-      );
+      if (job.name === NOTIFICATION_JOB_NAMES.sendDeliveryAssignment) {
+        const data = validateSendDeliveryAssignmentJobData(job.data);
+        await this.notificationLogs.sendDeliveryAssignment(data);
+        logJobCompleted(
+          this.logger,
+          NotificationsProcessor.name,
+          QUEUE_NAMES.notifications,
+          job,
+          "delivery-notification.sent",
+          startedAtMs,
+          {
+            assignmentId: data.assignmentId,
+            deliveryPartnerId: data.deliveryPartnerId,
+            notificationId: data.notificationId
+          }
+        );
+        return;
+      }
+
+      assertJobName(job, NOTIFICATION_JOB_NAMES.sendOrderConfirmation, "notification");
       const data = validateSendOrderConfirmationJobData(job.data);
 
       await this.notificationLogs.createOrderConfirmation(data);
@@ -66,6 +86,24 @@ export class NotificationsProcessor extends WorkerHost {
       throw error;
     }
   }
+}
+
+function validateSendDeliveryAssignmentJobData(
+  value: unknown
+): SendDeliveryAssignmentNotificationJobData {
+  const data = requireRecordPayload(value, "delivery notification job");
+  requireVersionOne(data);
+
+  return {
+    assignmentId:
+      data.assignmentId === null ? null : requireString(data, "assignmentId"),
+    body: requireString(data, "body"),
+    deliveryPartnerId: requireString(data, "deliveryPartnerId"),
+    notificationId: requireString(data, "notificationId"),
+    requestedAt: requireIsoDateString(data, "requestedAt"),
+    title: requireString(data, "title"),
+    version: 1
+  };
 }
 
 function validateSendOrderConfirmationJobData(

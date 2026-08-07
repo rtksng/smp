@@ -238,7 +238,7 @@ export function QuoteRequestDetailPage() {
   const [draft, setDraft] = useState<QuoteResponseDraft>(
     createEmptyQuoteResponseDraft()
   );
-  const [message, setMessage] = useState<string | null>(null);
+  const [_message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const quoteRequestQuery = useQuery({
     enabled: Boolean(quoteRequestId),

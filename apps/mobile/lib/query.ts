@@ -16,5 +16,6 @@ export const queryKeys = {
   similarProducts: (slug: string) =>
     ["catalog", "similar-products", slug] as const,
   wishlist: ["customer", "wishlist"] as const,
-  profile: ["customer", "profile"] as const
+  profile: ["customer", "profile"] as const,
+  quotes: ["customer", "quotes"] as const
 };

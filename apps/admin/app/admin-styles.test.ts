@@ -94,6 +94,16 @@ describe("admin layout styles", () => {
     );
   });
 
+  it("lets the quote request edit panel fill the detail page width", () => {
+    expect(globalsCss).toMatch(
+      /\.quoteRequestDetailGrid\s*{[^}]*grid-template-columns:\s*minmax\(340px,\s*420px\)\s*minmax\(0,\s*1fr\);/s
+    );
+    expect(globalsCss).toMatch(/\.quoteRequestDetailGrid\s*{[^}]*width:\s*100%;/s);
+    expect(globalsCss).toMatch(
+      /@media \(max-width:\s*1280px\)[\s\S]*?\.quoteRequestDetailGrid,[\s\S]*?\.deliveryWorkspaceGrid[\s\S]*?grid-template-columns:\s*1fr;/s
+    );
+  });
+
   it("wires the button wrapper through HeroUI", () => {
     expect(buttonSource).toContain('from "@heroui/button"');
     expect(buttonSource).toContain("buttonVariants");

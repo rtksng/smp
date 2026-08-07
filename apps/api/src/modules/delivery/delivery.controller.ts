@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -28,14 +29,21 @@ import { DeliveryPartnerJwtGuard } from "../auth/guards/delivery-partner-jwt.gua
 import { DeliveryService } from "./delivery.service";
 import {
   AddDeliveryPartnerDocumentDto,
+  CreateDeliveryIncidentDto,
   DeliveryAssignmentListQueryDto,
   DeliveryAssignmentListResponseDto,
   DeliveryAssignmentResponseDto,
+  DeliveryCashSummaryResponseDto,
+  DeliveryDashboardResponseDto,
+  DeliveryIncidentResponseDto,
+  DeliveryNotificationListResponseDto,
+  DeliveryNotificationResponseDto,
   DeliveryPartnerDeviceDto,
   DeliveryPartnerLocationDto,
   DeliveryPartnerOnlineStatusDto,
   DeliveryPartnerResponseDto,
-  UpdateDeliveryAssignmentStatusDto
+  UpdateDeliveryAssignmentStatusDto,
+  UpdateDeliveryPartnerProfileDto
 } from "./dto/delivery.dto";
 
 @ApiBearerAuth()
@@ -122,6 +130,83 @@ export class DeliveryController {
     return this.deliveryService.addMyDocument(getDeliveryPartnerId(request), body);
   }
 
+  @Delete("me/devices")
+  @ApiOperation({ summary: "Revoke registered delivery push devices." })
+  @ApiOkResponse({ description: "Delivery push devices revoked." })
+  revokeMyDevices(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.revokeMyDevices(getDeliveryPartnerId(request));
+  }
+
+  @Patch("me")
+  @ApiOperation({ summary: "Update delivery partner contact and vehicle details." })
+  @ApiOkResponse({ type: DeliveryPartnerResponseDto })
+  updateMe(
+    @Body() body: UpdateDeliveryPartnerProfileDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.updateMyProfile(
+      getDeliveryPartnerId(request),
+      body
+    );
+  }
+
+  @Get("dashboard")
+  @ApiOperation({ summary: "Get complete delivery workload metrics." })
+  @ApiOkResponse({ type: DeliveryDashboardResponseDto })
+  getDashboard(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.getMyDashboard(getDeliveryPartnerId(request));
+  }
+
+  @Get("cash")
+  @ApiOperation({ summary: "Get COD accountability and earnings summary." })
+  @ApiOkResponse({ type: DeliveryCashSummaryResponseDto })
+  getCashSummary(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.getMyCashSummary(getDeliveryPartnerId(request));
+  }
+
+  @Get("notifications")
+  @ApiOperation({ summary: "List delivery partner notifications." })
+  @ApiOkResponse({ type: DeliveryNotificationListResponseDto })
+  listNotifications(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.listMyNotifications(getDeliveryPartnerId(request));
+  }
+
+  @Patch("notifications/read-all")
+  @ApiOperation({ summary: "Mark all delivery partner notifications read." })
+  @ApiOkResponse({ description: "Notifications marked read." })
+  markAllNotificationsRead(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.markAllMyNotificationsRead(
+      getDeliveryPartnerId(request)
+    );
+  }
+
+  @Patch("notifications/:id/read")
+  @ApiOperation({ summary: "Mark one delivery partner notification read." })
+  @ApiOkResponse({ type: DeliveryNotificationResponseDto })
+  markNotificationRead(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.markMyNotificationRead(
+      getDeliveryPartnerId(request),
+      id
+    );
+  }
+
+  @Get("incidents")
+  @ApiOperation({ summary: "List incidents reported by the delivery partner." })
+  @ApiOkResponse({ description: "Delivery incidents returned." })
+  listIncidents(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.listMyIncidents(getDeliveryPartnerId(request));
+  }
+
+  @Get("support")
+  @ApiOperation({ summary: "Get configured delivery operations support contacts." })
+  @ApiOkResponse({ description: "Delivery support contact returned." })
+  getSupport() {
+    return this.deliveryService.getSupportContact();
+  }
+
   @Get("assignments")
   @ApiOperation({ summary: "List assigned deliveries for the delivery partner." })
   @ApiOkResponse({
@@ -136,6 +221,35 @@ export class DeliveryController {
     return this.deliveryService.listMyAssignments(
       getDeliveryPartnerId(request),
       query
+    );
+  }
+
+  @Get("assignments/:id")
+  @ApiOperation({ summary: "Get one assigned delivery for a reliable deep link." })
+  @ApiOkResponse({ type: DeliveryAssignmentResponseDto })
+  @ApiNotFoundResponse({ description: "Delivery assignment was not found." })
+  getAssignment(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.getMyAssignment(
+      getDeliveryPartnerId(request),
+      id
+    );
+  }
+
+  @Post("assignments/:id/incidents")
+  @ApiOperation({ summary: "Report an operational incident for an assignment." })
+  @ApiCreatedResponse({ type: DeliveryIncidentResponseDto })
+  createIncident(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: CreateDeliveryIncidentDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.createMyIncident(
+      getDeliveryPartnerId(request),
+      id,
+      body
     );
   }
 

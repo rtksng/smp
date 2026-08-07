@@ -1,6 +1,8 @@
 import { Type } from "class-transformer";
 import {
   IsBoolean,
+  IsDateString,
+  IsEmail,
   IsEnum,
   IsIn,
   IsInt,
@@ -9,15 +11,21 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
+  CashCollectionStatus,
+  DeliveryIncidentStatus,
+  DeliveryIncidentType,
+  DeliveryLedgerEntryType,
   DeliveryPartnerStatus,
   DeliveryStatus
 } from "../../../generated/prisma/enums";
 
 export const DELIVERY_DEVICE_PLATFORMS = ["ios", "android"] as const;
+export const DELIVERY_ASSIGNMENT_SORTS = ["NEWEST", "OLDEST"] as const;
 export type DeliveryDevicePlatform = (typeof DELIVERY_DEVICE_PLATFORMS)[number];
 
 export class DeliveryPartnerListQueryDto {
@@ -68,6 +76,30 @@ export class DeliveryAssignmentListQueryDto {
   @IsEnum(DeliveryStatus)
   @IsOptional()
   status?: DeliveryStatus;
+
+  @ApiPropertyOptional({
+    description: "Search order number, customer, business, or mobile number.",
+    example: "ORD-2026"
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({ example: "2026-08-01T00:00:00.000Z" })
+  @IsDateString()
+  @IsOptional()
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ example: "2026-08-06T23:59:59.999Z" })
+  @IsDateString()
+  @IsOptional()
+  dateTo?: string;
+
+  @ApiPropertyOptional({ enum: DELIVERY_ASSIGNMENT_SORTS, example: "NEWEST" })
+  @IsIn(DELIVERY_ASSIGNMENT_SORTS)
+  @IsOptional()
+  sort?: (typeof DELIVERY_ASSIGNMENT_SORTS)[number];
 }
 
 export class AdminDeliveryAssignmentListQueryDto extends DeliveryAssignmentListQueryDto {
@@ -188,6 +220,86 @@ export class AddDeliveryPartnerDocumentDto {
   })
   @IsString()
   fileKey!: string;
+}
+
+export class UpdateDeliveryPartnerProfileDto {
+  @ApiPropertyOptional({ example: "Asha Driver" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: "driver@example.com", nullable: true })
+  @IsEmail()
+  @IsOptional()
+  email?: string | null;
+
+  @ApiPropertyOptional({ example: "DL01AB1234", nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  vehicleNumber?: string | null;
+}
+
+export class RejectDeliveryPartnerDto {
+  @ApiPropertyOptional({ example: "Driving licence could not be verified." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
+export class CreateDeliveryIncidentDto {
+  @ApiProperty({ enum: DeliveryIncidentType })
+  @IsEnum(DeliveryIncidentType)
+  type!: DeliveryIncidentType;
+
+  @ApiPropertyOptional({ example: "Customer did not answer after three calls." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @ApiPropertyOptional({ example: "http://localhost:4000/uploads/proofs/incident.jpg" })
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
+
+  @ApiPropertyOptional({ example: "delivery/proofs/incident.jpg" })
+  @IsOptional()
+  @IsString()
+  photoKey?: string;
+}
+
+export class UpdateCashSettlementDto {
+  @ApiProperty({
+    enum: [CashCollectionStatus.SUBMITTED, CashCollectionStatus.SETTLED]
+  })
+  @IsIn([CashCollectionStatus.SUBMITTED, CashCollectionStatus.SETTLED])
+  status!: Extract<CashCollectionStatus, "SUBMITTED" | "SETTLED">;
+}
+
+export class CreateDeliveryLedgerEntryDto {
+  @ApiProperty({ enum: DeliveryLedgerEntryType })
+  @IsEnum(DeliveryLedgerEntryType)
+  type!: DeliveryLedgerEntryType;
+
+  @ApiProperty({ example: 250, minimum: 0.01 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  amount!: number;
+
+  @ApiProperty({ example: "Delivery earning for weekly settlement" })
+  @IsString()
+  @MaxLength(300)
+  description!: string;
+
+  @ApiPropertyOptional({ example: "PAYOUT-20260806-001" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
 }
 
 export class UpdateDeliveryAssignmentStatusDto {
@@ -326,6 +438,9 @@ export class DeliveryPartnerResponseDto {
 
   @ApiProperty({ enum: DeliveryPartnerStatus })
   status!: DeliveryPartnerStatus;
+
+  @ApiProperty({ example: "Vehicle document needs to be resubmitted.", nullable: true })
+  statusReason!: string | null;
 
   @ApiProperty({ example: false })
   isOnline!: boolean;
@@ -592,4 +707,135 @@ export class DeliveryAssignmentResponseDto {
 export class DeliveryAssignmentListResponseDto {
   @ApiProperty({ type: [DeliveryAssignmentResponseDto] })
   items!: DeliveryAssignmentResponseDto[];
+}
+
+export class DeliveryDashboardResponseDto {
+  @ApiProperty({ example: 4 })
+  activeCount!: number;
+
+  @ApiProperty({ example: 12 })
+  completedCount!: number;
+
+  @ApiProperty({ example: 1 })
+  issueCount!: number;
+
+  @ApiProperty({ example: 3250 })
+  codToCollect!: number;
+
+  @ApiProperty({ additionalProperties: { type: "number" }, type: "object" })
+  statusCounts!: Record<string, number>;
+}
+
+export class DeliveryCashItemResponseDto {
+  @ApiProperty({ example: "assignment-id" })
+  assignmentId!: string;
+
+  @ApiProperty({ example: "ORD-20260806-ABC123" })
+  orderNumber!: string;
+
+  @ApiProperty({ example: 1250 })
+  amount!: number;
+
+  @ApiProperty({ enum: CashCollectionStatus })
+  settlementStatus!: CashCollectionStatus;
+
+  @ApiProperty({ example: "2026-08-06T10:00:00.000Z", nullable: true })
+  collectedAt!: Date | null;
+}
+
+export class DeliveryCashSummaryResponseDto {
+  @ApiProperty({ example: 3250 })
+  cashInHand!: number;
+
+  @ApiProperty({ example: 1200 })
+  submittedAmount!: number;
+
+  @ApiProperty({ example: 8900 })
+  settledAmount!: number;
+
+  @ApiProperty({ example: 3 })
+  pendingCount!: number;
+
+  @ApiProperty({ type: DeliveryWalletResponseDto })
+  wallet!: DeliveryWalletResponseDto;
+
+  @ApiProperty({ type: [DeliveryCashItemResponseDto] })
+  items!: DeliveryCashItemResponseDto[];
+
+  @ApiProperty({ type: () => [DeliveryLedgerEntryResponseDto] })
+  ledgerEntries!: DeliveryLedgerEntryResponseDto[];
+}
+
+export class DeliveryLedgerEntryResponseDto {
+  @ApiProperty({ example: "ledger-entry-id" })
+  id!: string;
+
+  @ApiProperty({ enum: DeliveryLedgerEntryType })
+  type!: DeliveryLedgerEntryType;
+
+  @ApiProperty({ example: 250 })
+  amount!: number;
+
+  @ApiProperty({ example: "Delivery earning" })
+  description!: string;
+
+  @ApiProperty({ example: "PAYOUT-20260806-001", nullable: true })
+  reference!: string | null;
+
+  @ApiProperty({ example: "2026-08-06T10:00:00.000Z" })
+  createdAt!: Date;
+}
+
+export class DeliveryNotificationResponseDto {
+  @ApiProperty({ example: "notification-id" })
+  id!: string;
+
+  @ApiProperty({ example: "New delivery assigned" })
+  title!: string;
+
+  @ApiProperty({ example: "Order ORD-20260806-ABC123 is ready." })
+  body!: string;
+
+  @ApiProperty({ example: "assignment-id", nullable: true })
+  assignmentId!: string | null;
+
+  @ApiProperty({ example: "NEW_ASSIGNMENT" })
+  type!: string;
+
+  @ApiProperty({ example: false })
+  isRead!: boolean;
+
+  @ApiProperty({ example: "2026-08-06T10:00:00.000Z" })
+  createdAt!: Date;
+}
+
+export class DeliveryNotificationListResponseDto {
+  @ApiProperty({ type: [DeliveryNotificationResponseDto] })
+  items!: DeliveryNotificationResponseDto[];
+
+  @ApiProperty({ example: 2 })
+  unreadCount!: number;
+}
+
+export class DeliveryIncidentResponseDto {
+  @ApiProperty({ example: "incident-id" })
+  id!: string;
+
+  @ApiProperty({ example: "assignment-id" })
+  deliveryAssignmentId!: string;
+
+  @ApiProperty({ enum: DeliveryIncidentType })
+  type!: DeliveryIncidentType;
+
+  @ApiProperty({ enum: DeliveryIncidentStatus })
+  status!: DeliveryIncidentStatus;
+
+  @ApiProperty({ example: "Customer did not answer.", nullable: true })
+  note!: string | null;
+
+  @ApiProperty({ example: "http://localhost:4000/uploads/proofs/incident.jpg", nullable: true })
+  photoUrl!: string | null;
+
+  @ApiProperty({ example: "2026-08-06T10:00:00.000Z" })
+  createdAt!: Date;
 }

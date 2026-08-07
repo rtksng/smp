@@ -8,6 +8,7 @@ import {
   OTP_JOB_NAMES,
   PAYMENT_WEBHOOK_JOB_NAMES,
   type ProcessPaymentWebhookJobData,
+  type SendDeliveryAssignmentNotificationJobData,
   type SendLowStockAlertJobData,
   type SendNearExpiryAlertJobData,
   type SendOrderConfirmationJobData
@@ -44,6 +45,14 @@ class FakeNotificationLogRepository implements NotificationLogRepository {
   readonly nearExpiryAlerts: SendNearExpiryAlertJobData[] = [];
   readonly orderConfirmations: SendOrderConfirmationJobData[] = [];
   failNext = false;
+
+  async sendDeliveryAssignment(data: SendDeliveryAssignmentNotificationJobData) {
+    if (this.failNext) {
+      throw new Error("database unavailable");
+    }
+
+    void data;
+  }
 
   async createLowStockAlert(data: SendLowStockAlertJobData) {
     if (this.failNext) {

@@ -1,10 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import {
   FlatList,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Pressable,
   Text,
@@ -26,6 +26,7 @@ export function CatalogNavSheets({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const searchInputRef = useRef<TextInput>(null);
   const categoriesQuery = useQuery({
     enabled: activeSheet !== null,
     queryFn: getCategories,
@@ -37,7 +38,23 @@ export function CatalogNavSheets({
   return (
     <Modal
       animationType={activeSheet === "categories" ? "slide" : "fade"}
-      onRequestClose={onClose}
+      onShow={() => {
+        if (activeSheet === "search") {
+          searchInputRef.current?.focus();
+        }
+      }}
+      onRequestClose={() => {
+        if (
+          activeSheet === "search" &&
+          (Keyboard.isVisible() || searchInputRef.current?.isFocused())
+        ) {
+          searchInputRef.current?.blur();
+          Keyboard.dismiss();
+          return;
+        }
+
+        onClose();
+      }}
       presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent
@@ -98,7 +115,7 @@ export function CatalogNavSheets({
                     onClose();
                     router.push({
                       pathname: "/search",
-                      params: { category: item.slug, title: item.name }
+                      params: { category: item.slug }
                     });
                   }}
                   style={({ pressed }) => ({
@@ -141,8 +158,7 @@ export function CatalogNavSheets({
       ) : null}
 
       {activeSheet === "search" ? (
-        <KeyboardAvoidingView
-          behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
+        <View
           style={{
             backgroundColor: colors.surface,
             flex: 1,
@@ -153,9 +169,10 @@ export function CatalogNavSheets({
           <SheetHeader label="Search catalog" onClose={onClose} />
           <SearchSheetContent
             categories={categories.slice(0, 6)}
+            inputRef={searchInputRef}
             onClose={onClose}
           />
-        </KeyboardAvoidingView>
+        </View>
       ) : null}
     </Modal>
   );
@@ -163,9 +180,11 @@ export function CatalogNavSheets({
 
 function SearchSheetContent({
   categories,
+  inputRef,
   onClose
 }: {
   categories: Array<{ id: string; name: string; slug: string }>;
+  inputRef: RefObject<TextInput | null>;
   onClose: () => void;
 }) {
   const [search, setSearch] = useState("");
@@ -209,12 +228,12 @@ function SearchSheetContent({
             accessibilityLabel="Search products or SKU"
             autoCapitalize="none"
             autoCorrect={false}
-            autoFocus
             clearButtonMode="while-editing"
             onChangeText={setSearch}
             onSubmitEditing={submitSearch}
             placeholder="Search catalog"
             placeholderTextColor={colors.muted}
+            ref={inputRef}
             returnKeyType="search"
             style={{
               color: colors.text,
@@ -263,10 +282,7 @@ function SearchSheetContent({
                   onClose();
                   router.push({
                     pathname: "/search",
-                    params: {
-                      category: category.slug,
-                      title: category.name
-                    }
+                    params: { category: category.slug }
                   });
                 }}
                 style={({ pressed }) => ({

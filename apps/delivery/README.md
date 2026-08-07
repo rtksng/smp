@@ -2,7 +2,8 @@
 
 Expo Router delivery-partner app for OTP authentication, assignment handling,
 COD collection, proof-of-delivery upload, location attachment, offline status
-queueing, and push-device registration.
+queueing, application/KYC tracking, cash and payout history, incident reporting,
+and push-device registration.
 
 ## Runtime configuration
 
@@ -14,6 +15,11 @@ queueing, and push-device registration.
   `Constants.easConfig.projectId`. Push registration is skipped when no project
   identity is available rather than prompting for a permission the app cannot
   use.
+
+The API should configure `DELIVERY_SUPPORT_PHONE` and
+`DELIVERY_SUPPORT_EMAIL` so the Help screen can call or email delivery
+operations. The delivery operations migration must be applied before release;
+it adds application review reasons, incidents, and the earnings/payout ledger.
 
 The iOS app also needs APNs credentials attached to the EAS project. Camera,
 Photos, foreground Location, and notification permissions are requested only

@@ -46,7 +46,7 @@ describe("inventory route split", () => {
     expect(managementSource).toContain('view === "overview"');
     expect(managementSource).toContain('view === "actions"');
     expect(managementSource).toContain('view === "movements"');
-    expect(managementSource).toContain('showWarningFilters={view === "overview"}');
+    expect(managementSource).toContain("showWarningFilters={isOverviewView}");
     expect(managementSource).toContain("StockTable");
     expect(managementSource).toContain("MovementTable");
   });

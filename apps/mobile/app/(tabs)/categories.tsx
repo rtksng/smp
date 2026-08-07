@@ -9,7 +9,6 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
-import { StoreHeader } from "@/components/store-header";
 import { ErrorState, LoadingState } from "@/components/ui/state-view";
 import { getCategories } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
@@ -26,7 +25,6 @@ export default function CategoriesScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
-      <StoreHeader />
       <View
         style={{
           backgroundColor: colors.surface,
@@ -88,7 +86,7 @@ export default function CategoriesScreen() {
               asChild
               href={{
                 pathname: "/search",
-                params: { category: item.slug, title: item.name }
+                params: { category: item.slug }
               }}
             >
               <Pressable

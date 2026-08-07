@@ -2826,9 +2826,10 @@ h2 {
   align-items: start;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(620px, 1.2fr);
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
   margin-top: 18px;
   min-width: 0;
+  width: 100%;
 }
 
 .quoteRequestDetailGrid > * {

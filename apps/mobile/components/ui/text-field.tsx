@@ -38,8 +38,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(
               color: colors.text,
               fontFamily: fonts.body,
               fontSize: 16,
-              minHeight: 50,
-              paddingHorizontal: 18
+              minHeight: 48,
+              paddingHorizontal: 20
             },
             style
           ]}

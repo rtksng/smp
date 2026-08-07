@@ -17,10 +17,10 @@ export const colors = {
 } as const;
 
 export const fonts = {
-  body: "OpenSans_400Regular",
-  bodySemiBold: "OpenSans_600SemiBold",
-  heading: "Montserrat_600SemiBold",
-  headingBold: "Montserrat_700Bold"
+  body: "Inter_400Regular",
+  bodySemiBold: "Inter_600SemiBold",
+  heading: "PlusJakartaSans_600SemiBold",
+  headingBold: "PlusJakartaSans_700Bold"
 } as const;
 
 export const cardStyle = {

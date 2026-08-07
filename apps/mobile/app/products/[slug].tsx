@@ -7,11 +7,11 @@ import {
   FlatList,
   Linking,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import {
 } from "@/lib/api/wishlist";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getErrorMessage } from "@/lib/errors";
-import { formatRupees } from "@/lib/format";
+import { formatCatalogRupees, formatDate } from "@/lib/format";
 import { queryKeys } from "@/lib/query";
 import { cardStyle, colors, fonts } from "@/lib/theme";
 
@@ -66,12 +66,12 @@ export default function ProductDetailScreen() {
   });
   const relatedProductsQuery = useQuery({
     enabled: Boolean(product?.slug),
-    queryFn: () => getRelatedProducts(product?.slug ?? slug),
+    queryFn: () => getRelatedProducts(product?.slug ?? slug, 5),
     queryKey: queryKeys.relatedProducts(product?.slug ?? slug)
   });
   const similarProductsQuery = useQuery({
     enabled: Boolean(product?.slug),
-    queryFn: () => getSimilarProducts(product?.slug ?? slug),
+    queryFn: () => getSimilarProducts(product?.slug ?? slug, 5),
     queryKey: queryKeys.similarProducts(product?.slug ?? slug)
   });
   const wishlistQuery = useQuery({
@@ -214,11 +214,11 @@ export default function ProductDetailScreen() {
   const relatedProducts =
     relatedProductsQuery.data?.items
       .filter((item) => item.id !== product.id)
-      .slice(0, 4) ?? [];
+      .slice(0, 5) ?? [];
   const similarProducts =
     similarProductsQuery.data?.items
       .filter((item) => item.id !== product.id)
-      .slice(0, 4) ?? [];
+      .slice(0, 5) ?? [];
   const visibleDocuments = product.documents.filter((document) =>
     ["CERTIFICATE", "MANUAL", "WARRANTY", "COMPLIANCE"].includes(document.type)
   );
@@ -229,10 +229,11 @@ export default function ProductDetailScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={96}
         contentContainerStyle={{
           alignSelf: "center",
-          gap: 14,
+          gap: 20,
           maxWidth: 980,
           padding: 16,
           paddingBottom: 132 + insets.bottom,
@@ -240,6 +241,31 @@ export default function ProductDetailScreen() {
         }}
         contentInsetAdjustmentBehavior="automatic"
       >
+        <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 8 }}>
+          <Pressable
+            accessibilityLabel="Back"
+            onPress={() => router.back()}
+            style={({ pressed }) => ({
+              alignItems: "center",
+              backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+              borderColor: colors.border,
+              borderRadius: 999,
+              borderWidth: 1,
+              height: 32,
+              justifyContent: "center",
+              width: 40
+            })}
+          >
+            <MaterialCommunityIcons color={colors.primaryDark} name="arrow-left" size={18} />
+          </Pressable>
+          <View accessibilityLabel="Product breadcrumbs" style={{ alignItems: "center", flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
+            <Pressable onPress={() => router.push("/search")}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Products</Text></Pressable>
+            <MaterialCommunityIcons color="#A3B1AD" name="chevron-right" size={16} />
+            <Pressable onPress={() => router.push({ pathname: "/search", params: { category: product.category.slug } })}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.category.name}</Text></Pressable>
+            <MaterialCommunityIcons color="#A3B1AD" name="chevron-right" size={16} />
+            <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.name}</Text>
+          </View>
+        </View>
         <View
           style={{
             ...cardStyle,
@@ -253,13 +279,15 @@ export default function ProductDetailScreen() {
           }}
         >
           {selectedImage ? (
-            <Image
-              accessibilityLabel={selectedImage.altText ?? product.name}
-              contentFit="contain"
-              source={{ uri: selectedImage.url }}
-              style={{ height: "100%", width: "100%" }}
-              transition={180}
-            />
+            <View style={{ alignSelf: "stretch", flex: 1, margin: 16 }}>
+              <Image
+                accessibilityLabel={selectedImage.altText ?? product.name}
+                contentFit="contain"
+                source={{ uri: selectedImage.url }}
+                style={{ height: "100%", width: "100%" }}
+                transition={180}
+              />
+            </View>
           ) : (
             <MaterialCommunityIcons
               color={colors.primaryDark}
@@ -299,7 +327,7 @@ export default function ProductDetailScreen() {
 
         {product.images.length > 1 ? (
           <FlatList
-            contentContainerStyle={{ gap: 10 }}
+            contentContainerStyle={{ gap: 12 }}
             data={product.images}
             horizontal
             keyExtractor={(item) => item.id}
@@ -312,19 +340,14 @@ export default function ProductDetailScreen() {
                     item.id === selectedImage?.id
                       ? colors.primaryDark
                       : colors.border,
-                  borderRadius: 10,
+                  borderRadius: 8,
                   borderWidth: item.id === selectedImage?.id ? 2 : 1,
-                  height: 72,
+                  height: 80,
                   overflow: "hidden",
-                  width: 72
+                  width: 80
                 }}
               >
-                <Image
-                  accessibilityLabel={item.altText ?? product.name}
-                  contentFit="contain"
-                  source={{ uri: item.url }}
-                  style={{ height: "100%", width: "100%" }}
-                />
+                <View style={{ flex: 1, padding: 8 }}><Image accessibilityLabel={item.altText ?? product.name} contentFit="contain" source={{ uri: item.url }} style={{ height: "100%", width: "100%" }} /></View>
               </Pressable>
             )}
             showsHorizontalScrollIndicator={false}
@@ -348,8 +371,8 @@ export default function ProductDetailScreen() {
             style={{
               color: colors.ink,
               fontFamily: fonts.heading,
-              fontSize: 21,
-              lineHeight: 29
+              fontSize: 18,
+              lineHeight: 25
             }}
           >
             {product.name}
@@ -357,6 +380,7 @@ export default function ProductDetailScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
             <Tag label={`SKU ${product.sku}`} />
             <Tag label={product.category.name} primary />
+            {product.subcategory ? <Tag label={product.subcategory.name} primary /> : null}
             <Tag
               label={product.inStock ? "In stock" : "Product out of stock"}
             />
@@ -381,17 +405,17 @@ export default function ProductDetailScreen() {
             <ProductSignal
               icon="truck-outline"
               title="Delivery"
-              value="Estimate at checkout"
-            />
-            <ProductSignal
-              icon="shield-check-outline"
-              title="Pack and safety"
-              value={product.packSize ?? product.unit}
+              value="Estimate shown at checkout"
             />
             <ProductSignal
               icon="medical-bag"
               title="Clinical use"
               value={product.medicalSpecialty ?? "General medical use"}
+            />
+            <ProductSignal
+              icon="shield-check-outline"
+              title="Pack and safety"
+              value={product.packSize ?? product.unit}
             />
           </View>
         </View>
@@ -480,7 +504,7 @@ export default function ProductDetailScreen() {
                 fontVariant: ["tabular-nums"]
               }}
             >
-              {formatRupees(product.sellingPrice)}
+              {formatCatalogRupees(product.sellingPrice)}
             </Text>
             <Text
               selectable
@@ -491,7 +515,7 @@ export default function ProductDetailScreen() {
                 textDecorationLine: "line-through"
               }}
             >
-              MRP {formatRupees(product.mrp)}
+              MRP {formatCatalogRupees(product.mrp)}
             </Text>
             {product.mrp > product.sellingPrice ? (
               <Text
@@ -502,7 +526,7 @@ export default function ProductDetailScreen() {
                   fontSize: 12
                 }}
               >
-                Save {formatRupees(product.mrp - product.sellingPrice)}
+                Save {formatCatalogRupees(product.mrp - product.sellingPrice)}
               </Text>
             ) : null}
           </View>
@@ -648,7 +672,7 @@ export default function ProductDetailScreen() {
           products={similarProducts}
           title="Similar category products"
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View
         style={{
@@ -878,7 +902,7 @@ function ProductVariants({ product }: { product: Product }) {
                   fontVariant: ["tabular-nums"]
                 }}
               >
-                {formatRupees(variant.sellingPrice)}
+                {formatCatalogRupees(variant.sellingPrice)}
               </Text>
               <Tag label={variant.status.replaceAll("_", " ")} />
             </View>
@@ -1037,16 +1061,24 @@ function ProductFeedbackSection({
   reviewPending: boolean;
   reviewRating: number;
 }) {
-  const reviews = feedback?.reviews.slice(0, 4) ?? [];
-  const questions = feedback?.questions.slice(0, 4) ?? [];
+  const reviews = feedback?.reviews ?? [];
+  const questions = feedback?.questions ?? [];
+  const averageRating = reviews.length
+    ? reviews.reduce((total, review) => total + review.rating, 0) / reviews.length
+    : null;
 
   return (
     <View style={{ ...cardStyle, gap: 16, padding: 16 }}>
       <SectionTitle
-        description="Customer reviews and product questions."
+        description="Read recent buyer feedback or ask a product-specific question before purchase."
         eyebrow="Customer feedback"
         title="Reviews and Q&A"
       />
+      <View style={{ backgroundColor: colors.surfaceMuted, borderColor: "#DCEFE0", borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
+        <FeedbackMetric label="Average rating" value={averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"} />
+        <FeedbackMetric label="Reviews" value={String(reviews.length)} />
+        <FeedbackMetric label="Questions" value={String(questions.length)} />
+      </View>
       {loading ? <LoadingState label="Loading product feedback" /> : null}
       {error ? (
         <Text
@@ -1081,20 +1113,17 @@ function ProductFeedbackSection({
         </Text>
       ) : null}
 
-      <FeedbackGroup title="Reviews">
+      <FeedbackGroup count={`${reviews.length} posted`} title="Reviews">
         {reviews.length > 0 ? (
-          reviews.map((review) => (
-            <FeedbackEntry
-              body={review.comment}
-              key={review.id}
-              meta={review.customerName}
-              title={`Rating ${review.rating}/5 | ${review.title ?? "Customer review"}`}
-            />
-          ))
+          reviews.slice(0, 4).map((review) => <ReviewFeedbackCard key={review.id} review={review} />)
         ) : (
           <FeedbackEmpty label="No reviews yet." />
         )}
-        <View style={{ gap: 10 }}>
+        <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+          <View style={{ gap: 4 }}>
+            <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Write a review</Text>
+            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Share what helped with purchase or clinical use.</Text>
+          </View>
           <View
             accessibilityLabel={`Review rating ${reviewRating} out of 5`}
             style={{ flexDirection: "row", gap: 6 }}
@@ -1131,20 +1160,17 @@ function ProductFeedbackSection({
         </View>
       </FeedbackGroup>
 
-      <FeedbackGroup title="Questions">
+      <FeedbackGroup count={`${questions.length} asked`} title="Questions">
         {questions.length > 0 ? (
-          questions.map((entry) => (
-            <FeedbackEntry
-              body={entry.answer ?? "Awaiting answer."}
-              key={entry.id}
-              meta={entry.customerName}
-              title={entry.question}
-            />
-          ))
+          questions.slice(0, 4).map((entry) => <QuestionFeedbackCard entry={entry} key={entry.id} />)
         ) : (
           <FeedbackEmpty label="No questions yet." />
         )}
-        <View style={{ gap: 10 }}>
+        <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+          <View style={{ gap: 4 }}>
+            <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Ask a question</Text>
+            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Ask about fit, pack size, compatibility, or delivery.</Text>
+          </View>
           <FeedbackInput
             accessibilityLabel="Product question"
             onChangeText={onQuestionChange}
@@ -1167,81 +1193,70 @@ function ProductFeedbackSection({
 
 function FeedbackGroup({
   children,
+  count,
   title
 }: {
   children: ReactNode;
+  count: string;
   title: string;
 }) {
   return (
     <View style={{ gap: 10 }}>
-      <Text
-        selectable
-        style={{
-          color: colors.text,
-          fontFamily: fonts.bodySemiBold,
-          fontSize: 14
-        }}
-      >
-        {title}
-      </Text>
+      <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
+        <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{title}</Text>
+        <Text selectable style={{ backgroundColor: colors.primarySoft, borderRadius: 999, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 10, paddingVertical: 5 }}>{count}</Text>
+      </View>
       {children}
     </View>
   );
 }
 
-function FeedbackEntry({
-  body,
-  meta,
-  title
-}: {
-  body: string;
-  meta: string;
-  title: string;
-}) {
+function FeedbackMetric({ label, value }: { label: string; value: string }) {
   return (
-    <View
-      style={{
-        backgroundColor: colors.surfaceMuted,
-        borderColor: colors.border,
-        borderRadius: 10,
-        borderWidth: 1,
-        gap: 5,
-        padding: 12
-      }}
-    >
-      <Text
-        selectable
-        style={{
-          color: colors.text,
-          fontFamily: fonts.bodySemiBold,
-          fontSize: 12
-        }}
-      >
-        {title}
-      </Text>
-      <Text
-        selectable
-        style={{
-          color: colors.muted,
-          fontFamily: fonts.body,
-          fontSize: 12,
-          lineHeight: 18
-        }}
-      >
-        {body}
-      </Text>
-      <Text
-        selectable
-        style={{
-          color: colors.muted,
-          fontFamily: fonts.bodySemiBold,
-          fontSize: 10
-        }}
-      >
-        {meta}
-      </Text>
+    <View style={{ flexBasis: "30%", flexGrow: 1, gap: 4 }}>
+      <Text selectable style={{ color: "#6F807A", fontFamily: fonts.bodySemiBold, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
+      <Text selectable style={{ color: colors.ink, fontFamily: fonts.body, fontSize: 18 }}>{value}</Text>
     </View>
   );
+}
+
+function ReviewFeedbackCard({ review }: { review: ProductFeedback["reviews"][number] }) {
+  return (
+    <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 12 }}>
+        <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 36, justifyContent: "center", width: 36 }}><Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 13, textTransform: "uppercase" }}>{customerInitials(review.customerName)}</Text></View>
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <Text accessibilityLabel={`${review.rating} out of 5 stars`} style={{ color: "#F59E0B", fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{"★".repeat(review.rating)}<Text style={{ color: "#D8DFDC" }}>{"★".repeat(5 - review.rating)}</Text></Text>
+            <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(review.createdAt)}</Text>
+          </View>
+          <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{review.title ?? "Customer review"}</Text>
+        </View>
+      </View>
+      <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 24 }}>{review.comment}</Text>
+      <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{review.customerName} · Verified customer</Text>
+    </View>
+  );
+}
+
+function QuestionFeedbackCard({ entry }: { entry: ProductFeedback["questions"][number] }) {
+  return (
+    <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+      <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 12 }}>
+        <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 18, height: 36, justifyContent: "center", width: 36 }}><Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Q</Text></View>
+        <View style={{ flex: 1, gap: 8 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Text style={{ backgroundColor: colors.surface, borderRadius: 999, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 8, paddingVertical: 3 }}>Product question</Text><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(entry.createdAt)}</Text></View>
+          <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14, lineHeight: 24 }}>{entry.question}</Text>
+        </View>
+      </View>
+      <Text style={{ backgroundColor: colors.surface, borderRadius: 8, color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 24, padding: 10 }}><Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold }}>Answer: </Text>{entry.answer ?? "Awaiting answer from the team."}</Text>
+      <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{entry.customerName}</Text>
+    </View>
+  );
+}
+
+function customerInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "C";
 }
 
 function FeedbackEmpty({ label }: { label: string }) {
@@ -1251,7 +1266,7 @@ function FeedbackEmpty({ label }: { label: string }) {
       style={{
         backgroundColor: colors.surfaceMuted,
         borderColor: colors.border,
-        borderRadius: 10,
+        borderRadius: 8,
         borderStyle: "dashed",
         borderWidth: 1,
         color: colors.muted,
@@ -1286,8 +1301,8 @@ function FeedbackInput({
       selectionColor={colors.primaryDark}
       style={{
         backgroundColor: colors.surface,
-        borderColor: colors.border,
-        borderRadius: 10,
+        borderColor: "#CFDCDA",
+        borderRadius: 8,
         borderWidth: 1,
         color: colors.text,
         fontFamily: fonts.body,

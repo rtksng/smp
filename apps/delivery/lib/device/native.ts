@@ -105,7 +105,19 @@ async function readCurrentCoordinates(): Promise<CoordinatesResult> {
 }
 
 export async function pickProofImage(): Promise<ProofImageResult> {
-  const source = await chooseProofSource();
+  return pickImage("proof");
+}
+
+export async function pickPartnerDocumentImage(): Promise<ProofImageResult> {
+  return pickImage("document");
+}
+
+export async function pickIncidentImage(): Promise<ProofImageResult> {
+  return pickImage("incident");
+}
+
+async function pickImage(purpose: "document" | "incident" | "proof"): Promise<ProofImageResult> {
+  const source = await chooseImageSource(purpose);
 
   if (!source) {
     return { status: "cancelled" };
@@ -168,7 +180,7 @@ export async function pickProofImage(): Promise<ProofImageResult> {
 
   return {
     asset: {
-      fileName: `delivery-proof-${Date.now()}.jpg`,
+      fileName: `delivery-${purpose}-${Date.now()}.jpg`,
       mimeType: "image/jpeg",
       uri: converted.uri
     },
@@ -255,6 +267,33 @@ export function showPermissionSettingsAlert(input: {
   ]);
 }
 
+export async function openEmailAddress(email: string) {
+  return openExternalUrl(`mailto:${encodeURIComponent(email)}`);
+}
+
+export async function getPermissionHealth() {
+  const [camera, library, location, notifications] = await Promise.all([
+    ImagePicker.getCameraPermissionsAsync(),
+    ImagePicker.getMediaLibraryPermissionsAsync(),
+    Location.getForegroundPermissionsAsync(),
+    Notifications.getPermissionsAsync()
+  ]);
+
+  return {
+    camera: permissionState(camera.granted, camera.canAskAgain),
+    library: permissionState(library.granted, library.canAskAgain),
+    location: permissionState(location.granted, location.canAskAgain),
+    notifications: permissionState(
+      notifications.granted,
+      notifications.canAskAgain
+    )
+  };
+}
+
+export function openAppSettings() {
+  return NativeLinking.openSettings();
+}
+
 export function successHaptic() {
   return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
     () => undefined
@@ -271,14 +310,24 @@ async function openExternalUrl(url: string) {
   await Linking.openURL(url);
 }
 
-function chooseProofSource() {
+function permissionState(granted: boolean, canAskAgain: boolean) {
+  return granted ? "GRANTED" as const : canAskAgain ? "NOT_REQUESTED" as const : "DENIED" as const;
+}
+
+function chooseImageSource(purpose: "document" | "incident" | "proof") {
+  const title =
+    purpose === "proof"
+      ? "Attach proof of delivery"
+      : purpose === "incident"
+        ? "Attach incident photo"
+        : "Attach partner document";
   return new Promise<"camera" | "library" | null>((resolve) => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           cancelButtonIndex: 2,
           options: ["Take photo", "Choose from Photos", "Cancel"],
-          title: "Attach proof of delivery"
+          title
         },
         (buttonIndex) => {
           resolve(
@@ -289,7 +338,7 @@ function chooseProofSource() {
       return;
     }
 
-    Alert.alert("Attach proof of delivery", "Choose a proof photo source.", [
+    Alert.alert(title, "Choose a photo source.", [
       { onPress: () => resolve("camera"), text: "Take photo" },
       { onPress: () => resolve("library"), text: "Choose photo" },
       {

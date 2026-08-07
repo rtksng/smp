@@ -16,7 +16,6 @@ import {
   getFeaturedCategorySectionLimit,
   getFeaturedCategoryProductLimit,
   getHomeBrandPreviewLimit,
-  getLandingProductLimit,
   selectLandingCategories,
   selectProductReadyFeaturedCategories,
   selectPreviewBrands

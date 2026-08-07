@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { KeyboardAccessory } from "@/components/ui/keyboard-accessory";
 import { Screen } from "@/components/ui/screen";
 import { TextField } from "@/components/ui/text-field";
 import { useAuth } from "@/lib/auth/auth-context";
-import { normalizeOtpInput } from "@/lib/auth/mobile";
+import { normalizeIndianMobileNumber, normalizeOtpInput } from "@/lib/auth/mobile";
 import { resolveAuthReturnTo } from "@/lib/auth/return-to";
 import { getErrorMessage } from "@/lib/errors";
 import { cardStyle, colors, fonts } from "@/lib/theme";
@@ -31,6 +31,8 @@ export default function LoginScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setSubmitting] = useState(false);
+  const canRequestOtp = isValidMobileNumber(mobileNumber);
+  const canVerifyOtp = /^\d{6}$/.test(otp);
 
   useEffect(() => {
     if (session) {
@@ -104,17 +106,24 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen contentContainerStyle={{ maxWidth: 560 }}>
-      <View style={{ ...cardStyle, gap: 20, padding: 20 }}>
+    <Screen
+      contentContainerStyle={{
+        justifyContent: "center",
+        maxWidth: 448,
+        paddingBottom: 32,
+        paddingTop: 16
+      }}
+    >
+      <View style={{ ...cardStyle, borderRadius: 8, gap: 24, padding: 20 }}>
         <View style={{ gap: 10 }}>
           <View
             style={{
               alignItems: "center",
               backgroundColor: colors.primarySoft,
               borderRadius: 12,
-              height: 48,
+              height: 44,
               justifyContent: "center",
-              width: 48
+              width: 44
             }}
           >
             <MaterialCommunityIcons
@@ -132,7 +141,7 @@ export default function LoginScreen() {
               textTransform: "uppercase"
             }}
           >
-            Secure customer access
+            Secure customer login
           </Text>
           <Text
             selectable
@@ -143,9 +152,7 @@ export default function LoginScreen() {
               lineHeight: 31
             }}
           >
-            {step === "mobile"
-              ? "Login or create your account"
-              : "Enter your one-time password"}
+            Sign in with mobile OTP
           </Text>
           <Text
             selectable
@@ -156,9 +163,7 @@ export default function LoginScreen() {
               lineHeight: 22
             }}
           >
-            {step === "mobile"
-              ? "Use your Indian mobile number. New customers are registered automatically after verification."
-              : `We sent a 6 digit OTP to ${mobileNumber}.`}
+            We will send a one-time password to your Indian mobile number.
           </Text>
         </View>
 
@@ -167,14 +172,14 @@ export default function LoginScreen() {
             autoCapitalize="none"
             autoComplete={process.env.EXPO_OS === "ios" ? undefined : "tel"}
             autoCorrect={false}
-            autoFocus
             enablesReturnKeyAutomatically
             inputAccessoryViewID="login-phone-actions"
             keyboardType="phone-pad"
             label="Mobile number"
+            maxLength={18}
             onChangeText={setMobileNumber}
             onSubmitEditing={() => void handleRequestOtp()}
-            placeholder="+91 98765 43210"
+            placeholder="98765 43210"
             ref={mobileInputRef}
             returnKeyType="send"
             textContentType={
@@ -184,6 +189,16 @@ export default function LoginScreen() {
           />
         ) : (
           <>
+            <View style={{ ...cardStyle, backgroundColor: colors.surfaceMuted, borderRadius: 8, gap: 5, padding: 12 }}>
+              <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>OTP sent to</Text>
+              <Text selectable style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{mobileNumber}</Text>
+              {devOtp ? (
+                <View style={{ alignItems: "center", alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderColor: "#A9DDAE", borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: 8, marginTop: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+                  <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, textTransform: "uppercase" }}>Dev OTP</Text>
+                  <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.headingBold, fontSize: 14, fontVariant: ["tabular-nums"] }}>{devOtp}</Text>
+                </View>
+              ) : null}
+            </View>
             <TextField
               autoCapitalize="none"
               autoComplete={
@@ -193,10 +208,10 @@ export default function LoginScreen() {
               enablesReturnKeyAutomatically
               inputAccessoryViewID="login-otp-actions"
               keyboardType="number-pad"
-              label="One-time password"
+              label="6-digit OTP"
               onChangeText={(value) => setOtp(normalizeOtpInput(value))}
               onSubmitEditing={() => void handleVerifyOtp()}
-              placeholder="6 digit OTP"
+              placeholder="123456"
               ref={otpInputRef}
               returnKeyType="done"
               selectTextOnFocus
@@ -205,44 +220,6 @@ export default function LoginScreen() {
               }
               value={otp}
             />
-            {devOtp ? (
-              <View
-                style={{
-                  alignItems: "center",
-                  alignSelf: "flex-start",
-                  backgroundColor: colors.primarySoft,
-                  borderColor: "#A9DDAE",
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  flexDirection: "row",
-                  gap: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 7
-                }}
-              >
-                <Text
-                  selectable
-                  style={{
-                    color: colors.primaryDark,
-                    fontFamily: fonts.bodySemiBold,
-                    fontSize: 11
-                  }}
-                >
-                  Dev OTP
-                </Text>
-                <Text
-                  selectable
-                  style={{
-                    color: colors.primaryDark,
-                    fontFamily: fonts.headingBold,
-                    fontSize: 14,
-                    fontVariant: ["tabular-nums"]
-                  }}
-                >
-                  {devOtp}
-                </Text>
-              </View>
-            ) : null}
           </>
         )}
 
@@ -265,49 +242,67 @@ export default function LoginScreen() {
         ) : null}
 
         {step === "mobile" ? (
-          <Button loading={isSubmitting} onPress={() => void handleRequestOtp()}>
-            Send OTP
+          <Button disabled={!canRequestOtp} loading={isSubmitting} onPress={() => void handleRequestOtp()}>
+            Request OTP
           </Button>
         ) : (
           <View style={{ gap: 10 }}>
-            <Button loading={isSubmitting} onPress={() => void handleVerifyOtp()}>
+            <Button disabled={!canVerifyOtp} loading={isSubmitting} onPress={() => void handleVerifyOtp()}>
               Verify and continue
             </Button>
-            <Button
-              disabled={cooldown > 0 || isSubmitting}
-              onPress={() => void handleRequestOtp()}
-              variant="outline"
-            >
-              {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
-            </Button>
-            <Button
-              disabled={isSubmitting}
-              onPress={() => {
-                setError(null);
-                setOtp("");
-                setStep("mobile");
-              }}
-              variant="soft"
-            >
-              Change mobile number
-            </Button>
+            <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" }}>
+              <LoginTextAction
+                icon="arrow-left"
+                label="Change number"
+                onPress={() => {
+                  setError(null);
+                  setDevOtp(null);
+                  setOtp("");
+                  setStep("mobile");
+                }}
+              />
+              <LoginTextAction
+                disabled={cooldown > 0 || isSubmitting}
+                icon="refresh"
+                label={cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
+                onPress={() => void handleRequestOtp()}
+              />
+            </View>
           </View>
         )}
       </View>
       <KeyboardAccessory
         actionLabel="Send OTP"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !canRequestOtp}
         dismissKeyboard={false}
         nativeID="login-phone-actions"
         onPress={() => void handleRequestOtp()}
       />
       <KeyboardAccessory
         actionLabel="Verify"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !canVerifyOtp}
         dismissKeyboard={false}
         nativeID="login-otp-actions"
         onPress={() => void handleVerifyOtp()}
       />
     </Screen>
   );
+}
+
+function LoginTextAction({ disabled = false, icon, label, onPress }: { disabled?: boolean; icon: "arrow-left" | "refresh"; label: string; onPress: () => void }) {
+  return (
+    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => ({ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 40, opacity: disabled ? 0.5 : pressed ? 0.72 : 1 })}>
+      <MaterialCommunityIcons color={disabled ? "#8DA19C" : colors.primaryDark} name={icon} size={16} />
+      <Text style={{ color: disabled ? "#8DA19C" : colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function isValidMobileNumber(value: string) {
+  try {
+    normalizeIndianMobileNumber(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

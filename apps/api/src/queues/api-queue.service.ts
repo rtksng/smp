@@ -17,6 +17,7 @@ import {
   type PaymentWebhookJobName,
   type ProcessPaymentWebhookJobData,
   type SendLowStockAlertJobData,
+  type SendDeliveryAssignmentNotificationJobData,
   type SendNearExpiryAlertJobData,
   type SendOrderConfirmationJobData,
   type SendOtpJobData
@@ -40,7 +41,7 @@ export class ApiQueueService {
     private readonly otpQueue: Queue<SendOtpJobData, void, OtpJobName>,
     @InjectQueue(QUEUE_NAMES.notifications)
     private readonly notificationsQueue: Queue<
-      SendOrderConfirmationJobData,
+      SendDeliveryAssignmentNotificationJobData | SendOrderConfirmationJobData,
       void,
       NotificationJobName
     >,
@@ -77,6 +78,16 @@ export class ApiQueueService {
   async enqueueOrderConfirmation(data: SendOrderConfirmationJobData) {
     await this.notificationsQueue.add(
       NOTIFICATION_JOB_NAMES.sendOrderConfirmation,
+      data,
+      DEFAULT_JOB_OPTIONS
+    );
+  }
+
+  async enqueueDeliveryAssignmentNotification(
+    data: SendDeliveryAssignmentNotificationJobData
+  ) {
+    await this.notificationsQueue.add(
+      NOTIFICATION_JOB_NAMES.sendDeliveryAssignment,
       data,
       DEFAULT_JOB_OPTIONS
     );

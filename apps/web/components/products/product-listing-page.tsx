@@ -308,7 +308,6 @@ export function ProductListingPage({
             <ActiveFilterSummary
               filters={filters}
               lockedFilters={lockedFilters}
-              pathname={pathname}
               clearHref={clearFiltersHref}
             />
 
@@ -889,13 +888,11 @@ function Checkbox({
 function ActiveFilterSummary({
   clearHref,
   filters,
-  lockedFilters,
-  pathname
+  lockedFilters
 }: {
   clearHref: string;
   filters: ProductFilters;
   lockedFilters: ProductFilterOverrides;
-  pathname: string;
 }) {
   const chips = getActiveFilterChips(filters, lockedFilters);
 

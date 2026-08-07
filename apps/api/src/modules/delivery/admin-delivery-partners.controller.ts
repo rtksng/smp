@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UnauthorizedException,
@@ -11,6 +13,7 @@ import {
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -29,7 +32,10 @@ import { DeliveryService } from "./delivery.service";
 import {
   DeliveryPartnerListQueryDto,
   DeliveryPartnerListResponseDto,
-  DeliveryPartnerResponseDto
+  DeliveryPartnerResponseDto,
+  CreateDeliveryLedgerEntryDto,
+  DeliveryLedgerEntryResponseDto,
+  RejectDeliveryPartnerDto
 } from "./dto/delivery.dto";
 
 @ApiBearerAuth()
@@ -112,10 +118,28 @@ export class AdminDeliveryPartnersController {
   @ApiNotFoundResponse({ description: "Delivery partner was not found." })
   rejectPartner(
     @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: RejectDeliveryPartnerDto,
     @Req() request: AuthenticatedRequest
   ) {
     return this.deliveryService.rejectDeliveryPartner(
       id,
+      getAdminActionContext(request),
+      body?.reason
+    );
+  }
+
+  @Post(":id/ledger")
+  @RequirePermission(PermissionCode.DeliveryAssign)
+  @ApiOperation({ summary: "Post a delivery earning or payout ledger entry." })
+  @ApiCreatedResponse({ type: DeliveryLedgerEntryResponseDto })
+  createLedgerEntry(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: CreateDeliveryLedgerEntryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.createLedgerEntry(
+      id,
+      body,
       getAdminActionContext(request)
     );
   }

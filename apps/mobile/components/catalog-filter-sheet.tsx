@@ -10,6 +10,7 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Button } from "@/components/ui/button";
 import type { Brand, Category } from "@/lib/api/schemas";
 import type { ProductQuery } from "@/lib/api/catalog";
@@ -93,7 +94,7 @@ export function CatalogFilterSheet({
       visible={visible}
     >
       <KeyboardAvoidingView
-        behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
+        behavior={process.env.EXPO_OS === "ios" ? "padding" : "height"}
         style={{ flex: 1, justifyContent: "flex-end" }}
       >
         <Pressable
@@ -188,7 +189,8 @@ export function CatalogFilterSheet({
             </Pressable>
           </View>
 
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={96}
             contentContainerStyle={{ gap: 18, padding: 16 }}
             contentInsetAdjustmentBehavior="automatic"
             keyboardDismissMode={
@@ -269,7 +271,7 @@ export function CatalogFilterSheet({
               </View>
             </View>
 
-            <ChoiceField
+            <DirectChoiceField
               label="Stock status"
               onChange={(stock) =>
                 patch({
@@ -316,7 +318,7 @@ export function CatalogFilterSheet({
               />
             </View>
 
-            <ChoiceField
+            <DirectChoiceField
               label="Sort"
               onChange={(sort) =>
                 patch({ sort: sort as CatalogFilters["sort"] })
@@ -329,7 +331,7 @@ export function CatalogFilterSheet({
               ]}
               value={draft.sort}
             />
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View
             style={{
@@ -405,10 +407,141 @@ function ChoiceField({
   options: Array<{ label: string; value: string }>;
   value: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const selectedOption =
+    options.find((option) => option.value === value) ?? options[0];
+
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 7 }}>
       <FieldLabel>{label}</FieldLabel>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      <Pressable
+        accessibilityLabel={`${label}: ${selectedOption?.label ?? "Select"}`}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((current) => !current)}
+        style={({ pressed }) => ({
+          alignItems: "center",
+          backgroundColor: colors.surface,
+          borderColor: "#A9DDAE",
+          borderCurve: "continuous",
+          borderRadius: 12,
+          borderWidth: 1,
+          flexDirection: "row",
+          gap: 10,
+          minHeight: 48,
+          opacity: pressed ? 0.78 : 1,
+          paddingHorizontal: 14
+        })}
+      >
+        <Text
+          numberOfLines={1}
+          style={{
+            color: colors.text,
+            flex: 1,
+            fontFamily: fonts.body,
+            fontSize: 15
+          }}
+        >
+          {selectedOption?.label ?? "Select"}
+        </Text>
+        <Feather
+          color={colors.text}
+          name={open ? "chevron-up" : "chevron-down"}
+          size={18}
+        />
+      </Pressable>
+      {open ? (
+        <View
+          accessibilityLabel={`${label} options`}
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderRadius: 12,
+            borderWidth: 1,
+            maxHeight: 224,
+            overflow: "hidden"
+          }}
+        >
+          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+            {options.map((option, index) => {
+              const selected = option.value === value;
+
+              return (
+                <Pressable
+                  accessibilityLabel={`${label}: ${option.label}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  key={`${label}-${option.value || "all"}`}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  style={({ pressed }) => ({
+                    alignItems: "center",
+                    backgroundColor: selected
+                      ? colors.primarySoft
+                      : pressed
+                        ? colors.surfaceMuted
+                        : colors.surface,
+                    borderBottomColor: colors.border,
+                    borderBottomWidth: index === options.length - 1 ? 0 : 1,
+                    flexDirection: "row",
+                    gap: 10,
+                    minHeight: 46,
+                    paddingHorizontal: 14
+                  })}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: selected ? colors.primaryDark : colors.text,
+                      flex: 1,
+                      fontFamily: selected
+                        ? fonts.bodySemiBold
+                        : fonts.body,
+                      fontSize: 14
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                  {selected ? (
+                    <Feather
+                      color={colors.primaryDark}
+                      name="check"
+                      size={17}
+                    />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function DirectChoiceField({
+  label,
+  onChange,
+  options,
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+}) {
+  const threeColumnLayout = options.length <= 3;
+
+  return (
+    <View style={{ gap: 7 }}>
+      <FieldLabel>{label}</FieldLabel>
+      <View
+        accessibilityLabel={`${label} options`}
+        accessibilityRole="radiogroup"
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+      >
         {options.map((option) => {
           const selected = option.value === value;
 
@@ -417,7 +550,7 @@ function ChoiceField({
               accessibilityLabel={`${label}: ${option.label}`}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
-              key={`${label}-${option.value || "all"}`}
+              key={`${label}-${option.value}`}
               onPress={() => onChange(option.value)}
               style={({ pressed }) => ({
                 alignItems: "center",
@@ -425,19 +558,26 @@ function ChoiceField({
                   ? colors.primaryDark
                   : colors.surfaceMuted,
                 borderColor: selected ? colors.primaryDark : colors.border,
+                borderCurve: "continuous",
                 borderRadius: 999,
                 borderWidth: 1,
+                flexBasis: threeColumnLayout ? "30%" : "47%",
+                flexGrow: 1,
                 justifyContent: "center",
-                minHeight: 40,
+                minHeight: 42,
                 opacity: pressed ? 0.78 : 1,
-                paddingHorizontal: 12
+                paddingHorizontal: 10,
+                paddingVertical: 8
               })}
             >
               <Text
+                numberOfLines={2}
                 style={{
                   color: selected ? colors.surface : colors.text,
                   fontFamily: fonts.bodySemiBold,
-                  fontSize: 12
+                  fontSize: 12,
+                  lineHeight: 16,
+                  textAlign: "center"
                 }}
               >
                 {option.label}

@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import type { Product } from "@/lib/api/schemas";
-import { formatRupees } from "@/lib/format";
+import { formatCatalogRupees } from "@/lib/format";
 import { cardStyle, colors, fonts } from "@/lib/theme";
 
 export function ProductCard({
@@ -129,6 +129,9 @@ export function ProductCard({
             {product.name}
           </Text>
           <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={1}
             selectable
             style={{
               color: colors.ink,
@@ -137,9 +140,12 @@ export function ProductCard({
               fontVariant: ["tabular-nums"]
             }}
           >
-            {formatRupees(product.sellingPrice)}
+            {formatCatalogRupees(product.sellingPrice)}
           </Text>
           <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.78}
+            numberOfLines={1}
             selectable
             style={{
               color: colors.muted,
@@ -149,7 +155,7 @@ export function ProductCard({
             }}
           >
             <Text style={{ textDecorationLine: "line-through" }}>
-              MRP {formatRupees(product.mrp)}
+              MRP {formatCatalogRupees(product.mrp)}
             </Text>
             {savingsPercent ? (
               <Text style={{ color: "#008F5F" }}> {savingsPercent}% OFF</Text>

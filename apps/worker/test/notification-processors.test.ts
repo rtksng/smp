@@ -4,6 +4,7 @@ import {
   LOW_STOCK_ALERT_JOB_NAMES,
   NEAR_EXPIRY_ALERT_JOB_NAMES,
   NOTIFICATION_JOB_NAMES,
+  type SendDeliveryAssignmentNotificationJobData,
   type SendLowStockAlertJobData,
   type SendNearExpiryAlertJobData,
   type SendOrderConfirmationJobData
@@ -18,6 +19,11 @@ class FakeNotificationLogRepository implements NotificationLogRepository {
   readonly lowStockAlerts: SendLowStockAlertJobData[] = [];
   readonly nearExpiryAlerts: SendNearExpiryAlertJobData[] = [];
   readonly orderConfirmations: SendOrderConfirmationJobData[] = [];
+  readonly deliveryAssignments: SendDeliveryAssignmentNotificationJobData[] = [];
+
+  async sendDeliveryAssignment(data: SendDeliveryAssignmentNotificationJobData) {
+    this.deliveryAssignments.push(data);
+  }
 
   async createLowStockAlert(data: SendLowStockAlertJobData) {
     this.lowStockAlerts.push(data);
@@ -49,6 +55,27 @@ test("NotificationsProcessor persists order confirmation notifications", async (
   } as Job<SendOrderConfirmationJobData>);
 
   assert.deepEqual(repository.orderConfirmations, [data]);
+});
+
+test("NotificationsProcessor sends delivery assignment push notifications", async () => {
+  const repository = new FakeNotificationLogRepository();
+  const processor = new NotificationsProcessor(repository);
+  const data: SendDeliveryAssignmentNotificationJobData = {
+    assignmentId: "assignment-1",
+    body: "Order SMP-2001 is ready for pickup.",
+    deliveryPartnerId: "partner-1",
+    notificationId: "notification-1",
+    requestedAt: "2026-08-06T10:30:00.000Z",
+    title: "New delivery assigned",
+    version: 1
+  };
+
+  await processor.process({
+    data,
+    name: NOTIFICATION_JOB_NAMES.sendDeliveryAssignment
+  } as Job<SendDeliveryAssignmentNotificationJobData>);
+
+  assert.deepEqual(repository.deliveryAssignments, [data]);
 });
 
 test("LowStockAlertProcessor persists low-stock admin alerts", async () => {

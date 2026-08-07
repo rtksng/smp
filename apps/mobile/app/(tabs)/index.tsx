@@ -1,21 +1,28 @@
 import { useEffect, useRef, useState } from "react";
+import type { ComponentProps } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Link } from "expo-router";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { Link, type Href } from "expo-router";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import {
   FlatList,
   Pressable,
-  ScrollView,
   Text,
+  TextInput,
   View,
   useWindowDimensions
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { ProductCard } from "@/components/product-card";
-import { StoreHeader } from "@/components/store-header";
+import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ErrorState, LoadingState } from "@/components/ui/state-view";
 import { getBrands, getCategories, getProducts } from "@/lib/api/catalog";
+import {
+  createQuoteRequest,
+  quoteRequestInputSchema,
+  type QuoteRequestInput
+} from "@/lib/api/quotes";
 import type { Category } from "@/lib/api/schemas";
 import { getErrorMessage } from "@/lib/errors";
 import { queryKeys } from "@/lib/query";
@@ -41,6 +48,14 @@ const fallbackCategoryIcons = [
   "view-grid-outline"
 ] as const;
 
+const emptyQuoteForm: QuoteRequestInput = {
+  email: "",
+  message: "",
+  mobileNumber: "",
+  name: "",
+  organization: null
+};
+
 export default function HomeScreen() {
   const categoriesQuery = useQuery({
     queryFn: getCategories,
@@ -51,8 +66,8 @@ export default function HomeScreen() {
     queryKey: queryKeys.brands
   });
   const productsQuery = useQuery({
-    queryFn: () => getProducts({ limit: 12, sort: "latest" }),
-    queryKey: queryKeys.products({ limit: 12, sort: "latest" })
+    queryFn: () => getProducts({ limit: 5, sort: "latest" }),
+    queryKey: queryKeys.products({ limit: 5, sort: "latest" })
   });
   const isLoading =
     categoriesQuery.isLoading || brandsQuery.isLoading || productsQuery.isLoading;
@@ -61,9 +76,9 @@ export default function HomeScreen() {
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
-      <StoreHeader />
-      <ScrollView
-        contentContainerStyle={{ gap: 20, paddingBottom: 28 }}
+      <KeyboardAwareScrollView
+        bottomOffset={96}
+        contentContainerStyle={{ paddingBottom: 24 }}
         contentInsetAdjustmentBehavior="automatic"
         refreshControl={undefined}
       >
@@ -90,14 +105,15 @@ export default function HomeScreen() {
           <CategoryRail categories={categoriesQuery.data} />
         ) : null}
         {categoriesQuery.data ? (
-          <FeaturedCategoryRails categories={categoriesQuery.data.slice(0, 3)} />
+          <FeaturedCategoryRails categories={sortCategories(categoriesQuery.data).slice(0, 8)} />
         ) : null}
         {brandsQuery.data ? <BrandRail brands={brandsQuery.data} /> : null}
         {productsQuery.data?.items.length ? (
           <ProductRail products={productsQuery.data.items} title="Latest additions" />
         ) : null}
         <TrustRail />
-      </ScrollView>
+        <BulkQuoteSection />
+      </KeyboardAwareScrollView>
     </View>
   );
 }
@@ -127,7 +143,7 @@ function BannerCarousel() {
         alignSelf: "center",
         maxWidth: 980,
         paddingHorizontal: 16,
-        paddingTop: 12,
+        paddingTop: 16,
         width: "100%"
       }}
     >
@@ -214,13 +230,13 @@ function BannerCarousel() {
 
 function CategoryRail({ categories }: { categories: Category[] }) {
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 12, paddingTop: 32 }}>
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeader title="Shop by Category" />
       </View>
       <FlatList
         contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
-        data={categories.filter((category) => category.isActive).slice(0, 10)}
+        data={sortCategories(categories).filter((category) => category.isActive).slice(0, 10)}
         horizontal
         keyExtractor={(item) => item.id}
         renderItem={({ index, item }) => (
@@ -228,7 +244,7 @@ function CategoryRail({ categories }: { categories: Category[] }) {
             asChild
             href={{
               pathname: "/search",
-              params: { category: item.slug, title: item.name }
+              params: { category: item.slug }
             }}
           >
             <Pressable
@@ -290,15 +306,22 @@ function CategoryRail({ categories }: { categories: Category[] }) {
                   borderCurve: "continuous",
                   borderRadius: 999,
                   borderWidth: 1,
+                  alignItems: "center",
+                  alignSelf: "stretch",
+                  justifyContent: "center",
                   minHeight: 24,
                   paddingHorizontal: 10,
                   paddingVertical: 4
                 }}
               >
                 <Text
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                  numberOfLines={1}
                   selectable
                   style={{
                     color: colors.primaryDark,
+                    flexShrink: 1,
                     fontFamily: fonts.bodySemiBold,
                     fontSize: 10
                   }}
@@ -344,13 +367,25 @@ function CategoryRail({ categories }: { categories: Category[] }) {
 function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
   const queries = useQueries({
     queries: categories.map((category) => ({
-      queryFn: () => getProducts({ category: category.slug, limit: 6 }),
-      queryKey: queryKeys.products({ category: category.slug, limit: 6 })
+      queryFn: () => getProducts({ category: category.slug, limit: 5 }),
+      queryKey: queryKeys.products({ category: category.slug, limit: 5 })
     }))
   });
 
+  const populatedCategories = categories
+    .map((category, index) => ({
+      category,
+      products: queries[index]?.data?.items ?? []
+    }))
+    .filter(({ products }) => products.length >= 5)
+    .slice(0, 5);
+
+  if (populatedCategories.length === 0) {
+    return null;
+  }
+
   return (
-    <View style={{ gap: 20 }}>
+    <View style={{ gap: 32, paddingTop: 32 }}>
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeader
           actionHref="/search"
@@ -358,14 +393,7 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
           title="Featured products by category"
         />
       </View>
-      {categories.map((category, index) => {
-        const products = queries[index]?.data?.items ?? [];
-
-        if (!products.length) {
-          return null;
-        }
-
-        return (
+      {populatedCategories.map(({ category, products }) => (
           <View key={category.id} style={{ gap: 10 }}>
             <View
               style={{
@@ -389,7 +417,7 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
                 asChild
                 href={{
                   pathname: "/search",
-                  params: { category: category.slug, title: category.name }
+                  params: { category: category.slug }
                 }}
               >
                 <Pressable
@@ -431,8 +459,7 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
               showsHorizontalScrollIndicator={false}
             />
           </View>
-        );
-      })}
+      ))}
     </View>
   );
 }
@@ -443,10 +470,10 @@ function BrandRail({
   brands: Awaited<ReturnType<typeof getBrands>>;
 }) {
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 12, paddingTop: 32 }}>
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeader
-          actionHref="/search"
+          actionHref={"/brands" as Href}
           actionText="View all brands"
           title="Top Brands"
         />
@@ -529,7 +556,7 @@ function ProductRail({
   title: string;
 }) {
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 12, paddingTop: 32 }}>
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeader actionHref="/search" actionText="View All" title={title} />
       </View>
@@ -553,64 +580,277 @@ function TrustRail() {
   const items = [
     ["shield-check-outline", "Verified Products", "Quality checked"],
     ["receipt-text-check-outline", "GST Ready", "Invoice support"],
-    ["truck-fast-outline", "Fast Delivery", "Shown at checkout"]
+    ["truck-fast-outline", "Delivery clarity", "Shown at checkout"],
+    ["clipboard-check-outline", "Bulk quotes", "Tailored support"]
   ] as const;
 
   return (
-    <FlatList
-      contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
-      data={items}
-      horizontal
-      keyExtractor={(item) => item[1]}
-      renderItem={({ item }) => (
-        <View
-          style={{
-            ...cardStyle,
-            alignItems: "center",
-            flexDirection: "row",
-            gap: 10,
-            minHeight: 68,
-            padding: 12,
-            width: 176
-          }}
-        >
+    <View style={{ gap: 12, paddingHorizontal: 16, paddingTop: 32 }}>
+      <SectionHeader title="Procurement support" />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+        {items.map((item) => (
           <View
+            key={item[1]}
             style={{
-              alignItems: "center",
-              backgroundColor: "#FFF3E3",
-              borderRadius: 10,
-              height: 40,
-              justifyContent: "center",
-              width: 40
+              ...cardStyle,
+              flexBasis: "47%",
+              flexGrow: 1,
+              gap: 12,
+              minHeight: 112,
+              padding: 12
             }}
           >
-            <MaterialCommunityIcons color="#D26812" name={item[0]} size={21} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text
-              selectable
+            <View
               style={{
-                color: colors.text,
-                fontFamily: fonts.bodySemiBold,
-                fontSize: 13
+                alignItems: "center",
+                backgroundColor: "#FFF3E3",
+                borderRadius: 8,
+                height: 40,
+                justifyContent: "center",
+                width: 40
               }}
             >
-              {item[1]}
-            </Text>
-            <Text
-              selectable
-              style={{
-                color: colors.muted,
-                fontFamily: fonts.bodySemiBold,
-                fontSize: 10
-              }}
-            >
-              {item[2]}
-            </Text>
+              <MaterialCommunityIcons color="#D26812" name={item[0]} size={21} />
+            </View>
+            <View style={{ gap: 4 }}>
+              <Text
+                selectable
+                style={{
+                  color: colors.text,
+                  fontFamily: fonts.heading,
+                  fontSize: 14,
+                  lineHeight: 20
+                }}
+              >
+                {item[1]}
+              </Text>
+              <Text
+                selectable
+                style={{
+                  color: colors.muted,
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: 11,
+                  lineHeight: 16
+                }}
+              >
+                {item[2]}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
-      showsHorizontalScrollIndicator={false}
-    />
+        ))}
+      </View>
+    </View>
   );
+}
+
+function BulkQuoteSection() {
+  const [form, setForm] = useState<QuoteRequestInput>(emptyQuoteForm);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof QuoteRequestInput, string>>
+  >({});
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const quoteMutation = useMutation({
+    mutationFn: createQuoteRequest,
+    onSuccess: (request) => {
+      setForm(emptyQuoteForm);
+      setFieldErrors({});
+      setSuccessMessage(`Quote request ${request.id} received.`);
+    }
+  });
+
+  function updateForm<Field extends keyof QuoteRequestInput>(
+    field: Field,
+    value: QuoteRequestInput[Field]
+  ) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function submitQuote() {
+    const parsed = quoteRequestInputSchema.safeParse({
+      ...form,
+      organization: form.organization?.trim() || null
+    });
+
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors;
+      setFieldErrors({
+        email: errors.email?.[0],
+        message: errors.message?.[0],
+        mobileNumber: errors.mobileNumber?.[0],
+        name: errors.name?.[0],
+        organization: errors.organization?.[0]
+      });
+      return;
+    }
+
+    setFieldErrors({});
+    setSuccessMessage(null);
+    quoteMutation.mutate(parsed.data);
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 32 }}>
+      <View
+        style={{
+          backgroundColor: "#237B2C",
+          borderRadius: 16,
+          boxShadow: "0 10px 24px rgba(40, 124, 48, 0.15)",
+          gap: 12,
+          padding: 20
+        }}
+      >
+        <Text
+          selectable
+          style={{
+            color: "#C7EACB",
+            fontFamily: fonts.headingBold,
+            fontSize: 12,
+            letterSpacing: 1.7,
+            textTransform: "uppercase"
+          }}
+        >
+          Bulk procurement
+        </Text>
+        <Text
+          selectable
+          style={{
+            color: colors.surface,
+            fontFamily: fonts.heading,
+            fontSize: 18,
+            lineHeight: 24
+          }}
+        >
+          Request a tailored quote
+        </Text>
+        <Text
+          selectable
+          style={{
+            color: "rgba(255,255,255,0.75)",
+            fontFamily: fonts.body,
+            fontSize: 14,
+            lineHeight: 24
+          }}
+        >
+          Share items, quantities, and delivery details. Our team will follow up with the right options.
+        </Text>
+        <View style={{ gap: 12, paddingTop: 8 }}>
+          <QuoteInput
+            error={fieldErrors.name}
+            onChangeText={(value) => updateForm("name", value)}
+            placeholder="Name"
+            value={form.name}
+          />
+          <QuoteInput
+            error={fieldErrors.organization}
+            onChangeText={(value) => updateForm("organization", value)}
+            placeholder="Clinic or hospital"
+            value={form.organization ?? ""}
+          />
+          <QuoteInput
+            autoCapitalize="none"
+            error={fieldErrors.email}
+            keyboardType="email-address"
+            onChangeText={(value) => updateForm("email", value)}
+            placeholder="Email"
+            value={form.email}
+          />
+          <QuoteInput
+            error={fieldErrors.mobileNumber}
+            keyboardType="phone-pad"
+            onChangeText={(value) => updateForm("mobileNumber", value)}
+            placeholder="Mobile number"
+            value={form.mobileNumber}
+          />
+          <QuoteInput
+            error={fieldErrors.message}
+            multiline
+            onChangeText={(value) => updateForm("message", value)}
+            placeholder="SKUs, quantities, city, and delivery timeline"
+            style={{ borderRadius: 8, minHeight: 112, paddingTop: 13, textAlignVertical: "top" }}
+            value={form.message}
+          />
+          {quoteMutation.isError ? (
+            <Text
+              accessibilityRole="alert"
+              selectable
+              style={quoteMessageStyle(colors.danger)}
+            >
+              {getErrorMessage(quoteMutation.error, "Unable to submit quote request.")}
+            </Text>
+          ) : null}
+          {successMessage ? (
+            <Text selectable style={quoteMessageStyle(colors.primaryDark)}>
+              {successMessage}
+            </Text>
+          ) : null}
+          <Button
+            loading={quoteMutation.isPending}
+            onPress={submitQuote}
+            style={{ alignSelf: "stretch", backgroundColor: colors.surface }}
+            variant="outline"
+          >
+            Request bulk quote
+          </Button>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function QuoteInput({
+  error,
+  style,
+  ...props
+}: ComponentProps<typeof TextInput> & { error?: string }) {
+  return (
+    <View style={{ gap: 5 }}>
+      <TextInput
+        accessibilityHint={error}
+        placeholderTextColor={colors.muted}
+        style={[
+          {
+            backgroundColor: colors.surface,
+            borderColor: error ? "#F4C7C3" : "rgba(255,255,255,0.25)",
+            borderRadius: 999,
+            borderWidth: 1,
+            color: colors.text,
+            fontFamily: fonts.bodySemiBold,
+            fontSize: 14,
+            minHeight: 48,
+            paddingHorizontal: 16
+          },
+          style
+        ]}
+        {...props}
+      />
+      {error ? (
+        <Text selectable style={{ color: colors.surface, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function quoteMessageStyle(color: string) {
+  return {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    color,
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    lineHeight: 20,
+    padding: 12
+  } as const;
+}
+
+function sortCategories(categories: Category[]) {
+  return [...categories].sort((left, right) => {
+    if (left.sortOrder !== right.sortOrder) {
+      return left.sortOrder - right.sortOrder;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
 }

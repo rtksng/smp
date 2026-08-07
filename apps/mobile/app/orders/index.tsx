@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Text, View } from "react-native";
+import { AccountPageHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
 import {
@@ -36,7 +37,8 @@ export default function OrdersScreen() {
 
   if (!isReady || query.isLoading) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
         <LoadingState label="Loading your orders" />
       </Screen>
     );
@@ -44,7 +46,8 @@ export default function OrdersScreen() {
 
   if (query.isError) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
         <ErrorState
           message={getErrorMessage(query.error, "Unable to load orders.")}
           onRetry={() => void query.refetch()}
@@ -56,7 +59,8 @@ export default function OrdersScreen() {
 
   if (!query.data?.items.length) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
         <EmptyState
           action={<Button href="/search">Browse products</Button>}
           description="Placed orders and delivery progress will appear here."
@@ -67,27 +71,10 @@ export default function OrdersScreen() {
   }
 
   return (
-    <Screen>
-      <View style={{ gap: 5 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.headingBold,
-            fontSize: 24
-          }}
-        >
-          Your orders
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.muted, fontFamily: fonts.body, lineHeight: 20 }}
-        >
-          Track payment, fulfilment, delivery, cancellations, and returns.
-        </Text>
-      </View>
+    <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+      <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
       {query.data.items.map((order) => (
-        <View key={order.id} style={{ ...cardStyle, gap: 12, padding: 16 }}>
+        <View key={order.id} style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 16 }}>
           <View
             style={{
               alignItems: "flex-start",
@@ -98,9 +85,11 @@ export default function OrdersScreen() {
           >
             <View style={{ flex: 1, gap: 4 }}>
               <Text
+                numberOfLines={1}
                 selectable
                 style={{
                   color: colors.primaryDark,
+                  flexShrink: 1,
                   fontFamily: fonts.heading,
                   fontSize: 14
                 }}
@@ -119,6 +108,9 @@ export default function OrdersScreen() {
               </Text>
             </View>
             <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              numberOfLines={1}
               selectable
               style={{
                 color: colors.ink,
@@ -162,6 +154,9 @@ function StatusBadge({
   return (
     <Text
       selectable
+      adjustsFontSizeToFit
+      minimumFontScale={0.82}
+      numberOfLines={1}
       style={{
         backgroundColor: payment ? "#EEF3F1" : colors.primarySoft,
         borderRadius: 999,

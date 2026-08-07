@@ -9,6 +9,7 @@ import {
 import { Redirect, router } from "expo-router";
 import { registerDeliveryPartner } from "../lib/api/auth";
 import { useAuth } from "../lib/auth/auth-context";
+import { storeDeliveryApplication } from "../lib/auth/application-store";
 import { ActionButton } from "../components/ActionButton";
 import { KeyboardAccessory } from "../components/KeyboardAccessory";
 import { Screen } from "../components/Screen";
@@ -178,15 +179,13 @@ export default function LoginScreen() {
     setLoading(true);
     setFormMessage(null);
     try {
-      await registerDeliveryPartner(validation.values);
+      const application = await registerDeliveryPartner(validation.values);
+      await storeDeliveryApplication(application);
       feedback.success(
         "Admin approval is required before OTP login.",
         "Application submitted"
       );
-      setMode("login");
-      setOtpRequested(false);
-      setOtp("");
-      setDevOtp(null);
+      router.push("/application-status");
     } catch (error) {
       const message = errorMessage(error);
       setFormMessage(message);
@@ -431,6 +430,13 @@ export default function LoginScreen() {
             </View>
           </View>
         </SectionCard>
+
+        <ActionButton
+          icon="time-outline"
+          label="Check application status"
+          onPress={() => router.push("/application-status")}
+          tone="secondary"
+        />
 
         <Text style={styles.helperText}>
           Stay signed in only on your own delivery device.

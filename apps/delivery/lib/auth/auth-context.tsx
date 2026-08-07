@@ -23,6 +23,7 @@ import {
   storeSession
 } from "./session-store";
 import { clearStatusQueue } from "../offline/status-queue-store";
+import { clearStoredDeliveryApplication } from "./application-store";
 
 type AuthContextValue = {
   accessToken: string | null;
@@ -170,7 +171,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signInWithOtp = useCallback(
     async (input: { mobileNumber: string; otp: string }) => {
       const nextSession = await verifyDeliveryOtp(input);
-      await storeSession(nextSession);
+      await Promise.all([
+        storeSession(nextSession),
+        clearStoredDeliveryApplication()
+      ]);
       setActiveSession(nextSession);
     },
     [setActiveSession]

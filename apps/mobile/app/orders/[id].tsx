@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Text, TextInput, View } from "react-native";
+import { AccountInfoGrid, AccountPageHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
 import { ErrorState, LoadingState } from "@/components/ui/state-view";
@@ -147,7 +148,8 @@ export default function OrderDetailScreen() {
 
   if (orderQuery.isLoading) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Review order items, delivery address, payment details, timeline, and invoice." title="Order detail" />
         <LoadingState label="Loading order" />
       </Screen>
     );
@@ -155,7 +157,8 @@ export default function OrderDetailScreen() {
 
   if (orderQuery.isError || !orderQuery.data) {
     return (
-      <Screen>
+      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+        <AccountPageHeader description="Review order items, delivery address, payment details, timeline, and invoice." title="Order detail" />
         <ErrorState
           message={getErrorMessage(orderQuery.error, "Unable to load order.")}
           onRetry={() => void orderQuery.refetch()}
@@ -173,49 +176,14 @@ export default function OrderDetailScreen() {
     !["PAID", "REFUNDED", "PARTIALLY_REFUNDED"].includes(order.paymentStatus);
 
   return (
-    <Screen>
-      <View style={{ ...cardStyle, gap: 11, padding: 18 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.gold,
-            fontFamily: fonts.bodySemiBold,
-            fontSize: 11,
-            textTransform: "uppercase"
-          }}
-        >
-          Order
-        </Text>
-        <Text
-          selectable
-          style={{
-            color: colors.primaryDark,
-            fontFamily: fonts.headingBold,
-            fontSize: 20
-          }}
-        >
-          {order.orderNumber}
-        </Text>
-        <Text
-          selectable
-          style={{
-            color: colors.muted,
-            fontFamily: fonts.bodySemiBold,
-            fontSize: 12
-          }}
-        >
-          Placed {formatDate(order.placedAt ?? order.createdAt)}
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-          <Badge label={formatStatus(order.status)} />
-          <Badge
-            label={`${order.paymentMethod ?? "Payment"} · ${formatStatus(
-              order.paymentStatus
-            )}`}
-            muted
-          />
-        </View>
-      </View>
+    <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+      <AccountPageHeader description="Review order items, delivery address, payment details, timeline, and invoice." title={`Order ${order.orderNumber}`} />
+      <AccountInfoGrid items={[
+        { label: "Order number", value: order.orderNumber },
+        { label: "Date", value: formatDate(order.placedAt ?? order.createdAt) },
+        { label: "Status", value: formatStatus(order.status) },
+        { label: "Total", value: formatRupees(order.totals.grandTotal) }
+      ]} />
 
       {actionMessage || actionMutation.error || paymentMutation.error ? (
         <Text
@@ -430,7 +398,7 @@ export default function OrderDetailScreen() {
         Reorder these items
       </Button>
       {canCancel || canReturn ? (
-        <View style={{ ...cardStyle, gap: 11, padding: 16 }}>
+        <View style={{ ...cardStyle, borderRadius: 8, gap: 11, padding: 16 }}>
           <Text
             selectable
             style={{ color: colors.ink, fontFamily: fonts.heading, fontSize: 15 }}
@@ -489,7 +457,7 @@ function OrderSection({
   title: string;
 }>) {
   return (
-    <View style={{ ...cardStyle, gap: 12, padding: 16 }}>
+    <View style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 16 }}>
       <View style={{ alignItems: "center", flexDirection: "row", gap: 9 }}>
         <View
           style={{
@@ -512,25 +480,6 @@ function OrderSection({
       </View>
       {children}
     </View>
-  );
-}
-
-function Badge({ label, muted = false }: { label: string; muted?: boolean }) {
-  return (
-    <Text
-      selectable
-      style={{
-        backgroundColor: muted ? "#EEF3F1" : colors.primarySoft,
-        borderRadius: 999,
-        color: muted ? colors.text : colors.primaryDark,
-        fontFamily: fonts.bodySemiBold,
-        fontSize: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 6
-      }}
-    >
-      {label}
-    </Text>
   );
 }
 

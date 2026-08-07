@@ -97,6 +97,12 @@ export function NativeAppLifecycle() {
           void queryClient.invalidateQueries({
             queryKey: ["delivery-assignments"]
           });
+          void queryClient.invalidateQueries({ queryKey: ["delivery-dashboard"] });
+          void queryClient.invalidateQueries({ queryKey: ["delivery-cash"] });
+          void queryClient.invalidateQueries({
+            queryKey: ["delivery-notifications"]
+          });
+          void queryClient.invalidateQueries({ queryKey: ["delivery-incidents"] });
           void registerPushDevice().catch(() => undefined);
         });
       }

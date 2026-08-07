@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { AccountPageHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { KeyboardAccessory } from "@/components/ui/keyboard-accessory";
 import { Screen } from "@/components/ui/screen";
@@ -142,31 +143,13 @@ export default function AddressFormScreen() {
   }
 
   return (
-    <Screen contentContainerStyle={{ maxWidth: 720 }}>
-      <View style={{ gap: 5 }}>
-        <Text
-          selectable
-          style={{
-            color: colors.ink,
-            fontFamily: fonts.headingBold,
-            fontSize: 23
-          }}
-        >
-          {id ? "Edit delivery address" : "Add delivery address"}
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.muted, fontFamily: fonts.body, lineHeight: 20 }}
-        >
-          Enter the address exactly as it should appear on delivery records.
-        </Text>
-      </View>
+    <Screen contentContainerStyle={{ gap: 20, maxWidth: 720, paddingTop: 24 }}>
+      <AccountPageHeader description="Use an address that can receive medical equipment deliveries." title={id ? "Edit address" : "Add address"} />
       <View style={{ ...cardStyle, gap: 15, padding: 16 }}>
         <TextField
           autoCapitalize="words"
           autoComplete={process.env.EXPO_OS === "ios" ? undefined : "name"}
           autoCorrect={false}
-          autoFocus={!id}
           error={fieldErrors.fullName}
           label="Full name"
           onChangeText={(value) => updateField("fullName", value)}
