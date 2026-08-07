@@ -23,6 +23,7 @@ export default function AppLayout() {
         sceneStyle: { backgroundColor: "#F8FAFC" },
         tabBarActiveTintColor: "#287C30",
         tabBarInactiveTintColor: "#64748B",
+        tabBarHideOnKeyboard: true,
         tabBarLabelStyle: { fontSize: 12, fontWeight: "800" },
         tabBarStyle: {
           backgroundColor: "#FFFFFF",

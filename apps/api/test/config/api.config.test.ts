@@ -85,6 +85,7 @@ test("loadApiEnvironment hides OTP responses by default in production", () => {
   const environment = loadApiEnvironment();
 
   assert.deepEqual(environment.otpDemoCustomerMobileNumbers, []);
+  assert.deepEqual(environment.otpDemoDeliveryMobileNumbers, []);
   assert.equal(environment.otpExposeInResponse, false);
 });
 
@@ -103,6 +104,21 @@ test("loadApiEnvironment parses a production demo customer mobile whitelist", ()
   assert.equal(environment.otpExposeInResponse, false);
 });
 
+test("loadApiEnvironment parses a production demo delivery mobile whitelist", () => {
+  setProductionApiEnv({
+    OTP_DEMO_DELIVERY_MOBILE_NUMBERS:
+      " +919000000000, +919876543210, +919000000000 "
+  });
+
+  const environment = loadApiEnvironment();
+
+  assert.deepEqual(environment.otpDemoDeliveryMobileNumbers, [
+    "+919000000000",
+    "+919876543210"
+  ]);
+  assert.equal(environment.otpExposeInResponse, false);
+});
+
 test("loadApiEnvironment rejects malformed demo customer mobile numbers", () => {
   setProductionApiEnv({
     OTP_DEMO_CUSTOMER_MOBILE_NUMBERS: "+919000000000,9000000000"
@@ -111,6 +127,17 @@ test("loadApiEnvironment rejects malformed demo customer mobile numbers", () => 
   assert.throws(
     () => loadApiEnvironment(),
     /OTP_DEMO_CUSTOMER_MOBILE_NUMBERS must contain E.164 mobile numbers/
+  );
+});
+
+test("loadApiEnvironment rejects malformed demo delivery mobile numbers", () => {
+  setProductionApiEnv({
+    OTP_DEMO_DELIVERY_MOBILE_NUMBERS: "+919000000000,9000000000"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /OTP_DEMO_DELIVERY_MOBILE_NUMBERS must contain E.164 mobile numbers/
   );
 });
 

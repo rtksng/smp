@@ -342,7 +342,7 @@ export default function LoginScreen() {
                     {devOtp ? (
                       <View
                         accessibilityLabel={`Development OTP ${devOtp}`}
-                        style={styles.devOtpBadge}
+                        style={styles.devOtpCard}
                       >
                         <Text selectable style={styles.devOtpLabel}>
                           Dev OTP
@@ -351,7 +351,11 @@ export default function LoginScreen() {
                           {devOtp}
                         </Text>
                       </View>
-                    ) : null}
+                    ) : (
+                      <Text selectable style={styles.devOtpMissingText}>
+                        OTP is hidden by API config for this number.
+                      </Text>
+                    )}
                   </View>
                   <FormField
                     autoComplete="one-time-code"
@@ -502,18 +506,16 @@ const styles = StyleSheet.create({
     maxWidth: 430,
     width: "100%"
   },
-  devOtpBadge: {
-    alignItems: "center",
-    alignSelf: "flex-start",
+  devOtpCard: {
+    alignItems: "flex-start",
     backgroundColor: "#EAF7EB",
     borderColor: "#A9DDAE",
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
-    flexDirection: "row",
     gap: 8,
-    marginTop: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12
   },
   devOtpLabel: {
     color: "#287C30",
@@ -523,10 +525,17 @@ const styles = StyleSheet.create({
   },
   devOtpValue: {
     color: "#287C30",
-    fontSize: 14,
+    fontSize: 24,
     fontVariant: ["tabular-nums"],
     fontWeight: "900",
     letterSpacing: 2
+  },
+  devOtpMissingText: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+    marginTop: 8
   },
   disabledSegment: {
     opacity: 0.55

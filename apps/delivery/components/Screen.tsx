@@ -1,11 +1,11 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import {
-  ScrollView,
   StyleSheet,
   View,
   useWindowDimensions,
   type ViewStyle
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import {
   SafeAreaView,
   type Edge
@@ -14,6 +14,7 @@ import {
 type ScreenProps = PropsWithChildren<{
   edges?: Edge[];
   footer?: ReactNode;
+  keyboardBottomOffset?: number;
   scroll?: boolean;
   style?: ViewStyle;
 }>;
@@ -22,14 +23,15 @@ export function Screen({
   children,
   edges = ["bottom", "left", "right"],
   footer,
+  keyboardBottomOffset = 96,
   scroll = true,
   style
 }: ScreenProps) {
   const { width } = useWindowDimensions();
   const horizontalPadding = width >= 768 ? 20 : 10;
   const body = scroll ? (
-    <ScrollView
-      automaticallyAdjustKeyboardInsets={process.env.EXPO_OS === "ios"}
+    <KeyboardAwareScrollView
+      bottomOffset={keyboardBottomOffset}
       contentContainerStyle={[
         styles.content,
         styles.scrollContent,
@@ -43,7 +45,7 @@ export function Screen({
       keyboardShouldPersistTaps="handled"
     >
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   ) : (
     <View
       style={[

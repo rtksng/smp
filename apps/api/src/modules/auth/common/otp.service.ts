@@ -34,6 +34,7 @@ export type OtpCache = {
 export type OtpServiceOptions = {
   cooldownSeconds: number;
   demoCustomerMobileNumbers?: string[];
+  demoDeliveryMobileNumbers?: string[];
   exposeOtpInResponse?: boolean;
   generator: () => string;
   otpTtlSeconds: number;
@@ -109,6 +110,8 @@ export class OtpService {
         configService?.get<number>("otpResendCooldownSeconds") ?? 60,
       demoCustomerMobileNumbers:
         configService?.get<string[]>("otpDemoCustomerMobileNumbers") ?? [],
+      demoDeliveryMobileNumbers:
+        configService?.get<string[]>("otpDemoDeliveryMobileNumbers") ?? [],
       exposeOtpInResponse:
         configService?.get<boolean>("otpExposeInResponse") ??
         (process.env.NODE_ENV !== "production"),
@@ -175,6 +178,10 @@ export class OtpService {
         (process.env.NODE_ENV !== "production")) ||
       (purpose === OtpPurpose.Customer &&
         this.options.demoCustomerMobileNumbers?.includes(
+          normalizedMobileNumber
+        )) ||
+      (purpose === OtpPurpose.DeliveryPartner &&
+        this.options.demoDeliveryMobileNumbers?.includes(
           normalizedMobileNumber
         ));
 

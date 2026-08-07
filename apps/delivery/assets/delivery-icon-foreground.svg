@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Surgical Delivery app icon foreground">
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="22" flood-color="#0b2f18" flood-opacity="0.22" />
+    </filter>
+  </defs>
+  <g filter="url(#softShadow)">
+    <path
+      d="M253 363c0-42 34-76 76-76h280c42 0 76 34 76 76v248H253V363Z"
+      fill="#ffffff"
+    />
+    <path
+      d="M685 441h64c23 0 45 11 58 30l71 101c8 12 13 26 13 41v79c0 28-23 51-51 51H685V441Z"
+      fill="#f4fff7"
+    />
+    <path d="M734 491h48c9 0 18 4 23 12l45 65H734v-77Z" fill="#cdeed8" />
+    <path
+      d="M217 614h674v78c0 28-23 51-51 51H268c-28 0-51-23-51-51v-78Z"
+      fill="#e7f7eb"
+    />
+    <circle cx="353" cy="743" r="69" fill="#163f26" />
+    <circle cx="353" cy="743" r="30" fill="#ffffff" />
+    <circle cx="758" cy="743" r="69" fill="#163f26" />
+    <circle cx="758" cy="743" r="30" fill="#ffffff" />
+    <path d="M454 394h74v66h66v74h-66v66h-74v-66h-66v-74h66v-66Z" fill="#287c30" />
+    <path
+      d="M221 331h93M177 436h96M144 541h120"
+      stroke="#ffffff"
+      stroke-width="38"
+      stroke-linecap="round"
+      opacity="0.92"
+    />
+  </g>
+  <path
+    d="M781 231c-50 0-91 40-91 90 0 70 91 155 91 155s91-85 91-155c0-50-41-90-91-90Zm0 126c-20 0-36-16-36-36s16-36 36-36 36 16 36 36-16 36-36 36Z"
+    fill="#ffffff"
+    opacity="0.96"
+  />
+</svg>

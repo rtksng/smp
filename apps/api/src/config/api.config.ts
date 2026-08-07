@@ -24,12 +24,12 @@ function parseBoolean(value: string | undefined, fallback: boolean) {
   return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
 }
 
-function demoCustomerMobileNumbers(value: string | undefined) {
+function demoMobileNumbers(value: string | undefined, envName: string) {
   const mobileNumbers = [...new Set(csv(value, []))];
 
   if (mobileNumbers.some((mobileNumber) => !/^\+[1-9]\d{7,14}$/.test(mobileNumber))) {
     throw new Error(
-      "OTP_DEMO_CUSTOMER_MOBILE_NUMBERS must contain E.164 mobile numbers."
+      `${envName} must contain E.164 mobile numbers.`
     );
   }
 
@@ -99,6 +99,7 @@ export type ApiEnvironment = {
   jwtRefreshSecret: string;
   jwtRefreshTtlSeconds: number;
   otpDemoCustomerMobileNumbers: string[];
+  otpDemoDeliveryMobileNumbers: string[];
   otpExposeInResponse: boolean;
   otpRateLimit: number;
   otpRateWindowSeconds: number;
@@ -147,8 +148,13 @@ export function loadApiEnvironment(): ApiEnvironment {
     jwtAccessTtlSeconds: Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
     jwtRefreshSecret: required("JWT_REFRESH_SECRET"),
     jwtRefreshTtlSeconds: Number(process.env.JWT_REFRESH_TTL_SECONDS ?? 2592000),
-    otpDemoCustomerMobileNumbers: demoCustomerMobileNumbers(
-      process.env.OTP_DEMO_CUSTOMER_MOBILE_NUMBERS
+    otpDemoCustomerMobileNumbers: demoMobileNumbers(
+      process.env.OTP_DEMO_CUSTOMER_MOBILE_NUMBERS,
+      "OTP_DEMO_CUSTOMER_MOBILE_NUMBERS"
+    ),
+    otpDemoDeliveryMobileNumbers: demoMobileNumbers(
+      process.env.OTP_DEMO_DELIVERY_MOBILE_NUMBERS,
+      "OTP_DEMO_DELIVERY_MOBILE_NUMBERS"
     ),
     otpExposeInResponse: parseBoolean(
       process.env.OTP_EXPOSE_IN_RESPONSE,

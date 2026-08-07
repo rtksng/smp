@@ -6,6 +6,7 @@
     "version": "0.1.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.surgical.delivery",
@@ -26,6 +27,10 @@
     },
     "android": {
       "package": "com.surgical.delivery",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#287c30"
+      },
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO",
