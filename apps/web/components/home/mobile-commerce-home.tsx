@@ -77,9 +77,9 @@ const horizontalRailClassName =
   "flex max-w-full gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
 const mobileSectionClassName = "pt-8";
 const mobileLandingActionClassName =
-  "inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#c7eacb] bg-white px-3 text-[11px] font-extrabold text-[#287c30]  whitespace-nowrap";
+  "inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-[#b8e3de] bg-white px-3 text-[11px] font-extrabold text-[#0f6f68]  whitespace-nowrap";
 const mobileCategoryActionClassName =
-  "inline-flex min-h-6 items-center justify-center rounded-full border border-[#c7eacb] bg-[#f4fbf5] px-2.5 text-[10px] font-semibold text-[#287c30]  whitespace-nowrap";
+  "inline-flex min-h-6 items-center justify-center rounded-full border border-[#b8e3de] bg-[#f3faf9] px-2.5 text-[10px] font-semibold text-[#0f6f68]  whitespace-nowrap";
 
 export function MobileCommerceHome({
   brands,
@@ -94,7 +94,7 @@ export function MobileCommerceHome({
 
   return (
     <div
-      className="max-w-full overflow-x-hidden bg-[#f5fbf6] pb-24 md:hidden"
+      className="max-w-full overflow-x-hidden bg-[#f3faf9] pb-24 md:hidden"
       data-testid="mobile-commerce-home"
     >
       <MobileBannerCarousel />
@@ -112,7 +112,7 @@ export function MobileCommerceHome({
         </div>
         <div className="px-4 pt-4">
           <Link
-            className="mx-auto flex min-h-11 w-fit items-center justify-center rounded-lg border border-[#a9ddae] bg-white px-6 text-xs font-semibold text-[#287c30]"
+            className="mx-auto flex min-h-11 w-fit items-center justify-center rounded-lg border border-[#9fd7d1] bg-white px-6 text-xs font-semibold text-[#0f6f68]"
             href="/products"
           >
             Browse all categories
@@ -138,7 +138,7 @@ export function MobileCommerceHome({
         >
           {brandPreview.map((brand) => (
             <Link
-              className="grid min-h-24 w-[5.9rem] shrink-0 content-center justify-items-center gap-2 rounded-xl border border-[#cfe9d2] bg-white p-3 text-center shadow-sm shadow-[#287c30]/5"
+              className="grid min-h-24 w-[5.9rem] shrink-0 content-center justify-items-center gap-2 rounded-xl border border-[#c4e4e0] bg-white p-3 text-center shadow-sm shadow-[#0f6f68]/5"
               href={`/brands/${brand.slug}`}
               key={brand.id}
             >
@@ -152,11 +152,11 @@ export function MobileCommerceHome({
                   width={240}
                 />
               ) : (
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#eaf7eb] text-sm font-black text-[#287c30]">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#e5f5f3] text-sm font-black text-[#0f6f68]">
                   {brand.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
-              <span className="line-clamp-1 text-[11px] font-semibold text-[#173b1d]">
+              <span className="line-clamp-1 text-[11px] font-semibold text-[#123f3c]">
                 {brand.name}
               </span>
             </Link>
@@ -171,17 +171,17 @@ export function MobileCommerceHome({
         <div aria-label="Procurement support" className="grid grid-cols-2 gap-3 px-4">
           {trustItems.map(({ Icon, label, value }) => (
             <div
-              className="grid min-h-28 content-start gap-3 rounded-xl border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5"
+              className="grid min-h-28 content-start gap-3 rounded-xl border border-[#c4e4e0] bg-white p-3 shadow-sm shadow-[#0f6f68]/5"
               key={label}
             >
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#fff3e3] text-[#d26812]">
                 <Icon aria-hidden="true" className="h-5 w-5" />
               </span>
               <p>
-                <span className="block text-sm font-semibold leading-5 text-[#173b1d]">
+                <span className="block text-sm font-semibold leading-5 text-[#123f3c]">
                   {label}
                 </span>
-                <span className="mt-1 block text-[11px] font-semibold leading-4 text-[#556b57]">
+                <span className="mt-1 block text-[11px] font-semibold leading-4 text-[#55716e]">
                   {value}
                 </span>
               </p>
@@ -191,8 +191,8 @@ export function MobileCommerceHome({
       </section>
 
       <section className={`${mobileSectionClassName} px-4`} id="bulk">
-        <div className="rounded-2xl bg-[#237b2c] p-5 text-white shadow-lg shadow-[#287c30]/15">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#c7eacb]">
+        <div className="rounded-2xl bg-[#14776f] p-5 text-white shadow-lg shadow-[#0f6f68]/15">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#b8e3de]">
             Bulk procurement
           </p>
           <h2 className="mt-2 text-lg font-semibold leading-6">
@@ -226,7 +226,7 @@ function MobileBannerCarousel() {
       aria-label="Mobile promotional banners"
       className="max-w-full overflow-hidden px-4 pt-4 md:hidden"
     >
-      <div className="relative h-40 overflow-hidden rounded-xl border border-[#cfe9d2] bg-[#ddf3e0] ">
+      <div className="relative h-40 overflow-hidden rounded-xl border border-[#c4e4e0] bg-[#d8f1ee] ">
         {mobileBannerSlides.map((slide, index) => {
           const isActive = index === activeSlide;
 
@@ -264,7 +264,7 @@ function MobileBannerCarousel() {
                 aria-label={`Show banner ${index + 1}`}
                 className={[
                   "h-2 rounded-full transition-all",
-                  isActive ? "w-5 bg-[#287c30]" : "w-2 bg-white/80"
+                  isActive ? "w-5 bg-[#0f6f68]" : "w-2 bg-white/80"
                 ].join(" ")}
                 key={slide.imageUrl}
                 onClick={() => setActiveSlide(index)}
@@ -291,7 +291,7 @@ function MobileSectionHeader({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 pb-3">
-      <h2 className="text-lg font-semibold leading-6 text-[#173b1d]" id={headingId}>
+      <h2 className="text-lg font-semibold leading-6 text-[#123f3c]" id={headingId}>
         {title}
       </h2>
       {actionHref && actionText ? (
@@ -314,7 +314,7 @@ function MobileCategoryCard({
 
   return (
     <Link
-      className="grid min-h-28 w-[6.4rem] shrink-0 content-center justify-items-center gap-2 rounded-xl border border-[#cfe9d2] bg-white px-2 py-3 text-center shadow-sm shadow-[#287c30]/5"
+      className="grid min-h-28 w-[6.4rem] shrink-0 content-center justify-items-center gap-2 rounded-xl border border-[#c4e4e0] bg-white px-2 py-3 text-center shadow-sm shadow-[#0f6f68]/5"
       href={category.href}
     >
       {category.imageUrl ? (
@@ -327,11 +327,11 @@ function MobileCategoryCard({
           width={120}
         />
       ) : (
-        <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#eaf7eb] text-[#287c30]">
+        <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#e5f5f3] text-[#0f6f68]">
           <Icon aria-hidden="true" className="h-6 w-6" />
         </span>
       )}
-      <span className="line-clamp-2 text-xs font-semibold leading-4 text-[#173b1d]">
+      <span className="line-clamp-2 text-xs font-semibold leading-4 text-[#123f3c]">
         {category.label}
       </span>
       <span className={mobileCategoryActionClassName}>
@@ -379,7 +379,7 @@ function MobileFeaturedProductsByCategory({
             key={category.id}
           >
             <div className="flex items-center justify-between gap-3 px-4">
-              <h3 className="text-base font-semibold leading-5 text-[#173b1d]">
+              <h3 className="text-base font-semibold leading-5 text-[#123f3c]">
                 {category.label}
               </h3>
               <Link
@@ -433,8 +433,8 @@ function MobileProductCard({ product }: { product: Product }) {
   const savings = getProductSavings(product);
 
   return (
-    <article className="grid min-h-[14.3rem] w-[9.1rem] shrink-0 overflow-hidden rounded-xl border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5">
-      <Link className="relative block h-24 bg-[#f4fbf5]" href={`/products/${product.slug}`}>
+    <article className="grid min-h-[14.3rem] w-[9.1rem] shrink-0 overflow-hidden rounded-xl border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5">
+      <Link className="relative block h-24 bg-[#f3faf9]" href={`/products/${product.slug}`}>
         {image ? (
           <Image
             alt={getProductImageAlt(product.name, image.altText)}
@@ -444,28 +444,28 @@ function MobileProductCard({ product }: { product: Product }) {
             unoptimized
           />
         ) : (
-          <span className="grid h-full place-items-center text-[#287c30]">
+          <span className="grid h-full place-items-center text-[#0f6f68]">
             <HeartPulse aria-hidden="true" className="h-10 w-10" />
           </span>
         )}
-        <span className="absolute bottom-2 right-2 rounded-lg border border-[#287c30] bg-white px-3 py-1 text-[11px] font-semibold text-[#287c30]">
+        <span className="absolute bottom-2 right-2 rounded-lg border border-[#0f6f68] bg-white px-3 py-1 text-[11px] font-semibold text-[#0f6f68]">
           View
         </span>
       </Link>
       <div className="grid gap-1 p-3">
-        <p className="text-[11px] font-semibold text-[#556b57]">
+        <p className="text-[11px] font-semibold text-[#55716e]">
           {product.brand.name}
         </p>
-        <h3 className="line-clamp-2 min-h-9 text-xs font-semibold leading-[1.15rem] text-[#173b1d]">
+        <h3 className="line-clamp-2 min-h-9 text-xs font-semibold leading-[1.15rem] text-[#123f3c]">
           {product.name}
         </h3>
-        <p className="text-base font-black leading-5 text-[#111827]">
+        <p className="text-base font-black leading-5 text-[#123432]">
           {formatRupees(product.sellingPrice)}
         </p>
-        <p className="text-[11px] font-semibold text-[#556b57]">
+        <p className="text-[11px] font-semibold text-[#55716e]">
           <span className="line-through">{formatRupees(product.mrp)}</span>
           {savings ? (
-            <span className="ml-1 text-[#008f5f]">{savings.percent}% OFF</span>
+            <span className="ml-1 text-[#17a89d]">{savings.percent}% OFF</span>
           ) : null}
         </p>
       </div>

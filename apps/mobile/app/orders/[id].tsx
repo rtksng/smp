@@ -419,7 +419,7 @@ export default function OrderDetailScreen() {
             placeholderTextColor={colors.muted}
             returnKeyType="default"
             style={{
-              borderColor: "#A9DDAE",
+              borderColor: "#9FD7D1",
               borderRadius: 10,
               borderWidth: 1,
               color: colors.text,

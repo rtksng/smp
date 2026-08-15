@@ -52,7 +52,7 @@ export default function BrandsScreen() {
         <>
           <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 14, padding: 16 }}>
             <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Search brands</Text>
-            <View style={{ alignItems: "center", borderColor: "#CFDCDA", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 44, paddingHorizontal: 12 }}>
+            <View style={{ alignItems: "center", borderColor: "#CBDEDB", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 44, paddingHorizontal: 12 }}>
               <Feather color={colors.primaryDark} name="search" size={16} />
               <TextInput accessibilityLabel="Search brands" autoCapitalize="none" onChangeText={setQuery} placeholder="Search by brand, use case, or slug" placeholderTextColor={colors.muted} style={{ color: colors.text, flex: 1, fontFamily: fonts.bodySemiBold, fontSize: 14 }} value={query} />
             </View>
@@ -64,14 +64,14 @@ export default function BrandsScreen() {
               accessibilityLabel="Brand logo filter"
               accessibilityRole="button"
               onPress={() => setFilterOpen(true)}
-              style={{ alignItems: "center", borderColor: "#CFDCDA", borderRadius: 8, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12 }}
+              style={{ alignItems: "center", borderColor: "#CBDEDB", borderRadius: 8, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12 }}
             >
               <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{logoFilterLabel(logoFilter)}</Text>
               <Feather color={colors.text} name="chevron-down" size={18} />
             </Pressable>
           </View>
           <Modal animationType="fade" onRequestClose={() => setFilterOpen(false)} transparent visible={filterOpen}>
-            <Pressable onPress={() => setFilterOpen(false)} style={{ backgroundColor: "rgba(23,33,31,0.35)", flex: 1, justifyContent: "center", padding: 24 }}>
+            <Pressable onPress={() => setFilterOpen(false)} style={{ backgroundColor: "rgba(7,59,56,0.35)", flex: 1, justifyContent: "center", padding: 24 }}>
               <View style={{ backgroundColor: colors.surface, borderRadius: 8, gap: 4, padding: 8 }}>
                 {([['all', 'All brands'], ['with-logo', 'With logos'], ['without-logo', 'Without logos']] as const).map(([value, label]) => (
                   <Pressable
@@ -115,7 +115,7 @@ function BrandCard({ brand, products }: { brand: Brand; products?: ProductList }
       <View style={{ borderTopColor: colors.border, borderTopWidth: 1, gap: 9, paddingTop: 16 }}>
         <Text style={{ color: colors.primaryDark, fontFamily: fonts.heading, fontSize: 13, textTransform: "uppercase" }}>Latest brand products</Text>
         {!products ? <Text style={previewStyle}>Product preview is unavailable right now.</Text> : products.items.length === 0 ? <Text style={previewStyle}>No active products are listed for this brand yet.</Text> : products.items.slice(0, 4).map((product) => (
-          <Pressable key={product.id} onPress={() => router.push({ pathname: "/products/[slug]", params: { slug: product.slug } })} style={({ pressed }) => ({ backgroundColor: pressed ? colors.primarySoft : "#F8FCF8", borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 4, paddingHorizontal: 14, paddingVertical: 12 })}>
+          <Pressable key={product.id} onPress={() => router.push({ pathname: "/products/[slug]", params: { slug: product.slug } })} style={({ pressed }) => ({ backgroundColor: pressed ? colors.primarySoft : "#F7FCFB", borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 4, paddingHorizontal: 14, paddingVertical: 12 })}>
             <Text numberOfLines={1} style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{product.name}</Text>
             <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.category.name} - {formatCatalogRupees(product.sellingPrice)}</Text>
           </Pressable>

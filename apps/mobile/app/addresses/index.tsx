@@ -210,9 +210,9 @@ function AddressCard({
               <Text
                 selectable
                 style={{
-                  backgroundColor: "#DFF3EF",
+                  backgroundColor: "#D8F1EE",
                   borderRadius: 999,
-                  color: "#0F6B50",
+                  color: "#0F6F68",
                   fontFamily: fonts.bodySemiBold,
                   fontSize: 9,
                   paddingHorizontal: 8,

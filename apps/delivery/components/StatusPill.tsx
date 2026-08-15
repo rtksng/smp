@@ -54,10 +54,10 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   neutralLabel: {
-    color: "#334155"
+    color: "#2B4946"
   },
   successLabel: {
-    color: "#166534"
+    color: "#0F6F68"
   },
   warningLabel: {
     color: "#92400E"

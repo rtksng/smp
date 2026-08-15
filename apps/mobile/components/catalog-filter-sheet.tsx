@@ -380,7 +380,7 @@ function FilterTextField({
         placeholderTextColor={colors.muted}
         style={{
           backgroundColor: colors.surface,
-          borderColor: "#A9DDAE",
+          borderColor: "#9FD7D1",
           borderCurve: "continuous",
           borderRadius: 12,
           borderWidth: 1,
@@ -422,7 +422,7 @@ function ChoiceField({
         style={({ pressed }) => ({
           alignItems: "center",
           backgroundColor: colors.surface,
-          borderColor: "#A9DDAE",
+          borderColor: "#9FD7D1",
           borderCurve: "continuous",
           borderRadius: 12,
           borderWidth: 1,
@@ -622,7 +622,7 @@ function CheckRow({
         style={{
           alignItems: "center",
           backgroundColor: checked ? colors.primaryDark : colors.surface,
-          borderColor: checked ? colors.primaryDark : "#A9DDAE",
+          borderColor: checked ? colors.primaryDark : "#9FD7D1",
           borderRadius: 5,
           borderWidth: 1,
           height: 22,

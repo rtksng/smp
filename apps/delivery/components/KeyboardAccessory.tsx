@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12
   },
   actionText: {
-    color: "#166534",
+    color: "#0F6F68",
     fontSize: 15,
     fontWeight: "900"
   },
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   toolbar: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderTopColor: "#CBD5E1",
+    borderTopColor: "#C4E4E0",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "flex-end",

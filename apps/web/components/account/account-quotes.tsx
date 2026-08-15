@@ -204,23 +204,23 @@ function QuoteHistoryCard({
     quote.quotation.items.some((item) => !item.productId);
 
   return (
-    <article className="grid gap-4 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5">
+    <article className="grid gap-4 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-4 shadow-sm shadow-[#0f6f68]/5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e5f5f3] text-[#0f6f68]">
               <FileText aria-hidden="true" className="h-4 w-4" />
             </span>
             <div>
-              <h2 className="text-base font-semibold text-[#173b1d]">
+              <h2 className="text-base font-semibold text-[#123f3c]">
                 Quote {quote.id.slice(0, 8)}
               </h2>
-              <p className="text-xs font-semibold text-[#556b57]">
+              <p className="text-xs font-semibold text-[#55716e]">
                 Requested {formatDate(quote.createdAt)}
               </p>
             </div>
           </div>
-          <p className="mt-3 text-sm font-semibold leading-6 text-[#556b57]">
+          <p className="mt-3 text-sm font-semibold leading-6 text-[#55716e]">
             {quote.message}
           </p>
         </div>
@@ -232,9 +232,9 @@ function QuoteHistoryCard({
       {quote.quotation ? <QuoteSummary quote={quote} /> : null}
 
       {quote.customerDecision ? (
-        <div className="rounded-lg border border-[#cfe9d2] bg-white p-3 text-sm font-semibold text-[#556b57]">
+        <div className="rounded-lg border border-[#c4e4e0] bg-white p-3 text-sm font-semibold text-[#55716e]">
           Decision:{" "}
-          <strong className="text-[#173b1d]">
+          <strong className="text-[#123f3c]">
             {formatQuoteStatus(quote.customerDecision.status)}
           </strong>{" "}
           on {formatDate(quote.customerDecision.decidedAt)}
@@ -300,10 +300,10 @@ function QuoteSummary({ quote }: { quote: QuoteRequest }) {
   }
 
   return (
-    <div className="grid gap-4 rounded-lg border border-[#cfe9d2] bg-white p-4">
+    <div className="grid gap-4 rounded-lg border border-[#c4e4e0] bg-white p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-semibold text-[#173b1d]">Quoted items</h3>
-        <p className="text-xs font-semibold text-[#556b57]">
+        <h3 className="text-sm font-semibold text-[#123f3c]">Quoted items</h3>
+        <p className="text-xs font-semibold text-[#55716e]">
           Sent {formatDate(quotation.respondedAt)}
           {quotation.validUntil
             ? ` | Valid until ${formatDate(quotation.validUntil)}`
@@ -314,16 +314,16 @@ function QuoteSummary({ quote }: { quote: QuoteRequest }) {
       <div className="grid gap-2">
         {quotation.items.map((item, index) => (
           <div
-            className="grid gap-2 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+            className="grid gap-2 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
             key={`${item.sku}-${index}`}
           >
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-[#173b1d]">{item.name}</p>
-              <p className="mt-1 text-xs font-semibold text-[#556b57]">
+              <p className="text-sm font-semibold text-[#123f3c]">{item.name}</p>
+              <p className="mt-1 text-xs font-semibold text-[#55716e]">
                 SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
               </p>
             </div>
-            <strong className="text-sm text-[#173b1d]">
+            <strong className="text-sm text-[#123f3c]">
               {priceFormatter.format(item.lineTotal)}
             </strong>
           </div>
@@ -331,7 +331,7 @@ function QuoteSummary({ quote }: { quote: QuoteRequest }) {
       </div>
 
       {quotation.notes ? (
-        <p className="rounded-lg bg-[#f4fbf5] p-3 text-sm font-semibold leading-6 text-[#556b57]">
+        <p className="rounded-lg bg-[#f3faf9] p-3 text-sm font-semibold leading-6 text-[#55716e]">
           {quotation.notes}
         </p>
       ) : null}
@@ -340,7 +340,7 @@ function QuoteSummary({ quote }: { quote: QuoteRequest }) {
         <QuoteTotalRow label="Subtotal" value={quotation.totals.subtotal} />
         <QuoteTotalRow label="Tax/GST" value={quotation.totals.taxTotal} />
         <QuoteTotalRow label="Shipping" value={quotation.totals.shippingTotal} />
-        <div className="flex items-center justify-between gap-4 border-t border-[#cfe9d2] pt-3 text-base font-semibold text-[#173b1d]">
+        <div className="flex items-center justify-between gap-4 border-t border-[#c4e4e0] pt-3 text-base font-semibold text-[#123f3c]">
           <dt>Total</dt>
           <dd>{priceFormatter.format(quotation.totals.grandTotal)}</dd>
         </div>
@@ -352,8 +352,8 @@ function QuoteSummary({ quote }: { quote: QuoteRequest }) {
 function QuoteTotalRow({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <dt className="font-semibold text-[#556b57]">{label}</dt>
-      <dd className="font-semibold text-[#173b1d]">{priceFormatter.format(value)}</dd>
+      <dt className="font-semibold text-[#55716e]">{label}</dt>
+      <dd className="font-semibold text-[#123f3c]">{priceFormatter.format(value)}</dd>
     </div>
   );
 }

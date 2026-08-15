@@ -1,11 +1,19 @@
 import { describe, expect, test } from "vitest";
 import {
+  formatIndianMobileInput,
   validateDeliveryStatusForm,
   validateLoginForm,
   validateRegistrationForm
 } from "./forms";
 
 describe("delivery form validation", () => {
+  test("formats mobile input and limits it to 10 national digits", () => {
+    expect(formatIndianMobileInput("+91 9876543210123")).toBe(
+      "+91 9876543210"
+    );
+    expect(formatIndianMobileInput("9123456789")).toBe("+91 9123456789");
+  });
+
   test("requires a usable mobile number before requesting OTP", () => {
     expect(validateLoginForm({ mobileNumber: "", otp: "", otpRequested: false })).toEqual({
       isValid: false,

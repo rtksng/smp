@@ -323,7 +323,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     <>
       <Header />
       <main
-        className="productDetailNoShadows bg-[#f4fbf5]"
+        className="productDetailNoShadows bg-[#f3faf9]"
         data-testid="product-detail-main"
       >
         <Container className="py-4 sm:py-8">
@@ -353,7 +353,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
               <div className="flex items-start gap-2 sm:items-center sm:gap-3">
                 <button
                   aria-label="Back"
-                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#cfe9d2] bg-white px-3 text-xs font-semibold text-[#287c30] shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30] hover:bg-[#f4fbf5] focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 sm:min-h-9 sm:text-sm"
+                  className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[#c4e4e0] bg-white px-3 text-xs font-semibold text-[#0f6f68] shadow-sm shadow-[#0f6f68]/5 transition hover:border-[#0f6f68] hover:bg-[#f3faf9] focus:outline-none focus:ring-2 focus:ring-[#0f6f68] focus:ring-offset-2 sm:min-h-9 sm:text-sm"
                   onClick={() => router.back()}
                   type="button"
                 >
@@ -361,33 +361,33 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 </button>
                 <nav
                   aria-label="Product breadcrumbs"
-                  className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-semibold text-[#687773] sm:gap-2 sm:text-sm"
+                  className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-semibold text-[#607a77] sm:gap-2 sm:text-sm"
                 >
-                  <Link className="hover:text-[#287c30]" href="/products">
+                  <Link className="hover:text-[#0f6f68]" href="/products">
                     Products
                   </Link>
                   <ChevronRight
                     aria-hidden="true"
-                    className="h-4 w-4 text-[#a3b1ad]"
+                    className="h-4 w-4 text-[#9cafac]"
                   />
                   <Link
-                    className="hover:text-[#287c30]"
+                    className="hover:text-[#0f6f68]"
                     href={`/categories/${product.category.slug}`}
                   >
                     {product.category.name}
                   </Link>
                   <ChevronRight
                     aria-hidden="true"
-                    className="h-4 w-4 text-[#a3b1ad]"
+                    className="h-4 w-4 text-[#9cafac]"
                   />
-                  <span className="text-[#17211f]">{product.name}</span>
+                  <span className="text-[#123432]">{product.name}</span>
                 </nav>
               </div>
 
               <div className="grid gap-5 sm:gap-8 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)_360px]">
                 <section className="grid gap-3 sm:gap-4 xl:self-start">
                   <div
-                    className="relative aspect-square overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5"
+                    className="relative aspect-square overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5"
                     data-testid="product-main-image-panel"
                   >
                     {selectedImage && !selectedImageFailed ? (
@@ -402,9 +402,9 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         unoptimized
                       />
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#eaf7eb,#eef3f1)] px-4 text-center text-[#287c30]">
+                      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#e5f5f3,#eef3f1)] px-4 text-center text-[#0f6f68]">
                         <PackageCheck aria-hidden="true" className="h-20 w-20" />
-                        <span className="text-sm font-semibold text-[#23702a]">
+                        <span className="text-sm font-semibold text-[#0b5e59]">
                           Product image unavailable
                         </span>
                       </div>
@@ -413,10 +413,10 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                       aria-label={isSaved ? "Remove from wishlist" : "Add to wishlist"}
                       aria-pressed={isSaved}
                       className={[
-                        "absolute bottom-3 right-3 z-10 grid h-11 w-11 place-items-center rounded-full border bg-white/95 shadow-lg shadow-[#287c30]/15 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+                        "absolute bottom-3 right-3 z-10 grid h-11 w-11 place-items-center rounded-full border bg-white/95 shadow-lg shadow-[#0f6f68]/15 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#0f6f68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
                         isSaved
                           ? "border-[#ffd4d0] text-[#d92d20]"
-                          : "border-[#cfe9d2] text-[#173b1d]"
+                          : "border-[#c4e4e0] text-[#123f3c]"
                       ].join(" ")}
                       disabled={wishlistPending}
                       onClick={handleWishlistToggle}
@@ -440,14 +440,14 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                       {product.images.map((image) => (
                         <button
                           aria-current={image.id === selectedImage?.id}
-                          className="relative h-20 w-20 shrink-0 snap-start overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 data-[active=true]:border-[#287c30] data-[active=true]:ring-2 data-[active=true]:ring-[#287c30]/20 sm:h-auto sm:w-auto sm:aspect-square"
+                          className="relative h-20 w-20 shrink-0 snap-start overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 data-[active=true]:border-[#0f6f68] data-[active=true]:ring-2 data-[active=true]:ring-[#0f6f68]/20 sm:h-auto sm:w-auto sm:aspect-square"
                           data-active={image.id === selectedImage?.id}
                           key={image.id}
                           onClick={() => setSelectedImageId(image.id)}
                           type="button"
                         >
                           {failedImageIds.has(image.id) ? (
-                            <div className="flex h-full w-full items-center justify-center bg-[#eaf7eb] text-[#287c30]">
+                            <div className="flex h-full w-full items-center justify-center bg-[#e5f5f3] text-[#0f6f68]">
                               <PackageCheck aria-hidden="true" className="h-6 w-6" />
                             </div>
                           ) : (
@@ -467,26 +467,26 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   ) : null}
                 </section>
 
-                <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-6">
-                  <p className="text-xs font-semibold uppercase text-[#9b6a1e]">
+                <section className="rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5 sm:p-6">
+                  <p className="text-xs font-semibold uppercase text-[#0f6f68]">
                     {product.brand.name}
                   </p>
-                  <h1 className="mt-2 text-lg font-semibold leading-snug text-[#17211f] sm:text-3xl">
+                  <h1 className="mt-2 text-lg font-semibold leading-snug text-[#123432] sm:text-3xl">
                     {product.name}
                   </h1>
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#31413d] sm:gap-2 sm:text-xs">
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#2b4946] sm:gap-2 sm:text-xs">
                     <span className="rounded-full bg-[#eef3f1] px-3 py-1">
                       SKU {product.sku}
                     </span>
                   <Link
-                    className="rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]"
+                    className="rounded-full bg-[#e5f5f3] px-3 py-1 text-[#0f6f68]"
                     href={`/categories/${product.category.slug}`}
                   >
                     {product.category.name}
                   </Link>
                   {product.subcategory ? (
                     <Link
-                      className="rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]"
+                      className="rounded-full bg-[#e5f5f3] px-3 py-1 text-[#0f6f68]"
                       href={`/categories/${product.category.slug}?subcategory=${product.subcategory.slug}`}
                     >
                       {product.subcategory.name}
@@ -497,7 +497,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     </span>
                   </div>
 
-                  <p className="mt-3 text-[13px] leading-5 text-[#687773] sm:text-sm sm:leading-6">
+                  <p className="mt-3 text-[13px] leading-5 text-[#607a77] sm:text-sm sm:leading-6">
                     {product.shortDescription}
                   </p>
 
@@ -533,45 +533,45 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                   <ProductSummary description={product.description} />
                 </section>
 
-                <aside className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 xl:self-start">
-                  <p className="text-xs font-semibold uppercase text-[#9b6a1e]">
+                <aside className="rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5 sm:p-5 xl:self-start">
+                  <p className="text-xs font-semibold uppercase text-[#0f6f68]">
                     Purchase panel
                   </p>
-                  <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5">
-                    <p className="text-xs font-semibold text-[#687773]">Hospital price</p>
-                    <p className="mt-1 text-xl font-semibold tabular-nums text-[#17211f] sm:text-2xl">
+                  <div className="mt-4 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0f6f68]/5">
+                    <p className="text-xs font-semibold text-[#607a77]">Hospital price</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-[#123432] sm:text-2xl">
                       {formatRupees(product.sellingPrice)}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold">
-                      <span className="text-[#687773]">
+                      <span className="text-[#607a77]">
                         MRP {formatRupees(product.mrp)}
                       </span>
                       {savings ? (
-                        <span className="rounded-full bg-[#e5f6ea] px-2 py-1 text-xs text-[#0a7f32]">
+                        <span className="rounded-full bg-[#e2f5f2] px-2 py-1 text-xs text-[#0f6f68]">
                           Save {formatRupees(savings.amount)}
                         </span>
                       ) : null}
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-2 text-sm font-semibold text-[#31413d]">
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-2 shadow-sm shadow-[#287c30]/5">
+                  <div className="mt-5 grid gap-2 text-sm font-semibold text-[#2b4946]">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-[#c4e4e0] bg-white px-3 py-2 shadow-sm shadow-[#0f6f68]/5">
                       <span>Quantity</span>
-                      <div className="inline-flex h-11 items-center justify-between overflow-hidden rounded-lg border border-[#cfdcda] bg-white">
+                      <div className="inline-flex h-11 items-center justify-between overflow-hidden rounded-lg border border-[#cbdedb] bg-white">
                         <button
                           aria-label="Decrease quantity"
-                          className="grid h-11 w-11 place-items-center text-[#31413d]"
+                          className="grid h-11 w-11 place-items-center text-[#2b4946]"
                           onClick={() => setQuantity((value) => Math.max(1, value - 1))}
                           type="button"
                         >
                           <Minus aria-hidden="true" className="h-4 w-4" />
                         </button>
-                        <span className="min-w-10 text-center font-semibold text-[#17211f]">
+                        <span className="min-w-10 text-center font-semibold text-[#123432]">
                           {quantity}
                         </span>
                         <button
                           aria-label="Increase quantity"
-                          className="grid h-11 w-11 place-items-center text-[#31413d]"
+                          className="grid h-11 w-11 place-items-center text-[#2b4946]"
                           onClick={() => setQuantity((value) => value + 1)}
                           type="button"
                         >
@@ -579,17 +579,17 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-3 shadow-sm shadow-[#287c30]/5">
+                    <div className="flex items-center gap-3 rounded-lg border border-[#c4e4e0] bg-white px-3 py-3 shadow-sm shadow-[#0f6f68]/5">
                       <CreditCard
                         aria-hidden="true"
-                        className="h-4 w-4 text-[#287c30]"
+                        className="h-4 w-4 text-[#0f6f68]"
                       />
                       COD and online payment at checkout
                     </div>
-                    <div className="flex items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-3 py-3 shadow-sm shadow-[#287c30]/5">
+                    <div className="flex items-center gap-3 rounded-lg border border-[#c4e4e0] bg-white px-3 py-3 shadow-sm shadow-[#0f6f68]/5">
                       <Building2
                         aria-hidden="true"
-                        className="h-4 w-4 text-[#287c30]"
+                        className="h-4 w-4 text-[#0f6f68]"
                       />
                       Bulk price support for quantity orders
                     </div>
@@ -637,13 +637,13 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                     </p>
                   ) : null}
                   {actionMessage ? (
-                    <p className="mt-4 rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-semibold text-[#287c30]">
+                    <p className="mt-4 rounded-lg bg-[#e5f5f3] px-4 py-3 text-sm font-semibold text-[#0f6f68]">
                       {actionMessage}
                     </p>
                   ) : null}
                 </aside>
 
-                <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
+                <section className="rounded-lg border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5 xl:col-span-3">
                   <SectionHeader
                     description="Technical details stay structured for clinical review and purchase approval."
                     eyebrow="Product information"
@@ -675,7 +675,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
 
               <div
                 aria-label="Product purchase actions"
-                className="fixed inset-x-0 bottom-0 z-40 border-t border-[#cfe9d2] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-10px_24px_rgba(40,124,48,0.14)] backdrop-blur md:hidden"
+                className="fixed inset-x-0 bottom-0 z-40 border-t border-[#c4e4e0] bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-10px_24px_rgba(15,111,104,0.14)] backdrop-blur md:hidden"
                 data-testid="mobile-sticky-product-actions"
               >
                 <div className="mx-auto grid max-w-screen-sm grid-cols-2 gap-3">
@@ -714,7 +714,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
 
               {wishlistToast ? (
                 <div
-                  className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#bfe7d1] bg-white px-4 py-2 text-sm font-semibold text-[#0a7f32] shadow-lg shadow-[#287c30]/15 md:bottom-8"
+                  className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[#b8e3de] bg-white px-4 py-2 text-sm font-semibold text-[#0f6f68] shadow-lg shadow-[#0f6f68]/15 md:bottom-8"
                   role="status"
                 >
                   {wishlistToast}
@@ -747,14 +747,14 @@ function ProductSignal({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-2.5 shadow-sm shadow-[#287c30]/5 sm:p-3">
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#eaf7eb] text-[#287c30] sm:h-8 sm:w-8">
+    <div className="rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-2.5 shadow-sm shadow-[#0f6f68]/5 sm:p-3">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#e5f5f3] text-[#0f6f68] sm:h-8 sm:w-8">
         <Icon aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </span>
-      <p className="mt-1.5 text-[11px] font-semibold text-[#17211f] sm:mt-2 sm:text-xs">
+      <p className="mt-1.5 text-[11px] font-semibold text-[#123432] sm:mt-2 sm:text-xs">
         {title}
       </p>
-      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#687773]">
+      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#607a77]">
         {value}
       </p>
     </div>
@@ -764,11 +764,11 @@ function ProductSignal({
 function ProductSummary({ description }: { description: string }) {
   return (
     <>
-      <div className="mt-5 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-3.5 shadow-sm shadow-[#287c30]/5 sm:hidden">
+      <div className="mt-5 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] px-3.5 shadow-sm shadow-[#0f6f68]/5 sm:hidden">
         <details className="group" data-testid="mobile-product-summary">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-            <span className="text-sm font-semibold text-[#17211f]">Product summary</span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#687773]">
+            <span className="text-sm font-semibold text-[#123432]">Product summary</span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#607a77]">
               <span
                 className="group-open:hidden"
                 data-testid="mobile-product-summary-ellipsis"
@@ -777,7 +777,7 @@ function ProductSummary({ description }: { description: string }) {
               </span>
               <ChevronDown
                 aria-hidden="true"
-                className="h-4 w-4 text-[#287c30] transition group-open:rotate-180"
+                className="h-4 w-4 text-[#0f6f68] transition group-open:rotate-180"
               />
             </span>
           </summary>
@@ -786,12 +786,12 @@ function ProductSummary({ description }: { description: string }) {
             data-testid="mobile-product-summary-preview"
           >
             <div
-              className="line-clamp-2 text-[13px] leading-5 text-[#687773]"
+              className="line-clamp-2 text-[13px] leading-5 text-[#607a77]"
               dangerouslySetInnerHTML={{ __html: description }}
             />
           </div>
           <div
-            className="productDescriptionRichText mt-2 hidden text-[13px] leading-5 text-[#687773] group-open:block"
+            className="productDescriptionRichText mt-2 hidden text-[13px] leading-5 text-[#607a77] group-open:block"
             data-testid="mobile-product-summary-full"
             dangerouslySetInnerHTML={{ __html: description }}
           />
@@ -799,12 +799,12 @@ function ProductSummary({ description }: { description: string }) {
       </div>
 
       <div
-        className="mt-5 hidden rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5 sm:block"
+        className="mt-5 hidden rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0f6f68]/5 sm:block"
         data-testid="desktop-product-summary"
       >
-        <h2 className="text-base font-semibold text-[#17211f]">Product summary</h2>
+        <h2 className="text-base font-semibold text-[#123432]">Product summary</h2>
         <div
-          className="productDescriptionRichText mt-2 text-sm leading-6 text-[#687773]"
+          className="productDescriptionRichText mt-2 text-sm leading-6 text-[#607a77]"
           data-testid="desktop-product-summary-body"
           dangerouslySetInnerHTML={{ __html: description }}
         />
@@ -834,11 +834,11 @@ function ProductFacts({ product }: { product: Product }) {
     <div className="grid gap-3 md:grid-cols-2">
       {facts.map((fact) => (
         <div
-          className="flex items-start justify-between gap-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#287c30]/5"
+          className="flex items-start justify-between gap-4 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#0f6f68]/5"
           key={fact.label}
         >
-          <span className="text-sm font-semibold text-[#687773]">{fact.label}</span>
-          <strong className="min-w-0 break-words text-right text-sm text-[#17211f]">
+          <span className="text-sm font-semibold text-[#607a77]">{fact.label}</span>
+          <strong className="min-w-0 break-words text-right text-sm text-[#123432]">
             {fact.value}
           </strong>
         </div>
@@ -849,7 +849,7 @@ function ProductFacts({ product }: { product: Product }) {
 
 function ProductVariants({ product }: { product: Product }) {
   return (
-    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5 xl:col-span-3">
       <SectionHeader
         description="Available pack, size, or SKU options from the product catalog."
         eyebrow="Variants"
@@ -859,31 +859,31 @@ function ProductVariants({ product }: { product: Product }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {product.variants.map((variant) => (
           <article
-            className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-3 shadow-sm shadow-[#287c30]/5"
+            className="rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-3 shadow-sm shadow-[#0f6f68]/5"
             key={variant.id}
           >
             <div className="flex items-start gap-2.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#eaf7eb] text-[#287c30]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#e5f5f3] text-[#0f6f68]">
                 <Boxes aria-hidden="true" className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold leading-5 text-[#17211f]">
+                <h3 className="text-sm font-semibold leading-5 text-[#123432]">
                   {variant.name}
                 </h3>
-                <p className="mt-0.5 text-[11px] font-semibold uppercase text-[#687773]">
+                <p className="mt-0.5 text-[11px] font-semibold uppercase text-[#607a77]">
                   SKU {variant.sku}
                 </p>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-base font-semibold tabular-nums text-[#17211f]">
+              <span className="text-base font-semibold tabular-nums text-[#123432]">
                 {formatRupees(variant.sellingPrice)}
               </span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#31413d]">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#2b4946]">
                 {variant.status.replaceAll("_", " ")}
               </span>
             </div>
-            <p className="mt-1 text-xs font-semibold text-[#687773]">
+            <p className="mt-1 text-xs font-semibold text-[#607a77]">
               MRP {formatRupees(variant.mrp)}
             </p>
           </article>
@@ -897,7 +897,7 @@ function ProductDocuments({ product }: { product: Product }) {
   const documents = getVisibleProductDocuments(product.documents);
 
   return (
-    <section className="rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5 xl:col-span-3">
+    <section className="rounded-lg border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5 xl:col-span-3">
       <SectionHeader
         description="Customer-visible certificates, manuals, warranty, and compliance files."
         eyebrow="Documents"
@@ -913,26 +913,26 @@ function ProductDocuments({ product }: { product: Product }) {
         <div className="grid gap-4 md:grid-cols-2">
           {documents.map((document) => (
             <a
-              className="flex items-center justify-between gap-4 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4 shadow-sm shadow-[#287c30]/5 transition hover:border-[#287c30]"
+              className="flex items-center justify-between gap-4 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4 shadow-sm shadow-[#0f6f68]/5 transition hover:border-[#0f6f68]"
               href={document.fileUrl}
               key={document.id}
               rel="noreferrer"
               target="_blank"
             >
               <span className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#e5f5f3] text-[#0f6f68]">
                   <FileText aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span>
-                  <strong className="block text-[#17211f] text-sm sm:text-normal">{document.title}</strong>
-                  <span className="text-sm font-semibold text-[#687773]">
+                  <strong className="block text-[#123432] text-sm sm:text-normal">{document.title}</strong>
+                  <span className="text-sm font-semibold text-[#607a77]">
                     {documentTypeLabel(document.type)}
                   </span>
                 </span>
               </span>
               <Download
                 aria-hidden="true"
-                className="h-5 w-5 shrink-0 text-[#287c30]"
+                className="h-5 w-5 shrink-0 text-[#0f6f68]"
               />
             </a>
           ))}
@@ -976,7 +976,7 @@ function ProductFeedbackSection({
       : null;
 
   return (
-    <section className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5 sm:p-5 xl:col-span-3">
+    <section className="rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5 sm:p-5 xl:col-span-3">
       <SectionHeader
         description="Read recent buyer feedback or ask a product-specific question before purchase."
         eyebrow="Customer feedback"
@@ -984,28 +984,28 @@ function ProductFeedbackSection({
         title="Reviews and Q&A"
       />
 
-      <div className="mt-4 grid gap-2 rounded-lg border border-[#dcefe0] bg-[#f8fbfa] p-3 text-xs font-semibold text-[#556b57] sm:grid-cols-3 sm:p-4">
+      <div className="mt-4 grid gap-2 rounded-lg border border-[#d7efeb] bg-[#f8fbfa] p-3 text-xs font-semibold text-[#55716e] sm:grid-cols-3 sm:p-4">
         <div>
-          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#687f7c]">
             Average rating
           </span>
-          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+          <strong className="mt-1 block text-lg text-[#123432] font-normal">
             {averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"}
           </strong>
         </div>
         <div>
-          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#687f7c]">
             Reviews
           </span>
-          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+          <strong className="mt-1 block text-lg text-[#123432] font-normal">
             {reviews.length}
           </strong>
         </div>
         <div>
-          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#6f807a]">
+          <span className="block text-[11px] uppercase tracking-[0.12em] text-[#687f7c]">
             Questions
           </span>
-          <strong className="mt-1 block text-lg text-[#17211f] font-normal">
+          <strong className="mt-1 block text-lg text-[#123432] font-normal">
             {questions.length}
           </strong>
         </div>
@@ -1014,8 +1014,8 @@ function ProductFeedbackSection({
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-[#17211f]">Reviews</h3>
-            <span className="rounded-full bg-[#eaf7eb] px-2.5 py-1 text-[11px] font-semibold text-[#287c30]">
+            <h3 className="text-sm font-semibold text-[#123432]">Reviews</h3>
+            <span className="rounded-full bg-[#e5f5f3] px-2.5 py-1 text-[11px] font-semibold text-[#0f6f68]">
               {reviews.length} posted
             </span>
           </div>
@@ -1023,11 +1023,11 @@ function ProductFeedbackSection({
             {reviews.length > 0 ? (
               reviews.slice(0, 4).map((review) => (
                 <article
-                  className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
+                  className="rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4"
                   key={review.id}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-sm font-semibold uppercase text-[#287c30]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e5f5f3] text-sm font-semibold uppercase text-[#0f6f68]">
                       {getCustomerInitials(review.customerName)}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -1037,45 +1037,45 @@ function ProductFeedbackSection({
                           className="text-sm font-semibold tracking-[0.08em] text-[#f59e0b]"
                         >
                           {"★".repeat(review.rating)}
-                          <span className="text-[#d8dfdc]">
+                          <span className="text-[#d4e2df]">
                             {"★".repeat(5 - review.rating)}
                           </span>
                         </span>
-                        <span className="text-xs font-semibold text-[#687773]">
+                        <span className="text-xs font-semibold text-[#607a77]">
                           {formatFeedbackDate(review.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-[#17211f]">
+                      <p className="mt-1 text-sm font-semibold text-[#123432]">
                         {review.title ?? "Customer review"}
                       </p>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[#687773]">
+                  <p className="mt-2 text-sm leading-6 text-[#607a77]">
                     {review.comment}
                   </p>
-                  <p className="mt-3 text-xs font-semibold text-[#287c30]">
+                  <p className="mt-3 text-xs font-semibold text-[#0f6f68]">
                     {review.customerName} · Verified customer
                   </p>
                 </article>
               ))
             ) : (
-              <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+              <p className="rounded-lg border border-dashed border-[#c4e4e0] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#607a77]">
                 No reviews yet.
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4">
             <div>
-              <h4 className="text-sm font-semibold text-[#17211f]">
+              <h4 className="text-sm font-semibold text-[#123432]">
                 Write a review
               </h4>
-              <p className="mt-1 text-xs font-semibold text-[#687773]">
+              <p className="mt-1 text-xs font-semibold text-[#607a77]">
                 Share what helped with purchase or clinical use.
               </p>
             </div>
             <select
               aria-label="Review rating"
-              className="min-h-11 rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f]"
+              className="min-h-11 rounded-lg border border-[#cbdedb] bg-white px-3 text-sm font-semibold text-[#123432]"
               onChange={(event) => setReviewRating(Number(event.target.value))}
               value={reviewRating}
             >
@@ -1087,7 +1087,7 @@ function ProductFeedbackSection({
             </select>
             <textarea
               aria-label="Review comment"
-              className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
+              className="min-h-24 rounded-lg border border-[#cbdedb] bg-white px-3 py-2 text-sm font-semibold text-[#123432]"
               onChange={(event) => setReviewComment(event.target.value)}
               placeholder="Share purchase feedback"
               value={reviewComment}
@@ -1103,8 +1103,8 @@ function ProductFeedbackSection({
         </div>
         <div className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-[#17211f]">Questions</h3>
-            <span className="rounded-full bg-[#eaf7eb] px-2.5 py-1 text-[11px] font-semibold text-[#287c30]">
+            <h3 className="text-sm font-semibold text-[#123432]">Questions</h3>
+            <span className="rounded-full bg-[#e5f5f3] px-2.5 py-1 text-[11px] font-semibold text-[#0f6f68]">
               {questions.length} asked
             </span>
           </div>
@@ -1112,54 +1112,54 @@ function ProductFeedbackSection({
             {questions.length > 0 ? (
               questions.slice(0, 4).map((entry) => (
                 <article
-                  className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4"
+                  className="rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4"
                   key={entry.id}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-[#287c30]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-[#0f6f68]">
                       Q
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#287c30]">
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#0f6f68]">
                           Product question
                         </span>
-                        <span className="text-xs font-semibold text-[#687773]">
+                        <span className="text-xs font-semibold text-[#607a77]">
                           {formatFeedbackDate(entry.createdAt)}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-[#17211f]">
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#123432]">
                         {entry.question}
                       </p>
                     </div>
                   </div>
-                  <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-[#687773]">
-                    <span className="font-semibold text-[#17211f]">Answer: </span>
+                  <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-[#607a77]">
+                    <span className="font-semibold text-[#123432]">Answer: </span>
                     {entry.answer ?? "Awaiting answer from the team."}
                   </p>
-                  <p className="mt-2 text-xs font-semibold text-[#687773]">
+                  <p className="mt-2 text-xs font-semibold text-[#607a77]">
                     {entry.customerName}
                   </p>
                 </article>
               ))
             ) : (
-              <p className="rounded-lg border border-dashed border-[#cfe9d2] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#687773]">
+              <p className="rounded-lg border border-dashed border-[#c4e4e0] bg-[#f8fbfa] p-4 text-sm font-semibold text-[#607a77]">
                 No questions yet.
               </p>
             )}
           </div>
-          <div className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] p-4">
+          <div className="grid gap-3 rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] p-4">
             <div>
-              <h4 className="text-sm font-semibold text-[#17211f]">
+              <h4 className="text-sm font-semibold text-[#123432]">
                 Ask a question
               </h4>
-              <p className="mt-1 text-xs font-semibold text-[#687773]">
+              <p className="mt-1 text-xs font-semibold text-[#607a77]">
                 Ask about fit, pack size, compatibility, or delivery.
               </p>
             </div>
             <textarea
               aria-label="Product question"
-              className="min-h-24 rounded-lg border border-[#cfdcda] bg-white px-3 py-2 text-sm font-semibold text-[#17211f]"
+              className="min-h-24 rounded-lg border border-[#cbdedb] bg-white px-3 py-2 text-sm font-semibold text-[#123432]"
               onChange={(event) => setQuestion(event.target.value)}
               placeholder="Ask about compatibility, pack size, or delivery"
               value={question}

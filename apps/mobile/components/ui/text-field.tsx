@@ -25,13 +25,13 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(
           accessibilityHint={error ?? accessibilityHint}
           accessibilityLabel={label}
           allowFontScaling
-          placeholderTextColor="#839084"
+          placeholderTextColor="#7F9693"
           ref={ref}
           selectionColor={colors.primaryDark}
           style={[
             {
               backgroundColor: colors.surface,
-              borderColor: error ? "#E19B94" : "#A9DDAE",
+              borderColor: error ? "#E19B94" : "#9FD7D1",
               borderCurve: "continuous",
               borderRadius: 999,
               borderWidth: 1,

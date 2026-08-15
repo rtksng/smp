@@ -93,9 +93,9 @@ import {
 
 const DELIVERY_PAGE_SIZE = 20;
 const deliveryChartColors = {
-  accent: "#5f756f",
+  accent: "#587570",
   muted: "#94a3b8",
-  primary: "#287c30",
+  primary: "#0f6f68",
   warning: "#b87605"
 };
 const emptyAssignmentForm: AssignDeliveryValues = {
@@ -735,7 +735,7 @@ function DeliveryStatusChart({
           margin={{ bottom: 4, left: 6, right: 18, top: 4 }}
           width={width}
         >
-          <CartesianGrid horizontal={false} stroke="#e4ece9" />
+          <CartesianGrid horizontal={false} stroke="#e0ecea" />
           <XAxis
             allowDecimals={false}
             axisLine={false}
@@ -756,7 +756,7 @@ function DeliveryStatusChart({
             formatter={(value) => [`${value} ${valueLabel}`, "Count"]}
           />
           <Bar
-            background={{ fill: "#e4ece9", radius: 6 }}
+            background={{ fill: "#e0ecea", radius: 6 }}
             dataKey="count"
             name={valueLabel}
             radius={[0, 6, 6, 0]}
@@ -784,7 +784,7 @@ function DeliveryAssignmentTrendChart({ data }: { data: DeliveryTrendChartRow[] 
           margin={{ bottom: 4, left: 0, right: 18, top: 12 }}
           width={width}
         >
-          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <CartesianGrid stroke="#e0ecea" vertical={false} />
           <XAxis
             axisLine={false}
             dataKey="label"

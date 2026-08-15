@@ -34,8 +34,8 @@ export function FormField({
         }}
         autoCorrect={props.autoCorrect ?? false}
         isInvalid={isInvalid}
-        placeholderTextColor="#94A3B8"
-        selectionColor="#287C30"
+        placeholderTextColor="#849C98"
+        selectionColor="#0F6F68"
         style={[
           styles.input,
           props.multiline && styles.textArea,
@@ -60,10 +60,10 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1",
+    borderColor: "#C4E4E0",
     borderRadius: 8,
     borderWidth: 1,
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.body,
     fontSize: 15,
     minHeight: 44,
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     borderColor: "#B91C1C"
   },
   label: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"

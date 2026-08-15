@@ -445,7 +445,7 @@ describe("ProductListingPage", () => {
     renderListing();
 
     expect(screen.getByTestId("category-filter-select-arrow"))
-      .toHaveClass("text-[#287c30]");
+      .toHaveClass("text-[#0f6f68]");
     expect(getHeroFilterTrigger("Category")).toHaveClass("pr-10");
   });
 

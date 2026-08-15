@@ -154,8 +154,8 @@ export function SearchForm({
           aria-label={isTyping ? "Search suggestions" : "Recent searches"}
           className={
             compact
-              ? "absolute left-0 right-0 top-full z-50 mt-2 grid gap-1 overflow-hidden rounded-2xl border border-[#cfe9d2] bg-white p-2 text-sm font-semibold text-[#173b1d] shadow-2xl shadow-[#287c30]/15"
-              : "flex flex-wrap items-center gap-2 text-xs font-semibold text-[#173b1d]"
+              ? "absolute left-0 right-0 top-full z-50 mt-2 grid gap-1 overflow-hidden rounded-2xl border border-[#c4e4e0] bg-white p-2 text-sm font-semibold text-[#123f3c] shadow-2xl shadow-[#0f6f68]/15"
+              : "flex flex-wrap items-center gap-2 text-xs font-semibold text-[#123f3c]"
           }
           data-testid="search-suggestions"
         >
@@ -163,8 +163,8 @@ export function SearchForm({
             <a
               className={
                 compact
-                  ? "block rounded-xl px-3 py-2 text-[#287c30] transition hover:bg-[#eaf7eb]"
-                  : "rounded-full border border-[#cfe9d2] bg-white px-3 py-1.5 text-[#287c30] transition hover:border-[#287c30] hover:bg-[#eaf7eb]"
+                  ? "block rounded-xl px-3 py-2 text-[#0f6f68] transition hover:bg-[#e5f5f3]"
+                  : "rounded-full border border-[#c4e4e0] bg-white px-3 py-1.5 text-[#0f6f68] transition hover:border-[#0f6f68] hover:bg-[#e5f5f3]"
               }
               href={`/products?${new URLSearchParams({ q: suggestion }).toString()}`}
               key={suggestion}

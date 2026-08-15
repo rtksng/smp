@@ -22,13 +22,13 @@ type ButtonAsButtonProps = ButtonBaseProps &
 export type ButtonProps = ButtonAsLinkProps | ButtonAsButtonProps;
 
 const variantClasses: Record<ButtonVariant, string> = {
-  ghost: "bg-transparent text-[#173b1d] hover:bg-[#eaf7eb]",
+  ghost: "bg-transparent text-[#123f3c] hover:bg-[#e5f5f3]",
   outline:
-    "border-[#a9ddae] bg-white !text-[#287c30] shadow-sm shadow-[#287c30]/5 hover:border-[#287c30] hover:bg-[#f4fbf5] hover:shadow-md hover:shadow-[#287c30]/10",
+    "border-[#9fd7d1] bg-white !text-[#0f6f68] shadow-sm shadow-[#0f6f68]/5 hover:border-[#0f6f68] hover:bg-[#f3faf9] hover:shadow-md hover:shadow-[#0f6f68]/10",
   primary:
-    "bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20 hover:bg-[#23702a] hover:shadow-md hover:shadow-[#287c30]/25",
+    "bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20 hover:bg-[#0b5e59] hover:shadow-md hover:shadow-[#0f6f68]/25",
   secondary:
-    "border-[#c7eacb] bg-[#e7f6e9] text-[#287c30] shadow-sm shadow-[#287c30]/5 hover:bg-[#ddf2e0] hover:shadow-md hover:shadow-[#287c30]/10"
+    "border-[#b8e3de] bg-[#e3f5f2] text-[#0f6f68] shadow-sm shadow-[#0f6f68]/5 hover:bg-[#d8f1ee] hover:shadow-md hover:shadow-[#0f6f68]/10"
 };
 
 export function Button(props: ButtonProps) {
@@ -63,7 +63,7 @@ export function Button(props: ButtonProps) {
 
 function buttonClassName(variant: ButtonVariant, className?: string) {
   return [
-    "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-5 py-2 text-sm font-semibold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#287c30] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0",
+    "inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-transparent px-5 py-2 text-sm font-semibold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#0f6f68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0",
     variantClasses[variant],
     className
   ]

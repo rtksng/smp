@@ -22,7 +22,7 @@ export function RouteErrorState({
   title = "Unable to load this page"
 }: RouteErrorStateProps) {
   return (
-    <main className="bg-[#f4fbf5]">
+    <main className="bg-[#f3faf9]">
       <Container className="grid min-h-[60vh] place-items-center py-8">
         <ErrorState
           action={onReset ? <RetryButton onRetry={onReset} /> : null}

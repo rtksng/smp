@@ -112,7 +112,7 @@ export default function AccountScreen() {
             >
               {link.label}
             </Text>
-            <Feather color="#7A8D7C" name="chevron-right" size={17} />
+            <Feather color="#728B87" name="chevron-right" size={17} />
           </Pressable>
         ))}
         <Button

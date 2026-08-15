@@ -63,7 +63,7 @@ function OrderConfirmation({ order }: { order: Order }) {
         <View style={{ flexDirection: "row", gap: 16 }}>
           <IconTile icon="check-circle-outline" size={24} />
           <View style={{ flex: 1, gap: 5 }}>
-            <Text selectable style={{ color: "#0F6B50", fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>Order placed</Text>
+            <Text selectable style={{ color: "#0F6F68", fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>Order placed</Text>
             <Text selectable style={{ color: colors.ink, fontFamily: fonts.heading, fontSize: 24, lineHeight: 31 }}>Order confirmed</Text>
             <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 14, lineHeight: 24 }}>
               Your order has been saved and is available in your account for status tracking.
@@ -111,8 +111,8 @@ function OrderConfirmation({ order }: { order: Order }) {
       <Section icon="refresh" subtitle="Latest status changes for this order." title="Status timeline">
         {statusEntries.map((entry) => (
           <View key={entry.id} style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ alignItems: "center", backgroundColor: "#DFF3EF", borderRadius: 14, height: 28, justifyContent: "center", width: 28 }}>
-              <MaterialCommunityIcons color="#0F6B50" name="clipboard-check-outline" size={15} />
+            <View style={{ alignItems: "center", backgroundColor: "#D8F1EE", borderRadius: 14, height: 28, justifyContent: "center", width: 28 }}>
+              <MaterialCommunityIcons color="#0F6F68" name="clipboard-check-outline" size={15} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Text selectable style={itemTitleStyle}>{formatStatus(entry.status)}</Text>

@@ -302,7 +302,7 @@ function CategoryRail({ categories }: { categories: Category[] }) {
               <View
                 style={{
                   backgroundColor: colors.surfaceMuted,
-                  borderColor: "#C7EACB",
+                  borderColor: "#B8E3DE",
                   borderCurve: "continuous",
                   borderRadius: 999,
                   borderWidth: 1,
@@ -339,7 +339,7 @@ function CategoryRail({ categories }: { categories: Category[] }) {
           <Pressable
             style={{
               backgroundColor: colors.surface,
-              borderColor: "#A9DDAE",
+              borderColor: "#9FD7D1",
               borderRadius: 10,
               borderWidth: 1,
               minHeight: 44,
@@ -424,7 +424,7 @@ function FeaturedCategoryRails({ categories }: { categories: Category[] }) {
                   style={{
                     alignItems: "center",
                     backgroundColor: colors.surface,
-                    borderColor: "#C7EACB",
+                    borderColor: "#B8E3DE",
                     borderCurve: "continuous",
                     borderRadius: 999,
                     borderWidth: 1,
@@ -693,9 +693,9 @@ function BulkQuoteSection() {
     <View style={{ paddingHorizontal: 16, paddingTop: 32 }}>
       <View
         style={{
-          backgroundColor: "#237B2C",
+          backgroundColor: "#14776F",
           borderRadius: 16,
-          boxShadow: "0 10px 24px rgba(40, 124, 48, 0.15)",
+          boxShadow: "0 10px 24px rgba(15, 111, 104, 0.15)",
           gap: 12,
           padding: 20
         }}
@@ -703,7 +703,7 @@ function BulkQuoteSection() {
         <Text
           selectable
           style={{
-            color: "#C7EACB",
+            color: "#B8E3DE",
             fontFamily: fonts.headingBold,
             fontSize: 12,
             letterSpacing: 1.7,

@@ -645,7 +645,7 @@ function InfoRow({
 }) {
   return (
     <View style={styles.infoRow}>
-      <Ionicons color="#475569" name={icon} size={17} />
+      <Ionicons color="#607A77" name={icon} size={17} />
       <Text selectable style={styles.infoText}>
         {value}
       </Text>
@@ -687,13 +687,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   customer: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   detailInfoLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   detailInfoValue: {
-    color: "#0F172A",
+    color: "#123432",
     flex: 1,
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
@@ -724,20 +724,20 @@ const styles = StyleSheet.create({
     gap: 8
   },
   infoText: {
-    color: "#334155",
+    color: "#2B4946",
     flex: 1,
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   itemName: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
   itemQty: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "900"
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   itemSku: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700"
@@ -759,26 +759,26 @@ const styles = StyleSheet.create({
     gap: 3
   },
   meta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700"
   },
   noteText: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   orderNumber: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 21,
     fontWeight: "900"
   },
   proofImage: {
     aspectRatio: 4 / 3,
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#CBDEDB",
     borderRadius: 10,
     maxHeight: 360,
     width: "100%"
@@ -788,9 +788,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF3C7",
     borderRadius: 10,
     flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 8
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12
   },
   queueText: {
     color: "#92400E",
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     gap: 3
   },
   timelineDot: {
-    backgroundColor: "#287C30",
+    backgroundColor: "#0F6F68",
     borderRadius: 999,
     height: 10,
     marginTop: 5,
@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   timelineStatus: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"

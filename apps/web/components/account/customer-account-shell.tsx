@@ -69,24 +69,24 @@ export function CustomerAccountShell({
     <>
       <Header />
       <main
-        className="accountNoShadows bg-[#f4fbf5]"
+        className="accountNoShadows bg-[#f3faf9]"
         data-testid="account-main"
       >
         <Container className="py-6 sm:py-8">
           <ProtectedCustomerRoute>
             <div className="grid gap-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-6">
               <aside
-                className="hidden gap-3 self-start rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5 sm:p-4 lg:sticky lg:top-24 lg:grid"
+                className="hidden gap-3 self-start rounded-lg border border-[#c4e4e0] bg-white p-3 shadow-sm shadow-[#0f6f68]/5 sm:p-4 lg:sticky lg:top-24 lg:grid"
                 data-testid="desktop-account-sidebar"
               >
                 <div>
-                  <p className="text-xs font-semibold uppercase text-[#287c30]">
+                  <p className="text-xs font-semibold uppercase text-[#0f6f68]">
                     Customer account
                   </p>
-                  <p className="mt-2 text-base font-semibold text-[#173b1d]">
+                  <p className="mt-2 text-base font-semibold text-[#123f3c]">
                     {session?.customer.firstName ?? "Customer"}
                   </p>
-                  <p className="mt-1 break-words text-xs font-semibold text-[#556b57]">
+                  <p className="mt-1 break-words text-xs font-semibold text-[#55716e]">
                     {session?.customer.mobileNumber}
                   </p>
                 </div>
@@ -128,7 +128,7 @@ export function CustomerAccountShell({
               {isAccountLanding ? (
                 <section
                   aria-label="Account menu"
-                  className="grid gap-2 rounded-lg border border-[#cfe9d2] bg-white p-3 lg:hidden"
+                  className="grid gap-2 rounded-lg border border-[#c4e4e0] bg-white p-3 lg:hidden"
                   data-testid="mobile-account-menu"
                 >
                   {accountLinks.map((link) => {
@@ -149,7 +149,7 @@ export function CustomerAccountShell({
                           />
                           {link.label}
                         </span>
-                        <span aria-hidden="true" className="text-[#7a8d7c]">
+                        <span aria-hidden="true" className="text-[#728b87]">
                           ›
                         </span>
                       </Link>
@@ -174,26 +174,26 @@ export function CustomerAccountShell({
                 ].join(" ")}
                 data-testid="account-content"
               >
-                <div className="border-b border-[#cfe9d2] pb-4">
+                <div className="border-b border-[#c4e4e0] pb-4">
                   {showBreadcrumb ? (
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <nav
                         aria-label="Breadcrumb"
-                        className="flex items-center gap-2 text-xs font-semibold text-[#556b57]"
+                        className="flex items-center gap-2 text-xs font-semibold text-[#55716e]"
                       >
                         <Link
-                          className="text-[#287c30] transition hover:text-[#23702a]"
+                          className="text-[#0f6f68] transition hover:text-[#0b5e59]"
                           href="/account"
                         >
                           Account
                         </Link>
                         <span aria-hidden="true">/</span>
-                        <span aria-current="page" className="text-[#173b1d]">
+                        <span aria-current="page" className="text-[#123f3c]">
                           {activeLink.label}
                         </span>
                       </nav>
                       <Link
-                        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#cfe9d2] bg-white px-3 text-xs font-semibold text-[#173b1d] transition hover:border-[#287c30] hover:text-[#287c30]"
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#c4e4e0] bg-white px-3 text-xs font-semibold text-[#123f3c] transition hover:border-[#0f6f68] hover:text-[#0f6f68]"
                         href="/account"
                       >
                         <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
@@ -201,10 +201,10 @@ export function CustomerAccountShell({
                       </Link>
                     </div>
                   ) : null}
-                  <h1 className="text-2xl font-semibold leading-tight text-[#173b1d] sm:text-3xl">
+                  <h1 className="text-2xl font-semibold leading-tight text-[#123f3c] sm:text-3xl">
                     {title}
                   </h1>
-                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#556b57]">
+                  <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#55716e]">
                     {description}
                   </p>
                 </div>
@@ -236,13 +236,13 @@ export function AccountInfoGrid({
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {items.map((item) => (
         <div
-          className="rounded-lg border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5"
+          className="rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5"
           key={item.label}
         >
-          <p className="text-xs font-semibold uppercase text-[#556b57]">
+          <p className="text-xs font-semibold uppercase text-[#55716e]">
             {item.label}
           </p>
-          <p className="mt-2 break-words text-sm font-semibold text-[#173b1d]">
+          <p className="mt-2 break-words text-sm font-semibold text-[#123f3c]">
             {item.value}
           </p>
         </div>
@@ -261,9 +261,9 @@ export function PrivateEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-[#cfe9d2] bg-white p-6 text-center shadow-sm shadow-[#287c30]/5">
-      <h2 className="text-base font-semibold text-[#173b1d]">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#556b57]">
+    <div className="rounded-lg border border-dashed border-[#c4e4e0] bg-white p-6 text-center shadow-sm shadow-[#0f6f68]/5">
+      <h2 className="text-base font-semibold text-[#123f3c]">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-[#55716e]">
         {description}
       </p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
@@ -281,7 +281,7 @@ export function AccountSection({
   return (
     <section
       className={[
-        "rounded-lg border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5",
+        "rounded-lg border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5",
         className
       ]
         .filter(Boolean)
@@ -304,11 +304,11 @@ export function AccountSectionHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h2 className="text-base font-semibold leading-snug text-[#173b1d]">
+        <h2 className="text-base font-semibold leading-snug text-[#123f3c]">
           {title}
         </h2>
         {description ? (
-          <p className="mt-1 text-sm font-semibold leading-5 text-[#556b57]">
+          <p className="mt-1 text-sm font-semibold leading-5 text-[#55716e]">
             {description}
           </p>
         ) : null}
@@ -330,8 +330,8 @@ export function AccountStatusBadge({
       className={[
         "inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-semibold",
         tone === "success"
-          ? "bg-[#edf7f4] text-[#0f6b50]"
-          : "bg-[#eaf7eb] text-[#173b1d]"
+          ? "bg-[#e5f5f3] text-[#0f6f68]"
+          : "bg-[#e5f5f3] text-[#123f3c]"
       ].join(" ")}
     >
       {children}
@@ -345,8 +345,8 @@ function accountLinkClass(href: string, activePath: string | undefined) {
   return [
     "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-center text-xs font-semibold transition lg:justify-start lg:text-left",
     isActive
-      ? "border-[#287c30] bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20"
-      : "border-[#cfe9d2] bg-[#f4fbf5] text-[#173b1d] hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+      ? "border-[#0f6f68] bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20"
+      : "border-[#c4e4e0] bg-[#f3faf9] text-[#123f3c] hover:border-[#0f6f68] hover:bg-[#e5f5f3] hover:text-[#0f6f68]"
   ].join(" ");
 }
 
@@ -356,7 +356,7 @@ function mobileAccountLinkClass(href: string, activePath: string | undefined) {
   return [
     "flex min-h-12 items-center justify-between gap-3 rounded-lg border px-4 text-sm font-semibold transition",
     isActive
-      ? "border-[#287c30] bg-[#eaf7eb] text-[#173b1d]"
-      : "border-[#cfe9d2] bg-[#f8fcf8] text-[#173b1d] hover:border-[#287c30] hover:bg-[#eaf7eb] hover:text-[#287c30]"
+      ? "border-[#0f6f68] bg-[#e5f5f3] text-[#123f3c]"
+      : "border-[#c4e4e0] bg-[#f7fcfb] text-[#123f3c] hover:border-[#0f6f68] hover:bg-[#e5f5f3] hover:text-[#0f6f68]"
   ].join(" ");
 }

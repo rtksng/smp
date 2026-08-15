@@ -166,14 +166,14 @@ export default function DocumentsScreen() {
 
 const styles = StyleSheet.create({
   documentMeta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700"
   },
   documentRow: {
     alignItems: "center",
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 8,
@@ -182,20 +182,20 @@ const styles = StyleSheet.create({
   },
   documentText: { flex: 1, gap: 3 },
   documentTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"
   },
   emptyText: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.body,
     fontSize: 14,
     paddingVertical: 10,
     textAlign: "center"
   },
   helper: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
@@ -208,30 +208,30 @@ const styles = StyleSheet.create({
   },
   preview: { borderRadius: 10, height: 190, width: "100%" },
   type: {
-    backgroundColor: "#F1F5F9",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#EEF6F5",
+    borderColor: "#C4E4E0",
     borderRadius: 999,
     borderWidth: 1,
     minHeight: 38,
     paddingHorizontal: 11,
     paddingVertical: 8
   },
-  typeSelected: { backgroundColor: "#E8F5EC", borderColor: "#287C30" },
+  typeSelected: { backgroundColor: "#E5F5F3", borderColor: "#0F6F68" },
   typeText: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
   typeTextSelected: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900"
   },
   types: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   verified: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "900"

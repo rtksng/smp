@@ -267,7 +267,7 @@ export default function AssignmentsScreen() {
                   onChangeText={setSearchDraft}
                   onSubmitEditing={() => setSearch(searchDraft.trim())}
                   placeholder="Search"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#849C98"
                   returnKeyType="search"
                   style={styles.searchInput}
                   value={searchDraft}
@@ -343,7 +343,7 @@ export default function AssignmentsScreen() {
           <RefreshControl
             onRefresh={refresh}
             refreshing={isRefreshing}
-            tintColor="#287c30"
+            tintColor="#0F6F68"
           />
         }
         renderItem={({ item }) => (
@@ -457,7 +457,7 @@ function IconActionButton({
       ]}
     >
       <Ionicons
-        color={secondary ? "#0F172A" : "#FFFFFF"}
+        color={secondary ? "#123432" : "#FFFFFF"}
         name={icon}
         size={compact ? 20 : 22}
       />
@@ -520,7 +520,7 @@ function workspaceBadgeIconColor(tone: "danger" | "neutral" | "warning") {
     return "#92400E";
   }
 
-  return "#287C30";
+  return "#0F6F68";
 }
 
 function DeliveryFilterSheet({
@@ -571,7 +571,7 @@ function DeliveryFilterSheet({
                 pressed && styles.pressed
               ]}
             >
-              <Ionicons color="#0F172A" name="close-outline" size={24} />
+              <Ionicons color="#123432" name="close-outline" size={24} />
             </Pressable>
           </View>
 
@@ -666,13 +666,13 @@ function FilterOption({
 
 const styles = StyleSheet.create({
   availabilityText: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 15,
     fontWeight: "900"
   },
   availabilityTextOffline: {
-    color: "#475569"
+    color: "#607A77"
   },
   columnItem: {
     flex: 1
@@ -689,15 +689,15 @@ const styles = StyleSheet.create({
     opacity: 0.5
   },
   filterText: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
   filterPill: {
     alignItems: "center",
-    backgroundColor: "#EEF2F7",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#EEF6F5",
+    borderColor: "#C4E4E0",
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
@@ -705,8 +705,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9
   },
   filterPillSelected: {
-    backgroundColor: "#E8F5EC",
-    borderColor: "#287C30"
+    backgroundColor: "#E5F5F3",
+    borderColor: "#0F6F68"
   },
   filters: {
     gap: 8,
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     gap: 10
   },
   filterSectionTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
     paddingTop: 8
   },
   filterSummary: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700",
@@ -747,8 +747,8 @@ const styles = StyleSheet.create({
   },
   iconAction: {
     alignItems: "center",
-    backgroundColor: "#287C30",
-    borderColor: "#287C30",
+    backgroundColor: "#0F6F68",
+    borderColor: "#0F6F68",
     borderRadius: 10,
     borderWidth: 1,
     height: 44,
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
   },
   iconActionSecondary: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1"
+    borderColor: "#C4E4E0"
   },
   iconBadge: {
     alignItems: "center",
@@ -799,12 +799,12 @@ const styles = StyleSheet.create({
     flex: 1
   },
   modalRoot: {
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    backgroundColor: "rgba(7, 59, 56, 0.35)",
     flex: 1,
     justifyContent: "flex-end"
   },
   selectedFilterText: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900"
@@ -816,15 +816,15 @@ const styles = StyleSheet.create({
     gap: 8
   },
   dateLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase"
   },
   datePill: {
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#EEF6F5",
+    borderColor: "#C4E4E0",
     borderRadius: 999,
     borderWidth: 1,
     minHeight: 44,
@@ -832,8 +832,8 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   datePillSelected: {
-    backgroundColor: "#E8F5EC",
-    borderColor: "#287C30"
+    backgroundColor: "#E5F5F3",
+    borderColor: "#0F6F68"
   },
   optionGrid: {
     flexDirection: "row",
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     opacity: 0.72
   },
   loadingMore: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700",
@@ -858,10 +858,10 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1",
+    borderColor: "#C4E4E0",
     borderRadius: 8,
     borderWidth: 1,
-    color: "#0F172A",
+    color: "#123432",
     flex: 1,
     fontFamily: fonts.body,
     fontSize: 15,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   sheetActions: {
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 10,
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
   },
   sheetClose: {
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#EEF6F5",
     borderRadius: 999,
     height: 40,
     justifyContent: "center",
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     alignSelf: "center",
-    backgroundColor: "#CBD5E1",
+    backgroundColor: "#C4E4E0",
     borderRadius: 999,
     height: 4,
     width: 48
@@ -908,8 +908,8 @@ const styles = StyleSheet.create({
   },
   sheetOption: {
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#EEF6F5",
+    borderColor: "#C4E4E0",
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
@@ -917,29 +917,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10
   },
   sheetOptionSelected: {
-    backgroundColor: "#E8F5EC",
-    borderColor: "#287C30"
+    backgroundColor: "#E5F5F3",
+    borderColor: "#0F6F68"
   },
   sheetOptionText: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800"
   },
   sheetOptionTextSelected: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900"
   },
   sheetSubtitle: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "700"
   },
   sheetTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 20,
     fontWeight: "900"
@@ -964,8 +964,8 @@ const styles = StyleSheet.create({
   },
   workspaceBadge: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#F3FAF9",
+    borderColor: "#C4E4E0",
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
@@ -978,13 +978,13 @@ const styles = StyleSheet.create({
     borderColor: "#FCA5A5"
   },
   workspaceBadgeLabel: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "800"
   },
   workspaceBadgeValue: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "900",

@@ -11,13 +11,13 @@
   --color-popover-foreground: var(--text);
   --color-primary: var(--primary);
   --color-primary-foreground: #ffffff;
-  --color-secondary: #243d29;
+  --color-secondary: #123f3c;
   --color-secondary-foreground: #ffffff;
   --color-warning: var(--warning);
   --color-muted: var(--surface-muted);
   --color-muted-foreground: var(--muted);
-  --color-accent: #eaf7eb;
-  --color-accent-foreground: #173b1d;
+  --color-accent: #e5f5f3;
+  --color-accent-foreground: #123f3c;
   --color-destructive: #9b2226;
   --color-destructive-foreground: #ffffff;
   --color-border: var(--border);
@@ -31,31 +31,31 @@
 
 :root {
   --admin-sidebar-width: 280px;
-  --brand-primary: #3cb043;
-  --brand-primary-strong: #287c30;
-  --brand-primary-hover: #23702a;
-  --brand-primary-soft: #eaf7eb;
-  --brand-primary-border: #cfe9d2;
-  --background: #eef3f1;
-  --sidebar: #16231f;
+  --brand-primary: #17a89d;
+  --brand-primary-strong: #0f6f68;
+  --brand-primary-hover: #0b5e59;
+  --brand-primary-soft: #e5f5f3;
+  --brand-primary-border: #c4e4e0;
+  --background: #eef6f5;
+  --sidebar: #0b3f3b;
   --surface: #ffffff;
-  --surface-muted: #f4f7f6;
-  --text: #17211f;
-  --muted: #687773;
-  --border: #d8e2df;
+  --surface-muted: #f3f8f7;
+  --text: #123432;
+  --muted: #607a77;
+  --border: #cbdedb;
   --primary: var(--brand-primary-strong);
   --warning: #b7791f;
-  --admin-accent-soft: #d8f3dc;
+  --admin-accent-soft: #d8f1ee;
   --admin-sidebar-active: rgba(255, 255, 255, 0.08);
   --admin-danger-soft: #fee2e2;
   --admin-warning-soft: #fef3c7;
-  --admin-success-soft: #dcfce7;
-  --admin-focus-ring: rgba(60, 176, 67, 0.28);
+  --admin-success-soft: #d8f1ee;
+  --admin-focus-ring: rgba(23, 168, 157, 0.28);
 }
 
 * {
   box-sizing: border-box;
-  scrollbar-color: rgba(104, 119, 115, 0.48) transparent;
+  scrollbar-color: rgba(96, 122, 119, 0.48) transparent;
   scrollbar-width: thin;
 }
 
@@ -69,14 +69,14 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(104, 119, 115, 0.36);
+  background: rgba(96, 122, 119, 0.36);
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(40, 124, 48, 0.52);
+  background: rgba(15, 111, 104, 0.52);
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -334,8 +334,8 @@ button {
 
 .sidebar {
   background:
-    radial-gradient(circle at 8% 2%, rgba(92, 186, 126, 0.18), transparent 28%),
-    linear-gradient(180deg, #15251f 0%, var(--sidebar) 48%, #0d1713 100%);
+    radial-gradient(circle at 8% 2%, rgba(23, 168, 157, 0.18), transparent 28%),
+    linear-gradient(180deg, #0d3431 0%, var(--sidebar) 48%, #082725 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 14px 0 36px rgba(15, 23, 42, 0.14);
   color: #ffffff;
@@ -362,10 +362,10 @@ button {
 
 .brandMark {
   align-items: center;
-  background: linear-gradient(135deg, #dcfce7, #9be7b1);
+  background: linear-gradient(135deg, #d8f1ee, #8bd4cd);
   border-radius: 10px;
-  box-shadow: 0 8px 18px rgba(1, 13, 8, 0.2);
-  color: #12342d;
+  box-shadow: 0 8px 18px rgba(5, 52, 49, 0.2);
+  color: #0b4641;
   display: inline-grid;
   font-size: 12px;
   font-weight: 900;
@@ -415,7 +415,7 @@ button {
 }
 
 .sidebarNavSectionLabel {
-  color: rgba(226, 255, 235, 0.48);
+  color: rgba(220, 247, 244, 0.48);
   font-size: 10px;
   font-weight: 850;
   letter-spacing: 0.1em;
@@ -478,9 +478,9 @@ button {
 
 .sidebarNavLink:hover,
 .sidebarNavLink[aria-current="page"] {
-  background: linear-gradient(90deg, rgba(147, 235, 170, 0.2), rgba(255, 255, 255, 0.07));
-  border-color: rgba(192, 255, 208, 0.16);
-  box-shadow: inset 3px 0 0 #a7f3b9;
+  background: linear-gradient(90deg, rgba(99, 201, 192, 0.2), rgba(255, 255, 255, 0.07));
+  border-color: rgba(184, 227, 222, 0.16);
+  box-shadow: inset 3px 0 0 #8bd4cd;
   color: #ffffff;
 }
 
@@ -573,12 +573,12 @@ h2 {
 }
 
 .sidebarFooter {
-  background: linear-gradient(145deg, rgba(56, 88, 70, 0.5), rgba(22, 40, 31, 0.78));
-  border: 1px solid rgba(190, 246, 205, 0.18);
+  background: linear-gradient(145deg, rgba(15, 111, 104, 0.5), rgba(8, 39, 37, 0.78));
+  border: 1px solid rgba(184, 227, 222, 0.18);
   border-radius: 16px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 10px 24px rgba(3, 11, 7, 0.18);
+    0 10px 24px rgba(5, 52, 49, 0.18);
   display: grid;
   gap: 8px;
   padding: 10px;
@@ -594,10 +594,10 @@ h2 {
 
 .sidebarAvatar {
   align-items: center;
-  background: linear-gradient(135deg, #e9fff0, #9be7b1);
+  background: linear-gradient(135deg, #e7faf8, #8bd4cd);
   border: 2px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
-  color: #123d28;
+  color: #0d4b46;
   display: inline-grid;
   font-size: 13px;
   font-weight: 900;
@@ -636,10 +636,10 @@ h2 {
 }
 
 .sidebarLogoutButton {
-  background: #c9f7d5 !important;
-  border: 1px solid #dfffe7 !important;
-  box-shadow: 0 6px 14px rgba(2, 12, 7, 0.22);
-  color: #0b3720 !important;
+  background: #bce9e4 !important;
+  border: 1px solid #dcf7f4 !important;
+  box-shadow: 0 6px 14px rgba(5, 52, 49, 0.22);
+  color: #073b38 !important;
   font-size: 13px;
   font-weight: 800;
   min-height: 36px !important;
@@ -647,13 +647,13 @@ h2 {
 }
 
 .sidebarLogoutButton:hover {
-  background: #e3ffea !important;
+  background: #e2f8f6 !important;
 }
 
 .sidebarFooter .sidebarLogoutButton,
 .sidebarFooter .sidebarLogoutButton span,
 .sidebarFooter .sidebarLogoutButton svg {
-  color: #0b3720 !important;
+  color: #073b38 !important;
 }
 
 .buttonLink {
@@ -758,7 +758,7 @@ h2 {
 }
 
 .metric--neutral {
-  border-top: 4px solid #63736f;
+  border-top: 4px solid #607a77;
 }
 
 .panel {
@@ -849,7 +849,7 @@ h2 {
 }
 
 .filterDrawerBackdrop {
-  background: rgba(8, 20, 14, 0.42);
+  background: rgba(5, 52, 49, 0.42);
   border: 0;
   cursor: default;
   inset: 0;
@@ -1062,7 +1062,7 @@ h2 {
 }
 
 .mobileNavDrawer {
-  background: linear-gradient(180deg, #172721 0%, var(--sidebar) 46%, #101a17 100%);
+  background: linear-gradient(180deg, #0d3431 0%, var(--sidebar) 46%, #082725 100%);
   color: #ffffff;
 }
 
@@ -1148,8 +1148,8 @@ h2 {
 
 .loginIntro {
   align-self: stretch;
-  background: #1f4330;
-  color: #f8fbf9;
+  background: #164d49;
+  color: #f7fcfb;
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 100vh;
@@ -1160,7 +1160,7 @@ h2 {
 
 .loginIntro::before,
 .loginIntro::after {
-  border: 1px solid rgba(237, 247, 239, 0.08);
+  border: 1px solid rgba(229, 245, 243, 0.08);
   content: "";
   pointer-events: none;
   position: absolute;
@@ -1191,7 +1191,7 @@ h2 {
 }
 
 .loginIntroBrand .brand {
-  color: #f8fbf9;
+  color: #f7fcfb;
   line-height: 1.2;
   margin: 0;
 }
@@ -1204,26 +1204,26 @@ h2 {
 }
 
 .loginIntro .eyebrow {
-  color: #bcd7c2;
+  color: #b6d8d4;
   margin-bottom: 10px;
 }
 
 .loginIntro h1 {
-  color: #f8fbf9;
+  color: #f7fcfb;
   font-size: 52px;
   line-height: 1.06;
   max-width: 420px;
 }
 
 .loginIntroCopy {
-  color: #d3e1d6;
+  color: #cfe3df;
   font-size: 17px;
   line-height: 1.55;
   margin: 18px 0 0;
 }
 
 .loginIntroFooter {
-  color: #bcd7c2;
+  color: #b6d8d4;
   font-size: 13px;
   font-weight: 750;
   margin: 0;
@@ -1430,8 +1430,8 @@ h2 {
 
 .adminGuideSectionIcon {
   align-items: center;
-  background: #e7f1e8;
-  border: 1px solid #c8dfca;
+  background: #e3f3f0;
+  border: 1px solid #b8dcd8;
   border-radius: 8px;
   color: var(--primary);
   display: inline-flex;
@@ -1482,8 +1482,8 @@ h2 {
 }
 
 .adminGuideLinks a:hover {
-  background: #edf7ed;
-  border-color: #b7dfb7;
+  background: #e5f5f3;
+  border-color: #afe0da;
 }
 
 .adminGuideCallout {
@@ -1493,7 +1493,7 @@ h2 {
 }
 
 .adminGuideCallout[data-tone="important"] {
-  background: #eef7ef;
+  background: #eaf7f5;
 }
 
 .adminGuideCallout[data-tone="example"] {
@@ -1587,8 +1587,8 @@ h2 {
 
 .adminGuideSteps li::before {
   align-items: center;
-  background: #e7f1e8;
-  border: 1px solid #c8dfca;
+  background: #e3f3f0;
+  border: 1px solid #b8dcd8;
   border-radius: 50%;
   color: var(--primary);
   content: counter(guide-steps);
@@ -1652,8 +1652,8 @@ h2 {
 }
 
 .adminGuideAdviceColumn[data-tone="do"] {
-  background: #f1f8f1;
-  border-color: #c8dfca;
+  background: #eef8f6;
+  border-color: #b8dcd8;
 }
 
 .adminGuideAdviceColumn[data-tone="dont"] {
@@ -1816,10 +1816,10 @@ h2 {
 }
 
 .formSuccess {
-  background: #edf7ed;
-  border: 1px solid #b7dfb7;
+  background: #e5f5f3;
+  border: 1px solid #afe0da;
   border-radius: 8px;
-  color: #23612b;
+  color: #0f6f68;
   font-size: 14px;
   font-weight: 750;
   margin: 0 0 16px;
@@ -1903,7 +1903,7 @@ h2 {
 }
 
 .listRow[data-active="true"] {
-  background: #eaf7eb;
+  background: #e5f5f3;
   border-left: 4px solid var(--primary);
 }
 
@@ -2025,10 +2025,10 @@ h2 {
 .copyProductIdButton {
   align-items: center;
   align-self: start;
-  background: #f7fbf7;
-  border: 1px solid #cfe6d2;
+  background: #f6fbfa;
+  border: 1px solid #c4e4e0;
   border-radius: 999px;
-  color: #10661f;
+  color: #0f6f68;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -2040,8 +2040,8 @@ h2 {
 }
 
 .copyProductIdButton:hover {
-  background: #edf8ef;
-  border-color: #9fd1a8;
+  background: #e8f6f4;
+  border-color: #8fd1ca;
 }
 
 .inlineForm {
@@ -2292,7 +2292,7 @@ h2 {
 }
 
 .brandDataTable th {
-  background: #e8efed;
+  background: #e4efed;
   color: var(--text);
   font-size: 13px;
 }
@@ -2388,7 +2388,7 @@ h2 {
 }
 
 .resourceTableHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .resourceTableRow {
@@ -2424,7 +2424,7 @@ h2 {
 }
 
 .resourceTableRow[data-active="true"] {
-  background: #eaf7eb;
+  background: #e5f5f3;
   border-left: 4px solid var(--primary);
 }
 
@@ -2572,7 +2572,7 @@ h2 {
 .returnsRefundsSectionNav a[aria-current="page"] {
   background: var(--primary);
   border-color: var(--primary);
-  box-shadow: 0 8px 18px rgba(40, 124, 48, 0.18);
+  box-shadow: 0 8px 18px rgba(15, 111, 104, 0.18);
   color: #ffffff;
 }
 
@@ -2952,7 +2952,7 @@ h2 {
 }
 
 .quoteRequestTable [data-active="true"] {
-  background: #eaf7eb;
+  background: #e5f5f3;
   box-shadow: inset 4px 0 0 var(--primary);
 }
 
@@ -3213,7 +3213,7 @@ h2 {
 
 .lexicalEditorFrame {
   background: #fbfdfc;
-  border: 1px solid #bfd0ca;
+  border: 1px solid #b9d2cf;
   border-radius: 8px;
   box-shadow:
     0 1px 0 rgba(15, 23, 42, 0.04),
@@ -3223,13 +3223,13 @@ h2 {
 
 .lexicalEditorFrame:focus-within {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(60, 176, 67, 0.12);
+  box-shadow: 0 0 0 3px rgba(23, 168, 157, 0.12);
 }
 
 .richTextToolbar {
   align-items: flex-start;
-  background: #f7faf9;
-  border-bottom: 1px solid #d9e4e0;
+  background: #f6fbfa;
+  border-bottom: 1px solid #d4e5e2;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -3562,7 +3562,7 @@ h2 {
 }
 
 .productTableHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .productTableRow {
@@ -3575,7 +3575,7 @@ h2 {
 }
 
 .productTableRow[data-active="true"] {
-  background: #eaf7eb;
+  background: #e5f5f3;
   border-left: 4px solid var(--primary);
 }
 
@@ -3614,13 +3614,13 @@ h2 {
 
 .flagList a,
 .flagList b {
-  background: #edf7ed;
-  color: #23612b;
+  background: #e5f5f3;
+  color: #0f6f68;
 }
 
 .statusBadge--active {
-  background: #d8f3dc;
-  color: #1b5e20;
+  background: #d8f1ee;
+  color: #0f6f68;
 }
 
 .statusBadge--draft {
@@ -3641,14 +3641,14 @@ h2 {
 .statusBadge--created,
 .statusBadge--pending,
 .statusBadge--authorized {
-  background: #eaf7eb;
-  color: #23702a;
+  background: #e5f5f3;
+  color: #0b5e59;
 }
 
 .statusBadge--confirmed,
 .statusBadge--paid {
-  background: #d8f3dc;
-  color: #1b5e20;
+  background: #d8f1ee;
+  color: #0f6f68;
 }
 
 .statusBadge--packed,
@@ -3659,8 +3659,8 @@ h2 {
 }
 
 .statusBadge--delivered {
-  background: #dcfce7;
-  color: #166534;
+  background: #d8f1ee;
+  color: #0f6f68;
 }
 
 .statusBadge--cancelled,
@@ -3925,7 +3925,7 @@ h2 {
 .fileUploadButton {
   align-self: start;
   align-items: center !important;
-  background: #243d29;
+  background: #123f3c;
   border: 0;
   border-radius: 8px;
   color: #ffffff !important;
@@ -4147,7 +4147,7 @@ h2 {
 }
 
 .dataTableHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .dataTableRow {
@@ -4181,7 +4181,7 @@ h2 {
 
 .ordersTableHeader,
 .orderItemsTableHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .ordersTableRow,
@@ -4333,7 +4333,7 @@ h2 {
 
 .deliveryPartnerTableHeader,
 .deliveryAssignmentTableHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .deliveryPartnerTableRow,
@@ -4350,7 +4350,7 @@ h2 {
 }
 
 .deliveryPartnerTableRow[data-active="true"] {
-  background: #eaf7eb;
+  background: #e5f5f3;
   border-left: 4px solid var(--primary);
 }
 
@@ -4447,8 +4447,8 @@ h2 {
 .statusBadge--pending_verification,
 .statusBadge--accepted,
 .statusBadge--picked_up {
-  background: #eaf7eb;
-  color: #23702a;
+  background: #e5f5f3;
+  color: #0b5e59;
 }
 
 .statusBadge--suspended {
@@ -4811,7 +4811,7 @@ h2 {
 }
 
 .warehouseStockHeader {
-  background: #e8efed;
+  background: #e4efed;
 }
 
 .warehouseStockRow {

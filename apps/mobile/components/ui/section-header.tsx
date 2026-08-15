@@ -38,7 +38,7 @@ export function SectionHeader({
           <Pressable
             style={{
               backgroundColor: colors.surface,
-              borderColor: "#C7EACB",
+              borderColor: "#B8E3DE",
               borderRadius: 999,
               borderWidth: 1,
               alignItems: "center",

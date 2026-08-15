@@ -199,7 +199,7 @@ function settlementLabel(status: string) {
 
 const styles = StyleSheet.create({
   amount: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 15,
     fontWeight: "900"
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   cashMain: { flex: 1, gap: 3 },
   cashRow: {
     alignItems: "center",
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 8,
@@ -215,26 +215,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6
   },
   emptyText: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.body,
     fontSize: 14,
     paddingVertical: 10,
     textAlign: "center"
   },
   earningAmount: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.headingBold,
     fontSize: 15,
     fontWeight: "900"
   },
   helper: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 19
   },
   meta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
@@ -242,20 +242,20 @@ const styles = StyleSheet.create({
   },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   moneyLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   moneyRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   moneyValue: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
   },
   orderNumber: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"

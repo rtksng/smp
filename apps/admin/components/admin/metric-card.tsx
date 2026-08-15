@@ -9,7 +9,7 @@ type MetricCardProps = {
 };
 
 const toneClassName = {
-  neutral: "border-t-[#63736f]",
+  neutral: "border-t-[#607a77]",
   primary: "border-t-primary",
   warning: "border-t-warning"
 };

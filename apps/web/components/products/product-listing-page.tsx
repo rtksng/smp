@@ -204,15 +204,15 @@ export function ProductListingPage({
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
-        <section className="border-b border-[#cfe9d2] bg-[#f4fbf5] pt-5 sm:pt-6 lg:py-7">
+      <main className="bg-[#f3faf9]">
+        <section className="border-b border-[#c4e4e0] bg-[#f3faf9] pt-5 sm:pt-6 lg:py-7">
           <Container>
             <div className="grid gap-5" data-testid="catalog-hero">
               <div className="max-w-2xl lg:max-w-md">
-                <h1 className="text-2xl font-semibold leading-tight text-[#173b1d] sm:text-3xl lg:text-4xl">
+                <h1 className="text-2xl font-semibold leading-tight text-[#123f3c] sm:text-3xl lg:text-4xl">
                   {pageHeading}
                 </h1>
-                <p className="mt-2 max-w-md text-sm font-semibold leading-5 text-[#556b57] sm:text-base sm:leading-6">
+                <p className="mt-2 max-w-md text-sm font-semibold leading-5 text-[#55716e] sm:text-base sm:leading-6">
                   {pageDescription}
                 </p>
               </div>
@@ -259,7 +259,7 @@ export function ProductListingPage({
           >
             <a
               aria-label="Show in-stock products"
-              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-[#287c30] px-4 text-xs font-semibold text-white shadow-sm shadow-[#287c30]/20"
+              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-[#0f6f68] px-4 text-xs font-semibold text-white shadow-sm shadow-[#0f6f68]/20"
               href={availableHref}
             >
               In-stock only
@@ -372,22 +372,22 @@ export function ProductListingPage({
               role="dialog"
             >
               <div
-                className="mb-3 flex items-center justify-between gap-3 border-b border-[#cfe9d2] pb-3"
+                className="mb-3 flex items-center justify-between gap-3 border-b border-[#c4e4e0] pb-3"
                 data-testid="mobile-filter-sheet-header"
               >
-                <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold text-[#17211f]">
+                <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold text-[#123432]">
                   <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
                   Filters and sort
                 </h2>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                   <ClearFiltersLink
-                    className="min-h-10 rounded-full border border-[#a9ddae] bg-[#f8fbfa] px-3"
+                    className="min-h-10 rounded-full border border-[#9fd7d1] bg-[#f8fbfa] px-3"
                     href={clearFiltersHref}
                     pathname={pathname}
                   />
                   <button
                     aria-label="Close filters"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[#cfe9d2] bg-white text-[#17211f] shadow-sm shadow-[#287c30]/5"
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[#c4e4e0] bg-white text-[#123432] shadow-sm shadow-[#0f6f68]/5"
                     onClick={() => setFiltersOpen(false)}
                     type="button"
                   >
@@ -401,7 +401,7 @@ export function ProductListingPage({
                 categories={categoriesQuery.data}
                 categoryName={categoryQuery.data?.name}
                 className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
-                fieldsClassName="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto pb-6 pr-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#a9ddae] [&::-webkit-scrollbar-track]:bg-[#eaf7eb]"
+                fieldsClassName="grid min-h-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto pb-6 pr-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#9fd7d1] [&::-webkit-scrollbar-track]:bg-[#e5f5f3]"
                 filters={filters}
                 lockedFilters={lockedFilters}
                 onFiltersChange={handleFiltersChange}
@@ -428,7 +428,7 @@ function FiltersForm({
   categories,
   categoryName,
   clearHref,
-  className = "grid gap-3 overflow-visible rounded-lg border border-[#cfe9d2] bg-white p-3 shadow-sm shadow-[#287c30]/5",
+  className = "grid gap-3 overflow-visible rounded-lg border border-[#c4e4e0] bg-white p-3 shadow-sm shadow-[#0f6f68]/5",
   fieldsClassName = "grid gap-3 overflow-visible pb-1 pr-1",
   filters,
   lockedFilters,
@@ -502,11 +502,11 @@ function FiltersForm({
       {showTitle ? (
         <div className="shrink-0 pb-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-[#17211f]">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-[#123432]">
               <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
               Filters
             </h2>
-            <p className="mt-1 text-xs font-semibold leading-4 text-[#687773]">
+            <p className="mt-1 text-xs font-semibold leading-4 text-[#607a77]">
               Narrow catalog results.
             </p>
           </div>
@@ -736,7 +736,7 @@ function FiltersForm({
 
       {showApplyButton ? (
         <Button
-          className="sticky bottom-0 z-10 mt-1 w-full !min-h-11 rounded-full text-sm shadow-[0_-8px_18px_rgba(40,124,48,0.12)]"
+          className="sticky bottom-0 z-10 mt-1 w-full !min-h-11 rounded-full text-sm shadow-[0_-8px_18px_rgba(15,111,104,0.12)]"
           onClick={onApply}
           type="button"
         >
@@ -759,7 +759,7 @@ function ClearFiltersLink({
   return (
     <a
       className={[
-        "inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#287c30]",
+        "inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#0f6f68]",
         className
       ]
         .filter(Boolean)
@@ -795,8 +795,8 @@ function SubcategoryNav({
           className={[
             "shrink-0 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] md:text-xs font-semibold transition",
             filters.subcategory
-              ? "border-[#cfe9d2] bg-white text-[#31413d] shadow-sm shadow-[#287c30]/5"
-              : "border-[#287c30] bg-[#eaf7eb] text-[#287c30]"
+              ? "border-[#c4e4e0] bg-white text-[#2b4946] shadow-sm shadow-[#0f6f68]/5"
+              : "border-[#0f6f68] bg-[#e5f5f3] text-[#0f6f68]"
           ].join(" ")}
           href={productFiltersToHref(
             `/categories/${category.slug}`,
@@ -815,8 +815,8 @@ function SubcategoryNav({
             className={[
               "shrink-0 whitespace-nowrap rounded-full border  px-2 py-1 text-[10px] md:text-xs font-semibold transition",
               filters.subcategory === subcategory.slug
-                ? "border-[#287c30] bg-[#eaf7eb] text-[#287c30]"
-                : "border-[#cfe9d2] bg-white text-[#31413d] shadow-sm shadow-[#287c30]/5"
+                ? "border-[#0f6f68] bg-[#e5f5f3] text-[#0f6f68]"
+                : "border-[#c4e4e0] bg-white text-[#2b4946] shadow-sm shadow-[#0f6f68]/5"
             ].join(" ")}
             href={productFiltersToHref(
               `/categories/${category.slug}/${subcategory.slug}`,
@@ -839,7 +839,7 @@ function SubcategoryNav({
 
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-[#31413d]">
+    <label className="grid gap-1.5 text-xs font-semibold text-[#2b4946]">
       <span>{label}</span>
       {children}
     </label>
@@ -848,9 +848,9 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
 
 function LockedField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-1.5 text-xs font-semibold text-[#31413d]">
+    <div className="grid gap-1.5 text-xs font-semibold text-[#2b4946]">
       <span>{label}</span>
-      <span className="rounded-lg border border-[#cfe9d2] bg-[#eef3f1] px-3 py-2 text-sm text-[#23702a] shadow-sm shadow-[#287c30]/5">
+      <span className="rounded-lg border border-[#c4e4e0] bg-[#eef3f1] px-3 py-2 text-sm text-[#0b5e59] shadow-sm shadow-[#0f6f68]/5">
         {value}
       </span>
     </div>
@@ -871,9 +871,9 @@ function Checkbox({
   value?: string;
 }) {
   return (
-    <label className="flex min-h-8 items-center gap-2 text-xs font-semibold text-[#31413d]">
+    <label className="flex min-h-8 items-center gap-2 text-xs font-semibold text-[#2b4946]">
       <input
-        className="h-4 w-4 rounded border-[#cfdcda] accent-[#287c30]"
+        className="h-4 w-4 rounded border-[#cbdedb] accent-[#0f6f68]"
         defaultChecked={defaultChecked}
         name={name}
         onChange={(event) => onChange?.(event.target.checked)}
@@ -902,19 +902,19 @@ function ActiveFilterSummary({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-      <span className="text-[10px] font-semibold uppercase leading-3 text-[#9b6a1e] sm:text-xs sm:leading-4">
+      <span className="text-[10px] font-semibold uppercase leading-3 text-[#0f6f68] sm:text-xs sm:leading-4">
         Active filters
       </span>
       {chips.map((chip) => (
         <span
-          className="rounded-full border border-[#cfe9d2] bg-[#f8fbfa] px-2 py-1 text-[10px] font-semibold leading-3 text-[#31413d] shadow-sm shadow-[#287c30]/5 sm:px-3 sm:py-1.5 sm:text-xs sm:leading-4"
+          className="rounded-full border border-[#c4e4e0] bg-[#f8fbfa] px-2 py-1 text-[10px] font-semibold leading-3 text-[#2b4946] shadow-sm shadow-[#0f6f68]/5 sm:px-3 sm:py-1.5 sm:text-xs sm:leading-4"
           key={chip}
         >
           {chip}
         </span>
       ))}
       <a
-        className="text-[10px] font-semibold leading-3 text-[#287c30] sm:text-xs sm:leading-4"
+        className="text-[10px] font-semibold leading-3 text-[#0f6f68] sm:text-xs sm:leading-4"
         href={clearHref}
       >
         Clear
@@ -956,7 +956,7 @@ function Pagination({
       >
         Previous
       </Button>
-      <span className="text-sm font-semibold text-[#31413d]">
+      <span className="text-sm font-semibold text-[#2b4946]">
         Page {filters.page} of {totalPages}
       </span>
       <Button
@@ -1113,19 +1113,19 @@ function findSubcategoryName(
 }
 
 const inputClassName =
-  "min-h-10 w-full rounded-lg border border-[#cfdcda] bg-white px-3 text-sm font-semibold text-[#17211f] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/20";
+  "min-h-10 w-full rounded-lg border border-[#cbdedb] bg-white px-3 text-sm font-semibold text-[#123432] outline-none transition focus:border-[#0f6f68] focus:ring-2 focus:ring-[#0f6f68]/20";
 
 const mobileCatalogIconButtonClassName =
-  "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#a9ddae] bg-white text-[#287c30] shadow-sm shadow-[#287c30]/5 transition active:scale-95";
+  "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#9fd7d1] bg-white text-[#0f6f68] shadow-sm shadow-[#0f6f68]/5 transition active:scale-95";
 
 const heroSelectClassNames = {
   base: "w-full min-w-0",
   listbox: "p-1",
-  popoverContent: "z-[80] rounded-lg border border-[#cfdcda] bg-white shadow-lg",
-  selectorIcon: "pointer-events-none end-3 h-4 w-4 text-[#287c30] opacity-100",
+  popoverContent: "z-[80] rounded-lg border border-[#cbdedb] bg-white shadow-lg",
+  selectorIcon: "pointer-events-none end-3 h-4 w-4 text-[#0f6f68] opacity-100",
   trigger:
-    "min-h-10 rounded-lg border border-[#cfdcda] bg-white px-3 pr-10 text-sm font-semibold text-[#17211f] shadow-none data-[focus=true]:border-[#287c30] data-[focus=true]:ring-2 data-[focus=true]:ring-[#287c30]/20",
-  value: "text-sm text-[#17211f] group-data-[has-value=false]:text-[#687773]"
+    "min-h-10 rounded-lg border border-[#cbdedb] bg-white px-3 pr-10 text-sm font-semibold text-[#123432] shadow-none data-[focus=true]:border-[#0f6f68] data-[focus=true]:ring-2 data-[focus=true]:ring-[#0f6f68]/20",
+  value: "text-sm text-[#123432] group-data-[has-value=false]:text-[#607a77]"
 };
 
 function HeroFilterSelect({
@@ -1239,7 +1239,7 @@ function HeroFilterSelect({
       selectorIcon={
         <ChevronDown
           aria-hidden="true"
-          className="h-4 w-4 text-[#287c30] opacity-100"
+          className="h-4 w-4 text-[#0f6f68] opacity-100"
           data-testid={`${name}-filter-select-arrow`}
         />
       }
@@ -1257,7 +1257,7 @@ function renderFilterSelectOption(option: FilterSelectOption) {
   return (
     <HeroSelectItem
       key={optionKey}
-      className="rounded-md text-sm text-[#17211f] data-[hover=true]:bg-[#eaf7eb]"
+      className="rounded-md text-sm text-[#123432] data-[hover=true]:bg-[#e5f5f3]"
       isDisabled={option.disabled}
       textValue={option.label}
     >

@@ -135,20 +135,20 @@ export function CustomerLoginForm({
   return (
     <section className={["grid gap-6", className].filter(Boolean).join(" ")}>
       <div className="grid gap-3">
-        <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#eaf7eb] text-[#287c30]">
+        <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#e5f5f3] text-[#0f6f68]">
           <ShieldCheck aria-hidden="true" className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-xs font-semibold uppercase text-[#9b6a1e]">
+          <p className="text-xs font-semibold uppercase text-[#0f6f68]">
             Secure customer login
           </p>
           <h1
-            className="mt-2 text-2xl font-semibold leading-tight text-[#17211f]"
+            className="mt-2 text-2xl font-semibold leading-tight text-[#123432]"
             id={headingId}
           >
             Sign in with mobile OTP
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[#687773]">
+          <p className="mt-2 text-sm leading-6 text-[#607a77]">
             We will send a one-time password to your Indian mobile number.
           </p>
         </div>
@@ -179,17 +179,17 @@ export function CustomerLoginForm({
         </form>
       ) : (
         <form className="grid gap-4" onSubmit={handleVerifyOtp}>
-          <div className="rounded-lg border border-[#cfe9d2] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#287c30]/5">
-            <p className="text-xs font-semibold uppercase text-[#687773]">
+          <div className="rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] px-4 py-3 shadow-sm shadow-[#0f6f68]/5">
+            <p className="text-xs font-semibold uppercase text-[#607a77]">
               OTP sent to
             </p>
-            <p className="mt-1 text-sm font-semibold text-[#17211f]">
+            <p className="mt-1 text-sm font-semibold text-[#123432]">
               {sentMobileNumber}
             </p>
             {devOtp ? (
               <span
                 aria-label={`Development OTP ${devOtp}`}
-                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full border border-[#a9ddae] bg-[#eaf7eb] px-3 py-1 text-xs font-black text-[#287c30] shadow-sm shadow-[#287c30]/10"
+                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full border border-[#9fd7d1] bg-[#e5f5f3] px-3 py-1 text-xs font-black text-[#0f6f68] shadow-sm shadow-[#0f6f68]/10"
               >
                 <span className="uppercase">Dev OTP</span>
                 <span className="font-mono text-sm">{devOtp}</span>
@@ -217,7 +217,7 @@ export function CustomerLoginForm({
           </Button>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#287c30]"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f6f68]"
               onClick={() => {
                 setError(null);
                 setDevOtp(null);
@@ -230,7 +230,7 @@ export function CustomerLoginForm({
               Change number
             </button>
             <button
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#287c30] disabled:cursor-not-allowed disabled:text-[#8da19c]"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f6f68] disabled:cursor-not-allowed disabled:text-[#849c98]"
               disabled={cooldownSeconds > 0 || isSubmitting}
               onClick={handleResendOtp}
               type="button"

@@ -5,7 +5,7 @@ type SkeletonProps = {
 export function Skeleton({ className }: SkeletonProps) {
   return (
     <span
-      className={["block animate-pulse rounded-lg bg-[#cfe9d2]", className]
+      className={["block animate-pulse rounded-lg bg-[#c4e4e0]", className]
         .filter(Boolean)
         .join(" ")}
     />
@@ -21,7 +21,7 @@ export function ProductGridSkeleton({ count = 6 }: { count?: number }) {
     >
       {Array.from({ length: count }, (_, index) => (
         <article
-          className="overflow-hidden rounded-[1.25rem] border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5"
+          className="overflow-hidden rounded-[1.25rem] border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5"
           key={index}
         >
           <Skeleton className="h-44 rounded-none" />
@@ -51,7 +51,7 @@ export function TableSkeleton({
   return (
     <div
       aria-label="Loading table rows"
-      className="grid gap-3 rounded-[1.25rem] border border-[#cfe9d2] bg-white p-4 shadow-sm shadow-[#287c30]/5"
+      className="grid gap-3 rounded-[1.25rem] border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5"
       role="status"
     >
       {Array.from({ length: rows }, (_, rowIndex) => (

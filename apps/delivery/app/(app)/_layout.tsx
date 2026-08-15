@@ -16,16 +16,16 @@ export default function AppLayout() {
         headerBackButtonDisplayMode: "minimal",
         headerShown: false,
         headerShadowVisible: false,
-        headerStyle: { backgroundColor: "#F8FAFC" },
+        headerStyle: { backgroundColor: "#F3FAF9" },
         headerTitleStyle: {
-          color: "#0F172A",
+          color: "#123432",
           fontFamily: fonts.headingBold,
           fontSize: 18,
           fontWeight: "800"
         },
-        sceneStyle: { backgroundColor: "#F8FAFC" },
-        tabBarActiveTintColor: "#287C30",
-        tabBarInactiveTintColor: "#64748B",
+        sceneStyle: { backgroundColor: "#F3FAF9" },
+        tabBarActiveTintColor: "#0F6F68",
+        tabBarInactiveTintColor: "#55716E",
         tabBarHideOnKeyboard: true,
         tabBarLabelStyle: {
           fontFamily: fonts.bodySemiBold,
@@ -34,7 +34,7 @@ export default function AppLayout() {
         },
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopColor: "#E2E8F0",
+          borderTopColor: "#CBDEDB",
           height: 66,
           paddingBottom: 7,
           paddingTop: 5

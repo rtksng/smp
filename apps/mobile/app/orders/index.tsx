@@ -158,7 +158,7 @@ function StatusBadge({
       minimumFontScale={0.82}
       numberOfLines={1}
       style={{
-        backgroundColor: payment ? "#EEF3F1" : colors.primarySoft,
+        backgroundColor: payment ? "#EEF6F5" : colors.primarySoft,
         borderRadius: 999,
         color: payment ? colors.text : colors.primaryDark,
         fontFamily: fonts.bodySemiBold,

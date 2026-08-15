@@ -136,7 +136,7 @@ function Summary({ label, value }: { label: string; value: number }) {
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   assignmentId: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 15,
     fontWeight: "900"
@@ -150,14 +150,14 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, gap: 3 },
   itemTop: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between" },
   meta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "capitalize"
   },
   proofNote: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 19,
@@ -165,21 +165,21 @@ const styles = StyleSheet.create({
   },
   summary: { flexDirection: "row", gap: 8 },
   summaryItem: {
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F3FAF9",
     borderRadius: 8,
     flex: 1,
     gap: 2,
-    padding: 7
+    padding: 12
   },
   summaryLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
   },
   summaryValue: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 22,
     fontWeight: "900"

@@ -175,9 +175,9 @@ const reportCopy: Record<ReportView, { summary: string; title: string }> = {
 };
 
 const dashboardChartColors = {
-  accent: "#0f766e",
-  muted: "#8fa29d",
-  primary: "#287c30",
+  accent: "#17a89d",
+  muted: "#849c98",
+  primary: "#0f6f68",
   revenue: "#2563eb",
   warning: "#b7791f"
 };
@@ -511,7 +511,7 @@ function DashboardTrendChart({ report }: { report: DashboardReport }) {
           margin={{ bottom: 4, left: 0, right: 12, top: 10 }}
           width={width}
         >
-          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <CartesianGrid stroke="#e0ecea" vertical={false} />
           <XAxis
             axisLine={false}
             dataKey="label"
@@ -595,7 +595,7 @@ function TopProductsChart({
           margin={{ bottom: 4, left: 8, right: 18, top: 4 }}
           width={width}
         >
-          <CartesianGrid stroke="#e4ece9" horizontal={false} />
+          <CartesianGrid stroke="#e0ecea" horizontal={false} />
           <XAxis
             axisLine={false}
             fontSize={12}
@@ -663,7 +663,7 @@ function InventoryRiskChart({
           margin={{ bottom: 4, left: 0, right: 12, top: 4 }}
           width={width}
         >
-          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <CartesianGrid stroke="#e0ecea" vertical={false} />
           <XAxis
             axisLine={false}
             dataKey="label"
@@ -728,7 +728,7 @@ function WarehouseStockChart({
           margin={{ bottom: 4, left: 0, right: 12, top: 4 }}
           width={width}
         >
-          <CartesianGrid stroke="#e4ece9" vertical={false} />
+          <CartesianGrid stroke="#e0ecea" vertical={false} />
           <XAxis
             axisLine={false}
             dataKey="label"

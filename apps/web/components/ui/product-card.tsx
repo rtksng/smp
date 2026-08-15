@@ -89,14 +89,14 @@ export function ProductCard({
   return (
     <article
       className={[
-        "group grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10",
+        "group grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10",
         compact ? "rounded-xl sm:rounded-lg" : "rounded-[1.25rem]",
         compact && !recommendationCard ? "min-h-[14.3rem] sm:min-h-0" : undefined
       ].join(" ")}
     >
       <div
         className={[
-          "relative border-b border-[#cfe9d2] bg-[#f4fbf5]",
+          "relative border-b border-[#c4e4e0] bg-[#f3faf9]",
           recommendationCard ? "h-28" : compact ? "h-24 sm:h-36" : "h-48"
         ].join(" ")}
       >
@@ -120,19 +120,19 @@ export function ProductCard({
             unoptimized
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] px-3 text-center text-[#287c30]">
+          <div className="flex h-full flex-col items-center justify-center gap-2 bg-[linear-gradient(135deg,#e5f5f3,#ffffff)] px-3 text-center text-[#0f6f68]">
             <PackageCheck
               aria-hidden="true"
               className={compact ? "h-9 w-9 sm:h-12 sm:w-12" : "h-14 w-14"}
             />
-            <span className="text-xs font-semibold text-[#173b1d]">
+            <span className="text-xs font-semibold text-[#123f3c]">
               Product image unavailable
             </span>
           </div>
         )}
         <span
           className={[
-            "absolute left-3 top-3 rounded-full bg-white font-semibold text-[#287c30] shadow-sm",
+            "absolute left-3 top-3 rounded-full bg-white font-semibold text-[#0f6f68] shadow-sm",
             compact
               ? "hidden px-2 py-0.5 text-[10px] sm:block"
               : "px-3 py-1 text-xs"
@@ -143,7 +143,7 @@ export function ProductCard({
         {savings ? (
           <span
             className={[
-              "absolute right-3 top-3 rounded-full bg-[#0a7f32] font-semibold text-white shadow-sm",
+              "absolute right-3 top-3 rounded-full bg-[#0f6f68] font-semibold text-white shadow-sm",
               compact
                 ? "hidden px-2 py-0.5 text-[10px] sm:block"
                 : "px-3 py-1 text-xs"
@@ -155,7 +155,7 @@ export function ProductCard({
         {compact && !recommendationCard ? (
           <a
             aria-label={`View ${product.name}`}
-            className="absolute bottom-2 right-2 rounded-lg border border-[#287c30] bg-white px-3 py-1 text-[11px] font-semibold text-[#287c30] shadow-sm sm:hidden"
+            className="absolute bottom-2 right-2 rounded-lg border border-[#0f6f68] bg-white px-3 py-1 text-[11px] font-semibold text-[#0f6f68] shadow-sm sm:hidden"
             href={`/products/${product.slug}`}
           >
             View
@@ -185,8 +185,8 @@ export function ProductCard({
             <a
               className={
                 compact && !recommendationCard
-                  ? "text-[#556b57] hover:underline sm:text-[#287c30]"
-                  : "text-[#287c30] hover:underline"
+                  ? "text-[#55716e] hover:underline sm:text-[#0f6f68]"
+                  : "text-[#0f6f68] hover:underline"
               }
               href={`/brands/${product.brand.slug}`}
             >
@@ -196,10 +196,10 @@ export function ProductCard({
               <>
                 <ChevronRight
                   aria-hidden="true"
-                  className="h-3.5 w-3.5 text-[#a3b8a5]"
+                  className="h-3.5 w-3.5 text-[#9ab5b1]"
                 />
                 <a
-                  className="text-[#556b57] hover:underline"
+                  className="text-[#55716e] hover:underline"
                   href={`/categories/${product.category.slug}`}
                 >
                   {product.category.name}
@@ -209,7 +209,7 @@ export function ProductCard({
           </div>
           <h3
             className={[
-              "line-clamp-2 break-words text-[#173b1d]",
+              "line-clamp-2 break-words text-[#123f3c]",
               recommendationCard
                 ? "mt-2 text-sm font-semibold leading-5"
                 : compact
@@ -220,33 +220,33 @@ export function ProductCard({
             {product.name}
           </h3>
           {!compact && showDescription ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#556b57]">
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#55716e]">
               {product.shortDescription}
             </p>
           ) : null}
         </div>
 
         {!compact ? (
-          <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#173b1d]">
-            <span className="rounded-full bg-[#eaf7eb] px-3 py-1">
+          <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#123f3c]">
+            <span className="rounded-full bg-[#e5f5f3] px-3 py-1">
               SKU {product.sku}
             </span>
-            <span className="rounded-full bg-[#eaf7eb] px-3 py-1">
+            <span className="rounded-full bg-[#e5f5f3] px-3 py-1">
               {product.taxRate}% GST
             </span>
             {product.subcategory ? (
-              <span className="rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]">
+              <span className="rounded-full bg-[#e5f5f3] px-3 py-1 text-[#0f6f68]">
                 {product.subcategory.name}
               </span>
             ) : null}
             {product.sterile ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#eaf7eb] px-3 py-1 text-[#287c30]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#e5f5f3] px-3 py-1 text-[#0f6f68]">
                 <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
                 Sterile
               </span>
             ) : null}
             {product.packSize ? (
-              <span className="rounded-full bg-[#f4fbf5] px-3 py-1">
+              <span className="rounded-full bg-[#f3faf9] px-3 py-1">
                 {product.packSize}
               </span>
             ) : null}
@@ -257,13 +257,13 @@ export function ProductCard({
           className={
             compact
               ? recommendationCard
-                ? "border-t border-[#cfe9d2] pt-2.5"
-                : "sm:border-t sm:border-[#cfe9d2] sm:pt-4"
-              : "rounded-[1rem] border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5"
+                ? "border-t border-[#c4e4e0] pt-2.5"
+                : "sm:border-t sm:border-[#c4e4e0] sm:pt-4"
+              : "rounded-[1rem] border border-[#c4e4e0] bg-[#f3faf9] p-4 shadow-sm shadow-[#0f6f68]/5"
           }
         >
           {!compact ? (
-            <p className="text-xs font-semibold uppercase text-[#556b57]">
+            <p className="text-xs font-semibold uppercase text-[#55716e]">
               Hospital price
             </p>
           ) : null}
@@ -277,10 +277,10 @@ export function ProductCard({
             <p
               className={[
                 recommendationCard
-                  ? "font-semibold tabular-nums text-[#173b1d] text-lg"
+                  ? "font-semibold tabular-nums text-[#123f3c] text-lg"
                   : compact
-                    ? "tabular-nums text-base font-black leading-5 text-[#111827] sm:text-xl sm:font-semibold sm:leading-normal sm:text-[#173b1d]"
-                    : "font-semibold tabular-nums text-[#173b1d] text-2xl"
+                    ? "tabular-nums text-base font-black leading-5 text-[#123432] sm:text-xl sm:font-semibold sm:leading-normal sm:text-[#123f3c]"
+                    : "font-semibold tabular-nums text-[#123f3c] text-2xl"
               ].join(" ")}
             >
               {formatRupees(product.sellingPrice)}
@@ -288,21 +288,21 @@ export function ProductCard({
             <span
               className={[
                 compact
-                  ? "text-[11px] font-semibold text-[#556b57] sm:pb-1 sm:text-xs sm:font-semibold"
-                  : "pb-1 text-xs font-semibold text-[#556b57]"
+                  ? "text-[11px] font-semibold text-[#55716e] sm:pb-1 sm:text-xs sm:font-semibold"
+                  : "pb-1 text-xs font-semibold text-[#55716e]"
               ].join(" ")}
             >
               <span
                 className={
                   compact
-                    ? "line-through text-[11px] font-semibold text-[#556b57] sm:no-underline sm:text-xs sm:font-semibold"
+                    ? "line-through text-[11px] font-semibold text-[#55716e] sm:no-underline sm:text-xs sm:font-semibold"
                     : undefined
                 }
               >
                 MRP {formatRupees(product.mrp)}
               </span>
               {compact && savings ? (
-                <span className="ml-1 text-[#008f5f] sm:hidden">
+                <span className="ml-1 text-[#0f6f68] sm:hidden">
                   {savings.percent}% OFF
                 </span>
               ) : null}
@@ -311,7 +311,7 @@ export function ProductCard({
           {!compact ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
               {savings ? (
-                <span className="rounded-full bg-[#eaf7ee] px-2 py-1 text-[#0a7f32]">
+                <span className="rounded-full bg-[#e5f5f3] px-2 py-1 text-[#0f6f68]">
                   Save {formatRupees(savings.amount)}
                 </span>
               ) : null}
@@ -320,13 +320,13 @@ export function ProductCard({
         </div>
 
         {!compact && showServiceBadges ? (
-          <div className="grid gap-2 text-xs font-semibold text-[#173b1d] sm:grid-cols-2">
-            <span className="inline-flex items-center gap-2 rounded-[1rem] bg-[#eaf7eb] px-3 py-2">
-              <FileText aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
+          <div className="grid gap-2 text-xs font-semibold text-[#123f3c] sm:grid-cols-2">
+            <span className="inline-flex items-center gap-2 rounded-[1rem] bg-[#e5f5f3] px-3 py-2">
+              <FileText aria-hidden="true" className="h-4 w-4 text-[#0f6f68]" />
               GST invoice ready
             </span>
-            <span className="inline-flex items-center gap-2 rounded-[1rem] bg-[#eaf7eb] px-3 py-2">
-              <Truck aria-hidden="true" className="h-4 w-4 text-[#287c30]" />
+            <span className="inline-flex items-center gap-2 rounded-[1rem] bg-[#e5f5f3] px-3 py-2">
+              <Truck aria-hidden="true" className="h-4 w-4 text-[#0f6f68]" />
               Delivery at checkout
             </span>
           </div>
@@ -390,7 +390,7 @@ export function ProductCard({
               "rounded-lg px-3 py-2 text-xs font-semibold",
               actionMessage.tone === "error"
                 ? "bg-[#fff5f5] text-[#7a271a]"
-                : "bg-[#eaf7eb] text-[#287c30]"
+                : "bg-[#e5f5f3] text-[#0f6f68]"
             ].join(" ")}
           >
             {actionMessage.text}

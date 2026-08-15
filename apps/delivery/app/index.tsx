@@ -8,7 +8,7 @@ export default function IndexRoute() {
   if (!isReady) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#287c30" />
+        <ActivityIndicator color="#0F6F68" />
       </View>
     );
   }
@@ -23,7 +23,7 @@ export default function IndexRoute() {
 const styles = StyleSheet.create({
   loading: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F3FAF9",
     flex: 1,
     justifyContent: "center"
   }

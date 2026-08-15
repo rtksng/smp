@@ -219,7 +219,7 @@ export function AccountProfileContent() {
               ) : null}
 
               {successMessage ? (
-                <p className="rounded-lg bg-[#edf7f4] px-4 py-3 text-sm font-semibold text-[#0f6b50]">
+                <p className="rounded-lg bg-[#e5f5f3] px-4 py-3 text-sm font-semibold text-[#0f6f68]">
                   {successMessage}
                 </p>
               ) : null}

@@ -56,7 +56,7 @@ export function MobileBottomNavigation() {
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             borderTopWidth: 1,
-            boxShadow: "0 -10px 25px rgba(40, 124, 48, 0.12)",
+            boxShadow: "0 -10px 25px rgba(15, 111, 104, 0.12)",
             flexDirection: "row",
             minHeight: 62 + insets.bottom,
             overflow: "hidden",

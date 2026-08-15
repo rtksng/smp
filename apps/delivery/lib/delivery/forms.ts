@@ -25,6 +25,22 @@ type StatusFormErrors = {
   receiverName: string;
 };
 
+export const INDIA_MOBILE_PREFIX = "+91 ";
+export const INDIAN_MOBILE_NUMBER_LENGTH = 10;
+
+export function formatIndianMobileInput(value: string) {
+  const trimmedValue = value.trimStart();
+  const digits = trimmedValue.replace(/\D/g, "");
+  const hasCountryPrefix =
+    trimmedValue.startsWith("+91") || trimmedValue.startsWith("91 ");
+  const nationalNumber = hasCountryPrefix ? digits.slice(2) : digits;
+
+  return `${INDIA_MOBILE_PREFIX}${nationalNumber.slice(
+    0,
+    INDIAN_MOBILE_NUMBER_LENGTH
+  )}`;
+}
+
 export function normalizeMobileNumber(value: string) {
   const digits = value.replace(/\D/g, "");
   const nationalNumber = toIndianNationalNumber(digits);

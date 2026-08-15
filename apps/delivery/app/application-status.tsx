@@ -157,13 +157,13 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   explanation: {
-    color: "#334155",
+    color: "#2B4946",
     fontFamily: fonts.body,
     fontSize: 15,
     lineHeight: 22
   },
   infoLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
@@ -171,20 +171,20 @@ const styles = StyleSheet.create({
   },
   infoRow: { flexDirection: "row", gap: 8 },
   infoValue: {
-    color: "#0F172A",
+    color: "#123432",
     flex: 1,
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   meta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   name: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 22,
     fontWeight: "900"
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF7ED",
     borderRadius: 8,
     gap: 4,
-    padding: 7
+    padding: 12
   },
   reasonLabel: {
     color: "#9A3412",

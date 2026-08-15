@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     minHeight: 48,
-    paddingHorizontal: 10,
-    paddingVertical: 6
+    paddingHorizontal: 12,
+    paddingVertical: 10
   },
   dangerActionText: {
     color: "#991B1B"

@@ -384,10 +384,10 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                     </Button>
                   ) : null}
                   {canCancelOrder(order) ? (
-                    <div className="grid gap-2 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-3">
+                    <div className="grid gap-2 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-3">
                       <textarea
                         aria-label="Cancellation reason"
-                        className="min-h-20 rounded-lg border border-[#b7e2bb] bg-white px-3 py-2 text-sm font-semibold text-[#173b1d] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/15"
+                        className="min-h-20 rounded-lg border border-[#afe0da] bg-white px-3 py-2 text-sm font-semibold text-[#123f3c] outline-none transition focus:border-[#0f6f68] focus:ring-2 focus:ring-[#0f6f68]/15"
                         onChange={(event) => setCancelReason(event.target.value)}
                         placeholder="Cancellation reason"
                         value={cancelReason}
@@ -405,10 +405,10 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                     </div>
                   ) : null}
                   {canRequestReturn(order) ? (
-                    <div className="grid gap-2 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-3">
+                    <div className="grid gap-2 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-3">
                       <textarea
                         aria-label="Return request reason"
-                        className="min-h-20 rounded-lg border border-[#b7e2bb] bg-white px-3 py-2 text-sm font-semibold text-[#173b1d] outline-none transition focus:border-[#287c30] focus:ring-2 focus:ring-[#287c30]/15"
+                        className="min-h-20 rounded-lg border border-[#afe0da] bg-white px-3 py-2 text-sm font-semibold text-[#123f3c] outline-none transition focus:border-[#0f6f68] focus:ring-2 focus:ring-[#0f6f68]/15"
                         onChange={(event) => setReturnReason(event.target.value)}
                         placeholder="Return request reason"
                         value={returnReason}
@@ -445,7 +445,7 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
                     </p>
                   ) : null}
                   {actionMessage ? (
-                    <p className="rounded-lg bg-[#eaf7eb] px-4 py-3 text-sm font-semibold text-[#287c30]">
+                    <p className="rounded-lg bg-[#e5f5f3] px-4 py-3 text-sm font-semibold text-[#0f6f68]">
                       {actionMessage}
                     </p>
                   ) : null}
@@ -475,22 +475,22 @@ function OrderList({ orders }: { orders: Order[] }) {
       <div className="mt-4 grid gap-3 md:hidden">
         {orders.map((order) => (
           <article
-            className="grid gap-3 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5"
+            className="grid gap-3 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-4 shadow-sm shadow-[#0f6f68]/5"
             key={order.id}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  className="break-words text-sm font-semibold text-[#287c30] hover:text-[#23702a]"
+                  className="break-words text-sm font-semibold text-[#0f6f68] hover:text-[#0b5e59]"
                   href={`/account/orders/${order.id}`}
                 >
                   {order.orderNumber}
                 </Link>
-                <p className="mt-1 text-xs font-semibold text-[#556b57]">
+                <p className="mt-1 text-xs font-semibold text-[#55716e]">
                   {formatDate(order.placedAt ?? order.createdAt)}
                 </p>
               </div>
-              <strong className="shrink-0 text-right text-sm text-[#173b1d]">
+              <strong className="shrink-0 text-right text-sm text-[#123f3c]">
                 {priceFormatter.format(order.totals.grandTotal)}
               </strong>
             </div>
@@ -511,9 +511,9 @@ function OrderList({ orders }: { orders: Order[] }) {
         ))}
       </div>
 
-      <div className="mt-4 hidden overflow-x-auto rounded-lg border border-[#cfe9d2] shadow-sm shadow-[#287c30]/5 md:block">
+      <div className="mt-4 hidden overflow-x-auto rounded-lg border border-[#c4e4e0] shadow-sm shadow-[#0f6f68]/5 md:block">
         <table className="w-full min-w-[760px] border-collapse bg-white text-left">
-          <thead className="bg-[#f4fbf5] text-xs uppercase text-[#556b57]">
+          <thead className="bg-[#f3faf9] text-xs uppercase text-[#55716e]">
             <tr>
               <th className="px-4 py-3 font-semibold">Order</th>
               <th className="px-4 py-3 font-semibold">Date</th>
@@ -523,18 +523,18 @@ function OrderList({ orders }: { orders: Order[] }) {
               <th className="px-4 py-3 font-semibold">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#cfe9d2]">
+          <tbody className="divide-y divide-[#c4e4e0]">
             {orders.map((order) => (
               <tr key={order.id}>
                 <td className="px-4 py-4">
                   <Link
-                    className="font-semibold text-[#287c30] hover:text-[#23702a]"
+                    className="font-semibold text-[#0f6f68] hover:text-[#0b5e59]"
                     href={`/account/orders/${order.id}`}
                   >
                     {order.orderNumber}
                   </Link>
                 </td>
-                <td className="px-4 py-4 text-sm font-semibold text-[#556b57]">
+                <td className="px-4 py-4 text-sm font-semibold text-[#55716e]">
                   {formatDate(order.placedAt ?? order.createdAt)}
                 </td>
                 <td className="px-4 py-4">
@@ -545,7 +545,7 @@ function OrderList({ orders }: { orders: Order[] }) {
                     {formatPaymentStatus(order.paymentStatus)}
                   </AccountStatusBadge>
                 </td>
-                <td className="px-4 py-4 text-right text-sm font-semibold text-[#173b1d]">
+                <td className="px-4 py-4 text-right text-sm font-semibold text-[#123f3c]">
                   {priceFormatter.format(order.totals.grandTotal)}
                 </td>
                 <td className="px-4 py-4">
@@ -570,23 +570,23 @@ function OrderItems({ order }: { order: Order }) {
         title="Items"
       />
 
-      <div className="mt-4 divide-y divide-[#cfe9d2]">
+      <div className="mt-4 divide-y divide-[#c4e4e0]">
         {order.items.map((item) => (
           <div
             className="grid gap-2 py-4 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_auto]"
             key={item.id}
           >
             <div>
-              <p className="text-sm font-semibold text-[#173b1d]">{item.name}</p>
-              <p className="mt-1 text-xs font-semibold text-[#556b57]">
+              <p className="text-sm font-semibold text-[#123f3c]">{item.name}</p>
+              <p className="mt-1 text-xs font-semibold text-[#55716e]">
                 SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
               </p>
             </div>
             <div className="text-left md:text-right">
-              <p className="text-xs font-semibold text-[#556b57]">
+              <p className="text-xs font-semibold text-[#55716e]">
                 {priceFormatter.format(item.unitPrice)} each
               </p>
-              <p className="mt-1 text-base font-semibold text-[#173b1d]">
+              <p className="mt-1 text-base font-semibold text-[#123f3c]">
                 {priceFormatter.format(item.total)}
               </p>
             </div>
@@ -608,19 +608,19 @@ function DeliveryAddress({ order }: { order: Order }) {
       />
 
       {address ? (
-        <div className="mt-4 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5">
+        <div className="mt-4 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-4 shadow-sm shadow-[#0f6f68]/5">
           <div className="flex items-start gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e5f5f3] text-[#0f6f68]">
               <MapPin aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-[#173b1d]">{address.fullName}</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-[#556b57]">
+              <p className="text-sm font-semibold text-[#123f3c]">{address.fullName}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-[#55716e]">
                 {address.line1}
                 {address.line2 ? `, ${address.line2}` : ""}, {address.city},{" "}
                 {address.state} {address.pincode}, {address.country}
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#556b57]">
+              <p className="mt-1 text-sm font-semibold text-[#55716e]">
                 {address.mobileNumber}
               </p>
             </div>
@@ -649,19 +649,19 @@ function DeliveryTracking({ order }: { order: Order }) {
       <div className="mt-4 grid gap-3">
         {order.deliveryTracking.map((tracking) => (
           <div
-            className="rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-4 shadow-sm shadow-[#287c30]/5"
+            className="rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-4 shadow-sm shadow-[#0f6f68]/5"
             key={tracking.id}
           >
             <div className="flex items-start gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e5f5f3] text-[#0f6f68]">
                 <Truck aria-hidden="true" className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#173b1d]">
+                <p className="text-sm font-semibold text-[#123f3c]">
                   {formatDeliveryStatus(tracking.status)}
                 </p>
                 {tracking.deliveryPartnerName ? (
-                  <p className="mt-1 text-sm font-semibold text-[#556b57]">
+                  <p className="mt-1 text-sm font-semibold text-[#55716e]">
                     {tracking.deliveryPartnerName}
                     {tracking.vehicleNumber ? ` | ${tracking.vehicleNumber}` : ""}
                   </p>
@@ -673,22 +673,22 @@ function DeliveryTracking({ order }: { order: Order }) {
                 ) : null}
               </div>
             </div>
-            <div className="mt-4 grid gap-3 border-t border-[#cfe9d2] pt-4">
+            <div className="mt-4 grid gap-3 border-t border-[#c4e4e0] pt-4">
               {tracking.statusHistory.map((entry) => (
                 <div className="flex gap-3" key={entry.id}>
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#287c30]" />
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#0f6f68]" />
                   <div>
-                    <p className="text-xs font-semibold text-[#173b1d]">
+                    <p className="text-xs font-semibold text-[#123f3c]">
                       {formatDeliveryStatus(entry.status)}
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#556b57]">
+                    <p className="mt-1 text-xs font-semibold text-[#55716e]">
                       {formatDate(entry.createdAt)}
                       {entry.latitude !== null && entry.longitude !== null
                         ? ` | ${entry.latitude.toFixed(4)}, ${entry.longitude.toFixed(4)}`
                         : ""}
                     </p>
                     {entry.note ? (
-                      <p className="mt-1 text-sm leading-6 text-[#556b57]">
+                      <p className="mt-1 text-sm leading-6 text-[#55716e]">
                         {entry.note}
                       </p>
                     ) : null}
@@ -712,7 +712,7 @@ function PaymentDetails({ order }: { order: Order }) {
         description="Method, payment state, and final payable total."
         title="Payment details"
       />
-      <dl className="mt-4 grid gap-2 text-sm text-[#173b1d]">
+      <dl className="mt-4 grid gap-2 text-sm text-[#123f3c]">
         <InfoRow label="Method" value={formatPaymentMethod(order.paymentMethod)} />
         <InfoRow
           label="Payment status"
@@ -729,7 +729,7 @@ function PaymentDetails({ order }: { order: Order }) {
           value={priceFormatter.format(order.totals.deliveryCharge)}
         />
         <InfoRow label="Tax/GST" value={priceFormatter.format(order.totals.tax)} />
-        <div className="mt-2 flex items-center justify-between border-t border-[#cfe9d2] pt-4 text-base font-semibold text-[#173b1d]">
+        <div className="mt-2 flex items-center justify-between border-t border-[#c4e4e0] pt-4 text-base font-semibold text-[#123f3c]">
           <dt>Total</dt>
           <dd>{priceFormatter.format(order.totals.grandTotal)}</dd>
         </div>
@@ -740,7 +740,7 @@ function PaymentDetails({ order }: { order: Order }) {
 
 function RefundDetails({ refund }: { refund: Order["refunds"][number] }) {
   return (
-    <div className="my-2 grid gap-2 rounded-lg border border-[#cfe9d2] bg-[#f4fbf5] p-3">
+    <div className="my-2 grid gap-2 rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-3">
       <InfoRow label="Return/refund" value={formatRefundStatus(refund.status)} />
       <InfoRow label="Refund amount" value={priceFormatter.format(refund.amount)} />
       <InfoRow label="Requested" value={formatDate(refund.createdAt)} />
@@ -751,9 +751,9 @@ function RefundDetails({ refund }: { refund: Order["refunds"][number] }) {
         <InfoRow label="Provider reference" value={refund.providerRefundId} />
       ) : null}
       {refund.reason ? (
-        <div className="grid gap-1 border-t border-[#cfe9d2] pt-2">
-          <dt className="text-[#556b57]">Reason</dt>
-          <dd className="font-semibold leading-6 text-[#173b1d]">{refund.reason}</dd>
+        <div className="grid gap-1 border-t border-[#c4e4e0] pt-2">
+          <dt className="text-[#55716e]">Reason</dt>
+          <dd className="font-semibold leading-6 text-[#123f3c]">{refund.reason}</dd>
         </div>
       ) : null}
     </div>
@@ -783,18 +783,18 @@ function StatusTimeline({ order }: { order: Order }) {
       <div className="mt-4 grid gap-4">
         {entries.map((entry) => (
           <div className="flex gap-3" key={entry.id}>
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#eaf7eb] text-[#287c30]">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#e5f5f3] text-[#0f6f68]">
               <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-[#173b1d]">
+              <p className="text-sm font-semibold text-[#123f3c]">
                 {formatOrderStatus(entry.status)}
               </p>
-              <p className="mt-1 text-xs font-semibold text-[#556b57]">
+              <p className="mt-1 text-xs font-semibold text-[#55716e]">
                 {formatDate(entry.createdAt)}
               </p>
               {entry.note ? (
-                <p className="mt-1 text-sm leading-6 text-[#556b57]">{entry.note}</p>
+                <p className="mt-1 text-sm leading-6 text-[#55716e]">{entry.note}</p>
               ) : null}
             </div>
           </div>
@@ -840,8 +840,8 @@ function normalizeOptionalReason(value: string) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <dt className="text-[#556b57]">{label}</dt>
-      <dd className="text-right font-semibold text-[#173b1d]">{value}</dd>
+      <dt className="text-[#55716e]">{label}</dt>
+      <dd className="text-right font-semibold text-[#123f3c]">{value}</dd>
     </div>
   );
 }

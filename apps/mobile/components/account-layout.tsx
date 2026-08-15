@@ -131,9 +131,9 @@ export function AccountStatusBadge({
       selectable
       style={{
         alignSelf: "flex-start",
-        backgroundColor: success ? "#EDF7F4" : colors.primarySoft,
+        backgroundColor: success ? "#E5F5F3" : colors.primarySoft,
         borderRadius: 999,
-        color: success ? "#0F6B50" : colors.text,
+        color: success ? "#0F6F68" : colors.text,
         fontFamily: fonts.bodySemiBold,
         fontSize: 12,
         minHeight: 28,

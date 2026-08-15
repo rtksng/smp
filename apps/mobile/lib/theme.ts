@@ -1,19 +1,19 @@
 export const colors = {
-  background: "#F4FBF5",
-  border: "#CFE9D2",
+  background: "#F3FAF9",
+  border: "#C4E4E0",
   danger: "#B42318",
   dangerBackground: "#FFF5F5",
-  gold: "#9B6A1E",
-  ink: "#111827",
-  muted: "#556B57",
-  primary: "#3CB043",
-  primaryDark: "#287C30",
-  primaryHover: "#23702A",
-  primarySoft: "#EAF7EB",
+  gold: "#F59E0B",
+  ink: "#123432",
+  muted: "#55716E",
+  primary: "#17A89D",
+  primaryDark: "#0F6F68",
+  primaryHover: "#0B5E59",
+  primarySoft: "#E5F5F3",
   surface: "#FFFFFF",
-  surfaceMuted: "#F8FCF8",
-  success: "#0A7F32",
-  text: "#173B1D"
+  surfaceMuted: "#F7FCFB",
+  success: "#0F6F68",
+  text: "#123F3C"
 } as const;
 
 export const fonts = {
@@ -29,5 +29,5 @@ export const cardStyle = {
   borderCurve: "continuous" as const,
   borderRadius: 12,
   borderWidth: 1,
-  boxShadow: "0 2px 8px rgba(40, 124, 48, 0.06)"
+  boxShadow: "0 2px 8px rgba(15, 111, 104, 0.06)"
 };

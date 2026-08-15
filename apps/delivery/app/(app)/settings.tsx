@@ -100,34 +100,34 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   granted: {
-    color: "#166534",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "900",
     textTransform: "capitalize"
   },
   helper: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20
   },
   label: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
   row: {
     alignItems: "center",
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 42
   },
   value: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"

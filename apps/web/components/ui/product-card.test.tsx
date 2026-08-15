@@ -103,7 +103,7 @@ describe("ProductCard", () => {
     expect(imagePanel).toHaveClass("h-24", "sm:h-36");
     expect(contentPanel).toHaveClass("gap-1", "p-3", "sm:gap-3", "sm:p-4");
     expect(screen.getByRole("link", { name: "SurgiPro" })).toHaveClass(
-      "text-[#556b57]"
+      "text-[#55716e]"
     );
     expect(title).toHaveClass(
       "min-h-9",
@@ -117,12 +117,12 @@ describe("ProductCard", () => {
       "text-base",
       "font-black",
       "leading-5",
-      "text-[#111827]"
+      "text-[#123432]"
     );
     expect(screen.getByText(/MRP/)).toHaveClass(
       "text-[11px]",
       "font-semibold",
-      "text-[#556b57]"
+      "text-[#55716e]"
     );
   });
 });

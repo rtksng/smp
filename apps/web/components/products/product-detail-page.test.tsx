@@ -599,9 +599,9 @@ describe("ProductDetailPage", () => {
     expect(stickyActions).toHaveClass("fixed", "bottom-0", "md:hidden");
     expect(desktopActions).toHaveClass("hidden", "md:grid");
     expect(addToCartButton).toBeEnabled();
-    expect(addToCartButton).toHaveClass("bg-white", "!text-[#287c30]");
+    expect(addToCartButton).toHaveClass("bg-white", "!text-[#0f6f68]");
     expect(buyNowButton).toBeEnabled();
-    expect(buyNowButton).toHaveClass("bg-[#287c30]", "text-white");
+    expect(buyNowButton).toHaveClass("bg-[#0f6f68]", "text-white");
   });
 
   it("moves wishlist to a heart overlay on the product image and shows an auto-hiding toast", async () => {

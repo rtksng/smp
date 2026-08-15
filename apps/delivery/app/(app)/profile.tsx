@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   infoLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 13,
     fontWeight: "800",
@@ -217,20 +217,20 @@ const styles = StyleSheet.create({
     gap: 8
   },
   infoValue: {
-    color: "#0F172A",
+    color: "#123432",
     flex: 1,
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   meta: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
   },
   name: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 24,
     fontWeight: "900"
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     width: "100%"
   },
   sectionTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"

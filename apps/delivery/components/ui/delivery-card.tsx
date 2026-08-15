@@ -126,7 +126,7 @@ export function EmptyState({
 }) {
   return (
     <View style={styles.empty}>
-      <Ionicons color="#64748B" name={icon} size={30} />
+      <Ionicons color="#55716E" name={icon} size={30} />
       <Text style={styles.emptyTitle}>{title}</Text>
       {message ? <Text style={styles.emptyMessage}>{message}</Text> : null}
     </View>
@@ -152,7 +152,7 @@ function InfoLine({
 }) {
   return (
     <View style={styles.infoLine}>
-      <Ionicons color="#475569" name={icon} size={16} />
+      <Ionicons color="#607A77" name={icon} size={16} />
       <Text numberOfLines={2} style={styles.infoText}>
         {value}
       </Text>
@@ -165,10 +165,10 @@ const toneStyles = StyleSheet.create({
     color: "#B91C1C"
   },
   default: {
-    color: "#0F172A"
+    color: "#123432"
   },
   success: {
-    color: "#166534"
+    color: "#0F6F68"
   },
   warning: {
     color: "#92400E"
@@ -178,12 +178,12 @@ const toneStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   assignmentCard: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
+    borderColor: "#CBDEDB",
     borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     width: "100%"
   },
   assignmentPressable: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   customer: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
@@ -208,14 +208,14 @@ const styles = StyleSheet.create({
     paddingVertical: 48
   },
   emptyMessage: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center"
   },
   emptyTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "800",
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     alignItems: "center",
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 8,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     paddingTop: 7
   },
   footerText: {
-    color: "#64748B",
+    color: "#55716E",
     flex: 1,
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   infoText: {
-    color: "#334155",
+    color: "#2B4946",
     flex: 1,
     fontFamily: fonts.body,
     fontSize: 14,
@@ -254,17 +254,17 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
+    borderColor: "#CBDEDB",
     borderRadius: 12,
     borderWidth: 1,
     flex: 1,
-    gap: 4,
+    gap: 6,
     minWidth: 145,
-    paddingHorizontal: 12,
-    paddingVertical: 10
+    paddingHorizontal: 16,
+    paddingVertical: 16
   },
   metricLabel: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "800",
@@ -276,13 +276,13 @@ const styles = StyleSheet.create({
     fontWeight: "900"
   },
   nextAction: {
-    color: "#287C30",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "900"
   },
   orderNumber: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 17,
     fontWeight: "900"
@@ -292,16 +292,16 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E2E8F0",
+    borderColor: "#CBDEDB",
     borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     width: "100%"
   },
   sectionTitle: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"

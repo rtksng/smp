@@ -69,7 +69,7 @@ function showFeedbackToast(
           onPress={() => props.hide(props.id)}
           style={styles.toastClose}
         >
-          <Ionicons color="#64748B" name="close" size={16} />
+          <Ionicons color="#55716E" name="close" size={16} />
         </Pressable>
       </Toast>
     )
@@ -209,10 +209,10 @@ function toUserMessage(message?: string, status?: number) {
 
 const toastTones = {
   accent: {
-    border: "#287C30",
+    border: "#0F6F68",
     icon: "information-circle-outline",
-    iconColor: "#166534",
-    soft: "#E8F5EC"
+    iconColor: "#0F6F68",
+    soft: "#E5F5F3"
   },
   danger: {
     border: "#B91C1C",
@@ -221,16 +221,16 @@ const toastTones = {
     soft: "#FEE2E2"
   },
   default: {
-    border: "#64748B",
+    border: "#55716E",
     icon: "notifications-outline",
-    iconColor: "#475569",
-    soft: "#F1F5F9"
+    iconColor: "#607A77",
+    soft: "#EEF6F5"
   },
   success: {
-    border: "#287C30",
+    border: "#0F6F68",
     icon: "checkmark-circle-outline",
-    iconColor: "#166534",
-    soft: "#E8F5EC"
+    iconColor: "#0F6F68",
+    soft: "#E5F5F3"
   },
   warning: {
     border: "#D97706",
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     minWidth: 0
   },
   toastDescription: {
-    color: "#475569",
+    color: "#607A77",
     fontSize: 13,
     fontWeight: "600",
     lineHeight: 18
@@ -275,20 +275,20 @@ const styles = StyleSheet.create({
     width: 34
   },
   toastLabel: {
-    color: "#0F172A",
+    color: "#123432",
     fontSize: 14,
     fontWeight: "900"
   },
   toastRoot: {
     alignItems: "flex-start",
     backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1",
+    borderColor: "#C4E4E0",
     borderLeftWidth: 4,
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10
+    paddingHorizontal: 14,
+    paddingVertical: 12
   }
 });

@@ -32,7 +32,7 @@ const procurementItems = [
 
 export function Footer() {
   return (
-    <footer className="min-h-[24rem] border-t border-[#cfe9d2] bg-[#123d18] pb-32 pt-12 text-white md:min-h-[20rem] md:py-16">
+    <footer className="min-h-[24rem] border-t border-[#c4e4e0] bg-[#0d4440] pb-32 pt-12 text-white md:min-h-[20rem] md:py-16">
       <Container className="max-w-none px-4 sm:px-8 lg:px-12">
         <div
           className="grid gap-9 lg:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1.6fr)] lg:items-start"

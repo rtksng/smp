@@ -193,7 +193,7 @@ export default function LoginScreen() {
               <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>OTP sent to</Text>
               <Text selectable style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{mobileNumber}</Text>
               {devOtp ? (
-                <View style={{ alignItems: "center", alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderColor: "#A9DDAE", borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: 8, marginTop: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <View style={{ alignItems: "center", alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderColor: "#9FD7D1", borderRadius: 999, borderWidth: 1, flexDirection: "row", gap: 8, marginTop: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
                   <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, textTransform: "uppercase" }}>Dev OTP</Text>
                   <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.headingBold, fontSize: 14, fontVariant: ["tabular-nums"] }}>{devOtp}</Text>
                 </View>
@@ -292,8 +292,8 @@ export default function LoginScreen() {
 function LoginTextAction({ disabled = false, icon, label, onPress }: { disabled?: boolean; icon: "arrow-left" | "refresh"; label: string; onPress: () => void }) {
   return (
     <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => ({ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 40, opacity: disabled ? 0.5 : pressed ? 0.72 : 1 })}>
-      <MaterialCommunityIcons color={disabled ? "#8DA19C" : colors.primaryDark} name={icon} size={16} />
-      <Text style={{ color: disabled ? "#8DA19C" : colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{label}</Text>
+      <MaterialCommunityIcons color={disabled ? "#849C98" : colors.primaryDark} name={icon} size={16} />
+      <Text style={{ color: disabled ? "#849C98" : colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }

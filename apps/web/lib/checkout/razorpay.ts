@@ -79,7 +79,7 @@ export async function openRazorpayCheckout({
         name: prefillName
       },
       theme: {
-        color: "#287c30"
+        color: "#0f6f68"
       }
     });
 

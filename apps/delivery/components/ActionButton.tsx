@@ -26,7 +26,7 @@ export function ActionButton({
 }: ActionButtonProps) {
   const variant =
     tone === "danger" ? "danger" : tone === "secondary" ? "outline" : "primary";
-  const foreground = tone === "secondary" ? "#0F172A" : "#FFFFFF";
+  const foreground = tone === "secondary" ? "#123432" : "#FFFFFF";
   const toneStyle =
     tone === "danger"
       ? styles.dangerButton
@@ -99,14 +99,14 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   primaryButton: {
-    backgroundColor: "#287C30",
-    borderColor: "#287C30"
+    backgroundColor: "#0F6F68",
+    borderColor: "#0F6F68"
   },
   secondaryButton: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1"
+    borderColor: "#C4E4E0"
   },
   secondaryLabel: {
-    color: "#0F172A"
+    color: "#123432"
   }
 });

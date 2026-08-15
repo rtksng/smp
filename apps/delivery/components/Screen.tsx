@@ -28,7 +28,7 @@ export function Screen({
   style
 }: ScreenProps) {
   const { width } = useWindowDimensions();
-  const horizontalPadding = width >= 768 ? 16 : 6;
+  const horizontalPadding = width >= 768 ? 24 : 16;
   const body = scroll ? (
     <KeyboardAwareScrollView
       bottomOffset={keyboardBottomOffset}
@@ -71,10 +71,10 @@ const styles = StyleSheet.create({
   content: {
     alignItems: "stretch",
     alignSelf: "center",
-    gap: 8,
+    gap: 12,
     maxWidth: 920,
-    paddingBottom: 16,
-    paddingTop: 6,
+    paddingBottom: 24,
+    paddingTop: 12,
     width: "100%"
   },
   fill: {
@@ -82,15 +82,15 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignSelf: "center",
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBDEDB",
     borderTopWidth: StyleSheet.hairlineWidth,
     maxWidth: 920,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     width: "100%"
   },
   safeArea: {
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F3FAF9",
     flex: 1
   },
   scrollContent: {

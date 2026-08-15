@@ -158,7 +158,7 @@ export function ProductCard({
               MRP {formatCatalogRupees(product.mrp)}
             </Text>
             {savingsPercent ? (
-              <Text style={{ color: "#008F5F" }}> {savingsPercent}% OFF</Text>
+              <Text style={{ color: "#17A89D" }}> {savingsPercent}% OFF</Text>
             ) : null}
           </Text>
         </View>

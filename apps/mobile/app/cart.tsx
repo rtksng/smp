@@ -215,7 +215,7 @@ function CartItemCard({
         <View style={{ flex: 1, gap: 5 }}>
           <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.brand.name}</Text>
-            <Text selectable style={{ color: "#A3B1AD", fontFamily: fonts.bodySemiBold, fontSize: 11 }}>/</Text>
+            <Text selectable style={{ color: "#9CAFAC", fontFamily: fonts.bodySemiBold, fontSize: 11 }}>/</Text>
             <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.category.name}</Text>
           </View>
           <Text
@@ -292,7 +292,7 @@ function CartItemCard({
         <View
           style={{
             alignItems: "center",
-            borderColor: "#CFDCDA",
+            borderColor: "#CBDEDB",
             borderRadius: 10,
             borderWidth: 1,
             flexDirection: "row",

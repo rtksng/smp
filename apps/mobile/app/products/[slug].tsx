@@ -260,9 +260,9 @@ export default function ProductDetailScreen() {
           </Pressable>
           <View accessibilityLabel="Product breadcrumbs" style={{ alignItems: "center", flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
             <Pressable onPress={() => router.push("/search")}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Products</Text></Pressable>
-            <MaterialCommunityIcons color="#A3B1AD" name="chevron-right" size={16} />
+            <MaterialCommunityIcons color="#9CAFAC" name="chevron-right" size={16} />
             <Pressable onPress={() => router.push({ pathname: "/search", params: { category: product.category.slug } })}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.category.name}</Text></Pressable>
-            <MaterialCommunityIcons color="#A3B1AD" name="chevron-right" size={16} />
+            <MaterialCommunityIcons color="#9CAFAC" name="chevron-right" size={16} />
             <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.name}</Text>
           </View>
         </View>
@@ -554,7 +554,7 @@ export default function ProductDetailScreen() {
             <View
               style={{
                 alignItems: "center",
-                borderColor: "#CFDCDA",
+                borderColor: "#CBDEDB",
                 borderRadius: 10,
                 borderWidth: 1,
                 flexDirection: "row",
@@ -1074,7 +1074,7 @@ function ProductFeedbackSection({
         eyebrow="Customer feedback"
         title="Reviews and Q&A"
       />
-      <View style={{ backgroundColor: colors.surfaceMuted, borderColor: "#DCEFE0", borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
+      <View style={{ backgroundColor: colors.surfaceMuted, borderColor: "#D7EFEB", borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
         <FeedbackMetric label="Average rating" value={averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"} />
         <FeedbackMetric label="Reviews" value={String(reviews.length)} />
         <FeedbackMetric label="Questions" value={String(questions.length)} />
@@ -1214,7 +1214,7 @@ function FeedbackGroup({
 function FeedbackMetric({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexBasis: "30%", flexGrow: 1, gap: 4 }}>
-      <Text selectable style={{ color: "#6F807A", fontFamily: fonts.bodySemiBold, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
+      <Text selectable style={{ color: "#687F7C", fontFamily: fonts.bodySemiBold, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
       <Text selectable style={{ color: colors.ink, fontFamily: fonts.body, fontSize: 18 }}>{value}</Text>
     </View>
   );
@@ -1227,7 +1227,7 @@ function ReviewFeedbackCard({ review }: { review: ProductFeedback["reviews"][num
         <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 36, justifyContent: "center", width: 36 }}><Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 13, textTransform: "uppercase" }}>{customerInitials(review.customerName)}</Text></View>
         <View style={{ flex: 1, gap: 4 }}>
           <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <Text accessibilityLabel={`${review.rating} out of 5 stars`} style={{ color: "#F59E0B", fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{"★".repeat(review.rating)}<Text style={{ color: "#D8DFDC" }}>{"★".repeat(5 - review.rating)}</Text></Text>
+            <Text accessibilityLabel={`${review.rating} out of 5 stars`} style={{ color: "#F59E0B", fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{"★".repeat(review.rating)}<Text style={{ color: "#D4E2DF" }}>{"★".repeat(5 - review.rating)}</Text></Text>
             <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(review.createdAt)}</Text>
           </View>
           <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{review.title ?? "Customer review"}</Text>
@@ -1297,11 +1297,11 @@ function FeedbackInput({
       multiline
       onChangeText={onChangeText}
       placeholder={placeholder}
-      placeholderTextColor="#839084"
+      placeholderTextColor="#7F9693"
       selectionColor={colors.primaryDark}
       style={{
         backgroundColor: colors.surface,
-        borderColor: "#CFDCDA",
+        borderColor: "#CBDEDB",
         borderRadius: 8,
         borderWidth: 1,
         color: colors.text,
@@ -1433,7 +1433,7 @@ function Tag({ label, primary = false }: { label: string; primary?: boolean }) {
     <Text
       selectable
       style={{
-        backgroundColor: primary ? colors.primarySoft : "#EEF3F1",
+        backgroundColor: primary ? colors.primarySoft : "#EEF6F5",
         borderRadius: 999,
         color: primary ? colors.primaryDark : colors.text,
         fontFamily: fonts.bodySemiBold,

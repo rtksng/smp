@@ -37,7 +37,7 @@ import { BulkQuoteForm } from "./bulk-quote-form";
 import { MobileCommerceHome } from "./mobile-commerce-home";
 
 const highlightedLandingButtonClassName =
-  "whitespace-nowrap !border-[#a9ddae] !bg-[#eaf7eb] shadow-md shadow-[#287c30]/10";
+  "whitespace-nowrap !border-[#9fd7d1] !bg-[#e5f5f3] shadow-md shadow-[#0f6f68]/10";
 const homeSectionClassName = "py-14 sm:py-16 lg:py-20";
 
 export async function HomePage() {
@@ -64,7 +64,7 @@ export async function HomePage() {
   return (
     <>
       <Header />
-      <main className="bg-[#f4fbf5]">
+      <main className="bg-[#f3faf9]">
         <MobileCommerceHome
           brands={brands ?? []}
           categories={categories ?? []}
@@ -73,7 +73,7 @@ export async function HomePage() {
           products={products?.items ?? []}
         />
         <div className="hidden md:block">
-        <section className="bg-[#f4fbf5] pb-5 sm:pb-7">
+        <section className="bg-[#f3faf9] pb-5 sm:pb-7">
           <Container>
             <MarketplaceBanner
               ctaHref={banner.ctaHref}
@@ -161,27 +161,27 @@ export async function HomePage() {
 
         <section className={`bg-white ${homeSectionClassName}`} id="procurement">
           <Container>
-            <div className="relative overflow-hidden rounded-[2rem] border border-[#cfe9d2] bg-[radial-gradient(circle_at_10%_5%,#e4f6e7,transparent_27%),radial-gradient(circle_at_92%_100%,#d8f0dc,transparent_30%),#f8fcf8] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+            <div className="relative overflow-hidden rounded-[2rem] border border-[#c4e4e0] bg-[radial-gradient(circle_at_10%_5%,#e1f5f2,transparent_27%),radial-gradient(circle_at_92%_100%,#d5efec,transparent_30%),#f7fcfb] px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute right-0 top-0 h-48 w-48 translate-x-1/3 -translate-y-1/3 rounded-full border-[22px] border-[#287c30]/10"
+                className="pointer-events-none absolute right-0 top-0 h-48 w-48 translate-x-1/3 -translate-y-1/3 rounded-full border-[22px] border-[#0f6f68]/10"
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute bottom-0 left-0 h-40 w-40 -translate-x-1/3 translate-y-1/3 rounded-full border-[18px] border-[#287c30]/10"
+                className="pointer-events-none absolute bottom-0 left-0 h-40 w-40 -translate-x-1/3 translate-y-1/3 rounded-full border-[18px] border-[#0f6f68]/10"
               />
 
               <div className="relative">
                 <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_auto] lg:items-end">
                   <div className="max-w-2xl">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-[#9ed8a3] bg-white/80 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#23702a] shadow-sm">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-[#8bd4cd] bg-white/80 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#0b5e59] shadow-sm">
                       <ShieldCheck aria-hidden="true" className="h-4 w-4" />
                       Procurement confidence
                     </span>
-                    <h2 className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-[#173b1d] sm:text-3xl">
+                    <h2 className="mt-4 text-2xl font-semibold tracking-[-0.035em] text-[#123f3c] sm:text-3xl">
                       Built for clinical procurement
                     </h2>
-                    <p className="mt-3 max-w-xl text-base leading-7 text-[#556b57]">
+                    <p className="mt-3 max-w-xl text-base leading-7 text-[#55716e]">
                       Source essential supplies with the information your purchase team needs: specification clarity, live availability, compliant billing, and dependable order support.
                     </p>
                   </div>
@@ -191,7 +191,7 @@ export async function HomePage() {
                 <div className="mt-8 grid gap-4 lg:grid-cols-3">
                   {[
                     {
-                      accent: "bg-[#eaf7eb] text-[#23702a]",
+                      accent: "bg-[#e5f5f3] text-[#0b5e59]",
                       body: "Start with the clinical need, then narrow the catalog by department, procedure, brand, or product type.",
                       details: ["Department-led discovery", "Procedure and brand filters"],
                       icon: Layers3,
@@ -219,23 +219,23 @@ export async function HomePage() {
 
                     return (
                       <article
-                        className="group relative overflow-hidden rounded-2xl border border-white/90 bg-white/90 p-5 shadow-sm shadow-[#173b1d]/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#287c30]/10 sm:p-6"
+                        className="group relative overflow-hidden rounded-2xl border border-white/90 bg-white/90 p-5 shadow-sm shadow-[#123f3c]/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#0f6f68]/10 sm:p-6"
                         key={item.title}
                       >
-                        <span className="absolute right-5 top-5 text-xs font-black tracking-[0.16em] text-[#173b1d]/25">
+                        <span className="absolute right-5 top-5 text-xs font-black tracking-[0.16em] text-[#123f3c]/25">
                           {item.number}
                         </span>
                         <span className={`grid h-12 w-12 place-items-center rounded-2xl ${item.accent}`}>
                           <Icon aria-hidden="true" className="h-6 w-6" />
                         </span>
-                        <h3 className="mt-5 pr-10 text-xl font-semibold tracking-[-0.02em] text-[#173b1d]">
+                        <h3 className="mt-5 pr-10 text-xl font-semibold tracking-[-0.02em] text-[#123f3c]">
                           {item.title}
                         </h3>
-                        <p className="mt-3 text-sm leading-6 text-[#556b57]">{item.body}</p>
-                        <ul className="mt-5 grid gap-2 border-t border-[#e0eee2] pt-4 text-xs font-semibold text-[#426a48]">
+                        <p className="mt-3 text-sm leading-6 text-[#55716e]">{item.body}</p>
+                        <ul className="mt-5 grid gap-2 border-t border-[#dceeea] pt-4 text-xs font-semibold text-[#42706b]">
                           {item.details.map((detail) => (
                             <li className="flex items-center gap-2" key={detail}>
-                              <BadgeCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-[#287c30]" />
+                              <BadgeCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-[#0f6f68]" />
                               {detail}
                             </li>
                           ))}
@@ -280,7 +280,7 @@ export async function HomePage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                 {previewBrands.map((brand) => (
                   <a
-                    className="grid min-h-32 content-center justify-items-center gap-3 rounded-lg border border-[#cfe9d2] bg-white px-4 py-5 text-center shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
+                    className="grid min-h-32 content-center justify-items-center gap-3 rounded-lg border border-[#c4e4e0] bg-white px-4 py-5 text-center shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10"
                     href={`/brands/${brand.slug}`}
                     key={brand.id}
                   >
@@ -297,11 +297,11 @@ export async function HomePage() {
                         />
                       </span>
                     ) : (
-                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#eaf7eb] text-sm font-semibold text-[#287c30]">
+                      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#e5f5f3] text-sm font-semibold text-[#0f6f68]">
                         {brand.name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
-                    <h3 className="text-sm font-semibold leading-5 text-[#173b1d]">
+                    <h3 className="text-sm font-semibold leading-5 text-[#123f3c]">
                       {brand.name}
                     </h3>
                   </a>
@@ -309,7 +309,7 @@ export async function HomePage() {
               </div>
             ) : null}
             {brands && previewBrands.length > 0 ? (
-              <p className="mt-5 text-sm font-semibold text-[#556b57]">
+              <p className="mt-5 text-sm font-semibold text-[#55716e]">
                 Showing {Math.min(previewBrands.length, getHomeBrandPreviewLimit())}{" "}
                 brand partners on the landing page.
               </p>
@@ -319,7 +319,7 @@ export async function HomePage() {
 
         <section className={homeSectionClassName} id="bulk">
           <Container>
-            <div className="grid overflow-hidden rounded-[2rem] border border-[#1e6e27] bg-[#237b2c] text-white shadow-xl shadow-[#287c30]/15 lg:grid-cols-[0.88fr_1.12fr]">
+            <div className="grid overflow-hidden rounded-[2rem] border border-[#0d625d] bg-[#14776f] text-white shadow-xl shadow-[#0f6f68]/15 lg:grid-cols-[0.88fr_1.12fr]">
               <div className="relative min-h-[24rem] overflow-hidden sm:min-h-[29rem]">
                 <Image
                   alt="Organized hospital supplies prepared for a bulk procurement order"
@@ -328,7 +328,7 @@ export async function HomePage() {
                   sizes="(min-width: 1024px) 38vw, 100vw"
                   src="/images/bulk-procurement-quote.png"
                 />
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,64,24,0.12),rgba(10,56,18,0.9)_82%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,59,56,0.16),rgba(5,52,49,0.92)_82%)]" />
                 <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
                     <PackageCheck aria-hidden="true" className="h-4 w-4" />
@@ -352,8 +352,8 @@ export async function HomePage() {
                   </div>
                 </div>
               </div>
-              <div className="bg-[#237b2c] p-6 sm:p-8 lg:p-10">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#c7eacb]">
+              <div className="bg-[#14776f] p-6 sm:p-8 lg:p-10">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#b8e3de]">
                   Request a tailored quote
                 </p>
                 <h3 className="mt-3 text-2xl font-semibold leading-tight sm:text-3xl">
@@ -410,11 +410,11 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
       <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-4">
         {categories.map((category) => (
           <article
-            className="group grid min-h-56 overflow-hidden rounded-lg border border-[#cfe9d2] bg-white shadow-sm shadow-[#287c30]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#287c30] hover:shadow-lg hover:shadow-[#287c30]/10"
+            className="group grid min-h-56 overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10"
             key={category.id}
           >
             <a
-              className="relative block h-24 overflow-hidden bg-[#eaf7eb]"
+              className="relative block h-24 overflow-hidden bg-[#e5f5f3]"
               href={category.href}
             >
               {category.imageUrl ? (
@@ -427,24 +427,24 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
                   unoptimized={category.imageUrl.startsWith("http://localhost")}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#eaf7eb,#ffffff)] text-3xl font-semibold text-[#287c30]">
+                <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#e5f5f3,#ffffff)] text-3xl font-semibold text-[#0f6f68]">
                   {category.label.slice(0, 1)}
                 </div>
               )}
             </a>
             <div className="grid content-between gap-3 p-4">
               <div>
-                <h3 className="text-base font-semibold leading-6 text-[#173b1d]">
+                <h3 className="text-base font-semibold leading-6 text-[#123f3c]">
                   <a href={category.href}>{category.label}</a>
                 </h3>
                 {category.description ? (
-                  <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#556b57]">
+                  <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#55716e]">
                     {category.description}
                   </p>
                 ) : null}
               </div>
               <Button
-                className="w-full whitespace-nowrap !min-h-10 !px-3 text-xs shadow-md shadow-[#287c30]/15 ring-1 ring-[#287c30]/15"
+                className="w-full whitespace-nowrap !min-h-10 !px-3 text-xs shadow-md shadow-[#0f6f68]/15 ring-1 ring-[#0f6f68]/15"
                 href={category.href}
               >
                 Open Catalog
@@ -453,7 +453,7 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
           </article>
         ))}
       </div>
-      <aside className="group relative min-h-80 overflow-hidden rounded-[1.5rem] bg-[#eaf7eb] shadow-lg shadow-[#287c30]/10 lg:col-span-4">
+      <aside className="group relative min-h-80 overflow-hidden rounded-[1.5rem] bg-[#e5f5f3] shadow-lg shadow-[#0f6f68]/10 lg:col-span-4">
         <Image
           alt="A selection of surgical and medical procurement supplies"
           className="object-cover transition duration-500 group-hover:scale-105"
@@ -461,7 +461,7 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
           sizes="(min-width: 1024px) 42vw, 100vw"
           src="/images/category-procurement-fallback.png"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,47,18,0.04),rgba(13,47,18,0.78))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,59,56,0.08),rgba(7,59,56,0.82))]" />
         <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-white/75">
             Complete catalog
@@ -469,7 +469,7 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
           <h3 className="mt-2 max-w-sm text-2xl font-semibold leading-tight sm:text-3xl">
             Supplies for every clinical department
           </h3>
-          <Button className="mt-5 !bg-white !text-[#173b1d]" href="/products">
+          <Button className="mt-5 !bg-white !text-[#123f3c]" href="/products">
             Browse all products
           </Button>
         </div>
@@ -486,13 +486,13 @@ function FeaturedCategorySection({
   products?: ProductList;
 }) {
   return (
-    <section className="border-t border-[#cfe9d2] pt-8">
+    <section className="border-t border-[#c4e4e0] pt-8">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold leading-7 text-[#173b1d] sm:text-2xl">
+          <h3 className="text-xl font-semibold leading-7 text-[#123f3c] sm:text-2xl">
             {category.label}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-[#556b57]">
+          <p className="mt-2 text-sm leading-6 text-[#55716e]">
             {products
               ? `${products.pagination.total} catalog items available in this category.`
               : "Category products are unavailable right now."}

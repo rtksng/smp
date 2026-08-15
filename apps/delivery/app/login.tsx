@@ -20,6 +20,10 @@ import {
   useAppFeedback
 } from "../components/ui/feedback";
 import {
+  formatIndianMobileInput,
+  INDIA_MOBILE_PREFIX,
+  INDIAN_MOBILE_NUMBER_LENGTH,
+  normalizeMobileNumber,
   validateLoginForm,
   validateRegistrationForm
 } from "../lib/delivery/forms";
@@ -38,7 +42,6 @@ type RegistrationErrors = Partial<{
   mobileNumber: string;
 }>;
 
-const INDIA_MOBILE_PREFIX = "+91 ";
 const KEYBOARD_ACCESSORY_ID = "delivery-login-keyboard";
 
 export default function LoginScreen() {
@@ -62,6 +65,7 @@ export default function LoginScreen() {
   const vehicleRef = useRef<TextInput>(null);
   const mobileRef = useRef<TextInput>(null);
   const otpRef = useRef<TextInput>(null);
+  const isMobileNumberComplete = Boolean(normalizeMobileNumber(mobileNumber));
 
   useEffect(() => {
     if (resendIn <= 0) {
@@ -106,7 +110,7 @@ export default function LoginScreen() {
     setFormMessage(null);
     try {
       const otpRequest = await requestOtp(validation.values.mobileNumber);
-      setMobileNumber(formatMobileInput(validation.values.mobileNumber));
+      setMobileNumber(formatIndianMobileInput(validation.values.mobileNumber));
       setDevOtp(otpRequest.devOtp ?? null);
       setOtp("");
       setOtpRequested(true);
@@ -313,8 +317,11 @@ export default function LoginScreen() {
                   inputAccessoryViewID={KEYBOARD_ACCESSORY_ID}
                   keyboardType="phone-pad"
                   label="Mobile number"
+                  maxLength={
+                    INDIA_MOBILE_PREFIX.length + INDIAN_MOBILE_NUMBER_LENGTH
+                  }
                   onChangeText={(value) =>
-                    setMobileNumber(formatMobileInput(value))
+                    setMobileNumber(formatIndianMobileInput(value))
                   }
                   onSubmitEditing={() => {
                     if (mode === "register") {
@@ -418,6 +425,7 @@ export default function LoginScreen() {
                   </>
                 ) : (
                   <ActionButton
+                    disabled={!isMobileNumberComplete}
                     icon="keypad-outline"
                     label="Send OTP"
                     loading={loading}
@@ -450,13 +458,6 @@ export default function LoginScreen() {
       <KeyboardAccessory nativeID={KEYBOARD_ACCESSORY_ID} />
     </Screen>
   );
-}
-
-function formatMobileInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-  const localNumber = digits.startsWith("91") ? digits.slice(2) : digits;
-
-  return `${INDIA_MOBILE_PREFIX}${localNumber.slice(0, 10)}`;
 }
 
 function SegmentButton({
@@ -492,7 +493,7 @@ function SegmentButton({
 
 const styles = StyleSheet.create({
   brand: {
-    color: "#287C30",
+    color: "#0F6F68",
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
@@ -510,24 +511,24 @@ const styles = StyleSheet.create({
   },
   devOtpCard: {
     alignItems: "flex-start",
-    backgroundColor: "#EAF7EB",
-    borderColor: "#A9DDAE",
+    backgroundColor: "#E5F5F3",
+    borderColor: "#9FD7D1",
     borderRadius: 12,
     borderWidth: 1,
     gap: 8,
     marginTop: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12
+    paddingHorizontal: 16,
+    paddingVertical: 16
   },
   devOtpLabel: {
-    color: "#287C30",
+    color: "#0F6F68",
     fontFamily: fonts.bodySemiBold,
     fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase"
   },
   devOtpValue: {
-    color: "#287C30",
+    color: "#0F6F68",
     fontFamily: fonts.headingBold,
     fontSize: 24,
     fontVariant: ["tabular-nums"],
@@ -535,7 +536,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2
   },
   devOtpMissingText: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   helperText: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
@@ -567,8 +568,8 @@ const styles = StyleSheet.create({
     borderColor: "#FCA5A5",
     borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10
+    paddingHorizontal: 14,
+    paddingVertical: 12
   },
   messageText: {
     color: "#991B1B",
@@ -582,23 +583,23 @@ const styles = StyleSheet.create({
     gap: 8
   },
   otpStatusCard: {
-    backgroundColor: "#F8FBFA",
-    borderColor: "#CFE9D2",
+    backgroundColor: "#F7FCFB",
+    borderColor: "#C4E4E0",
     borderRadius: 8,
     borderWidth: 1,
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 8
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12
   },
   otpStatusLabel: {
-    color: "#687773",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase"
   },
   otpStatusMobile: {
-    color: "#17211F",
+    color: "#123432",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700"
@@ -610,8 +611,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24
   },
   segment: {
-    backgroundColor: "#EEF2F7",
-    borderColor: "#CBD5E1",
+    backgroundColor: "#EEF6F5",
+    borderColor: "#C4E4E0",
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
@@ -625,21 +626,21 @@ const styles = StyleSheet.create({
     minHeight: 42
   },
   segmentButtonActive: {
-    backgroundColor: "#E8F5EC",
-    borderColor: "#287C30",
+    backgroundColor: "#E5F5F3",
+    borderColor: "#0F6F68",
     borderWidth: 1
   },
   segmentLabel: {
-    color: "#475569",
+    color: "#607A77",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "800"
   },
   segmentLabelActive: {
-    color: "#166534"
+    color: "#0F6F68"
   },
   subtitle: {
-    color: "#64748B",
+    color: "#55716E",
     fontFamily: fonts.bodySemiBold,
     fontSize: 14,
     fontWeight: "700",
@@ -648,7 +649,7 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   title: {
-    color: "#0F172A",
+    color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 28,
     fontWeight: "900",

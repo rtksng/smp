@@ -88,22 +88,22 @@ export function Header() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-[#cfe9d2] bg-white/92 backdrop-blur">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-[#c4e4e0] bg-white/92 backdrop-blur">
       <div className="grid w-full max-w-full gap-3 overflow-hidden px-4 py-2 lg:hidden">
         <div className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden">
           <Link className="flex min-w-0 items-center gap-2" href="/">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20">
               <ShieldCheck aria-hidden="true" className="h-4 w-4" />
             </span>
-            <span className="truncate text-sm font-black uppercase tracking-[0.02em] text-[#173b1d]">
+            <span className="truncate text-sm font-black uppercase tracking-[0.02em] text-[#123f3c]">
               {APP_NAMES.customerWeb}
             </span>
           </Link>
           <Link
-            className="inline-flex min-h-8 max-w-[9.5rem] items-center gap-1 rounded-full bg-[#f4fbf5] px-3 text-[10px] font-semibold text-[#173b1d]"
+            className="inline-flex min-h-8 max-w-[9.5rem] items-center gap-1 rounded-full bg-[#f3faf9] px-3 text-[10px] font-semibold text-[#123f3c]"
             href="/products"
           >
-            <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#287c30]" />
+            <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#0f6f68]" />
             <span className="truncate">Delivery at checkout</span>
           </Link>
         </div>
@@ -111,18 +111,18 @@ export function Header() {
         <div className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_2.25rem_2.25rem] items-center gap-2 overflow-hidden">
           <form
             action="/products"
-            className="grid min-h-11 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-full border border-[#287c30] bg-white px-4 shadow-sm shadow-[#287c30]/5"
+            className="grid min-h-11 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center rounded-full border border-[#0f6f68] bg-white px-4 shadow-sm shadow-[#0f6f68]/5"
           >
             <input
               aria-label="Search products, SKU, or brand"
-              className="min-w-0 bg-transparent text-sm font-semibold text-[#173b1d] outline-none placeholder:text-[#556b57]"
+              className="min-w-0 bg-transparent text-sm font-semibold text-[#123f3c] outline-none placeholder:text-[#55716e]"
               name="q"
               placeholder="Search products or SKU"
               type="search"
             />
             <button
               aria-label="Search catalog"
-              className="grid h-8 w-8 place-items-center text-[#173b1d]"
+              className="grid h-8 w-8 place-items-center text-[#123f3c]"
               type="submit"
             >
               <Search aria-hidden="true" className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function Header() {
           {session ? (
             <Link
               aria-label="Open account"
-              className="grid h-10 w-8 place-items-center text-[#111827]"
+              className="grid h-10 w-8 place-items-center text-[#123432]"
               href="/account"
             >
               <UserRound aria-hidden="true" className="h-5 w-5" />
@@ -139,7 +139,7 @@ export function Header() {
           ) : (
             <button
               aria-label="Login or signup"
-              className="grid h-10 w-8 place-items-center text-[#111827]"
+              className="grid h-10 w-8 place-items-center text-[#123432]"
               onClick={() => promptLogin(getCurrentCustomerPath())}
               type="button"
             >
@@ -148,12 +148,12 @@ export function Header() {
           )}
           <Link
             aria-label="Open cart"
-            className="relative grid h-10 w-8 place-items-center text-[#111827]"
+            className="relative grid h-10 w-8 place-items-center text-[#123432]"
             href="/cart"
           >
             <ShoppingCart aria-hidden="true" className="h-5 w-5" />
             {itemCount > 0 ? (
-              <span className="absolute right-0 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#287c30] px-1 text-[9px] font-semibold text-white">
+              <span className="absolute right-0 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#0f6f68] px-1 text-[9px] font-semibold text-white">
                 {itemCount}
               </span>
             ) : null}
@@ -164,11 +164,11 @@ export function Header() {
       <Container className="hidden lg:block">
         <div className="grid min-h-20 grid-cols-[1fr_auto] items-center gap-3 py-3 lg:grid-cols-[auto_auto_minmax(320px,1fr)_auto] lg:gap-4">
           <Link className="flex min-w-0 items-center gap-3 xl:min-w-64" href="/">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#287c30] text-white shadow-sm shadow-[#287c30]/20">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20">
               <ShieldCheck aria-hidden="true" className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[#173b1d] sm:text-base">
+              <span className="block truncate text-sm font-semibold text-[#123f3c] sm:text-base">
                 {APP_NAMES.customerWeb}
               </span>
             </span>
@@ -184,7 +184,7 @@ export function Header() {
             <Button aria-label="Open cart" href="/cart" variant="outline">
               <ShoppingCart aria-hidden="true" className="h-4 w-4" />
               Cart
-              <span className="rounded-full bg-[#eaf7eb] px-2 py-0.5 text-xs text-[#287c30]">
+              <span className="rounded-full bg-[#e5f5f3] px-2 py-0.5 text-xs text-[#0f6f68]">
                 {itemCount}
               </span>
             </Button>
@@ -207,7 +207,7 @@ export function Header() {
           <button
             aria-expanded={menuOpen}
             aria-label="Toggle mobile navigation"
-            className="ml-auto grid h-11 w-11 place-items-center rounded-full border border-[#cfe9d2] bg-white text-[#173b1d] shadow-sm shadow-[#287c30]/5 lg:hidden"
+            className="ml-auto grid h-11 w-11 place-items-center rounded-full border border-[#c4e4e0] bg-white text-[#123f3c] shadow-sm shadow-[#0f6f68]/5 lg:hidden"
             onClick={() => setMenuOpen((value) => !value)}
             type="button"
           >
@@ -234,24 +234,24 @@ export function Header() {
             className={mobileDrawerPanelClassName}
             role="dialog"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[#cfe9d2] pb-4">
+            <div className="flex items-center justify-between gap-3 border-b border-[#c4e4e0] pb-4">
               <Link
                 className="flex min-w-0 items-center gap-3"
                 href="/"
                 onClick={() => setMenuOpen(false)}
               >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#287c30] text-white">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0f6f68] text-white">
                   <ShieldCheck aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[#173b1d]">
+                  <span className="block truncate text-sm font-semibold text-[#123f3c]">
                     {APP_NAMES.customerWeb}
                   </span>
                 </span>
               </Link>
               <button
                 aria-label="Close menu"
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#cfe9d2] bg-white text-[#173b1d]"
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#c4e4e0] bg-white text-[#123f3c]"
                 onClick={() => setMenuOpen(false)}
                 type="button"
               >
@@ -268,7 +268,7 @@ export function Header() {
             </div>
 
             <nav
-              className="mt-5 grid gap-2 text-sm font-semibold text-[#173b1d]"
+              className="mt-5 grid gap-2 text-sm font-semibold text-[#123f3c]"
               aria-label="Mobile navigation links"
             >
               {mobileNavItems.map((item) => (
@@ -287,13 +287,13 @@ export function Header() {
                 onClick={() => setMenuOpen(false)}
               >
                 <span>Cart</span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#287c30]">
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#0f6f68]">
                   {itemCount}
                 </span>
               </Link>
             </nav>
 
-            <div className="mt-5 grid gap-2 border-t border-[#cfe9d2] pt-4 text-sm font-semibold">
+            <div className="mt-5 grid gap-2 border-t border-[#c4e4e0] pt-4 text-sm font-semibold">
               {session ? (
                 <Link
                   className={mobileNavLinkClassName}
@@ -362,7 +362,7 @@ function CategoryMenu({
       <button
         aria-expanded={categoriesOpen}
         aria-haspopup="menu"
-        className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#cfe9d2] bg-[#f4fbf5] px-4 text-sm font-semibold text-[#287c30] transition duration-200 hover:border-[#287c30] hover:bg-[#eaf7eb]"
+        className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-full border border-[#c4e4e0] bg-[#f3faf9] px-4 text-sm font-semibold text-[#0f6f68] transition duration-200 hover:border-[#0f6f68] hover:bg-[#e5f5f3]"
         type="button"
       >
         <Grid2X2 aria-hidden="true" className="h-4 w-4" />
@@ -376,10 +376,10 @@ function CategoryMenu({
       </button>
       {categoriesOpen ? (
         <div className="absolute left-0 top-full z-50 w-[min(78vw,900px)] pt-2">
-          <div className="overflow-hidden rounded-[1.25rem] border border-[#cfe9d2] bg-white shadow-2xl shadow-[#287c30]/10">
+          <div className="overflow-hidden rounded-[1.25rem] border border-[#c4e4e0] bg-white shadow-2xl shadow-[#0f6f68]/10">
             <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[240px_1fr]">
-              <div className="grid max-h-[72vh] grid-rows-[auto_minmax(0,1fr)] border-r border-[#cfe9d2] bg-[#f4fbf5] p-3">
-                <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#287c30]">
+              <div className="grid max-h-[72vh] grid-rows-[auto_minmax(0,1fr)] border-r border-[#c4e4e0] bg-[#f3faf9] p-3">
+                <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#0f6f68]">
                   Departments
                 </p>
                 <div
@@ -390,8 +390,8 @@ function CategoryMenu({
                     <Link
                       className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
                         activeCategory?.id === category.id
-                          ? "bg-white text-[#287c30]"
-                          : "text-[#173b1d] hover:bg-white hover:text-[#287c30]"
+                          ? "bg-white text-[#0f6f68]"
+                          : "text-[#123f3c] hover:bg-white hover:text-[#0f6f68]"
                       }`}
                       href={category.href}
                       key={category.id}
@@ -406,35 +406,35 @@ function CategoryMenu({
               </div>
               <div className="grid gap-4 p-4">
                 {activeCategory === null ? (
-                  <div className="flex min-h-36 items-center justify-center rounded-[1rem] border border-dashed border-[#cfe9d2] bg-[#f4fbf5] p-5 text-center">
+                  <div className="flex min-h-36 items-center justify-center rounded-[1rem] border border-dashed border-[#c4e4e0] bg-[#f3faf9] p-5 text-center">
                     <div>
                       <PackageSearch
                         aria-hidden="true"
-                        className="mx-auto h-8 w-8 text-[#287c30]"
+                        className="mx-auto h-8 w-8 text-[#0f6f68]"
                       />
-                      <p className="mt-3 text-sm font-semibold text-[#173b1d]">
+                      <p className="mt-3 text-sm font-semibold text-[#123f3c]">
                         Category navigation loads from the catalog API.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <section className="grid min-h-56 content-start gap-4 rounded-[1rem] border border-[#cfe9d2] bg-white p-5 shadow-sm shadow-[#287c30]/5">
+                  <section className="grid min-h-56 content-start gap-4 rounded-[1rem] border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase text-[#287c30]">
+                        <p className="text-xs font-semibold uppercase text-[#0f6f68]">
                           Subcategories
                         </p>
-                        <h3 className="mt-1 text-lg font-black text-[#173b1d]">
+                        <h3 className="mt-1 text-lg font-black text-[#123f3c]">
                           {activeCategory.label}
                         </h3>
                         {activeCategory.description ? (
-                          <p className="mt-1 max-w-xl text-sm text-[#556b57]">
+                          <p className="mt-1 max-w-xl text-sm text-[#55716e]">
                             {activeCategory.description}
                           </p>
                         ) : null}
                       </div>
                       <Link
-                        className="rounded-full border border-[#cfe9d2] px-4 py-2 text-sm font-semibold text-[#287c30] transition hover:border-[#287c30] hover:bg-[#f4fbf5]"
+                        className="rounded-full border border-[#c4e4e0] px-4 py-2 text-sm font-semibold text-[#0f6f68] transition hover:border-[#0f6f68] hover:bg-[#f3faf9]"
                         href={activeCategory.href}
                         onClick={() => setCategoriesOpen(false)}
                       >
@@ -445,7 +445,7 @@ function CategoryMenu({
                       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                         {activeCategory.children.map((subcategory) => (
                           <Link
-                            className="rounded-[0.9rem] border border-[#e1f2e3] bg-[#f8fcf8] px-4 py-3 text-sm font-semibold text-[#173b1d] transition hover:border-[#a9ddae] hover:bg-[#eef8ef] hover:text-[#287c30]"
+                            className="rounded-[0.9rem] border border-[#dcf1ee] bg-[#f7fcfb] px-4 py-3 text-sm font-semibold text-[#123f3c] transition hover:border-[#9fd7d1] hover:bg-[#ecf8f6] hover:text-[#0f6f68]"
                             href={subcategory.href}
                             key={subcategory.id}
                             onClick={() => setCategoriesOpen(false)}
@@ -455,12 +455,12 @@ function CategoryMenu({
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-[1rem] border border-dashed border-[#cfe9d2] bg-[#f4fbf5] p-5">
-                        <p className="text-sm font-semibold text-[#173b1d]">
+                      <div className="rounded-[1rem] border border-dashed border-[#c4e4e0] bg-[#f3faf9] p-5">
+                        <p className="text-sm font-semibold text-[#123f3c]">
                           No subcategories listed for this department yet.
                         </p>
                         <Link
-                          className="mt-3 inline-flex text-sm font-semibold text-[#287c30] hover:text-[#173b1d]"
+                          className="mt-3 inline-flex text-sm font-semibold text-[#0f6f68] hover:text-[#123f3c]"
                           href={activeCategory.href}
                           onClick={() => setCategoriesOpen(false)}
                         >
@@ -480,4 +480,4 @@ function CategoryMenu({
 }
 
 const mobileNavLinkClassName =
-  "flex min-h-12 items-center justify-between gap-3 rounded-full bg-[#f4fbf5] px-4 py-3 transition hover:bg-[#eaf7eb]";
+  "flex min-h-12 items-center justify-between gap-3 rounded-full bg-[#f3faf9] px-4 py-3 transition hover:bg-[#e5f5f3]";

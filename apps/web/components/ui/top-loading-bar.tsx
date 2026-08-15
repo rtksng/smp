@@ -22,14 +22,14 @@ export function TopLoadingBar({
       <span
         aria-hidden="true"
         className={[
-          "absolute inset-x-0 top-0 h-px bg-[#c7eacb] transition-opacity duration-150",
+          "absolute inset-x-0 top-0 h-px bg-[#b8e3de] transition-opacity duration-150",
           isVisible ? "opacity-100" : "opacity-0"
         ].join(" ")}
       />
       <span
         aria-hidden="true"
         className={[
-          "route-progress-bar absolute left-0 top-0 h-full w-full bg-[linear-gradient(90deg,transparent,#287c30_18%,#287c30_52%,#8edb93_86%,transparent)] shadow-[0_0_18px_rgba(40,124,48,0.7)] transition-opacity duration-150",
+          "route-progress-bar absolute left-0 top-0 h-full w-full bg-[linear-gradient(90deg,transparent,#0f6f68_18%,#0f6f68_52%,#63c9c0_86%,transparent)] shadow-[0_0_18px_rgba(15,111,104,0.7)] transition-opacity duration-150",
           isVisible ? "opacity-100" : "opacity-0"
         ].join(" ")}
       />

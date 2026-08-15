@@ -29,7 +29,7 @@
       "package": "com.surgical.delivery",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#287c30"
+        "backgroundColor": "#0F6F68"
       },
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -71,7 +71,7 @@
       [
         "expo-notifications",
         {
-          "color": "#287c30"
+          "color": "#0F6F68"
         }
       ]
     ],

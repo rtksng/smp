@@ -34,7 +34,7 @@ export function MobileBottomNavigation({ categories }: MobileBottomNavigationPro
     <>
       <nav
         aria-label="Mobile bottom navigation"
-        className="fixed inset-x-0 bottom-0 z-40 grid max-w-full grid-cols-4 overflow-hidden rounded-t-[1.25rem] border border-[#cfe9d2] bg-white px-3 py-1.5 shadow-[0_-10px_25px_rgba(40,124,48,0.12)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid max-w-full grid-cols-4 overflow-hidden rounded-t-[1.25rem] border border-[#c4e4e0] bg-white px-3 py-1.5 shadow-[0_-10px_25px_rgba(15,111,104,0.12)] md:hidden"
       >
         <BottomNavLink Icon={Home} href="/" label="Home" />
         <BottomNavAction
@@ -75,7 +75,7 @@ function BottomNavLink({
 }) {
   return (
     <Link
-      className="grid justify-items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-[#173b1d]"
+      className="grid justify-items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-[#123f3c]"
       href={href}
     >
       <BottomNavIcon Icon={Icon} />
@@ -100,7 +100,7 @@ function BottomNavAction({
   return (
     <a
       aria-label={`Open ${label.toLowerCase()}`}
-      className="relative z-10 grid min-h-14 w-full touch-manipulation justify-items-center gap-0.5 rounded-full bg-transparent px-1.5 py-0.5 text-[10px] font-semibold text-[#173b1d]"
+      className="relative z-10 grid min-h-14 w-full touch-manipulation justify-items-center gap-0.5 rounded-full bg-transparent px-1.5 py-0.5 text-[10px] font-semibold text-[#123f3c]"
       href={fallbackHref}
       onClick={(event) => {
         event.preventDefault();
@@ -124,7 +124,7 @@ function BottomNavIcon({
     <span
       className={[
         "grid h-9 w-9 place-items-center rounded-full",
-        isActive ? "bg-[#287c30] text-white" : "text-[#173b1d]"
+        isActive ? "bg-[#0f6f68] text-white" : "text-[#123f3c]"
       ].join(" ")}
     >
       <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
@@ -144,7 +144,7 @@ function CategorySheet({
       <div className="grid max-h-[62vh] gap-2 overflow-y-auto px-4 pb-5">
         {categories.map((category) => (
           <Link
-            className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[#cfe9d2] bg-[#f8fcf8] px-4 text-sm font-semibold text-[#173b1d]"
+            className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-[#c4e4e0] bg-[#f7fcfb] px-4 text-sm font-semibold text-[#123f3c]"
             href={category.href}
             key={category.id}
           >
@@ -171,9 +171,9 @@ function SearchSheet({
       onClose={onClose}
     >
       <form action="/products" className="grid gap-5 px-4 pb-6">
-        <label className="grid gap-2 text-sm font-semibold text-[#173b1d]">
+        <label className="grid gap-2 text-sm font-semibold text-[#123f3c]">
           Search products or SKU
-          <span className="grid min-h-12 grid-cols-[1fr_auto] items-center rounded-full border border-[#287c30] bg-white px-4">
+          <span className="grid min-h-12 grid-cols-[1fr_auto] items-center rounded-full border border-[#0f6f68] bg-white px-4">
             <input
               autoFocus
               className="min-w-0 bg-transparent text-sm font-semibold outline-none"
@@ -183,7 +183,7 @@ function SearchSheet({
             />
             <button
               aria-label="Search catalog"
-              className="grid h-9 w-9 place-items-center text-[#173b1d]"
+              className="grid h-9 w-9 place-items-center text-[#123f3c]"
               type="submit"
             >
               <Search aria-hidden="true" className="h-4 w-4" />
@@ -192,13 +192,13 @@ function SearchSheet({
         </label>
         {categories.length > 0 ? (
           <div className="grid gap-2">
-            <p className="text-xs font-semibold uppercase text-[#556b57]">
+            <p className="text-xs font-semibold uppercase text-[#55716e]">
               Browse categories
             </p>
             <div className="flex flex-wrap gap-2">
               {categories.slice(0, 6).map((category) => (
                 <Link
-                  className="rounded-full border border-[#cfe9d2] bg-[#f8fcf8] px-3 py-2 text-xs font-semibold text-[#173b1d]"
+                  className="rounded-full border border-[#c4e4e0] bg-[#f7fcfb] px-3 py-2 text-xs font-semibold text-[#123f3c]"
                   href={category.href}
                   key={category.id}
                 >
@@ -246,10 +246,10 @@ function MobileSheet({
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3 px-4 py-4">
-          <h2 className="text-xl font-black text-[#111827]">{label}</h2>
+          <h2 className="text-xl font-black text-[#123432]">{label}</h2>
           <button
             aria-label="Close"
-            className="grid h-10 w-10 place-items-center rounded-full border border-[#cfe9d2] text-[#173b1d]"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[#c4e4e0] text-[#123f3c]"
             onClick={onClose}
             type="button"
           >
