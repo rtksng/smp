@@ -301,7 +301,7 @@ export const productFormSchema = z
     sterile: z.boolean(),
     subcategoryId: z.string().trim(),
     taxRate: amountString("Tax rate"),
-    unit: requiredText("Unit", 40),
+    unit: optionalText("Unit", 40),
     variants: z.array(productVariantFormSchema).max(50, "Add no more than 50 variants.")
   })
   .superRefine((value, context) => {
@@ -433,7 +433,7 @@ export function createEmptyProductFormValues(): ProductFormValues {
     sterile: false,
     subcategoryId: "",
     taxRate: "0",
-    unit: "piece",
+    unit: "",
     variants: []
   };
 }

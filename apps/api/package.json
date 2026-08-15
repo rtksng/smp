@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate --schema ./prisma/schema.prisma",
     "prisma:validate": "prisma validate --schema ./prisma/schema.prisma",
     "seed": "tsx prisma/seed.ts",
+    "catalog:reset:sheet": "tsx scripts/reset-import-google-sheet-catalog.ts",
     "seed:aws:fresh-catalog": "tsx scripts/seed-aws-fresh-catalog.ts"
   },
   "dependencies": {

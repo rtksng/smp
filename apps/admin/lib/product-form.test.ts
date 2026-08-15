@@ -156,6 +156,15 @@ describe("product form helpers", () => {
     );
   });
 
+  it("allows unit to remain blank", () => {
+    const parsed = productFormSchema.parse({
+      ...validFormValues(),
+      unit: ""
+    });
+
+    expect(buildProductPayload(parsed).unit).toBe("");
+  });
+
   it("hydrates edit form values from an admin product", () => {
     const product: AdminProduct = {
       basePrice: 200,
@@ -308,8 +317,9 @@ describe("product form helpers", () => {
       }
     ];
 
-    expect(getSubcategoriesForCategory(categories, "dental").map((item) => item.slug))
-      .toEqual(["endodontics", "orthodontics"]);
+    expect(
+      getSubcategoriesForCategory(categories, "dental").map((item) => item.slug)
+    ).toEqual(["endodontics", "orthodontics"]);
     expect(getSubcategoriesForCategory(categories, "vaccines")).toEqual([]);
   });
 });
