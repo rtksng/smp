@@ -376,9 +376,12 @@ function CategoryMenu({
       </button>
       {categoriesOpen ? (
         <div className="absolute left-0 top-full z-50 w-[min(78vw,900px)] pt-2">
-          <div className="overflow-hidden rounded-[1.25rem] border border-[#c4e4e0] bg-white shadow-2xl shadow-[#0f6f68]/10">
-            <div className="grid max-h-[72vh] overflow-y-auto lg:grid-cols-[240px_1fr]">
-              <div className="grid max-h-[72vh] grid-rows-[auto_minmax(0,1fr)] border-r border-[#c4e4e0] bg-[#f3faf9] p-3">
+          <div
+            className="h-[min(72vh,40rem)] overflow-hidden rounded-[1.25rem] border border-[#c4e4e0] bg-white shadow-2xl shadow-[#0f6f68]/10"
+            data-testid="desktop-category-panel"
+          >
+            <div className="grid h-full min-h-0 lg:grid-cols-[240px_1fr]">
+              <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] border-r border-[#c4e4e0] bg-[#f3faf9] p-3">
                 <p className="mb-2 px-2 text-xs font-semibold uppercase text-[#0f6f68]">
                   Departments
                 </p>
@@ -404,7 +407,10 @@ function CategoryMenu({
                   ))}
                 </div>
               </div>
-              <div className="grid gap-4 p-4">
+              <div
+                className="min-h-0 overflow-y-auto p-4"
+                data-testid="desktop-subcategory-panel"
+              >
                 {activeCategory === null ? (
                   <div className="flex min-h-36 items-center justify-center rounded-[1rem] border border-dashed border-[#c4e4e0] bg-[#f3faf9] p-5 text-center">
                     <div>
@@ -418,7 +424,7 @@ function CategoryMenu({
                     </div>
                   </div>
                 ) : (
-                  <section className="grid min-h-56 content-start gap-4 rounded-[1rem] border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5">
+                  <section className="grid min-h-full content-start gap-4 rounded-[1rem] border border-[#c4e4e0] bg-white p-5 shadow-sm shadow-[#0f6f68]/5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold uppercase text-[#0f6f68]">

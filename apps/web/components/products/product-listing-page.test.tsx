@@ -273,7 +273,7 @@ describe("ProductListingPage", () => {
     expect(screen.getByText("Active filters")).toHaveClass("text-[10px]");
   });
 
-  it("shows category navigation without redundant desktop hero actions", () => {
+  it("omits subcategory shortcut navigation from category routes", () => {
     pathname = "/categories/dental";
 
     renderListing({
@@ -287,10 +287,6 @@ describe("ProductListingPage", () => {
     });
 
     const hero = screen.getByTestId("catalog-hero");
-    const subcategoryNav = screen.getByRole("navigation", {
-      name: "Dental subcategories"
-    });
-
     expect(hero).toHaveClass("grid", "gap-5");
     expect(screen.queryByRole("link", { name: "In-stock only" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Reset filters" })).not.toBeInTheDocument();
@@ -301,11 +297,15 @@ describe("ProductListingPage", () => {
       "href",
       "/products"
     );
-    expect(subcategoryNav).toHaveClass("lg:max-w-[68rem]");
-    expect(subcategoryNav).not.toHaveClass("mt-6");
+    expect(
+      screen.queryByRole("navigation", { name: "Dental subcategories" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "All Dental" })
+    ).not.toBeInTheDocument();
   });
 
-  it("locks subcategory routes while preserving category navigation", () => {
+  it("locks subcategory routes without rendering shortcut navigation", () => {
     pathname = "/categories/dental/endodontics";
 
     renderListing({
@@ -327,27 +327,13 @@ describe("ProductListingPage", () => {
 
     expect(screen.getByRole("heading", { name: "Endodontics products" }))
       .toBeInTheDocument();
-    expect(screen.getAllByText("Endodontics").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByRole("link", { name: "All Dental" })).toHaveAttribute(
-      "href",
-      "/categories/dental"
-    );
-    const subcategoryNav = screen.getByRole("navigation", {
-      name: "Dental subcategories"
-    });
-    const subcategoryRail = subcategoryNav.firstElementChild;
-
-    expect(subcategoryNav).toHaveClass("max-w-full", "overflow-hidden");
-    expect(subcategoryRail).toHaveClass(
-      "flex-nowrap",
-      "overflow-x-auto",
-      "sm:flex-wrap",
-      "[scrollbar-width:none]"
-    );
-    expect(screen.getByRole("link", { name: "All Dental" })).toHaveClass(
-      "shrink-0",
-      "whitespace-nowrap"
-    );
+    expect(screen.getAllByText("Endodontics")).toHaveLength(1);
+    expect(
+      screen.queryByRole("navigation", { name: "Dental subcategories" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "All Dental" })
+    ).not.toBeInTheDocument();
   });
 
   it("updates subcategory choices when the category filter changes", async () => {

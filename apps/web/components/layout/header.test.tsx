@@ -81,7 +81,15 @@ describe("Header", () => {
     fireEvent.mouseEnter(menu);
 
     expect(await screen.findByText("Departments")).toBeInTheDocument();
+    expect(screen.getByTestId("desktop-category-panel")).toHaveClass(
+      "h-[min(72vh,40rem)]",
+      "overflow-hidden"
+    );
     expect(screen.getByTestId("desktop-department-list")).toHaveClass(
+      "overflow-y-auto"
+    );
+    expect(screen.getByTestId("desktop-subcategory-panel")).toHaveClass(
+      "min-h-0",
       "overflow-y-auto"
     );
     expect(

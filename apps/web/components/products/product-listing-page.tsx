@@ -216,14 +216,6 @@ export function ProductListingPage({
                   {pageDescription}
                 </p>
               </div>
-              {(context.type === "category" || context.type === "subcategory") &&
-              categoryQuery.data ? (
-                <SubcategoryNav
-                  category={categoryQuery.data}
-                  filters={filters}
-                  lockedFilters={lockedFilters}
-                />
-              ) : null}
               {categoryQuery.isError ? (
                 <div className="lg:col-span-2">
                   <ErrorState
@@ -769,71 +761,6 @@ function ClearFiltersLink({
       <RotateCcw aria-hidden="true" className="h-4 w-4" />
       Clear
     </a>
-  );
-}
-
-function SubcategoryNav({
-  category,
-  filters,
-  lockedFilters
-}: {
-  category: Category;
-  filters: ProductFilters;
-  lockedFilters: ProductFilterOverrides;
-}) {
-  if (category.children.length === 0) {
-    return null;
-  }
-
-  return (
-    <nav
-      className="max-w-full overflow-hidden lg:max-w-[68rem] mb-4"
-      aria-label={`${category.name} subcategories`}
-    >
-      <div className="flex max-w-full flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
-        <a
-          className={[
-            "shrink-0 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] md:text-xs font-semibold transition",
-            filters.subcategory
-              ? "border-[#c4e4e0] bg-white text-[#2b4946] shadow-sm shadow-[#0f6f68]/5"
-              : "border-[#0f6f68] bg-[#e5f5f3] text-[#0f6f68]"
-          ].join(" ")}
-          href={productFiltersToHref(
-            `/categories/${category.slug}`,
-            { ...filters, page: 1, subcategory: undefined },
-            {
-              ...lockedFilters,
-              category: category.slug,
-              subcategory: undefined
-            }
-          )}
-        >
-          All {category.name}
-        </a>
-        {category.children.map((subcategory) => (
-          <a
-            className={[
-              "shrink-0 whitespace-nowrap rounded-full border  px-2 py-1 text-[10px] md:text-xs font-semibold transition",
-              filters.subcategory === subcategory.slug
-                ? "border-[#0f6f68] bg-[#e5f5f3] text-[#0f6f68]"
-                : "border-[#c4e4e0] bg-white text-[#2b4946] shadow-sm shadow-[#0f6f68]/5"
-            ].join(" ")}
-            href={productFiltersToHref(
-              `/categories/${category.slug}/${subcategory.slug}`,
-              { ...filters, page: 1, subcategory: subcategory.slug },
-              {
-                ...lockedFilters,
-                category: category.slug,
-                subcategory: subcategory.slug
-              }
-            )}
-            key={subcategory.id}
-          >
-            {subcategory.name}
-          </a>
-        ))}
-      </div>
-    </nav>
   );
 }
 
