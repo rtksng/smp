@@ -537,7 +537,7 @@ describe("ProductDetailPage", () => {
       .closest("article");
     const relatedGrid = relatedCard?.parentElement;
     const similarGrid = similarCard?.parentElement;
-    const relatedImagePanel = relatedCard?.firstElementChild;
+    const relatedImagePanel = relatedCard?.children[1];
 
     expect(relatedGrid).toHaveClass(
       "grid-cols-2",

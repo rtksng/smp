@@ -180,39 +180,42 @@ describe("ProductListingPage", () => {
     expect(
       screen.getByRole("heading", { name: "SurgiPro Artery Forceps" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
+    expect(screen.getByRole("link", {
+      name: "Open SurgiPro Artery Forceps details"
+    })).toHaveAttribute(
       "href",
       "/products/surgipro-artery-forceps"
     );
     expect(
-      screen.getByRole("link", { name: "View SurgiPro Artery Forceps" })
-    ).toHaveClass("sm:hidden");
+      screen.getAllByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })[0]
+    ).toHaveClass("px-2", "py-0.5", "!text-xs", "!font-medium", "sm:hidden");
     expect(
-      screen.getByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })
-    ).toHaveClass("hidden", "sm:inline-flex");
+      screen.getAllByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })[1]
+    ).toHaveTextContent("Add");
+    expect(screen.queryByRole("link", { name: "View" })).not.toBeInTheDocument();
     expect(screen.queryByText("Hospital price")).not.toBeInTheDocument();
     expect(screen.queryByText("GST invoice ready")).not.toBeInTheDocument();
     expect(screen.queryByText("12% GST")).not.toBeInTheDocument();
   });
 
-  it("places mobile in-stock, filter, and reset controls in one row", () => {
+  it("uses a mobile category rail with filter and reset controls", () => {
     renderListing();
 
     const controls = screen.getByTestId("mobile-catalog-controls");
-    const stockLink = screen.getByRole("link", {
-      name: "Show in-stock products"
-    });
+    const stickyControls = screen.getByTestId("mobile-sticky-catalog-controls");
+    const categoryRail = screen.getByTestId("mobile-main-category-rail");
     const filterButton = screen.getByRole("button", { name: "Open filters" });
-    const resetLink = screen.getByRole("link", {
-      name: "Clear catalog filters"
-    });
 
-    expect(controls).toHaveClass(
-      "grid-cols-[minmax(0,1fr)_2.75rem_2.75rem]"
-    );
-    expect(stockLink).toHaveAttribute("href", "/products?availability=available");
+    expect(stickyControls).toHaveClass("fixed", "inset-x-0", "top-24", "z-30", "pt-2", "lg:hidden");
+    expect(controls).toHaveClass("flex", "min-w-0", "gap-2");
+    expect(categoryRail).toHaveClass("flex-1", "overflow-x-auto", "gap-2");
+    expect(within(categoryRail).getByRole("link", { name: "Consumables" }))
+      .toHaveAttribute("href", "/categories/consumables");
+    expect(screen.queryByRole("link", { name: "Show in-stock products" }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Clear catalog filters" }))
+      .not.toBeInTheDocument();
     expect(filterButton).toHaveClass("h-11", "w-11", "rounded-full");
-    expect(resetLink).toHaveClass("h-11", "w-11", "rounded-full");
     expect(screen.queryByRole("button", { name: "Open sort" }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Filters and sort" }))
@@ -286,13 +289,9 @@ describe("ProductListingPage", () => {
       }
     });
 
-    const hero = screen.getByTestId("catalog-hero");
-    expect(hero).toHaveClass("grid", "gap-5");
+    expect(screen.queryByTestId("catalog-hero")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "In-stock only" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Reset filters" })).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Clear catalog filters" })
-    ).toHaveAttribute("href", "/products");
     expect(screen.getByRole("link", { name: "Clear" })).toHaveAttribute(
       "href",
       "/products"
@@ -325,8 +324,8 @@ describe("ProductListingPage", () => {
       }
     });
 
-    expect(screen.getByRole("heading", { name: "Endodontics products" }))
-      .toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Endodontics products" }))
+      .not.toBeInTheDocument();
     expect(screen.getAllByText("Endodontics")).toHaveLength(1);
     expect(
       screen.queryByRole("navigation", { name: "Dental subcategories" })

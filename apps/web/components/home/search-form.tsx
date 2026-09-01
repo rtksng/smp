@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FocusEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -160,7 +161,7 @@ export function SearchForm({
           data-testid="search-suggestions"
         >
           {visibleSuggestions.map((suggestion) => (
-            <a
+            <Link
               className={
                 compact
                   ? "block rounded-xl px-3 py-2 text-[#0f6f68] transition hover:bg-[#e5f5f3]"
@@ -171,7 +172,7 @@ export function SearchForm({
               onClick={() => handleSuggestionClick(suggestion)}
             >
               {suggestion}
-            </a>
+            </Link>
           ))}
         </div>
       ) : null}

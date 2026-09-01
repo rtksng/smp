@@ -10,6 +10,7 @@ const storageUploadRemotePattern = remotePatternFromUrl(
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   images: {
     remotePatterns: uniqueRemotePatterns([
       {

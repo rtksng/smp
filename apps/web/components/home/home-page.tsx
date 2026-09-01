@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import {
   BadgeCheck,
   ClipboardList,
@@ -279,7 +280,7 @@ export async function HomePage() {
             {brands && previewBrands.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                 {previewBrands.map((brand) => (
-                  <a
+                  <Link
                     className="grid min-h-32 content-center justify-items-center gap-3 rounded-lg border border-[#c4e4e0] bg-white px-4 py-5 text-center shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10"
                     href={`/brands/${brand.slug}`}
                     key={brand.id}
@@ -304,7 +305,7 @@ export async function HomePage() {
                     <h3 className="text-sm font-semibold leading-5 text-[#123f3c]">
                       {brand.name}
                     </h3>
-                  </a>
+                  </Link>
                 ))}
               </div>
             ) : null}
@@ -413,7 +414,7 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
             className="group grid min-h-56 overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10"
             key={category.id}
           >
-            <a
+            <Link
               className="relative block h-24 overflow-hidden bg-[#e5f5f3]"
               href={category.href}
             >
@@ -431,11 +432,11 @@ function LandingCategoryGrid({ categories }: { categories: CategoryNavigationIte
                   {category.label.slice(0, 1)}
                 </div>
               )}
-            </a>
+            </Link>
             <div className="grid content-between gap-3 p-4">
               <div>
                 <h3 className="text-base font-semibold leading-6 text-[#123f3c]">
-                  <a href={category.href}>{category.label}</a>
+                  <Link href={category.href}>{category.label}</Link>
                 </h3>
                 {category.description ? (
                   <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[#55716e]">

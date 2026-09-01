@@ -27,3 +27,7 @@ storage/uploads/
 .vercel
 .codex/
 .worktrees/
+
+# Local generated artifacts and shareable installation packages.
+/outputs/
+/share-apks/

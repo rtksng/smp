@@ -2,6 +2,7 @@
 
 import { Search, SlidersHorizontal } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Brand, ProductList } from "../../lib/api/schemas";
 import {
@@ -82,7 +83,7 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
               key={brand.id}
             >
               <div className="grid gap-4 sm:grid-cols-[160px_minmax(0,1fr)]">
-                <a
+                <Link
                   className="flex min-h-28 items-center justify-center rounded-lg border border-[#c4e4e0] bg-[#f3faf9] p-4"
                   href={`/brands/${brand.slug}`}
                 >
@@ -101,7 +102,7 @@ export function BrandsDirectory({ brandProducts, brands }: BrandsDirectoryProps)
                       {brand.name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
-                </a>
+                </Link>
 
                 <div className="min-w-0">
                   <h2 className="text-xl font-semibold leading-7 text-[#123f3c]">
@@ -158,7 +159,7 @@ function BrandProductPreview({ products }: { products?: ProductList }) {
       </h3>
       <div className="grid gap-2">
         {products.items.slice(0, 4).map((product) => (
-          <a
+          <Link
             className="grid gap-1 rounded-lg border border-[#c4e4e0] bg-[#f7fcfb] px-4 py-3 transition hover:border-[#0f6f68] hover:bg-[#e5f5f3]"
             href={`/products/${product.slug}`}
             key={product.id}
@@ -169,7 +170,7 @@ function BrandProductPreview({ products }: { products?: ProductList }) {
             <span className="text-xs font-semibold text-[#55716e]">
               {product.category.name} - {formatRupees(product.sellingPrice)}
             </span>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

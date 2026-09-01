@@ -144,7 +144,10 @@ describe("AccountWishlist", () => {
       "items-stretch"
     );
     expect(
-      screen.getByRole("link", { name: "View SurgiPro Artery Forceps" })
+      screen.getByRole("link", { name: "Open SurgiPro Artery Forceps details" })
+    ).toHaveAttribute("href", "/products/surgipro-artery-forceps");
+    expect(
+      screen.getAllByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })[0]
     ).toHaveClass("sm:hidden");
     expect(screen.getByRole("button", { name: "Remove" })).toHaveClass(
       "w-full",

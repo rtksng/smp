@@ -37,13 +37,7 @@ export default function BrandsScreen() {
   });
 
   return (
-    <Screen contentContainerStyle={{ gap: 28, paddingTop: 0 }}>
-      <View style={{ backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: 1, gap: 16, marginHorizontal: -16, paddingHorizontal: 16, paddingVertical: 32 }}>
-        <Text style={{ color: colors.text, fontFamily: fonts.heading, fontSize: 30, lineHeight: 38 }}>Browse trusted medical brands</Text>
-        <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 16, lineHeight: 28 }}>Search supplier and manufacturer catalogs, compare brand ranges, and open filtered product listings for faster procurement.</Text>
-        <Button href="/search" style={{ alignSelf: "flex-start" }} variant="outline">Open full catalog</Button>
-      </View>
-
+    <Screen contentContainerStyle={{ gap: 28 }}>
       {brandsQuery.isLoading ? <LoadingState label="Loading brands" /> : null}
       {brandsQuery.isError ? <ErrorState message={getErrorMessage(brandsQuery.error, "Brand catalog data is unavailable right now.")} onRetry={() => brandsQuery.refetch()} title="Unable to load brands" /> : null}
       {brandsQuery.isSuccess && activeBrands.length === 0 ? <EmptyState description="No active customer brands are available yet." title="No brands found" /> : null}

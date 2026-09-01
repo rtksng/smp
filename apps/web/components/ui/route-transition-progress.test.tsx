@@ -67,7 +67,7 @@ describe("RouteTransitionProgress", () => {
     expect(status).toHaveAttribute("data-state", "idle");
   });
 
-  it("starts for history-driven catalog filter and pagination transitions", () => {
+  it("starts for history-driven catalog filter and pagination transitions", async () => {
     const { rerender } = render(<RouteTransitionProgress />);
     const status = screen.getByRole("status", {
       name: "Page transition loading"
@@ -75,6 +75,10 @@ describe("RouteTransitionProgress", () => {
 
     act(() => {
       window.history.pushState(null, "", "/products?page=2");
+    });
+
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(status).toHaveAttribute("data-state", "loading");

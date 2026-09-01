@@ -391,7 +391,7 @@ function CategoryMenu({
                 >
                   {categoryNavigation.map((category) => (
                     <Link
-                      className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                      className={`flex min-h-12 items-center rounded-full px-3 py-2 text-sm font-semibold transition ${
                         activeCategory?.id === category.id
                           ? "bg-white text-[#0f6f68]"
                           : "text-[#123f3c] hover:bg-white hover:text-[#0f6f68]"

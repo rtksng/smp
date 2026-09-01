@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   FlatList,
   Pressable,
+  ScrollView,
   Text,
   View,
   useWindowDimensions
@@ -92,13 +93,13 @@ export function ProductListingScreen({
     }));
   }, [activeBrand, params.category, params.q]);
 
-  function clearFilters() {
-    setFilters({
-      ...defaultCatalogFilters,
-      brand: brandOverride,
-      category: brandOverride ? undefined : params.category
-    });
-  }
+  const mainCategories = useMemo(
+    () =>
+      (categoriesQuery.data ?? [])
+        .filter((category) => category.isActive)
+        .sort((left, right) => left.sortOrder - right.sortOrder),
+    [categoriesQuery.data]
+  );
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
@@ -107,53 +108,77 @@ export function ProductListingScreen({
           backgroundColor: colors.background,
           borderBottomColor: colors.border,
           borderBottomWidth: 1,
-          paddingBottom: 12,
+          paddingBottom: 8,
           paddingHorizontal: 16,
-          paddingTop: 12
+          paddingTop: 8
         }}
       >
         <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
-          <Pressable
-            accessibilityLabel="Show in-stock products"
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: filters.availability }}
-            onPress={() =>
-              setFilters((current) => ({
-                ...current,
-                availability: !current.availability
-              }))
-            }
-            style={({ pressed }) => ({
-              alignItems: "center",
-              backgroundColor: colors.primaryDark,
-              borderRadius: 999,
-              flex: 1,
-              justifyContent: "center",
-              minHeight: 44,
-              opacity: pressed ? 0.82 : 1,
-              paddingHorizontal: 16
-            })}
-          >
-            <Text
-              style={{
-                color: colors.surface,
-                fontFamily: fonts.bodySemiBold,
-                fontSize: 12
-              }}
-            >
-              {filters.availability ? "Showing in stock" : "In-stock only"}
-            </Text>
-          </Pressable>
           <CatalogControl
             accessibilityLabel="Open filters"
-            icon="tune-variant"
             onPress={() => setFiltersOpen(true)}
           />
-          <CatalogControl
-            accessibilityLabel="Clear catalog filters"
-            icon="restore"
-            onPress={clearFilters}
-          />
+          {mainCategories.length > 0 ? (
+            <ScrollView
+              accessibilityLabel="Main product categories"
+              contentContainerStyle={{
+                alignItems: "center",
+                gap: 8,
+                paddingRight: 4,
+                paddingVertical: 4
+              }}
+              horizontal
+              showsHorizontalScrollIndicator
+              style={{ flex: 1 }}
+            >
+              {mainCategories.map((category) => {
+                const selected = filters.category === category.slug;
+
+                return (
+                  <Pressable
+                    accessibilityLabel={category.name}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    key={category.id}
+                    onPress={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        category: category.slug,
+                        subcategory: undefined
+                      }))
+                    }
+                    style={({ pressed }) => ({
+                      alignItems: "center",
+                      backgroundColor: selected
+                        ? colors.primaryDark
+                        : colors.surface,
+                      borderColor: selected
+                        ? colors.primaryDark
+                        : colors.border,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      justifyContent: "center",
+                      opacity: pressed ? 0.78 : 1,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6
+                    })}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        color: selected ? colors.surface : colors.text,
+                        fontFamily: fonts.bodyMedium,
+                        fontSize: 12,
+                        lineHeight: 16
+                      }}
+                    >
+                      {category.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
         </View>
       </View>
 
@@ -227,11 +252,9 @@ export function ProductListingScreen({
 
 function CatalogControl({
   accessibilityLabel,
-  icon,
   onPress
 }: {
   accessibilityLabel: string;
-  icon: "restore" | "tune-variant";
   onPress: () => void;
 }) {
   return (
@@ -251,7 +274,11 @@ function CatalogControl({
         width: 44
       })}
     >
-      <MaterialCommunityIcons color={colors.text} name={icon} size={20} />
+      <MaterialCommunityIcons
+        color={colors.primaryDark}
+        name="tune-variant"
+        size={20}
+      />
     </Pressable>
   );
 }

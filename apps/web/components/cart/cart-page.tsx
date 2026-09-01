@@ -12,6 +12,7 @@ import {
   Trash2
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getCart, type Cart, type CartItem } from "../../lib/api/cart";
 import {
@@ -220,23 +221,23 @@ function CartItemCard({
         <div className="flex flex-col gap-3">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[#0f6f68]">
-              <a className="hover:underline" href={`/brands/${item.brand.slug}`}>
+              <Link className="hover:underline" href={`/brands/${item.brand.slug}`}>
                 {item.brand.name}
-              </a>
+              </Link>
               <span className="text-[#9cafac]">/</span>
-              <a
+              <Link
                 className="text-[#607a77] hover:text-[#0f6f68] hover:underline"
                 href={`/categories/${item.category.slug}`}
               >
                 {item.category.name}
-              </a>
+              </Link>
             </div>
-            <a
+            <Link
               className="line-clamp-2 text-base font-semibold leading-6 text-[#123432] hover:text-[#0f6f68]"
               href={`/products/${item.slug}`}
             >
               {item.name}
-            </a>
+            </Link>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#607a77]">
               <span className="inline-flex items-center gap-1 rounded-lg bg-[#f8fbfa] px-2 py-1">
                 <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[#0f6f68]" />
@@ -249,12 +250,12 @@ function CartItemCard({
                 </span>
               ) : null}
               {item.subcategory ? (
-                <a
+                <Link
                   className="rounded-lg bg-[#f8fbfa] px-2 py-1 hover:text-[#0f6f68] hover:underline"
                   href={`/categories/${item.category.slug}?subcategory=${item.subcategory.slug}`}
                 >
                   {item.subcategory.name}
-                </a>
+                </Link>
               ) : null}
             </div>
           </div>
@@ -318,7 +319,7 @@ function CartItemImage({
       className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28"
       data-testid="cart-item-image"
     >
-      <a
+      <Link
         className="relative block h-full overflow-hidden rounded-lg border border-[#c4e4e0] bg-[#f8fbfa] shadow-sm shadow-[#0f6f68]/5"
         href={`/products/${item.slug}`}
       >
@@ -338,7 +339,7 @@ function CartItemImage({
             <PackageCheck aria-hidden="true" className="h-9 w-9" />
           </span>
         )}
-      </a>
+      </Link>
     </div>
   );
 }

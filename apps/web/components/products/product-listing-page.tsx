@@ -8,6 +8,7 @@ import {
 } from "@heroui/select";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Key, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import type {
   ProductListingContext,
   ProductListingInitialData
 } from "../../lib/catalog/listing-initial-data";
+import { buildCategoryNavigation } from "../../lib/catalog/customer-navigation";
 import {
   parseProductFilters,
   productFiltersToHref,
@@ -161,19 +163,11 @@ export function ProductListingPage({
     categoryQuery.data,
     context.type === "subcategory" ? context.subcategorySlug : filters.subcategory
   );
-  const pageHeading = buildHeading(
-    context,
-    categoryQuery.data?.name,
-    brandQuery.data?.name,
-    subcategoryName
-  );
-  const pageDescription = buildDescription(context, filters.search, categoryQuery.data?.name);
-  const availableHref = productFiltersToHref(
-    pathname,
-    { ...filters, availability: "available", page: 1 },
-    lockedFilters
-  );
   const clearFiltersHref = getClearFiltersHref(context, pathname);
+  const mobileCategories = useMemo(
+    () => buildCategoryNavigation(categoriesQuery.data),
+    [categoriesQuery.data]
+  );
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -205,73 +199,52 @@ export function ProductListingPage({
     <>
       <Header />
       <main className="bg-[#f3faf9]">
-        <section className="border-b border-[#c4e4e0] bg-[#f3faf9] pt-5 sm:pt-6 lg:py-7">
-          <Container>
-            <div className="grid gap-5" data-testid="catalog-hero">
-              <div className="max-w-2xl lg:max-w-md">
-                <h1 className="text-2xl font-semibold leading-tight text-[#123f3c] sm:text-3xl lg:text-4xl">
-                  {pageHeading}
-                </h1>
-                <p className="mt-2 max-w-md text-sm font-semibold leading-5 text-[#55716e] sm:text-base sm:leading-6">
-                  {pageDescription}
-                </p>
-              </div>
-              {categoryQuery.isError ? (
-                <div className="lg:col-span-2">
-                  <ErrorState
-                    action={<RetryButton onRetry={() => categoryQuery.refetch()} />}
-                    message={getFriendlyApiErrorMessage(
-                      categoryQuery.error,
-                      "Unable to load this category."
-                    )}
-                    title="Unable to load category"
-                  />
-                </div>
-              ) : null}
-              {brandQuery.isError ? (
-                <div className="lg:col-span-2">
-                  <ErrorState
-                    action={<RetryButton onRetry={() => brandQuery.refetch()} />}
-                    message={getFriendlyApiErrorMessage(
-                      brandQuery.error,
-                      "Unable to load this brand."
-                    )}
-                    title="Unable to load brand"
-                  />
-                </div>
+        <div
+          className="fixed inset-x-0 top-24 z-30 bg-[#f3faf9] pt-2 lg:hidden"
+          data-testid="mobile-sticky-catalog-controls"
+        >
+          <Container className="py-2">
+            <div className="flex min-w-0 items-center gap-2" data-testid="mobile-catalog-controls">
+              <button
+                aria-label="Open filters"
+                className={mobileCatalogIconButtonClassName}
+                onClick={() => setFiltersOpen(true)}
+                type="button"
+              >
+                <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
+              </button>
+              {mobileCategories.length > 0 ? (
+                <nav
+                  aria-label="Main product categories"
+                  className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 pr-1 [scrollbar-width:thin]"
+                  data-testid="mobile-main-category-rail"
+                >
+                  {mobileCategories.map((category) => {
+                    const isActive =
+                      (lockedFilters.category ?? filters.category) === category.slug;
+
+                    return (
+                      <Link
+                        className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          isActive
+                            ? "border-[#0f6f68] bg-[#0f6f68] text-white"
+                            : "border-[#c4e4e0] bg-white text-[#123f3c] hover:border-[#0f6f68] hover:text-[#0f6f68]"
+                        }`}
+                        href={category.href}
+                        key={category.id}
+                      >
+                        {category.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
               ) : null}
             </div>
           </Container>
-        </section>
+        </div>
+        <div aria-hidden="true" className="h-[3rem] lg:hidden" />
 
         <Container className="grid gap-5 py-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-6 lg:py-6">
-          <div
-            className="grid grid-cols-[minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2 lg:hidden"
-            data-testid="mobile-catalog-controls"
-          >
-            <a
-              aria-label="Show in-stock products"
-              className="flex min-h-11 min-w-0 items-center justify-center rounded-full bg-[#0f6f68] px-4 text-xs font-semibold text-white shadow-sm shadow-[#0f6f68]/20"
-              href={availableHref}
-            >
-              In-stock only
-            </a>
-            <button
-              aria-label="Open filters"
-              className={mobileCatalogIconButtonClassName}
-              onClick={() => setFiltersOpen(true)}
-              type="button"
-            >
-              <SlidersHorizontal aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <a
-              aria-label="Clear catalog filters"
-              className={mobileCatalogIconButtonClassName}
-              href={clearFiltersHref}
-            >
-              <RotateCcw aria-hidden="true" className="h-5 w-5" />
-            </a>
-          </div>
 
           <aside
             aria-label="Product filters"
@@ -749,7 +722,7 @@ function ClearFiltersLink({
   pathname: string;
 }) {
   return (
-    <a
+    <Link
       className={[
         "inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#0f6f68]",
         className
@@ -760,7 +733,7 @@ function ClearFiltersLink({
     >
       <RotateCcw aria-hidden="true" className="h-4 w-4" />
       Clear
-    </a>
+    </Link>
   );
 }
 
@@ -840,12 +813,12 @@ function ActiveFilterSummary({
           {chip}
         </span>
       ))}
-      <a
+      <Link
         className="text-[10px] font-semibold leading-3 text-[#0f6f68] sm:text-xs sm:leading-4"
         href={clearHref}
       >
         Clear
-      </a>
+      </Link>
     </div>
   );
 }
@@ -946,53 +919,6 @@ function getSubcategoryGroups(
       subcategories: category.children
     }))
     .filter((group) => group.subcategories.length > 0);
-}
-
-function buildHeading(
-  context: ProductListingContext,
-  categoryName: string | undefined,
-  brandName: string | undefined,
-  subcategoryName: string | undefined
-) {
-  if (context.type === "subcategory") {
-    return subcategoryName ? `${subcategoryName} products` : "Subcategory products";
-  }
-
-  if (context.type === "category") {
-    return categoryName ? `${categoryName} products` : "Category products";
-  }
-
-  if (context.type === "brand") {
-    return brandName ? `${brandName} products` : "Brand products";
-  }
-
-  return "All products";
-}
-
-function buildDescription(
-  context: ProductListingContext,
-  search: string | undefined,
-  categoryName: string | undefined
-) {
-  if (search) {
-    return `Results for "${search}" with filters saved in the URL.`;
-  }
-
-  if (context.type === "subcategory") {
-    return categoryName
-      ? `Browse this ${categoryName} subcategory with price, stock, specialty, and brand filters.`
-      : "Browse this subcategory with price, stock, specialty, and brand filters.";
-  }
-
-  if (context.type === "category") {
-    return "Browse this department with price, stock, specialty, and brand filters.";
-  }
-
-  if (context.type === "brand") {
-    return "Browse this brand with price, stock, specialty, and department filters.";
-  }
-
-  return "Find surgical and medical supplies with simple filters and clear pricing.";
 }
 
 function getClearFiltersHref(context: ProductListingContext, pathname: string) {

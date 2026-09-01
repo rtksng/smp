@@ -1,9 +1,14 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { router, usePathname } from "expo-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Alert, Pressable, Text, View } from "react-native";
+import { addCartItem } from "@/lib/api/cart";
 import type { Product } from "@/lib/api/schemas";
+import { useAuth } from "@/lib/auth/auth-context";
+import { getErrorMessage } from "@/lib/errors";
 import { formatCatalogRupees } from "@/lib/format";
+import { queryKeys } from "@/lib/query";
 import { cardStyle, colors, fonts } from "@/lib/theme";
 
 export function ProductCard({
@@ -13,11 +18,44 @@ export function ProductCard({
   compact?: boolean;
   product: Product;
 }) {
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
   const image = product.images.find((item) => item.isPrimary) ?? product.images[0];
   const savingsPercent =
     product.mrp > product.sellingPrice
       ? Math.round(((product.mrp - product.sellingPrice) / product.mrp) * 100)
       : 0;
+  const cartMutation = useMutation({
+    mutationFn: () =>
+      addCartItem({ productId: product.id, quantity: 1, variantId: null }),
+    onError: (error) => {
+      Alert.alert(
+        "Unable to add item",
+        getErrorMessage(error, "Unable to add this product to the cart.")
+      );
+    },
+    onSuccess: (cart) => {
+      queryClient.setQueryData(queryKeys.cart(), cart);
+      void queryClient.invalidateQueries({ queryKey: ["customer", "cart"] });
+    }
+  });
+
+  function handleAddToCart() {
+    if (!product.inStock || cartMutation.isPending) {
+      return;
+    }
+
+    if (!session) {
+      router.push({
+        pathname: "/login",
+        params: { returnTo: pathname || "/" }
+      });
+      return;
+    }
+
+    cartMutation.mutate();
+  }
 
   return (
     <View
@@ -69,31 +107,56 @@ export function ProductCard({
             />
           )}
           {compact ? (
-            <View
-              style={{
+            <Pressable
+              accessibilityLabel={`Add ${product.name} to cart`}
+              accessibilityRole="button"
+              accessibilityState={{
+                busy: cartMutation.isPending,
+                disabled: !product.inStock || cartMutation.isPending
+              }}
+              disabled={!product.inStock || cartMutation.isPending}
+              onPress={(event) => {
+                event.stopPropagation();
+                handleAddToCart();
+              }}
+              style={({ pressed }) => ({
+                alignItems: "center",
                 backgroundColor: colors.surface,
                 borderColor: colors.primaryDark,
                 borderCurve: "continuous",
                 borderRadius: 8,
                 borderWidth: 1,
                 bottom: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 4,
+                justifyContent: "center",
+                minHeight: 24,
+                opacity:
+                  !product.inStock || cartMutation.isPending
+                    ? 0.6
+                    : pressed
+                      ? 0.78
+                      : 1,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
                 position: "absolute",
-                right: 8
-              }}
+                right: 8,
+                zIndex: 2
+              })}
             >
               <Text
-                selectable
                 style={{
                   color: colors.primaryDark,
-                  fontFamily: fonts.bodySemiBold,
-                  fontSize: 11
+                  fontFamily: fonts.bodyMedium,
+                  fontSize: 12,
+                  lineHeight: 16
                 }}
               >
-                View
+                {cartMutation.isPending
+                  ? "Adding..."
+                  : product.inStock
+                    ? "Add"
+                    : "Out of stock"}
               </Text>
-            </View>
+            </Pressable>
           ) : null}
         </View>
         <View

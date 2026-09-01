@@ -63,7 +63,10 @@ describe("ProductCard", () => {
     expect(screen.getByText("GST invoice ready")).toBeInTheDocument();
     expect(screen.getByText("12% GST")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add SurgiPro Artery Forceps to cart/i }))
-      .toHaveTextContent("Add to cart");
+      .toHaveTextContent("Add");
+    expect(
+      screen.getByRole("link", { name: "Open SurgiPro Artery Forceps details" })
+    ).toHaveAttribute("href", "/products/surgipro-artery-forceps");
   });
 
   it("replaces failed product images with the equipment fallback", () => {
@@ -96,13 +99,13 @@ describe("ProductCard", () => {
       name: "SurgiPro Artery Forceps"
     });
     const article = title.closest("article");
-    const imagePanel = article?.firstElementChild;
-    const contentPanel = article?.children[1];
+    const imagePanel = article?.children[1];
+    const contentPanel = article?.children[2];
 
     expect(article).toHaveClass("min-h-[14.3rem]", "min-w-0", "rounded-xl");
     expect(imagePanel).toHaveClass("h-24", "sm:h-36");
     expect(contentPanel).toHaveClass("gap-1", "p-3", "sm:gap-3", "sm:p-4");
-    expect(screen.getByRole("link", { name: "SurgiPro" })).toHaveClass(
+    expect(screen.getByText("SurgiPro")).toHaveClass(
       "text-[#55716e]"
     );
     expect(title).toHaveClass(
@@ -124,6 +127,9 @@ describe("ProductCard", () => {
       "font-semibold",
       "text-[#55716e]"
     );
+    expect(
+      screen.getAllByRole("button", { name: "Add SurgiPro Artery Forceps to cart" })
+    ).toHaveLength(2);
   });
 });
 

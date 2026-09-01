@@ -4,13 +4,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
   ChevronRight,
-  Eye,
   FileText,
   PackageCheck,
   ShoppingCart,
   Truck
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import {
   getFriendlyApiErrorMessage,
@@ -89,11 +89,16 @@ export function ProductCard({
   return (
     <article
       className={[
-        "group grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10",
+        "group relative grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition duration-200 hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10",
         compact ? "rounded-xl sm:rounded-lg" : "rounded-[1.25rem]",
         compact && !recommendationCard ? "min-h-[14.3rem] sm:min-h-0" : undefined
       ].join(" ")}
     >
+      <Link
+        aria-label={`Open ${product.name} details`}
+        className="absolute inset-0 z-10 rounded-[inherit] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f6f68] focus-visible:ring-inset"
+        href={`/products/${product.slug}`}
+      />
       <div
         className={[
           "relative border-b border-[#c4e4e0] bg-[#f3faf9]",
@@ -153,13 +158,19 @@ export function ProductCard({
           </span>
         ) : null}
         {compact && !recommendationCard ? (
-          <a
-            aria-label={`View ${product.name}`}
-            className="absolute bottom-2 right-2 rounded-lg border border-[#0f6f68] bg-white px-3 py-1 text-[11px] font-semibold text-[#0f6f68] shadow-sm sm:hidden"
-            href={`/products/${product.slug}`}
+          <button
+            aria-label={`Add ${product.name} to cart`}
+            className="absolute bottom-2 right-2 z-20 rounded-lg border border-[#0f6f68] bg-white px-2 py-0.5 !text-xs !font-medium !leading-4 text-[#0f6f68] shadow-sm sm:hidden disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!product.inStock || addCartMutation.isPending}
+            onClick={handleAddToCart}
+            type="button"
           >
-            View
-          </a>
+            {addCartMutation.isPending
+              ? "Adding..."
+              : product.inStock
+                ? "Add"
+                : "Out of stock"}
+          </button>
         ) : null}
       </div>
 
@@ -182,28 +193,24 @@ export function ProductCard({
                   : "flex flex-wrap items-center gap-2 text-xs font-semibold"
             }
           >
-            <a
+            <span
               className={
                 compact && !recommendationCard
-                  ? "text-[#55716e] hover:underline sm:text-[#0f6f68]"
-                  : "text-[#0f6f68] hover:underline"
+                  ? "text-[#55716e] sm:text-[#0f6f68]"
+                  : "text-[#0f6f68]"
               }
-              href={`/brands/${product.brand.slug}`}
             >
               {product.brand.name}
-            </a>
+            </span>
             {!compact ? (
               <>
                 <ChevronRight
                   aria-hidden="true"
                   className="h-3.5 w-3.5 text-[#9ab5b1]"
                 />
-                <a
-                  className="text-[#55716e] hover:underline"
-                  href={`/categories/${product.category.slug}`}
-                >
+                <span className="text-[#55716e]">
                   {product.category.name}
-                </a>
+                </span>
               </>
             ) : null}
           </div>
@@ -335,47 +342,31 @@ export function ProductCard({
         <div
           className={
             recommendationCard
-              ? "grid gap-2"
+              ? "relative z-20 grid gap-2"
               : compact
-                ? "hidden gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto]"
-                : "grid gap-2 sm:grid-cols-[1fr_auto]"
+                ? "relative z-20 hidden gap-2 sm:grid"
+                : "relative z-20 grid gap-2"
           }
         >
-          {!recommendationCard ? (
-            <Button
-              aria-label={`Add ${product.name} to cart`}
-              className={
-                compact
-                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!w-auto sm:whitespace-nowrap sm:!min-h-10 sm:!px-2 sm:text-[11px] xl:!px-3 xl:text-xs"
-                  : "w-full"
-              }
-              disabled={!product.inStock || addCartMutation.isPending}
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart
-                aria-hidden="true"
-                className="hidden h-4 w-4 min-[1441px]:block"
-              />
-              {addCartMutation.isPending
-                ? "Adding..."
-                : product.inStock
-                  ? "Add to cart"
-                  : "Out of stock"}
-            </Button>
-          ) : null}
           <Button
+            aria-label={`Add ${product.name} to cart`}
             className={
               recommendationCard
                 ? "w-full !min-h-9 !px-3 text-xs"
                 : compact
-                  ? "hidden w-full !min-h-9 !px-2.5 text-[11px] sm:inline-flex sm:!w-auto sm:whitespace-nowrap sm:!min-h-10 sm:!px-2 sm:text-[11px] xl:!px-3 xl:text-xs"
-                  : "w-full sm:w-auto"
+                  ? "w-full !min-h-9 !px-2.5 text-[11px] sm:!min-h-10 sm:text-xs"
+                  : "w-full"
             }
-            href={`/products/${product.slug}`}
+            disabled={!product.inStock || addCartMutation.isPending}
+            onClick={handleAddToCart}
             variant="outline"
           >
-            <Eye aria-hidden="true" className="h-4 w-4" />
-            {compact ? "View" : "Details"}
+            <ShoppingCart aria-hidden="true" className="h-4 w-4" />
+            {addCartMutation.isPending
+              ? "Adding..."
+              : product.inStock
+                ? "Add"
+                : "Out of stock"}
           </Button>
         </div>
 

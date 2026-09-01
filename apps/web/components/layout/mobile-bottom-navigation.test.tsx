@@ -22,13 +22,15 @@ describe("MobileBottomNavigation", () => {
   it("opens the shared category browser from the mobile Categories tab", () => {
     render(<MobileBottomNavigation categories={categories} />);
 
-    const categoriesAction = screen.getByRole("link", { name: "Open categories" });
+    const categoriesAction = screen.getByRole("button", {
+      name: "Open categories"
+    });
 
     expect(
       screen.getByRole("navigation", { name: "Mobile bottom navigation" })
     ).toHaveClass("py-1.5");
-    expect(categoriesAction).toHaveAttribute("href", "/#categories");
     expect(categoriesAction).toHaveClass("min-h-14", "text-[10px]");
+    expect(screen.getByText("Categories")).toHaveClass("text-[10px]");
 
     fireEvent.click(categoriesAction);
 
@@ -43,9 +45,9 @@ describe("MobileBottomNavigation", () => {
   it("opens the shared search sheet full screen from the mobile Search tab", () => {
     render(<MobileBottomNavigation categories={categories} />);
 
-    const searchAction = screen.getByRole("link", { name: "Open search" });
+    const searchAction = screen.getByRole("button", { name: "Open search" });
 
-    expect(searchAction).toHaveAttribute("href", "/products");
+    expect(screen.getByText("Search")).toHaveClass("text-[10px]");
 
     fireEvent.click(searchAction);
 

@@ -100,12 +100,16 @@ export function RouteTransitionProgress() {
     const originalPushState = window.history.pushState.bind(window.history);
     const originalReplaceState = window.history.replaceState.bind(window.history);
 
+    const scheduleProgress = () => {
+      queueMicrotask(startProgress);
+    };
+
     window.history.pushState = ((...args: Parameters<History["pushState"]>) => {
       const previousHref = window.location.href;
       originalPushState(...args);
 
       if (window.location.href !== previousHref) {
-        startProgress();
+        scheduleProgress();
       }
     }) as History["pushState"];
 
@@ -116,7 +120,7 @@ export function RouteTransitionProgress() {
       originalReplaceState(...args);
 
       if (window.location.href !== previousHref) {
-        startProgress();
+        scheduleProgress();
       }
     }) as History["replaceState"];
 

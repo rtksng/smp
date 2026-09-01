@@ -66,6 +66,25 @@ input {
   font: inherit;
 }
 
+/*
+ * iOS WebKit zooms the page when a focused form control renders below 16px.
+ * Keep the compact visual sizing on other platforms while preventing that
+ * focus zoom in both Safari and Chromium-based browsers on iOS.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    input:not([type="button"]):not([type="checkbox"]):not([type="color"]):not(
+        [type="file"]
+      ):not([type="radio"]):not([type="range"]):not([type="reset"]):not(
+        [type="submit"]
+      ),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
 button {
   cursor: pointer;
 }

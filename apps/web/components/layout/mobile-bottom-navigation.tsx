@@ -38,14 +38,12 @@ export function MobileBottomNavigation({ categories }: MobileBottomNavigationPro
       >
         <BottomNavLink Icon={Home} href="/" label="Home" />
         <BottomNavAction
-          fallbackHref="/products"
           Icon={Search}
           isActive={activeSheet === "search"}
           label="Search"
           onClick={() => setActiveSheet("search")}
         />
         <BottomNavAction
-          fallbackHref="/#categories"
           Icon={Grid2X2}
           isActive={activeSheet === "categories"}
           label="Categories"
@@ -79,37 +77,38 @@ function BottomNavLink({
       href={href}
     >
       <BottomNavIcon Icon={Icon} />
-      {label}
+      <BottomNavLabel label={label} />
     </Link>
   );
 }
 
 function BottomNavAction({
-  fallbackHref,
   Icon,
   isActive = false,
   label,
   onClick
 }: {
-  fallbackHref: string;
   Icon: LucideIcon;
   isActive?: boolean;
   label: string;
   onClick: () => void;
 }) {
   return (
-    <a
+    <button
       aria-label={`Open ${label.toLowerCase()}`}
       className="relative z-10 grid min-h-14 w-full touch-manipulation justify-items-center gap-0.5 rounded-full bg-transparent px-1.5 py-0.5 text-[10px] font-semibold text-[#123f3c]"
-      href={fallbackHref}
-      onClick={(event) => {
-        event.preventDefault();
-        onClick();
-      }}
+      onClick={onClick}
+      type="button"
     >
       <BottomNavIcon Icon={Icon} isActive={isActive} />
-      {label}
-    </a>
+      <BottomNavLabel label={label} />
+    </button>
+  );
+}
+
+function BottomNavLabel({ label }: { label: string }) {
+  return (
+    <span className="text-[10px] font-semibold leading-none">{label}</span>
   );
 }
 

@@ -1,5 +1,6 @@
 import { APP_NAMES } from "@surgical/config";
 import { Mail, Phone, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { Container } from "../ui/container";
 
 const footerLinkGroups = [
@@ -80,13 +81,13 @@ export function Footer() {
                 </h2>
                 <div className="grid gap-2.5 text-sm font-semibold text-white/72">
                   {group.links.map((link) => (
-                    <a
+                    <Link
                       className="w-fit transition hover:text-white"
                       href={link.href}
                       key={link.href}
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </section>

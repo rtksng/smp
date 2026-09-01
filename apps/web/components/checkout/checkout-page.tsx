@@ -16,6 +16,7 @@ import {
   X
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -595,7 +596,7 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
 
   return (
     <article className="grid grid-cols-[72px_1fr] gap-3 rounded-lg border border-[#c4e4e0] bg-[#f7fcfb] p-3 shadow-sm shadow-[#0f6f68]/5 sm:grid-cols-[84px_minmax(0,1fr)_auto] sm:items-center">
-      <a
+      <Link
         className="relative aspect-square overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5"
         href={`/products/${item.slug}`}
       >
@@ -614,14 +615,14 @@ function CheckoutCartItem({ item }: { item: CartItem }) {
             <PackageCheck aria-hidden="true" className="h-8 w-8" />
           </span>
         )}
-      </a>
+      </Link>
       <div className="min-w-0">
-        <a
+        <Link
           className="line-clamp-2 text-sm font-semibold leading-5 text-[#123f3c] hover:text-[#0f6f68] sm:text-base"
           href={`/products/${item.slug}`}
         >
           {item.name}
-        </a>
+        </Link>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-[#55716e]">
           <span>SKU {item.sku}</span>
           {item.variantName ? <span>{item.variantName}</span> : null}

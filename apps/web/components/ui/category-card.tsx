@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Category } from "../../lib/api/schemas";
 import { getCategoryImageAlt } from "../../lib/seo/metadata";
 
@@ -8,7 +9,7 @@ type CategoryCardProps = {
 
 export function CategoryCard({ category }: CategoryCardProps) {
   return (
-    <a
+    <Link
       className="group grid min-h-48 overflow-hidden rounded-lg border border-[#c4e4e0] bg-white shadow-sm shadow-[#0f6f68]/5 transition hover:-translate-y-0.5 hover:border-[#0f6f68] hover:shadow-lg hover:shadow-[#0f6f68]/10"
       href={`/categories/${category.slug}`}
     >
@@ -41,6 +42,6 @@ export function CategoryCard({ category }: CategoryCardProps) {
           {category.children.length > 0 ? ` - ${category.children.length} subcategories` : ""}
         </p>
       </div>
-    </a>
+    </Link>
   );
 }
