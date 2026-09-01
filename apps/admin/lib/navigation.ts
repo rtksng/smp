@@ -156,7 +156,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     category: "System",
-    href: "/settings",
+    href: "/settings/admin-users",
     label: "Settings",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   }

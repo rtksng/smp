@@ -1,9 +1,5 @@
-import { SettingsLandingPage, SettingsRoute } from "./_components/settings-sections";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return (
-    <SettingsRoute>
-      <SettingsLandingPage />
-    </SettingsRoute>
-  );
+  redirect("/settings/admin-users");
 }

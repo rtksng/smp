@@ -52,6 +52,70 @@ test("SUPER_ADMIN receives every seeded permission", () => {
   );
 });
 
+test("every predefined role maps only to unique seeded permissions", () => {
+  const seededPermissions = new Set(DEFAULT_PERMISSION_CODES);
+
+  for (const role of DEFAULT_ROLES) {
+    const permissions = DEFAULT_ROLE_PERMISSION_CODES[role.code];
+
+    assert.ok(permissions.length > 0, `${role.code} must have permissions`);
+    assert.equal(
+      new Set(permissions).size,
+      permissions.length,
+      `${role.code} must not contain duplicate permissions`
+    );
+    assert.equal(
+      permissions.every((permission) => seededPermissions.has(permission)),
+      true,
+      `${role.code} must use only seeded permissions`
+    );
+  }
+});
+
+test("predefined non-super-admin roles keep their intended permission sets", () => {
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.InventoryManager], [
+    PermissionCode.ProductsCreate,
+    PermissionCode.ProductsRead,
+    PermissionCode.ProductsUpdate,
+    PermissionCode.InventoryRead,
+    PermissionCode.InventoryUpdate,
+    PermissionCode.WarehouseRead,
+    PermissionCode.ReportsRead
+  ]);
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.WarehouseManager], [
+    PermissionCode.InventoryRead,
+    PermissionCode.InventoryUpdate,
+    PermissionCode.WarehouseRead,
+    PermissionCode.WarehouseManage,
+    PermissionCode.WarehouseStaffManage,
+    PermissionCode.DeliveryRead,
+    PermissionCode.ReportsRead
+  ]);
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.OrderManager], [
+    PermissionCode.OrdersRead,
+    PermissionCode.OrdersUpdate,
+    PermissionCode.OrdersCancel,
+    PermissionCode.UsersRead,
+    PermissionCode.UsersUpdate,
+    PermissionCode.DeliveryRead,
+    PermissionCode.ReportsRead
+  ]);
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.DeliveryManager], [
+    PermissionCode.OrdersRead,
+    PermissionCode.WarehouseRead,
+    PermissionCode.DeliveryRead,
+    PermissionCode.DeliveryAssign,
+    PermissionCode.ReportsRead
+  ]);
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.Support], [
+    PermissionCode.ProductsRead,
+    PermissionCode.OrdersRead,
+    PermissionCode.UsersRead,
+    PermissionCode.UsersUpdate,
+    PermissionCode.DeliveryRead
+  ]);
+});
+
 test("seed super admin input is optional but rejects partial credentials", () => {
   assert.equal(getSeedSuperAdminInput({}), null);
   assert.throws(

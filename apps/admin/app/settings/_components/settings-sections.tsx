@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
-  KeyRound,
   Pencil,
   Plus,
   RefreshCw,
@@ -12,7 +11,7 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { z } from "zod";
 import { AdminShell } from "../../admin-shell";
 import {
@@ -43,7 +42,8 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
-import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { notify } from "../../../lib/notifications";
+import { ADMIN_PERMISSION, ADMIN_ROLE } from "../../../lib/permissions";
 import {
   ADMIN_USER_STATUSES,
   adminUserFormSchema,
@@ -54,7 +54,6 @@ import {
   createEmptyAdminUserFormValues,
   formatAdminStatus,
   formatPermissionCode,
-  type AdminPermission,
   type AdminRole,
   type AdminUser,
   type AdminUserFilters,
@@ -63,31 +62,22 @@ import {
 } from "../../../lib/settings-management";
 
 type AdminUserFieldErrors = Partial<Record<keyof AdminUserFormValues, string>>;
-type SettingsSectionId = "overview" | "admin-users" | "roles" | "permissions";
+type SettingsSectionId = "admin-users" | "roles";
 
 const settingsSections: Array<{
-  description: string;
   href: string;
   id: SettingsSectionId;
   title: string;
 }> = [
   {
-    description: "Create, edit, suspend, and remove admin accounts.",
     href: "/settings/admin-users",
     id: "admin-users",
     title: "Admin users"
   },
   {
-    description: "Review role definitions and their permission coverage.",
     href: "/settings/roles",
     id: "roles",
     title: "Roles"
-  },
-  {
-    description: "Inspect the complete permission key catalog.",
-    href: "/settings/permissions",
-    id: "permissions",
-    title: "Permissions"
   }
 ];
 
@@ -98,83 +88,6 @@ export function SettingsRoute({ children }: { children: ReactNode }) {
         {children}
       </ProtectedRoute>
     </AdminShell>
-  );
-}
-
-export function SettingsLandingPage() {
-  const { api } = useAdminSession();
-  const rolesQuery = useQuery({
-    queryFn: () => api.request<AdminRole[]>("/admin/roles"),
-    queryKey: ["admin", "roles"]
-  });
-  const permissionsQuery = useQuery({
-    queryFn: () => api.request<AdminPermission[]>("/admin/permissions"),
-    queryKey: ["admin", "permissions"]
-  });
-  const adminUsersQuery = useQuery({
-    queryFn: () =>
-      api.request<AdminUserListResponse>("/admin/admin-users", {
-        query: buildAdminUsersQuery(createEmptyAdminUserFilters(), 1)
-      }),
-    queryKey: ["admin", "settings-overview", "admin-users"]
-  });
-
-  const adminUsers = adminUsersQuery.data?.items ?? [];
-  const roles = rolesQuery.data ?? [];
-  const permissions = permissionsQuery.data ?? [];
-  const activeUserCount = adminUsers.filter((user) => user.status === "ACTIVE").length;
-  const suspendedUserCount = adminUsers.filter(
-    (user) => user.status === "SUSPENDED"
-  ).length;
-  const loadError =
-    getErrorMessage(rolesQuery.error) ??
-    getErrorMessage(permissionsQuery.error) ??
-    getErrorMessage(adminUsersQuery.error);
-
-  return (
-    <>
-      <section className="panel settingsOverviewPanel">
-        <SettingsSectionNav active="overview" />
-        <PageHeader
-          className="settingsPageHeader"
-          eyebrow="Settings"
-          summary="Manage admin access from focused settings pages instead of one long stacked screen."
-          title="Settings"
-        />
-
-        {loadError ? (
-          <p className="formError" role="alert">
-            {loadError}
-          </p>
-        ) : null}
-
-        <div className="metricGrid resourceMetrics settingsMetricGrid">
-          <MetricCard
-            label="Admin users"
-            tone="primary"
-            value={adminUsersQuery.data?.pagination.total ?? adminUsers.length}
-          />
-          <MetricCard label="Active visible" tone="primary" value={activeUserCount} />
-          <MetricCard
-            label="Suspended visible"
-            tone="warning"
-            value={suspendedUserCount}
-          />
-          <MetricCard label="Roles" value={roles.length} />
-          <MetricCard label="Permissions" value={permissions.length} />
-        </div>
-      </section>
-
-      <section className="settingsHubGrid">
-        {settingsSections.map((section) => (
-          <Link className="settingsHubCard" href={section.href} key={section.id}>
-            <span>{section.title}</span>
-            <strong>{getSectionMetric(section.id, roles, permissions, adminUsers)}</strong>
-            <p>{section.description}</p>
-          </Link>
-        ))}
-      </section>
-    </>
   );
 }
 
@@ -193,7 +106,6 @@ export function SettingsAdminUsersPage() {
     createEmptyAdminUserFormValues()
   );
   const [fieldErrors, setFieldErrors] = useState<AdminUserFieldErrors>({});
-  const [message, setMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
   const rolesQuery = useQuery({
@@ -245,20 +157,31 @@ export function SettingsAdminUsersPage() {
   const suspendedUserCount = adminUsers.filter(
     (user) => user.status === "SUSPENDED"
   ).length;
-  const mutationError =
-    getErrorMessage(createMutation.error) ??
-    getErrorMessage(updateMutation.error) ??
-    getErrorMessage(deleteMutation.error);
   const loadError =
     getErrorMessage(rolesQuery.error) ?? getErrorMessage(adminUsersQuery.error);
   const isMutating =
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+  useEffect(() => {
+    if (loadError) {
+      notify.error(loadError, { id: "settings-admin-users-load-error" });
+    }
+  }, [loadError]);
 
   async function refreshSettings() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["admin", "roles"] }),
       queryClient.invalidateQueries({ queryKey: ["admin", "admin-users"] })
     ]);
+  }
+
+  async function handleRefresh() {
+    try {
+      await refreshSettings();
+      notify.info("Settings refreshed.");
+    } catch (error) {
+      notify.error(getErrorMessage(error) ?? "Unable to refresh settings.");
+    }
   }
 
   function applyFilters(event: React.FormEvent<HTMLFormElement>) {
@@ -281,14 +204,12 @@ export function SettingsAdminUsersPage() {
       roleId: roles[0]?.id ?? ""
     });
     setFieldErrors({});
-    setMessage(null);
   }
 
   function startEdit(user: AdminUser) {
     setEditingUser(user);
     setFormValues(adminUserToFormValues(user));
     setFieldErrors({});
-    setMessage(null);
   }
 
   function updateValue<Key extends keyof AdminUserFormValues>(
@@ -307,6 +228,7 @@ export function SettingsAdminUsersPage() {
 
     if (!parsed.success) {
       setFieldErrors(getFieldErrors<AdminUserFormValues>(parsed.error));
+      notify.warning("Please fix the highlighted admin user fields.");
       return;
     }
 
@@ -314,30 +236,37 @@ export function SettingsAdminUsersPage() {
       setFieldErrors({
         password: "Password is required for new admin users."
       });
+      notify.warning("Password is required for a new admin user.");
       return;
     }
 
     setFieldErrors({});
-    setMessage(null);
     const payload = buildAdminUserPayload(
       parsed.data,
       editingUser ? "update" : "create"
     );
-    const savedUser = editingUser
-      ? await updateMutation.mutateAsync({
-          id: editingUser.id,
-          payload
-        })
-      : await createMutation.mutateAsync(payload);
 
-    setEditingUser(savedUser);
-    setFormValues(adminUserToFormValues(savedUser));
-    setMessage(editingUser ? "Admin user updated." : "Admin user created.");
-    await refreshSettings();
+    try {
+      const isEditing = Boolean(editingUser);
+      const savedUser = editingUser
+        ? await updateMutation.mutateAsync({
+            id: editingUser.id,
+            payload
+          })
+        : await createMutation.mutateAsync(payload);
+
+      setEditingUser(savedUser);
+      setFormValues(adminUserToFormValues(savedUser));
+      notify.success(isEditing ? "Admin user updated." : "Admin user created.");
+      await refreshSettings();
+    } catch (error) {
+      notify.error(getErrorMessage(error) ?? "Unable to save the admin user.");
+    }
   }
 
   function requestDelete(user: AdminUser) {
-    if (user.id === admin?.id) {
+    if (user.id === admin?.id || user.role.code === ADMIN_ROLE.SuperAdmin) {
+      notify.warning("This admin account cannot be deleted.");
       return;
     }
 
@@ -345,15 +274,18 @@ export function SettingsAdminUsersPage() {
       body: `Soft delete ${getAdminUserName(user)} and revoke active admin sessions?`,
       confirmLabel: "Delete admin user",
       onConfirm: async () => {
-        setMessage(null);
-        await deleteMutation.mutateAsync(user.id);
+        try {
+          await deleteMutation.mutateAsync(user.id);
 
-        if (editingUser?.id === user.id) {
-          startCreate();
+          if (editingUser?.id === user.id) {
+            startCreate();
+          }
+
+          notify.success("Admin user deleted.");
+          await refreshSettings();
+        } catch (error) {
+          notify.error(getErrorMessage(error) ?? "Unable to delete the admin user.");
         }
-
-        setMessage("Admin user soft deleted.");
-        await refreshSettings();
       },
       title: "Delete admin user"
     });
@@ -369,7 +301,7 @@ export function SettingsAdminUsersPage() {
             <div className="actionRow">
               <Button
                 className="iconTextButton"
-                onClick={() => void refreshSettings()}
+                onClick={() => void handleRefresh()}
                 type="button"
                 variant="outline"
               >
@@ -378,21 +310,14 @@ export function SettingsAdminUsersPage() {
               </Button>
               <Button className="iconTextButton" onClick={startCreate} type="button">
                 <Plus aria-hidden size={16} />
-                <span>New admin</span>
+                <span>New User</span>
               </Button>
             </div>
           }
           eyebrow="Settings"
-          summary="Create and maintain administrator accounts without mixing role catalogs into the same page."
+          summary="Create and maintain administrator accounts and assign predefined roles."
           title="Admin users"
         />
-
-        {message ? <p className="formSuccess">{message}</p> : null}
-        {mutationError || loadError ? (
-          <p className="formError" role="alert">
-            {mutationError ?? loadError}
-          </p>
-        ) : null}
 
         <div className="metricGrid resourceMetrics settingsMetricGrid">
           <MetricCard
@@ -411,7 +336,7 @@ export function SettingsAdminUsersPage() {
       </section>
 
       <div className="settingsWorkspaceGrid">
-        <section className="panel settingsUsersPanel">
+        <section className="panel settingsUsersPanel mt-3">
           <PageHeader
             className="settingsSectionHeader"
             eyebrow="Admin users"
@@ -512,6 +437,12 @@ export function SettingsRolesPage() {
     roles.flatMap((role) => role.permissions.map((permission) => permission.id))
   ).size;
 
+  useEffect(() => {
+    if (loadError) {
+      notify.error(loadError, { id: "settings-roles-load-error" });
+    }
+  }, [loadError]);
+
   return (
     <>
       <section className="panel settingsOverviewPanel">
@@ -519,15 +450,9 @@ export function SettingsRolesPage() {
         <PageHeader
           className="settingsPageHeader"
           eyebrow="Settings"
-          summary="Review role definitions and permission coverage without admin account controls in the way."
+          summary="Review the predefined roles available when assigning administrator access."
           title="Roles"
         />
-
-        {loadError ? (
-          <p className="formError" role="alert">
-            {loadError}
-          </p>
-        ) : null}
 
         <div className="metricGrid resourceMetrics settingsMetricGrid">
           <MetricCard label="Roles" tone="primary" value={roles.length} />
@@ -543,13 +468,13 @@ export function SettingsRolesPage() {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel mt-3">
         <PageHeader
           className="settingsSectionHeader"
           eyebrow="Roles"
           level={2}
-          summary="Each row shows role ownership, description, and all assigned permissions."
-          title="Permission sets"
+          summary="Each row shows the role description and its assigned access."
+          title="Predefined roles"
         />
 
         {rolesQuery.isLoading ? <LoadingState label="Loading roles..." /> : null}
@@ -562,87 +487,9 @@ export function SettingsRolesPage() {
   );
 }
 
-export function SettingsPermissionsPage() {
-  const { api } = useAdminSession();
-  const permissionsQuery = useQuery({
-    queryFn: () => api.request<AdminPermission[]>("/admin/permissions"),
-    queryKey: ["admin", "permissions"]
-  });
-  const permissions = permissionsQuery.data ?? [];
-  const loadError = getErrorMessage(permissionsQuery.error);
-
-  return (
-    <>
-      <section className="panel settingsOverviewPanel">
-        <SettingsSectionNav active="permissions" />
-        <PageHeader
-          className="settingsPageHeader"
-          eyebrow="Settings"
-          summary="Use this page as the read-only reference for backend permission keys."
-          title="Permissions"
-        />
-
-        {loadError ? (
-          <p className="formError" role="alert">
-            {loadError}
-          </p>
-        ) : null}
-
-        <div className="metricGrid resourceMetrics settingsMetricGrid">
-          <MetricCard label="Permissions" tone="primary" value={permissions.length} />
-          <MetricCard
-            label="Product keys"
-            value={permissions.filter((permission) =>
-              permission.code.startsWith("products.")
-            ).length}
-          />
-          <MetricCard
-            label="Order keys"
-            value={permissions.filter((permission) =>
-              permission.code.startsWith("orders.")
-            ).length}
-          />
-          <MetricCard
-            label="User keys"
-            value={permissions.filter((permission) =>
-              permission.code.startsWith("users.")
-            ).length}
-          />
-        </div>
-      </section>
-
-      <section className="panel">
-        <PageHeader
-          className="settingsSectionHeader"
-          eyebrow="Permissions"
-          level={2}
-          summary="A compact catalog of every permission key available to admin roles."
-          title="Permission catalog"
-        />
-
-        {permissionsQuery.isLoading ? (
-          <LoadingState label="Loading permissions..." />
-        ) : null}
-        {permissions.length === 0 &&
-        !permissionsQuery.isLoading &&
-        !permissionsQuery.isError ? (
-          <EmptyState
-            body="No permissions are configured."
-            title="No permissions found"
-          />
-        ) : null}
-        {permissions.length > 0 ? <PermissionList permissions={permissions} /> : null}
-      </section>
-    </>
-  );
-}
-
 function SettingsSectionNav({ active }: { active: SettingsSectionId }) {
   return (
     <nav className="settingsSectionNav" aria-label="Settings sections">
-      <Link aria-current={active === "overview" ? "page" : undefined} href="/settings">
-        Overview
-      </Link>
       {settingsSections.map((section) => (
         <Link
           aria-current={active === section.id ? "page" : undefined}
@@ -654,27 +501,6 @@ function SettingsSectionNav({ active }: { active: SettingsSectionId }) {
       ))}
     </nav>
   );
-}
-
-function getSectionMetric(
-  id: SettingsSectionId,
-  roles: AdminRole[],
-  permissions: AdminPermission[],
-  adminUsers: AdminUser[]
-) {
-  if (id === "admin-users") {
-    return adminUsers.length;
-  }
-
-  if (id === "roles") {
-    return roles.length;
-  }
-
-  if (id === "permissions") {
-    return permissions.length;
-  }
-
-  return "-";
 }
 
 function AdminUserFilterForm({
@@ -811,17 +637,19 @@ function AdminUsersTable({
                     <Pencil aria-hidden size={16} />
                     <span>Edit</span>
                   </Button>
-                  <Button
-                    className="iconTextButton"
-                    disabled={isDeleting || user.id === currentAdminId}
-                    onClick={() => onDelete(user)}
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                  >
-                    <Trash2 aria-hidden size={16} />
-                    <span>Delete</span>
-                  </Button>
+                  {user.role.code !== ADMIN_ROLE.SuperAdmin ? (
+                    <Button
+                      className="iconTextButton"
+                      disabled={isDeleting || user.id === currentAdminId}
+                      onClick={() => onDelete(user)}
+                      size="sm"
+                      type="button"
+                      variant="destructive"
+                    >
+                      <Trash2 aria-hidden size={16} />
+                      <span>Delete</span>
+                    </Button>
+                  ) : null}
                 </div>
               </TableCell>
             </TableRow>
@@ -950,71 +778,41 @@ function AdminUserForm({
 
 function RoleList({ roles }: { roles: AdminRole[] }) {
   return (
-    <div className="resourceTable rolePermissionTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Role</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Permissions</TableHead>
+    <Table containerClassName="resourceTable rolePermissionTable mt-3">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Role</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Description</TableHead>
+          <TableHead>Permissions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {roles.map((role) => (
+          <TableRow key={role.id}>
+            <TableCell>
+              <strong>{role.name}</strong>
+              <em>{role.code}</em>
+            </TableCell>
+            <TableCell>
+              {role.isSystem ? (
+                <span className="statusBadge statusBadge--active">System</span>
+              ) : (
+                <span className="statusBadge statusBadge--draft">Custom</span>
+              )}
+            </TableCell>
+            <TableCell>{role.description ?? "-"}</TableCell>
+            <TableCell>
+              <div className="flagList compactFlagList">
+                {role.permissions.map((permission) => (
+                  <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
+                ))}
+              </div>
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {roles.map((role) => (
-            <TableRow key={role.id}>
-              <TableCell>
-                <strong>{role.name}</strong>
-                <em>{role.code}</em>
-              </TableCell>
-              <TableCell>
-                {role.isSystem ? (
-                  <span className="statusBadge statusBadge--active">System</span>
-                ) : (
-                  <span className="statusBadge statusBadge--draft">Custom</span>
-                )}
-              </TableCell>
-              <TableCell>{role.description ?? "-"}</TableCell>
-              <TableCell>
-                <div className="flagList compactFlagList">
-                  {role.permissions.map((permission) => (
-                    <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
-                  ))}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function PermissionList({ permissions }: { permissions: AdminPermission[] }) {
-  return (
-    <div className="resourceTable permissionCatalogTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Code</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Description</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {permissions.map((permission) => (
-            <TableRow key={permission.id}>
-              <TableCell>
-                <KeyRound aria-hidden size={14} />
-                {permission.code}
-              </TableCell>
-              <TableCell>{permission.name}</TableCell>
-              <TableCell>{permission.description ?? "-"}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

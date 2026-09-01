@@ -524,18 +524,18 @@ const guideSections: GuideSection[] = [
       { label: "New password", text: "Optional while editing. Leave it empty when the existing password should stay unchanged." },
       { label: "Role", text: "The work role that decides which sections and actions the user can access." },
       { label: "Status", text: "Active allows access. Inactive keeps the account as a record without normal use. Suspended blocks use until reviewed." },
-      { label: "Roles and Permissions", text: "Read the available role descriptions and the access each role includes before assigning it."
+      { label: "Role", text: "Review the predefined role descriptions and access before assigning one to an admin account."
       }
     ],
     icon: <Settings aria-hidden size={20} />,
     id: "settings",
-    links: [{ href: "/settings", label: "Open settings" }, { href: "/settings/admin-users", label: "Manage admin users" }],
+    links: [{ href: "/settings/admin-users", label: "Manage admin users" }, { href: "/settings/roles", label: "View roles" }],
     steps: [
-      "Open Settings and choose Admin users.",
+      "Open Settings to manage admin users.",
       "Search by name, email, mobile, role, or status when updating an existing account.",
       "For a new employee, enter their name, email, role, status, and a password of at least 8 characters.",
       "For an existing employee, update only the details that changed; leave New password empty unless you mean to replace it.",
-      "Use Roles and Permissions pages to review the access provided by each role."
+      "Use the Roles page to review access, then assign a predefined role from the Role dropdown."
     ],
     summary: "Manage employee admin accounts and understand the access given by each role.",
     title: "Settings and access"

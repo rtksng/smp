@@ -39,8 +39,21 @@ const productManagementSource = readFileSync(
   join(adminAppDir, "products/product-management.tsx"),
   "utf8"
 );
+const settingsSectionsSource = readFileSync(
+  join(adminAppDir, "settings/_components/settings-sections.tsx"),
+  "utf8"
+);
 
 describe("admin layout styles", () => {
+  it("does not offer deletion for the predefined super admin role", () => {
+    expect(settingsSectionsSource).toContain(
+      "user.role.code !== ADMIN_ROLE.SuperAdmin"
+    );
+    expect(settingsSectionsSource).toContain(
+      "user.role.code === ADMIN_ROLE.SuperAdmin"
+    );
+  });
+
   it("uses Plus Jakarta Sans as the admin interface font", () => {
     expect(layoutSource).toContain('import { Plus_Jakarta_Sans } from "next/font/google"');
     expect(layoutSource).toContain("variable: \"--font-admin\"");
@@ -149,6 +162,13 @@ describe("admin layout styles", () => {
   it("keeps shared admin table, dropdown, and dialog overlays usable in dense tables", () => {
     expect(tableSource).toContain("adminTableViewport");
     expect(tableSource).toContain("adminTableColumn");
+    expect(tableSource).toContain("containerClassName");
+    expect(settingsSectionsSource).toContain(
+      'containerClassName="resourceTable rolePermissionTable mt-3"'
+    );
+    expect(settingsSectionsSource).not.toContain(
+      '<div className="resourceTable rolePermissionTable'
+    );
     expect(tableSource).toContain("gap-0");
     expect(tableSource).toContain("p-0");
     expect(productManagementSource).toContain("<colgroup>");

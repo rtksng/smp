@@ -87,6 +87,18 @@ describe("admin API proxy helpers", () => {
     });
   });
 
+  it("returns no-content responses without constructing an invalid body", async () => {
+    const response = await buildAdminApiProxyResponse(
+      new Response(null, {
+        status: 204,
+        statusText: "No Content"
+      })
+    );
+
+    expect(response.status).toBe(204);
+    await expect(response.text()).resolves.toBe("");
+  });
+
   it("aborts slow upstream proxy requests", async () => {
     vi.useFakeTimers();
     vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {

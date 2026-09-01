@@ -57,10 +57,11 @@ describe("admin navigation", () => {
   });
 
   it("shows delivery, quote requests, coupons, and settings only with their own permissions", () => {
-    const labels = getVisibleNavigationItems([
+    const visibleItems = getVisibleNavigationItems([
       ADMIN_PERMISSION.DeliveryRead,
       ADMIN_PERMISSION.SettingsManage
-    ]).map((item) => item.label);
+    ]);
+    const labels = visibleItems.map((item) => item.label);
 
     expect(labels).toEqual([
       "Dashboard",
@@ -71,6 +72,9 @@ describe("admin navigation", () => {
       "Delivery Charges",
       "Settings"
     ]);
+    expect(visibleItems.find((item) => item.label === "Settings")?.href).toBe(
+      "/settings/admin-users"
+    );
   });
 
   it("shows warehouse subnavigation under warehouses for warehouse readers", () => {

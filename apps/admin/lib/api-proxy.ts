@@ -226,10 +226,12 @@ function proxyRequestBody(body: BodyInit | null | undefined) {
 }
 
 export async function buildAdminApiProxyResponse(upstreamResponse: Response) {
-  const body = new Uint8Array(await upstreamResponse.arrayBuffer());
   const status = upstreamResponse.status === 201 ? 200 : upstreamResponse.status;
   const statusText =
     upstreamResponse.status === 201 ? "OK" : upstreamResponse.statusText;
+  const body = [204, 205, 304].includes(status)
+    ? null
+    : new Uint8Array(await upstreamResponse.arrayBuffer());
 
   return new Response(body, {
     headers: buildAdminApiProxyHeaders(upstreamResponse.headers),

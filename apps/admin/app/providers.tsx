@@ -4,6 +4,7 @@ import { HeroUIProvider } from "@heroui/system";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { AppToaster } from "@/components/admin/app-toaster";
 import { AdminSessionProvider } from "../lib/admin-session";
 
 export function Providers({ children }: Readonly<{ children: ReactNode }>) {
@@ -23,7 +24,10 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <QueryClientProvider client={queryClient}>
       <HeroUIProvider>
-        <AdminSessionProvider>{children}</AdminSessionProvider>
+        <AdminSessionProvider>
+          {children}
+          <AppToaster />
+        </AdminSessionProvider>
       </HeroUIProvider>
     </QueryClientProvider>
   );

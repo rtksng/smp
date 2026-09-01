@@ -2576,53 +2576,6 @@ h2 {
   color: #ffffff;
 }
 
-.settingsHubGrid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 18px;
-}
-
-.settingsHubCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-  min-height: 180px;
-  padding: 22px;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
-}
-
-.settingsHubCard:hover {
-  border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.1);
-  transform: translateY(-1px);
-}
-
-.settingsHubCard span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.settingsHubCard strong {
-  color: var(--text);
-  font-size: 34px;
-  line-height: 1;
-}
-
-.settingsHubCard p {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
-  margin: 0;
-}
-
 .reportHubGrid,
 .deliveryChargeHubGrid,
 .couponHubGrid,
@@ -3082,9 +3035,25 @@ h2 {
 }
 
 .settingsUsersPanel .resourceTable [data-slot="table"],
-.rolePermissionTable [data-slot="table"],
-.permissionCatalogTable [data-slot="table"] {
+.rolePermissionTable [data-slot="table"] {
   min-width: 900px;
+}
+
+.adminToast {
+  border-radius: 8px !important;
+  font-family: var(--font-admin) !important;
+}
+
+.adminToastTitle {
+  font-weight: 800 !important;
+}
+
+.adminToastDescription {
+  color: var(--muted) !important;
+}
+
+.rolePermissionTable {
+  scrollbar-gutter: auto;
 }
 
 .settingsFormPanel {
@@ -4847,7 +4816,6 @@ h2 {
     width: auto;
   }
 
-  .settingsHubGrid,
   .reportHubGrid,
   .deliveryChargeHubGrid,
   .couponHubGrid,
@@ -4916,7 +4884,6 @@ h2 {
   .warehouseManagementGrid,
   .settingsManagementGrid,
   .deliveryChargeWorkspaceGrid,
-  .settingsHubGrid,
   .reportHubGrid,
   .dashboardChartGrid,
   .deliveryChargeHubGrid,

@@ -1,9 +1,15 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { AdminStatus } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import { PasswordService } from "../auth/common/password.service";
+import { AdminRoleCode } from "../roles/roles.constants";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import type {
   AdminUserListQueryDto,
@@ -183,7 +189,12 @@ export class AdminUsersService {
   async deleteAdminUser(id: string, context: AdminActionContext) {
     const deletedAt = new Date();
 
-    await this.findExistingUser(this.prisma, id);
+    const existingUser = await this.findExistingUser(this.prisma, id);
+
+    if (existingUser.role.code === AdminRoleCode.SuperAdmin) {
+      throw new ForbiddenException("Super admin accounts cannot be deleted.");
+    }
+
     await this.prisma.$transaction(async (tx) => {
       const deletedUser = await tx.adminUser.update({
         data: {

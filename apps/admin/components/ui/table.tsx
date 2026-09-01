@@ -4,12 +4,21 @@ import { cn } from "@/lib/utils";
 
 const tableSlots = heroTable({ radius: "sm", shadow: "none" });
 
-export function Table({ className, ...props }: ComponentProps<"table">) {
+type TableProps = ComponentProps<"table"> & {
+  containerClassName?: string;
+};
+
+export function Table({
+  className,
+  containerClassName,
+  ...props
+}: TableProps) {
   return (
     <div
       className={cn(
         tableSlots.base(),
-        "relative w-full gap-0 overflow-auto rounded-none bg-transparent p-0 shadow-none adminTableViewport"
+        "relative w-full gap-0 overflow-auto rounded-none bg-transparent p-0 shadow-none adminTableViewport",
+        containerClassName
       )}
       data-slot="table-container"
     >

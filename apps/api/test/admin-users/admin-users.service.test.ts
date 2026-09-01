@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException
+} from "@nestjs/common";
 import { AdminUsersService } from "../../src/modules/admin-users/admin-users.service";
 import type { PasswordService } from "../../src/modules/auth/common/password.service";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -29,7 +33,13 @@ type AdminUsersPrismaMock = PrismaService & {
   };
 };
 
-function createPrismaMock(options: { existingEmail?: boolean; roleFound?: boolean } = {}) {
+function createPrismaMock(
+  options: {
+    existingEmail?: boolean;
+    roleFound?: boolean;
+    userRoleCode?: string;
+  } = {}
+) {
   const calls: AdminUsersPrismaMock["calls"] = {
     adminAuditLogCreate: [],
     adminSessionUpdateMany: [],
@@ -90,9 +100,12 @@ function createPrismaMock(options: { existingEmail?: boolean; roleFound?: boolea
             lastName: null,
             mobileNumber: null,
             role: {
-              code: "ORDER_MANAGER",
+              code: options.userRoleCode ?? "ORDER_MANAGER",
               id: "role-1",
-              name: "Order manager"
+              name:
+                options.userRoleCode === "SUPER_ADMIN"
+                  ? "Super admin"
+                  : "Order manager"
             },
             roleId: "role-1",
             status: "ACTIVE",
@@ -246,4 +259,21 @@ test("deleteAdminUser soft deletes admins and revokes active sessions", async ()
       revokedAt: null
     }
   });
+});
+
+test("deleteAdminUser rejects super admin accounts before mutating data", async () => {
+  const prisma = createPrismaMock({ userRoleCode: "SUPER_ADMIN" });
+  const service = new AdminUsersService(prisma, passwordService);
+
+  await assert.rejects(
+    () => service.deleteAdminUser("admin-1", context),
+    (error: unknown) => {
+      assert.equal(error instanceof ForbiddenException, true);
+      assert.match((error as Error).message, /cannot be deleted/i);
+      return true;
+    }
+  );
+  assert.equal(prisma.calls.adminUserUpdate.length, 0);
+  assert.equal(prisma.calls.adminSessionUpdateMany.length, 0);
+  assert.equal(prisma.calls.adminAuditLogCreate.length, 0);
 });

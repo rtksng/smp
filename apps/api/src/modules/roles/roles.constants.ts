@@ -52,7 +52,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
   },
   {
     code: AdminRoleCode.Support,
-    description: "Read-only support access for customers, orders, and delivery.",
+    description: "Supports customer assistance across products, orders, and delivery.",
     isSystem: true,
     name: "Support"
   }
