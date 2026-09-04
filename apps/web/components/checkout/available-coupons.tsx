@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useLayoutEffect, useRef, useState } from "react";
 import { listAvailableCoupons } from "../../lib/api/coupons";
 import { customerQueryKeys } from "../../lib/api/query-keys";
 import { Button } from "../ui/button";
@@ -33,6 +34,38 @@ export function AvailableCoupons({
     retry: false,
     staleTime: 0
   });
+  const listRef = useRef<HTMLUListElement>(null);
+  const [visibleListHeight, setVisibleListHeight] = useState<number>();
+  const hasMoreThanTwoCoupons = (couponsQuery.data?.items.length ?? 0) > 2;
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const firstCard = list?.children.item(0);
+    const secondCard = list?.children.item(1);
+
+    if (!hasMoreThanTwoCoupons || !list || !firstCard || !secondCard) {
+      return;
+    }
+
+    const measureVisibleCards = () => {
+      const height = secondCard.getBoundingClientRect().bottom - firstCard.getBoundingClientRect().top;
+      if (height > 0) {
+        setVisibleListHeight(height);
+      }
+    };
+    measureVisibleCards();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureVisibleCards);
+      return () => window.removeEventListener("resize", measureVisibleCards);
+    }
+
+    const observer = new ResizeObserver(measureVisibleCards);
+    observer.observe(list);
+    observer.observe(firstCard);
+    observer.observe(secondCard);
+    return () => observer.disconnect();
+  }, [couponsQuery.data?.items, couponsQuery.isError, couponsQuery.isPending, hasMoreThanTwoCoupons]);
 
   if (couponsQuery.isPending) {
     return <p className="mt-3 text-sm text-[#55716e]" role="status">Loading promo codes...</p>;
@@ -61,7 +94,11 @@ export function AvailableCoupons({
   return (
     <section aria-label="Available promo codes" className="mt-4 border-t border-[#c4e4e0] pt-4">
       <h3 className="text-sm font-semibold text-[#123f3c]">Available promo codes</h3>
-      <ul className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1">
+      <ul
+        className={`mt-3 grid gap-2 ${hasMoreThanTwoCoupons ? "overflow-y-auto pr-1" : ""}`}
+        ref={listRef}
+        style={hasMoreThanTwoCoupons ? { maxHeight: visibleListHeight, scrollbarGutter: "stable" } : undefined}
+      >
         {couponsQuery.data.items.map((coupon) => {
           const remaining = Math.max(0, (coupon.minOrderAmount ?? 0) - subtotal);
           const isApplied = appliedCode?.toUpperCase() === coupon.code.toUpperCase();
