@@ -1,5 +1,6 @@
 export const queryKeys = {
   addresses: ["customer", "addresses"] as const,
+  availableCoupons: ["customer", "available-coupons"] as const,
   brands: ["catalog", "brands"] as const,
   cart: (shippingAddressId?: string | null) =>
     ["customer", "cart", shippingAddressId ?? "default"] as const,

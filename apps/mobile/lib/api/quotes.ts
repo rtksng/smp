@@ -2,15 +2,24 @@ import { z } from "zod";
 import { cartSchema, orderSchema, paginationSchema } from "./schemas";
 import { requestApi } from "./client";
 import { requestCustomerApi } from "./customer-client";
+import { normalizeIndianMobileNumber } from "../auth/mobile";
 
 export const quoteRequestInputSchema = z.object({
-  email: z.string().trim().email("Enter a valid email."),
+  email: z.string().trim().email("Enter a valid email.").max(160),
   message: z
     .string()
     .trim()
     .min(10, "Describe SKUs, quantities, and delivery needs.")
     .max(2000),
-  mobileNumber: z.string().trim().min(8, "Enter a contact number.").max(24),
+  mobileNumber: z.string().trim().max(24).transform((value, context) => {
+    try {
+      if (!/^[+\d\s()-]+$/.test(value)) throw new Error("Invalid mobile number");
+      return normalizeIndianMobileNumber(value);
+    } catch {
+      context.addIssue({ code: "custom", message: "Enter a valid Indian mobile number." });
+      return z.NEVER;
+    }
+  }),
   name: z.string().trim().min(2, "Enter your name.").max(120),
   organization: z.string().trim().max(160).nullable().optional()
 });

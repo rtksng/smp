@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router, type Href } from "expo-router";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/state-view";
 import { getCart } from "@/lib/api/cart";
 import { createAddress, listAddresses, updateAddress } from "@/lib/api/customer";
-import { validateCoupon, type CouponValidation } from "@/lib/api/coupons";
+import { validateCoupon } from "@/lib/api/coupons";
+import { AvailableCoupons } from "@/components/checkout/available-coupons";
+import { getCouponCartKey, isCouponSelectionStale, type CouponSelection } from "@/lib/commerce/coupons";
 import { createOrder } from "@/lib/api/orders";
 import {
   createRazorpayOrder,
@@ -41,12 +43,13 @@ export default function CheckoutScreen() {
   const [addressForm, setAddressForm] = useState<Address | "new" | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null);
+  const [couponSelection, setCouponSelection] = useState<CouponSelection | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const idempotencyKeyRef = useRef(buildCheckoutIdempotencyKey());
   const pendingOrderIdRef = useRef<string | null>(null);
   const processingRef = useRef(false);
+  const couponValidationRef = useRef(false);
   const addressesQuery = useQuery({
     enabled: Boolean(session),
     queryFn: listAddresses,
@@ -64,12 +67,28 @@ export default function CheckoutScreen() {
     queryKey: queryKeys.paymentGateway
   });
   const couponMutation = useMutation({
-    mutationFn: validateCoupon,
-    onSuccess: setAppliedCoupon
+    mutationFn: ({ code }: { code: string; cartKey: string }) => validateCoupon(code),
+    onSuccess: (validation, input) => {
+      setCouponSelection({ cartKey: input.cartKey, validation });
+      setCouponCode(validation.code);
+    }
   });
   const orderMutation = useMutation({
     mutationFn: createOrder
   });
+  const cart = cartQuery.data;
+  const couponCartKey = getCouponCartKey(cart);
+  const hasStaleCoupon = isCouponSelectionStale(couponSelection, cart);
+  const appliedCoupon = hasStaleCoupon ? null : couponSelection?.validation ?? null;
+  const isUpdatingTotals = cartQuery.isFetching || addressesQuery.isFetching;
+  const couponBusy = isProcessing || couponMutation.isPending || isUpdatingTotals || addressForm !== null;
+  const { refetch: refetchCart } = cartQuery;
+  useFocusEffect(useCallback(() => {
+    if (session) {
+      void refetchCart();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.availableCoupons });
+    }
+  }, [session, refetchCart, queryClient]));
 
   useEffect(() => {
     const defaultAddress =
@@ -82,9 +101,10 @@ export default function CheckoutScreen() {
   }, [addressesQuery.data, selectedAddressId]);
 
   useEffect(() => {
+    if (processingRef.current) return;
     idempotencyKeyRef.current = buildCheckoutIdempotencyKey();
     pendingOrderIdRef.current = null;
-  }, [appliedCoupon?.code, paymentMethod, selectedAddressId]);
+  }, [appliedCoupon?.code, couponCartKey, paymentMethod, selectedAddressId]);
 
   useEffect(() => {
     if (isReady && !session) {
@@ -120,8 +140,6 @@ export default function CheckoutScreen() {
     );
   }
 
-  const cart = cartQuery.data;
-
   if (!cart || cart.items.length === 0) {
     return (
       <Screen>
@@ -142,10 +160,42 @@ export default function CheckoutScreen() {
   );
   const payableTotal = calculateCheckoutTotal(cart.totals, appliedCoupon?.discount);
   const onlineEnabled = Boolean(gatewayQuery.data?.onlinePaymentEnabled);
-  const isUpdatingTotals = cartQuery.isFetching || addressesQuery.isFetching;
+
+  async function handleApplyCoupon(selectedCode?: string) {
+    if (processingRef.current || couponValidationRef.current || couponBusy || cartQuery.isError) return;
+    const code = (selectedCode ?? couponCode).trim().toUpperCase();
+    if (!code) return;
+    couponValidationRef.current = true;
+    couponMutation.reset();
+    setCouponCode(code);
+    setSubmitError(null);
+    try {
+      const validation = await couponMutation.mutateAsync({ code, cartKey: couponCartKey });
+      if (validation.subtotal !== cart?.totals.subtotal || validation.tax !== cart?.totals.tax) {
+        await queryClient.invalidateQueries({ queryKey: ["customer", "cart"] });
+      }
+    } catch {
+      setCouponSelection(null);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.availableCoupons });
+    } finally {
+      couponValidationRef.current = false;
+    }
+  }
+
+  function handleRemoveCoupon() {
+    if (processingRef.current || couponValidationRef.current) return;
+    setCouponSelection(null);
+    setCouponCode("");
+    setSubmitError(null);
+    couponMutation.reset();
+  }
 
   async function handlePlaceOrder() {
     if (processingRef.current) {
+      return;
+    }
+    if (couponValidationRef.current || couponMutation.isPending || hasStaleCoupon) {
+      setSubmitError("Apply the promo code again or remove it before placing the order.");
       return;
     }
     if (isUpdatingTotals || addressForm !== null) {
@@ -249,7 +299,9 @@ export default function CheckoutScreen() {
   async function invalidateCheckoutQueries() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["customer", "cart"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders })
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.quotes }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.availableCoupons })
     ]);
   }
 
@@ -406,12 +458,15 @@ export default function CheckoutScreen() {
 
         <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
           <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}><MaterialCommunityIcons color={colors.primaryDark} name="ticket-percent-outline" size={16} /><Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Promo code</Text></View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <TextInput accessibilityLabel="Promo code" autoCapitalize="characters" autoCorrect={false} editable={!appliedCoupon} onChangeText={(value) => { setCouponCode(value); couponMutation.reset(); }} placeholder="Enter code" placeholderTextColor={colors.muted} style={{ backgroundColor: colors.surface, borderColor: "#9FD7D1", borderRadius: 999, borderWidth: 1, color: colors.text, flex: 1, fontFamily: fonts.bodySemiBold, minHeight: 48, paddingHorizontal: 16 }} value={couponCode} />
-            <Button disabled={!appliedCoupon && !couponCode.trim()} loading={!appliedCoupon && couponMutation.isPending} onPress={() => { if (appliedCoupon) { setAppliedCoupon(null); setCouponCode(""); couponMutation.reset(); } else { couponMutation.mutate(couponCode); } }} variant="outline">{appliedCoupon ? "Remove" : "Apply"}</Button>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <TextInput accessibilityLabel="Promo code" autoCapitalize="characters" autoCorrect={false} editable={!appliedCoupon && !couponBusy} onChangeText={(value) => { setCouponCode(value); couponMutation.reset(); }} placeholder="Enter code" placeholderTextColor={colors.muted} style={{ backgroundColor: colors.surface, borderColor: "#9FD7D1", borderRadius: 999, borderWidth: 1, color: colors.text, flex: 1, fontFamily: fonts.bodySemiBold, minHeight: 48, minWidth: 120, paddingHorizontal: 16 }} value={couponCode} />
+            {couponSelection ? <Button disabled={isProcessing || couponMutation.isPending} onPress={handleRemoveCoupon} variant="outline">Remove</Button> : null}
+            {!appliedCoupon ? <Button disabled={couponBusy || !couponCode.trim()} loading={couponMutation.isPending} onPress={() => void handleApplyCoupon()} variant="outline">Apply</Button> : null}
           </View>
           {appliedCoupon ? <Text style={{ backgroundColor: colors.primarySoft, borderRadius: 8, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 10 }}>{appliedCoupon.message}</Text> : null}
           {couponMutation.error ? <Text accessibilityRole="alert" style={{ backgroundColor: colors.dangerBackground, borderRadius: 8, color: "#7A271A", fontFamily: fonts.bodySemiBold, fontSize: 13, padding: 10 }}>{getErrorMessage(couponMutation.error, "Unable to apply promo code.")}</Text> : null}
+          {hasStaleCoupon ? <Text accessibilityRole="alert" selectable style={{ color: colors.danger, fontFamily: fonts.bodySemiBold }}>Your cart changed. Apply the promo code again or remove it to continue.</Text> : null}
+          <AvailableCoupons appliedCode={appliedCoupon?.code ?? null} disabled={couponBusy} onApply={(code) => void handleApplyCoupon(code)} subtotal={cart.totals.subtotal} />
         </View>
 
         <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
@@ -441,7 +496,7 @@ export default function CheckoutScreen() {
           </Text>
         ) : null}
         <Button
-          disabled={!selectedAddressId || hasBlockingStockIssue || isUpdatingTotals || addressForm !== null}
+          disabled={!selectedAddressId || hasBlockingStockIssue || isUpdatingTotals || addressForm !== null || couponMutation.isPending || hasStaleCoupon}
           loading={isProcessing}
           onPress={() => void handlePlaceOrder()}
         >

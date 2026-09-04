@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ComponentRef } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { Link, type Href } from "expo-router";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { Link, useLocalSearchParams, type Href } from "expo-router";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FlatList,
   Pressable,
@@ -57,6 +57,14 @@ const emptyQuoteForm: QuoteRequestInput = {
 };
 
 export default function HomeScreen() {
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ComponentRef<typeof KeyboardAwareScrollView>>(null);
+  const [bulkOffset, setBulkOffset] = useState(0);
+  useEffect(() => {
+    if (section === "bulk" && bulkOffset > 0) {
+      scrollRef.current?.scrollTo({ y: bulkOffset, animated: true });
+    }
+  }, [section, bulkOffset]);
   const categoriesQuery = useQuery({
     queryFn: getCategories,
     queryKey: queryKeys.categories
@@ -77,6 +85,7 @@ export default function HomeScreen() {
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
       <KeyboardAwareScrollView
+        ref={scrollRef}
         bottomOffset={96}
         contentContainerStyle={{ paddingBottom: 24 }}
         contentInsetAdjustmentBehavior="automatic"
@@ -112,7 +121,9 @@ export default function HomeScreen() {
           <ProductRail products={productsQuery.data.items} title="Latest additions" />
         ) : null}
         <TrustRail />
-        <BulkQuoteSection />
+        <View onLayout={(event) => setBulkOffset(event.nativeEvent.layout.y)}>
+          <BulkQuoteSection />
+        </View>
       </KeyboardAwareScrollView>
     </View>
   );
@@ -644,6 +655,8 @@ function TrustRail() {
 }
 
 function BulkQuoteSection() {
+  const queryClient = useQueryClient();
+  const submittingRef = useRef(false);
   const [form, setForm] = useState<QuoteRequestInput>(emptyQuoteForm);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof QuoteRequestInput, string>>
@@ -651,10 +664,14 @@ function BulkQuoteSection() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const quoteMutation = useMutation({
     mutationFn: createQuoteRequest,
-    onSuccess: (request) => {
+    onSuccess: async (request) => {
       setForm(emptyQuoteForm);
       setFieldErrors({});
       setSuccessMessage(`Quote request ${request.id} received.`);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.quotes });
+    },
+    onSettled: () => {
+      submittingRef.current = false;
     }
   });
 
@@ -662,11 +679,13 @@ function BulkQuoteSection() {
     field: Field,
     value: QuoteRequestInput[Field]
   ) {
+    if (submittingRef.current) return;
     setForm((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
   function submitQuote() {
+    if (submittingRef.current || quoteMutation.isPending) return;
     const parsed = quoteRequestInputSchema.safeParse({
       ...form,
       organization: form.organization?.trim() || null
@@ -686,6 +705,7 @@ function BulkQuoteSection() {
 
     setFieldErrors({});
     setSuccessMessage(null);
+    submittingRef.current = true;
     quoteMutation.mutate(parsed.data);
   }
 
@@ -736,18 +756,21 @@ function BulkQuoteSection() {
         </Text>
         <View style={{ gap: 12, paddingTop: 8 }}>
           <QuoteInput
+            editable={!quoteMutation.isPending}
             error={fieldErrors.name}
             onChangeText={(value) => updateForm("name", value)}
             placeholder="Name"
             value={form.name}
           />
           <QuoteInput
+            editable={!quoteMutation.isPending}
             error={fieldErrors.organization}
             onChangeText={(value) => updateForm("organization", value)}
             placeholder="Clinic or hospital"
             value={form.organization ?? ""}
           />
           <QuoteInput
+            editable={!quoteMutation.isPending}
             autoCapitalize="none"
             error={fieldErrors.email}
             keyboardType="email-address"
@@ -756,6 +779,7 @@ function BulkQuoteSection() {
             value={form.email}
           />
           <QuoteInput
+            editable={!quoteMutation.isPending}
             error={fieldErrors.mobileNumber}
             keyboardType="phone-pad"
             onChangeText={(value) => updateForm("mobileNumber", value)}
@@ -763,6 +787,7 @@ function BulkQuoteSection() {
             value={form.mobileNumber}
           />
           <QuoteInput
+            editable={!quoteMutation.isPending}
             error={fieldErrors.message}
             multiline
             onChangeText={(value) => updateForm("message", value)}

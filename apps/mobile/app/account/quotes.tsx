@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { router } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Text, View } from "react-native";
+import { RefreshControl, Text, View } from "react-native";
 import { AccountInfoGrid, AccountPageHeader, AccountSection, AccountSectionHeader, AccountStatusBadge } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
@@ -18,22 +18,31 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDate, formatRupees, formatStatus } from "@/lib/format";
 import { queryKeys } from "@/lib/query";
+import { getQuoteActions } from "@/lib/commerce/quotes";
 import { colors, fonts } from "@/lib/theme";
 
 export default function QuotesScreen() {
   const { isReady, session } = useAuth();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const actionInFlight = useRef(false);
   const quotesQuery = useQuery({
     enabled: Boolean(session),
-    queryFn: () => listCustomerQuoteRequests(),
-    queryKey: queryKeys.quotes
+    queryFn: () => listCustomerQuoteRequests(page, 20),
+    queryKey: [...queryKeys.quotes, session?.customer.id, page],
+    staleTime: 0
   });
+  const { refetch } = quotesQuery;
+  useFocusEffect(useCallback(() => {
+    if (session) void refetch();
+  }, [session, refetch]));
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.quotes });
   const acceptMutation = useMutation({ mutationFn: acceptQuoteRequest, onSuccess: refresh });
   const rejectMutation = useMutation({ mutationFn: rejectQuoteRequest, onSuccess: refresh });
   const cartMutation = useMutation({
     mutationFn: convertQuoteToCart,
     onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["customer", "cart"], refetchType: "none" });
       queryClient.setQueryData(queryKeys.cart(), result.cart);
       await refresh();
       router.push("/cart");
@@ -42,10 +51,32 @@ export default function QuotesScreen() {
   const orderMutation = useMutation({
     mutationFn: convertQuoteToOrder,
     onSuccess: async (result) => {
-      await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: queryKeys.orders })]);
+      await Promise.all([
+        refresh(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+        queryClient.invalidateQueries({ queryKey: ["customer", "cart"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.availableCoupons })
+      ]);
       router.push({ pathname: "/orders/[id]", params: { id: result.order.id } });
     }
   });
+
+  const busy = acceptMutation.isPending || rejectMutation.isPending || cartMutation.isPending || orderMutation.isPending;
+  async function runAction(action: () => Promise<unknown>) {
+    if (actionInFlight.current || busy) return;
+    actionInFlight.current = true;
+    acceptMutation.reset();
+    rejectMutation.reset();
+    cartMutation.reset();
+    orderMutation.reset();
+    try {
+      await action();
+    } catch {
+      // The mutation error is rendered below and can be retried.
+    } finally {
+      actionInFlight.current = false;
+    }
+  }
 
   useEffect(() => {
     if (isReady && !session) router.replace("/login?returnTo=/account/quotes");
@@ -62,47 +93,55 @@ export default function QuotesScreen() {
   const quotes = quotesQuery.data.items;
   const actionError = acceptMutation.error ?? rejectMutation.error ?? cartMutation.error ?? orderMutation.error;
   return (
-    <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
+    <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }} refreshControl={<RefreshControl onRefresh={() => void refetch()} refreshing={quotesQuery.isFetching} />}>
       <AccountPageHeader description="Review quotation responses, accept or reject pricing, and prepare accepted catalog quotes for checkout." title="Quotes" />
       <AccountInfoGrid items={[
         { label: "Total quotes", value: String(quotesQuery.data.pagination.total) },
-        { label: "Latest", value: quotes[0] ? formatDate(quotes[0].createdAt) : "-" },
-        { label: "Awaiting decision", value: String(quotes.filter((quote) => quote.status === "QUOTED").length) },
-        { label: "Accepted", value: String(quotes.filter((quote) => ["ACCEPTED", "CONVERTED"].includes(quote.status)).length) }
+        { label: "Latest on this page", value: quotes[0] ? formatDate(quotes[0].createdAt) : "-" },
+        { label: "Awaiting decision on this page", value: String(quotes.filter((quote) => quote.status === "QUOTED").length) },
+        { label: "Accepted on this page", value: String(quotes.filter((quote) => ["ACCEPTED", "CONVERTED"].includes(quote.status)).length) }
       ]} />
       {actionError ? <ErrorState message={getErrorMessage(actionError, "Unable to update this quote.")} /> : null}
       {quotes.length === 0 ? (
-        <EmptyState action={<Button href="/">Request quote</Button>} description="Submitted bulk quote requests and itemized responses will appear here." title="No quote requests yet" />
+        <EmptyState action={<Button href={{ pathname: "/", params: { section: "bulk" } }}>Request quote</Button>} description="Submitted bulk quote requests and itemized responses will appear here." title="No quote requests yet" />
       ) : (
         <AccountSection>
-          <AccountSectionHeader description="Quote responses are matched to your account email and can be accepted before checkout." title="Quote history" />
+          <AccountSectionHeader description="Review requests matched to your account email or mobile number, then accept a quotation to continue." title="Quote history" />
           {quotes.map((quote) => (
             <QuoteCard
-              busy={acceptMutation.isPending || rejectMutation.isPending || cartMutation.isPending || orderMutation.isPending}
+              busy={busy}
+              pendingAction={acceptMutation.isPending && acceptMutation.variables === quote.id ? "accept" : rejectMutation.isPending && rejectMutation.variables === quote.id ? "reject" : cartMutation.isPending && cartMutation.variables === quote.id ? "cart" : orderMutation.isPending && orderMutation.variables === quote.id ? "order" : null}
               key={quote.id}
-              onAccept={() => acceptMutation.mutate(quote.id)}
-              onCart={() => cartMutation.mutate(quote.id)}
-              onOrder={() => orderMutation.mutate(quote.id)}
-              onReject={() => rejectMutation.mutate(quote.id)}
+              onAccept={() => void runAction(() => acceptMutation.mutateAsync(quote.id))}
+              onCart={() => void runAction(() => cartMutation.mutateAsync(quote.id))}
+              onOrder={() => void runAction(() => orderMutation.mutateAsync(quote.id))}
+              onReject={() => void runAction(() => rejectMutation.mutateAsync(quote.id))}
               quote={quote}
             />
           ))}
         </AccountSection>
       )}
+      {quotesQuery.data.pagination.totalPages > 1 ? (
+        <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" }}>
+          <Button disabled={busy || quotesQuery.isFetching || !quotesQuery.data.pagination.hasPreviousPage} onPress={() => setPage(current => Math.max(1, current - 1))} variant="outline">Previous</Button>
+          <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold }}>Page {page} of {quotesQuery.data.pagination.totalPages}</Text>
+          <Button disabled={busy || quotesQuery.isFetching || !quotesQuery.data.pagination.hasNextPage} onPress={() => setPage(current => current + 1)} variant="outline">Next</Button>
+        </View>
+      ) : null}
     </Screen>
   );
 }
 
-function QuoteCard({ busy, onAccept, onCart, onOrder, onReject, quote }: {
+function QuoteCard({ busy, pendingAction, onAccept, onCart, onOrder, onReject, quote }: {
   busy: boolean;
+  pendingAction: "accept" | "reject" | "cart" | "order" | null;
   onAccept: () => void;
   onCart: () => void;
   onOrder: () => void;
   onReject: () => void;
   quote: QuoteRequest;
 }) {
-  const catalogQuote = Boolean(quote.quotation?.items.length && quote.quotation.items.every((item) => item.productId));
-  const manualQuote = Boolean(quote.quotation?.items.some((item) => !item.productId));
+  const actions = getQuoteActions(quote);
   return (
     <View style={{ backgroundColor: colors.background, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 14, padding: 16 }}>
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 10, justifyContent: "space-between" }}>
@@ -120,10 +159,11 @@ function QuoteCard({ busy, onAccept, onCart, onOrder, onReject, quote }: {
         </Text>
       ) : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {quote.status === "QUOTED" ? <><Button disabled={busy} onPress={onAccept}>Accept quote</Button><Button disabled={busy} onPress={onReject} variant="outline">Reject</Button></> : null}
-        {["ACCEPTED", "CONVERTED"].includes(quote.status) && catalogQuote ? <Button disabled={busy} onPress={onCart} variant="soft">Prepare cart</Button> : null}
-        {["ACCEPTED", "CONVERTED"].includes(quote.status) && manualQuote && quote.convertedOrderId ? <Button href={{ pathname: "/orders/[id]", params: { id: quote.convertedOrderId } }} variant="soft">View order</Button> : null}
-        {["ACCEPTED", "CONVERTED"].includes(quote.status) && manualQuote && !quote.convertedOrderId ? <Button disabled={busy} onPress={onOrder} variant="soft">Create order</Button> : null}
+        {actions.expired && !quote.convertedOrderId ? <Text accessibilityRole="alert" selectable style={{ color: colors.danger, fontFamily: fonts.bodySemiBold, width: "100%" }}>This quotation has expired. Request an updated quotation.</Text> : null}
+        {actions.showDecision ? <><Button disabled={busy || !actions.canAccept} onPress={onAccept}>{pendingAction === "accept" ? "Accepting..." : "Accept quote"}</Button><Button disabled={busy} onPress={onReject} variant="outline">{pendingAction === "reject" ? "Rejecting..." : "Reject"}</Button></> : null}
+        {actions.showCart ? <Button disabled={busy || actions.expired} onPress={onCart} variant="soft">{pendingAction === "cart" ? "Preparing cart..." : "Prepare cart"}</Button> : null}
+        {actions.showOrder && quote.convertedOrderId ? <Button href={{ pathname: "/orders/[id]", params: { id: quote.convertedOrderId } }} variant="soft">View order</Button> : null}
+        {actions.showCreateOrder ? <Button disabled={busy || actions.expired} onPress={onOrder} variant="soft">{pendingAction === "order" ? "Creating order..." : "Create order"}</Button> : null}
       </View>
     </View>
   );
