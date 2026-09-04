@@ -64,7 +64,7 @@ export class WarehousesService {
             name: input.name,
             pincode: input.pincode,
             state: input.state,
-            status: WarehouseStatus.ACTIVE
+            status: input.status ?? WarehouseStatus.ACTIVE
           }
         });
 
@@ -183,17 +183,21 @@ export class WarehousesService {
   async deleteWarehouse(id: string, context: AdminActionContext) {
     await this.warehouseAccessService.assertCanManageWarehouse(context.auth, id);
     const existingWarehouse = await this.findExistingWarehouse(id);
-    await this.assertWarehouseSafeToDelete(id);
-
     await this.prisma.$transaction(async (tx) => {
+      await this.assertWarehouseSafeToDelete(tx, id);
+      const deletedAt = new Date();
       const deletedWarehouse = await tx.warehouse.update({
         data: {
-          deletedAt: new Date(),
+          deletedAt,
           status: WarehouseStatus.INACTIVE
         },
         where: {
           id
         }
+      });
+      await tx.warehouseStaff.updateMany({
+        data: { deletedAt },
+        where: { warehouseId: id, deletedAt: null }
       });
 
       await this.writeAuditLog(tx, context, {
@@ -235,21 +239,11 @@ export class WarehousesService {
           warehouseId
         }
       });
-      const updatedAssignment = existingAssignment
-        ? await tx.warehouseStaff.update({
-            data: {
-              deletedAt: null
-            },
-            where: {
-              id: existingAssignment.id
-            }
-          })
-        : await tx.warehouseStaff.create({
-            data: {
-              adminUserId: input.adminUserId,
-              warehouseId
-            }
-          });
+      const updatedAssignment = await tx.warehouseStaff.upsert({
+        where: { adminUserId_warehouseId: { adminUserId: input.adminUserId, warehouseId } },
+        create: { adminUserId: input.adminUserId, warehouseId },
+        update: { deletedAt: null }
+      });
 
       await this.writeAuditLog(tx, context, {
         action: "warehouse_staff.assign",
@@ -270,6 +264,7 @@ export class WarehousesService {
 
   async listStaff(warehouseId: string, auth: AuthJwtPayload) {
     await this.assertReadableWarehouse(auth, warehouseId);
+    await this.findExistingWarehouse(warehouseId);
 
     const assignments = await this.prisma.warehouseStaff.findMany({
       include: {
@@ -294,6 +289,7 @@ export class WarehousesService {
       context.auth,
       warehouseId
     );
+    await this.findExistingWarehouse(warehouseId);
     const existingAssignment = await this.prisma.warehouseStaff.findFirst({
       where: {
         adminUserId: staffId,
@@ -380,6 +376,7 @@ export class WarehousesService {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { code: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
         { contactPerson: { contains: search, mode: "insensitive" } }
       ];
     }
@@ -430,19 +427,19 @@ export class WarehousesService {
     return warehouse;
   }
 
-  private async assertWarehouseSafeToDelete(id: string) {
+  private async assertWarehouseSafeToDelete(tx: Prisma.TransactionClient, id: string) {
     const [inventoryCount, batchCount, movementCount] = await Promise.all([
-      this.prisma.inventoryStock.count({
+      tx.inventoryStock.count({
         where: {
           warehouseId: id
         }
       }),
-      this.prisma.stockBatch.count({
+      tx.stockBatch.count({
         where: {
           warehouseId: id
         }
       }),
-      this.prisma.stockMovement.count({
+      tx.stockMovement.count({
         where: {
           warehouseId: id
         }
@@ -452,6 +449,17 @@ export class WarehousesService {
     if (inventoryCount > 0 || batchCount > 0 || movementCount > 0) {
       throw new BadRequestException(
         "Warehouse cannot be deleted while inventory, stock batches, or stock movements exist."
+      );
+    }
+    const references = await tx.warehouse.findUnique({
+      where: { id },
+      select: { _count: { select: {
+        orders: true, orderItems: true, deliveryPickups: true, deliveryChargeRules: true
+      } } }
+    });
+    if (references && Object.values(references._count).some((count) => count > 0)) {
+      throw new BadRequestException(
+        "Warehouse is used by orders, deliveries, or delivery charge rules. Deactivate it instead."
       );
     }
   }
@@ -488,6 +496,9 @@ export class WarehousesService {
     }
     if (input.state !== undefined) {
       data.state = input.state;
+    }
+    if (input.status !== undefined) {
+      data.status = input.status;
     }
 
     return data;

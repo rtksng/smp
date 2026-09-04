@@ -13,10 +13,11 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  Trash2,
   UserPlus,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -24,6 +25,7 @@ import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,7 +60,7 @@ import {
   buildWarehouseCreatePath,
   buildWarehouseEditPath,
   buildWarehousePayload,
-  buildWarehouseQuery,
+  loadWarehouseResults,
   createEmptyWarehouseFilters,
   createEmptyWarehouseFormValues,
   formatWarehouseStatus,
@@ -131,6 +133,8 @@ function WarehousesContent({
     urlFilters
   );
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const initializedFormId = useRef<string | null>(null);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(
     initialEditWarehouseId
   );
@@ -150,11 +154,12 @@ function WarehousesContent({
   const canManageStaff = hasPermission(ADMIN_PERMISSION.WarehouseStaffManage);
 
   const warehousesQuery = useQuery({
-    queryFn: () =>
-      api.request<WarehouseListResponse>("/admin/warehouses", {
-        query: buildWarehouseQuery(appliedFilters)
-      }),
-    queryKey: ["admin", "warehouses", appliedFilters]
+    enabled: view !== "create",
+    queryFn: ({ signal }) => loadWarehouseResults(
+      (query) => api.request<WarehouseListResponse>("/admin/warehouses", { query, signal }),
+      appliedFilters, page, view === "analytics"
+    ),
+    queryKey: ["admin", "warehouses", appliedFilters, page, view]
   });
 
   const warehouseDetailQuery = useQuery({
@@ -211,6 +216,9 @@ function WarehousesContent({
         method: "DELETE"
       })
   });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.request<void>(`/admin/warehouses/${id}`, { method: "DELETE" })
+  });
 
   const warehouses = useMemo(
     () => warehousesQuery.data?.items ?? [],
@@ -224,18 +232,23 @@ function WarehousesContent({
     null;
   const showWarehouseFilters = shouldShowWarehouseFilters(view);
   const warehouseFilterContent = getWarehouseFilterContent(view);
-  const mutationError =
-    getErrorMessage(createMutation.error) ??
-    getErrorMessage(updateMutation.error) ??
-    getErrorMessage(statusMutation.error) ??
-    getErrorMessage(assignStaffMutation.error) ??
-    getErrorMessage(removeStaffMutation.error);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const isMutating =
     createMutation.isPending ||
     updateMutation.isPending ||
     statusMutation.isPending ||
     assignStaffMutation.isPending ||
-    removeStaffMutation.isPending;
+    removeStaffMutation.isPending || deleteMutation.isPending;
+
+  async function runAction(action: () => Promise<void>) {
+    setMutationError(null);
+    setMessage(null);
+    try {
+      await action();
+    } catch (error) {
+      setMutationError(getErrorMessage(error) ?? "Action failed. Please try again.");
+    }
+  }
   const warehouseFilterAction = showWarehouseFilters ? (
     <Button
       className="iconTextButton"
@@ -251,6 +264,7 @@ function WarehousesContent({
   useEffect(() => {
     setDraftFilters(urlFilters);
     setAppliedFilters(urlFilters);
+    setPage(1);
   }, [urlFilters]);
 
   useEffect(() => {
@@ -279,6 +293,7 @@ function WarehousesContent({
 
     setSelectedWarehouseId(initialEditWarehouseId);
     setEditingWarehouseId(initialEditWarehouseId);
+    initializedFormId.current = null;
     setFieldErrors({});
     setMessage(null);
 
@@ -291,12 +306,14 @@ function WarehousesContent({
     if (
       !editingWarehouseId ||
       !selectedWarehouse ||
-      selectedWarehouse.id !== editingWarehouseId
+      selectedWarehouse.id !== editingWarehouseId ||
+      initializedFormId.current === editingWarehouseId
     ) {
       return;
     }
 
     setFormValues(warehouseToFormValues(selectedWarehouse));
+    initializedFormId.current = editingWarehouseId;
     setFieldErrors({});
   }, [editingWarehouseId, selectedWarehouse]);
 
@@ -307,6 +324,7 @@ function WarehousesContent({
   function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedFilters(draftFilters);
+    setPage(1);
     setIsFilterDrawerOpen(false);
   }
 
@@ -314,6 +332,7 @@ function WarehousesContent({
     const emptyFilters = createEmptyWarehouseFilters();
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setPage(1);
   }
 
   function selectWarehouse(warehouse: AdminWarehouse) {
@@ -322,6 +341,9 @@ function WarehousesContent({
     setFormValues(createEmptyWarehouseFormValues());
     setFieldErrors({});
     setMessage(null);
+    setMutationError(null);
+    setStaffError(null);
+    setStaffAdminUserId("");
   }
 
   function startCreate() {
@@ -350,11 +372,12 @@ function WarehousesContent({
       return;
     }
 
-    void changeWarehouseStatus(warehouse.id, action);
+    void runAction(() => changeWarehouseStatus(warehouse.id, action));
   }
 
   async function changeWarehouseStatus(id: string, action: "activate" | "deactivate") {
     setMessage(null);
+    setMutationError(null);
     const warehouse = await statusMutation.mutateAsync({ action, id });
     setSelectedWarehouseId(warehouse.id);
     setMessage(action === "activate" ? "Warehouse activated." : "Warehouse deactivated.");
@@ -363,15 +386,13 @@ function WarehousesContent({
 
   async function saveWarehouse(values: z.output<typeof warehouseFormSchema>) {
     setMessage(null);
+    setMutationError(null);
     const wasEditing = Boolean(editingWarehouseId);
     const payload = buildWarehousePayload(values);
     const savedWarehouse = editingWarehouseId
       ? await updateMutation.mutateAsync({ id: editingWarehouseId, payload })
       : await createMutation.mutateAsync(payload);
-    const statusAction = getWarehouseStatusAction(savedWarehouse.status, values.status);
-    const finalWarehouse = statusAction
-      ? await statusMutation.mutateAsync({ action: statusAction, id: savedWarehouse.id })
-      : savedWarehouse;
+    const finalWarehouse = savedWarehouse;
 
     setSelectedWarehouseId(finalWarehouse.id);
     setEditingWarehouseId(finalWarehouse.id);
@@ -411,7 +432,7 @@ function WarehousesContent({
       return;
     }
 
-    void saveWarehouse(parsed.data);
+    void runAction(() => saveWarehouse(parsed.data));
   }
 
   async function handleAssignStaff(event: React.FormEvent<HTMLFormElement>) {
@@ -429,14 +450,16 @@ function WarehousesContent({
       return;
     }
 
-    await assignStaffMutation.mutateAsync({
-      adminUserId: parsed.data.adminUserId,
-      warehouseId: selectedWarehouseId
-    });
-    setStaffAdminUserId("");
-    setMessage("Warehouse staff assigned.");
-    await queryClient.invalidateQueries({
-      queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
+    await runAction(async () => {
+      await assignStaffMutation.mutateAsync({
+        adminUserId: parsed.data.adminUserId,
+        warehouseId: selectedWarehouseId
+      });
+      setStaffAdminUserId("");
+      setMessage("Warehouse staff assigned.");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
+      });
     });
   }
 
@@ -445,13 +468,31 @@ function WarehousesContent({
       return;
     }
 
-    await removeStaffMutation.mutateAsync({
-      adminUserId: assignment.adminUserId,
-      warehouseId: selectedWarehouseId
+    await runAction(async () => {
+      await removeStaffMutation.mutateAsync({
+        adminUserId: assignment.adminUserId,
+        warehouseId: selectedWarehouseId
+      });
+      setMessage("Warehouse staff removed.");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
+      });
     });
-    setMessage("Warehouse staff removed.");
-    await queryClient.invalidateQueries({
-      queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
+  }
+
+  function requestDelete(warehouse: AdminWarehouse) {
+    setConfirmation({
+      title: "Delete warehouse",
+      body: `Delete ${warehouse.name}? Warehouses with inventory or linked operations cannot be deleted.`,
+      confirmLabel: "Delete warehouse",
+      onConfirm: async () => {
+        setMutationError(null);
+        setMessage(null);
+        await deleteMutation.mutateAsync(warehouse.id);
+        setMessage("Warehouse deleted.");
+        if (warehouses.length === 1 && page > 1) setPage(page - 1);
+        await refreshWarehouses();
+      }
     });
   }
 
@@ -524,6 +565,8 @@ function WarehousesContent({
       ) : null}
 
       {view === "analytics" ? (
+        warehousesQuery.isLoading ? <LoadingState label="Loading warehouses..." /> :
+        warehousesQuery.isError ? <p className="formError" role="alert">{getErrorMessage(warehousesQuery.error)}</p> :
         <WarehouseAnalytics
           analytics={analytics}
           warehouses={warehouses}
@@ -574,13 +617,18 @@ function WarehousesContent({
           {warehouses.length > 0 ? (
             <WarehouseTable
               canManage={canManage}
-              isMutating={statusMutation.isPending}
+              isMutating={isMutating}
               onActivate={(warehouse) => void requestStatusChange(warehouse, "activate")}
               onDeactivate={(warehouse) => requestStatusChange(warehouse, "deactivate")}
               onEdit={startEdit}
+              onDelete={requestDelete}
               selectedWarehouseId={null}
               warehouses={warehouses}
             />
+          ) : null}
+          {warehousesQuery.data ? (
+            <PaginationControls page={page} onChange={(nextPage) => { if (!isMutating) setPage(nextPage); }}
+              totalPages={warehousesQuery.data.pagination.totalPages} />
           ) : null}
         </Card>
       ) : null}
@@ -696,6 +744,7 @@ function WarehousesContent({
                       }
                     }}
                     value={selectedWarehouseId ?? ""}
+                    disabled={isMutating}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select warehouse" />
@@ -720,6 +769,10 @@ function WarehousesContent({
 
             {selectedWarehouse ? (
               <>
+              {warehousesQuery.data ? (
+                <PaginationControls page={page} onChange={(nextPage) => { if (!isMutating) setPage(nextPage); }}
+                  totalPages={warehousesQuery.data.pagination.totalPages} />
+              ) : null}
               {staffError ? (
                 <p className="formError" role="alert">
                   {staffError}
@@ -727,13 +780,15 @@ function WarehousesContent({
               ) : null}
               <form className="inlineForm" onSubmit={handleAssignStaff}>
                 <Input
+                  aria-label="Admin user ID"
+                  disabled={isMutating}
                   onChange={(event) => setStaffAdminUserId(event.target.value)}
                   placeholder="Admin user ID"
                   value={staffAdminUserId}
                 />
                 <Button
                   className="iconTextButton"
-                  disabled={!selectedWarehouseId || assignStaffMutation.isPending}
+                  disabled={!selectedWarehouseId || isMutating}
                   type="submit"
                 >
                   <UserPlus aria-hidden size={16} />
@@ -749,7 +804,7 @@ function WarehousesContent({
                   {getErrorMessage(staffQuery.error) ?? "Unable to load staff assignments."}
                 </p>
               ) : null}
-              {(staffQuery.data?.length ?? 0) === 0 && !staffQuery.isLoading ? (
+              {(staffQuery.data?.length ?? 0) === 0 && !staffQuery.isLoading && !staffQuery.isError ? (
                 <EmptyState
                   body="No staff assigned to this warehouse."
                   title="No staff assigned"
@@ -767,7 +822,7 @@ function WarehousesContent({
                       </div>
                       <span>{assignment.adminUserId}</span>
                       <Button
-                        disabled={removeStaffMutation.isPending}
+                        disabled={isMutating}
                         onClick={() => void handleRemoveStaff(assignment)}
                         type="button"
                         variant="outline"
@@ -872,6 +927,7 @@ function WarehouseTable({
   onActivate,
   onDeactivate,
   onEdit,
+  onDelete,
   selectedWarehouseId,
   warehouses
 }: {
@@ -880,6 +936,7 @@ function WarehouseTable({
   onActivate: (warehouse: AdminWarehouse) => void;
   onDeactivate: (warehouse: AdminWarehouse) => void;
   onEdit: (warehouse: AdminWarehouse) => void;
+  onDelete: (warehouse: AdminWarehouse) => void;
   selectedWarehouseId: string | null;
   warehouses: AdminWarehouse[];
 }) {
@@ -921,7 +978,7 @@ function WarehouseTable({
                 <span className="tableActions">
             <Button
               className="iconTextButton"
-              disabled={!canManage}
+              disabled={!canManage || isMutating}
               onClick={() => onEdit(warehouse)}
               size="sm"
               type="button"
@@ -955,6 +1012,10 @@ function WarehouseTable({
                 <span>Activate</span>
               </Button>
             )}
+            {canManage ? <Button className="iconTextButton" disabled={isMutating}
+              onClick={() => onDelete(warehouse)} size="sm" type="button" variant="outline">
+              <Trash2 aria-hidden size={16} /><span>Delete</span>
+            </Button> : null}
                 </span>
               </TableCell>
             </TableRow>

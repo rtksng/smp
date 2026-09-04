@@ -71,10 +71,11 @@ export type WarehousePayload = {
   name: string;
   pincode: string;
   state: string;
+  status: WarehouseStatus;
 };
 
-const warehouseCodePattern = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
-const contactNumberPattern = /^[0-9+()\-\s]{8,20}$/;
+const warehouseCodePattern = /^[A-Z0-9][A-Z0-9_-]{0,31}$/;
+const contactNumberPattern = /^(?=(?:\D*\d){8,15}\D*$)[0-9+()\-\s]{8,20}$/;
 const pincodePattern = /^[0-9]{6}$/;
 
 const requiredText = (label: string, maxLength: number) =>
@@ -88,7 +89,7 @@ const optionalCoordinate = (label: string, min: number, max: number) =>
   z
     .string()
     .trim()
-    .refine((value) => value === "" || !Number.isNaN(Number(value)), {
+    .refine((value) => value === "" || /^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(value), {
       message: `${label} must be a valid number.`
     })
     .refine(
@@ -208,7 +209,8 @@ export function buildWarehousePayload(
     longitude: coordinateOrNull(values.longitude),
     name: values.name.trim(),
     pincode: values.pincode.trim(),
-    state: values.state.trim()
+    state: values.state.trim(),
+    status: values.status
   };
 }
 
@@ -221,6 +223,24 @@ export function buildWarehouseQuery(filters: WarehouseFilters, page = 1): QueryP
     status: filters.status || undefined,
     warehouseId: filters.warehouseId || undefined
   };
+}
+
+export async function loadWarehouseResults(
+  fetchPage: (query: QueryParams) => Promise<WarehouseListResponse>,
+  filters: WarehouseFilters,
+  page: number,
+  allPages: boolean
+): Promise<WarehouseListResponse> {
+  const first = await fetchPage(buildWarehouseQuery(filters, allPages ? 1 : page));
+  if (!allPages) return first;
+
+  const items = [...first.items];
+  let current = first;
+  while (current.pagination.hasNextPage) {
+    current = await fetchPage(buildWarehouseQuery(filters, current.pagination.page + 1));
+    items.push(...current.items);
+  }
+  return { ...first, items };
 }
 
 export function buildWarehouseCreatePath(returnToPath?: string | null) {

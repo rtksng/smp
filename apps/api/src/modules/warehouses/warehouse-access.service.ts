@@ -25,6 +25,7 @@ export class WarehouseAccessService {
       where: {
         adminUserId: auth.sub,
         deletedAt: null,
+        warehouse: { deletedAt: null },
         warehouseId
       }
     });
@@ -56,7 +57,8 @@ export class WarehouseAccessService {
       },
       where: {
         adminUserId: auth.sub,
-        deletedAt: null
+        deletedAt: null,
+        warehouse: { deletedAt: null }
       }
     });
 

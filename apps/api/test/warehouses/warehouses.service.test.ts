@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
 import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -87,6 +87,7 @@ function createWarehousePrismaMock() {
     warehouseFindFirst: [],
     warehouseFindMany: [],
     warehouseStaffCreate: [],
+    warehouseStaffUpdateMany: [],
     warehouseUpdate: []
   };
 
@@ -119,6 +120,7 @@ function createWarehousePrismaMock() {
       }
     },
     warehouse: {
+      findUnique: async (_args: unknown) => ({ _count: { orders: 0, orderItems: 0, deliveryPickups: 0, deliveryChargeRules: 0 } }),
       count: async (args: unknown) => {
         calls.warehouseCount.push(args);
         return 1;
@@ -141,6 +143,10 @@ function createWarehousePrismaMock() {
       }
     },
     warehouseStaff: {
+      updateMany: async (args: unknown) => {
+        calls.warehouseStaffUpdateMany.push(args);
+        return { count: 1 };
+      },
       create: async (args: unknown) => {
         calls.warehouseStaffCreate.push(args);
         return { id: "assignment-1" };
@@ -263,4 +269,106 @@ test("admin warehouse controller methods declare required permissions", () => {
     ),
     [PermissionCode.WarehouseStaffManage]
   );
+});
+
+test("warehouse create and edit persist status in the same write as the details", async () => {
+  const prisma = createWarehousePrismaMock();
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  const input = {
+    address: "Plot 1", city: "Pune", code: "QA", contactNumber: "9000000000",
+    contactPerson: "QA", name: "QA warehouse", pincode: "411001", state: "Maharashtra", status: "INACTIVE" as const
+  };
+  await service.createWarehouse(input, actionContext());
+  assert.equal((prisma.calls.warehouseCreate[0] as { data: typeof input }).data.status, "INACTIVE");
+  await service.updateWarehouse("warehouse-1", { city: "Mumbai", status: "ACTIVE", latitude: null }, actionContext());
+  assert.deepEqual((prisma.calls.warehouseUpdate[0] as { data: unknown }).data, { city: "Mumbai", status: "ACTIVE", latitude: null });
+});
+
+test("warehouse search matches city as well as name and code while retaining access scope", async () => {
+  const prisma = createWarehousePrismaMock();
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await service.listWarehouses({ search: " Pune ", state: "Maharashtra", status: "ACTIVE", page: 2, limit: 10 }, adminAuth());
+  const args = prisma.calls.warehouseFindMany[0] as { where: { OR: unknown[]; id: unknown }; skip: number; take: number };
+  assert.ok(args.where.OR.some((entry) => JSON.stringify(entry) === JSON.stringify({ city: { contains: "Pune", mode: "insensitive" } })));
+  assert.deepEqual(args.where.id, { in: ["warehouse-1"] });
+  assert.equal(args.skip, 10);
+  assert.equal(args.take, 10);
+});
+
+test("deleting an unused warehouse removes active staff assignments in the transaction", async () => {
+  const prisma = createWarehousePrismaMock();
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await service.deleteWarehouse("warehouse-1", actionContext());
+  const update = prisma.calls.warehouseUpdate[0] as { data: { deletedAt: Date; status: string } };
+  assert.equal(update.data.status, "INACTIVE");
+  assert.ok(update.data.deletedAt instanceof Date);
+  assert.deepEqual(prisma.calls.warehouseStaffUpdateMany, [{ data: { deletedAt: update.data.deletedAt }, where: { deletedAt: null, warehouseId: "warehouse-1" } }]);
+  assert.equal(prisma.calls.adminAuditLogCreate.length, 1);
+});
+
+test("deletion rejects each inventory and operational dependency without changing warehouse or staff", async () => {
+  for (const dependency of ["inventoryStock", "stockBatch", "stockMovement", "orders", "orderItems", "deliveryPickups", "deliveryChargeRules"]) {
+    const prisma = createWarehousePrismaMock();
+    if (dependency === "inventoryStock" || dependency === "stockBatch" || dependency === "stockMovement") {
+      prisma[dependency].count = async () => 1;
+    } else {
+      prisma.warehouse.findUnique = async () => ({ _count: { orders: 0, orderItems: 0, deliveryPickups: 0, deliveryChargeRules: 0, [dependency]: 1 } });
+    }
+    const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+    await assert.rejects(() => service.deleteWarehouse("warehouse-1", actionContext()), BadRequestException);
+    assert.equal(prisma.calls.warehouseUpdate.length, 0, dependency);
+    assert.equal(prisma.calls.warehouseStaffUpdateMany.length, 0, dependency);
+  }
+});
+
+test("staff reads and removals reject a missing or deleted warehouse even for super admin", async () => {
+  const base = createWarehousePrismaMock();
+  const prisma = { ...base, warehouse: { ...base.warehouse, findFirst: async () => null } };
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await assert.rejects(() => service.listStaff("warehouse-1", adminAuth(AdminRoleCode.SuperAdmin)), NotFoundException);
+  await assert.rejects(() => service.removeStaff("warehouse-1", "admin-1", actionContext(AdminRoleCode.SuperAdmin)), NotFoundException);
+});
+
+test("duplicate warehouse codes return a conflict without assigning staff", async () => {
+  const prisma = createWarehousePrismaMock();
+  prisma.warehouse.create = async () => { throw { code: "P2002" }; };
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await assert.rejects(() => service.createWarehouse({ address: "Plot 1", city: "Pune", code: "QA", contactNumber: "9000000000", contactPerson: "QA", name: "QA", pincode: "411001", state: "Maharashtra" }, actionContext()), ConflictException);
+  assert.equal(prisma.calls.warehouseStaffCreate.length, 0);
+});
+
+test("staff assignment supports duplicate retries, removal and reassignment and rejects inactive users", async () => {
+  let activeUser = true;
+  let assignment: { id: string; warehouseId: string; adminUserId: string; deletedAt: Date | null } | null = null;
+  const adminUser = { id: "staff-1", firstName: "QA", lastName: "Staff", email: "qa@example.test" };
+  const audits: unknown[] = [];
+  const prisma = {
+    $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>): Promise<T> => callback(prisma),
+    warehouse: { findFirst: async () => warehouseRecord() },
+    adminUser: { findFirst: async () => activeUser ? adminUser : null },
+    adminAuditLog: { create: async (args: unknown) => { audits.push(args); } },
+    warehouseStaff: {
+      findFirst: async () => assignment,
+      findMany: async () => assignment && !assignment.deletedAt ? [{ ...assignment, adminUser }] : [],
+      upsert: async () => {
+        assignment = { id: "assignment-1", warehouseId: "warehouse-1", adminUserId: "staff-1", deletedAt: null };
+        return assignment;
+      },
+      update: async ({ data }: { data: { deletedAt: Date } }) => {
+        assignment = { ...assignment!, ...data };
+        return assignment;
+      }
+    }
+  };
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await service.assignStaff("warehouse-1", { adminUserId: "staff-1" }, actionContext());
+  await service.assignStaff("warehouse-1", { adminUserId: "staff-1" }, actionContext());
+  assert.equal((await service.listStaff("warehouse-1", adminAuth())).length, 1);
+  await service.removeStaff("warehouse-1", "staff-1", actionContext());
+  assert.deepEqual(await service.listStaff("warehouse-1", adminAuth()), []);
+  await service.assignStaff("warehouse-1", { adminUserId: "staff-1" }, actionContext());
+  assert.equal((await service.listStaff("warehouse-1", adminAuth()))[0]?.email, adminUser.email);
+  activeUser = false;
+  await assert.rejects(() => service.assignStaff("warehouse-1", { adminUserId: "staff-1" }, actionContext()), NotFoundException);
+  assert.equal(audits.length, 4);
 });

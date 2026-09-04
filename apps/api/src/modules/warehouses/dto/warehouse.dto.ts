@@ -1,26 +1,46 @@
-import { Type } from "class-transformer";
+import { Transform } from "class-transformer";
 import {
   IsEnum,
-  IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
   Max,
   MaxLength,
-  Min
+  Min,
+  MinLength,
+  ValidateIf,
+  ValidateBy
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { WarehouseStatus } from "../../../generated/prisma/enums";
 
+const trimText = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim() : value;
+const numericInput = ({ value }: { value: unknown }) =>
+  typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+const isProvided = (_object: unknown, value: unknown) => value !== undefined;
+const Coordinate = () => ValidateBy({
+  name: "warehouseCoordinate",
+  validator: {
+    validate: (value: unknown) => typeof value === "number" && Number.isFinite(value) && Number(value.toFixed(7)) === value,
+    defaultMessage: () => "Coordinate must be a number with at most 7 decimal places."
+  }
+});
+
 export class CreateWarehouseDto {
   @ApiProperty({ example: "Plot 1, Surgical Park" })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(500)
   address!: string;
 
   @ApiProperty({ example: "Mumbai" })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   city!: string;
 
@@ -29,115 +49,147 @@ export class CreateWarehouseDto {
     example: "MUM-01"
   })
   @IsString()
-  @Matches(/^[A-Z0-9][A-Z0-9_-]{1,31}$/)
+  @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim().toUpperCase() : value)
+  @Matches(/^[A-Z0-9][A-Z0-9_-]{0,31}$/)
   code!: string;
 
   @ApiProperty({ example: "9876543210" })
   @IsString()
-  @Matches(/^[0-9+()\-\s]{8,20}$/)
+  @Transform(trimText)
+  @Matches(/^(?=(?:\D*\d){8,15}\D*$)[0-9+()\-\s]{8,20}$/)
   contactNumber!: string;
 
   @ApiProperty({ example: "Ravi Sharma" })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   contactPerson!: string;
 
   @ApiPropertyOptional({ example: 19.076, minimum: -90, maximum: 90 })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 7 })
+  @Coordinate()
   @Min(-90)
   @Max(90)
   latitude?: number | null;
 
   @ApiPropertyOptional({ example: 72.8777, minimum: -180, maximum: 180 })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 7 })
+  @Coordinate()
   @Min(-180)
   @Max(180)
   longitude?: number | null;
 
   @ApiProperty({ example: "Mumbai Central Warehouse" })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(160)
   name!: string;
 
   @ApiProperty({ example: "400001" })
   @IsString()
+  @Transform(trimText)
   @Matches(/^[0-9]{6}$/)
   pincode!: string;
 
   @ApiProperty({ example: "Maharashtra" })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   state!: string;
+
+  @ApiPropertyOptional({ enum: WarehouseStatus, default: WarehouseStatus.ACTIVE })
+  @ValidateIf(isProvided)
+  @IsEnum(WarehouseStatus)
+  status?: WarehouseStatus;
 }
 
 export class UpdateWarehouseDto {
   @ApiPropertyOptional({ example: "Plot 1, Surgical Park" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(500)
   address?: string;
 
   @ApiPropertyOptional({ example: "Mumbai" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   city?: string;
 
   @ApiPropertyOptional({ example: "MUM-01" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
-  @Matches(/^[A-Z0-9][A-Z0-9_-]{1,31}$/)
+  @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim().toUpperCase() : value)
+  @Matches(/^[A-Z0-9][A-Z0-9_-]{0,31}$/)
   code?: string;
 
   @ApiPropertyOptional({ example: "9876543210" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
-  @Matches(/^[0-9+()\-\s]{8,20}$/)
+  @Transform(trimText)
+  @Matches(/^(?=(?:\D*\d){8,15}\D*$)[0-9+()\-\s]{8,20}$/)
   contactNumber?: string;
 
   @ApiPropertyOptional({ example: "Ravi Sharma" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   contactPerson?: string;
 
   @ApiPropertyOptional({ example: 19.076, nullable: true })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 7 })
+  @Coordinate()
   @Min(-90)
   @Max(90)
   latitude?: number | null;
 
   @ApiPropertyOptional({ example: 72.8777, nullable: true })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 7 })
+  @Coordinate()
   @Min(-180)
   @Max(180)
   longitude?: number | null;
 
   @ApiPropertyOptional({ example: "Mumbai Central Warehouse" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(160)
   name?: string;
 
   @ApiPropertyOptional({ example: "400001" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
   @Matches(/^[0-9]{6}$/)
   pincode?: string;
 
   @ApiPropertyOptional({ example: "Maharashtra" })
-  @IsOptional()
+  @ValidateIf(isProvided)
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   state?: string;
+
+  @ApiPropertyOptional({ enum: WarehouseStatus })
+  @ValidateIf(isProvided)
+  @IsEnum(WarehouseStatus)
+  status?: WarehouseStatus;
 }
 
 export class WarehouseListQueryDto {
@@ -153,18 +205,19 @@ export class WarehouseListQueryDto {
   city?: string;
 
   @ApiPropertyOptional({ default: 20, maximum: 100, minimum: 1 })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(100)
   limit?: number;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
-  @Type(() => Number)
+  @Transform(numericInput)
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(1)
+  @Max(21474836)
   page?: number;
 
   @ApiPropertyOptional({ example: "mumbai" })

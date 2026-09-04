@@ -12,6 +12,7 @@ type FindFirstArgs = {
     adminUserId: string;
     deletedAt: null;
     warehouseId: string;
+    warehouse: { deletedAt: null };
   };
 };
 
@@ -25,6 +26,7 @@ type FindManyArgs = {
   where: {
     adminUserId: string;
     deletedAt: null;
+    warehouse: { deletedAt: null };
   };
 };
 
@@ -110,4 +112,15 @@ test("warehouse scope lists only assigned warehouse ids for non-super-admin staf
       warehouseIds: ["warehouse-1", "warehouse-2"]
     }
   );
+});
+
+test("every non-super role excludes deleted warehouses from assignment lookup and scope", async () => {
+  for (const role of Object.values(AdminRoleCode).filter((value) => value !== AdminRoleCode.SuperAdmin)) {
+    const prisma = new FakePrisma([]);
+    const service = createService(prisma);
+    assert.equal(await service.canManageWarehouse(adminAuth(role), "deleted-warehouse"), false);
+    assert.deepEqual(await service.getWarehouseScope(adminAuth(role)), { allWarehouses: false, warehouseIds: [] });
+    assert.deepEqual(prisma.findFirstCalls[0]?.where.warehouse, { deletedAt: null });
+    assert.deepEqual(prisma.findManyCalls[0]?.where.warehouse, { deletedAt: null });
+  }
 });
