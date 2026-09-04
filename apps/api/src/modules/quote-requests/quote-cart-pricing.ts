@@ -33,12 +33,13 @@ export async function getCartQuotePricing(
   return { lines, record, shippingTotal: quotation.totals.shippingTotal };
 }
 
-export async function clearCartQuotePricing(client: Pick<Prisma.TransactionClient, "notificationLog">, cartId: string) {
+export async function clearCartQuotePricing(client: Pick<Prisma.TransactionClient, "notificationLog">, cartId: string, preservedQuoteId?: string) {
   const records = await client.notificationLog.findMany({ where: {
     channel: "support", templateKey: "bulk_quote_request",
     payload: { path: ["convertedCartId"], equals: cartId }
   } });
   for (const record of records) {
+    if (preservedQuoteId && record.id === preservedQuoteId) continue;
     await updateCartQuoteLink(client, record, null);
   }
 }

@@ -154,7 +154,8 @@ export class CartService {
   async replaceWithItems(
     customerId: string,
     inputs: ReplaceCartItemInput[],
-    onReplaced?: (tx: Prisma.TransactionClient, cartId: string) => Promise<void>
+    onReplaced?: (tx: Prisma.TransactionClient, cartId: string) => Promise<void>,
+    preservedQuoteId?: string
   ) {
     await this.assertActiveCustomer(customerId);
     const lines = mergeCartLines(inputs);
@@ -192,7 +193,7 @@ export class CartService {
         });
       }
 
-      await clearCartQuotePricing(tx, cart.id);
+      await clearCartQuotePricing(tx, cart.id, preservedQuoteId);
       if (onReplaced) await onReplaced(tx, cart.id);
       return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
     });

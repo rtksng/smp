@@ -319,7 +319,7 @@ export class QuoteRequestsService {
       }
     });
       if (update.count !== 1) throw new BadRequestException("The quotation changed. Refresh it before preparing the cart.");
-    });
+    }, id);
 
     return {
       cart,

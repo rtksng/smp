@@ -241,7 +241,7 @@ class FakeDeliveryChargesService {
 }
 
 function createCartPrismaMock(input?: {
-  quotation?: { payload: unknown };
+  quotation?: { id?: string; payload: unknown };
   cart?: CartFixture;
   items?: CartItemFixture[];
   products?: ProductFixture[];
@@ -686,6 +686,18 @@ test("clearing a quoted cart detaches the quote before the same product is added
   const next = await service.addItem("customer-1", { productId: "product-1", variantId: "variant-1", quantity: 2 });
   assert.equal(next.items[0]?.unitPrice, 140);
   assert.equal(next.totals.deliveryCharge, 0);
+});
+
+test("preparing the same quotation again preserves its prices and shipping", async () => {
+  const prisma = createCartPrismaMock({ items: [cartItemFixture({ variantId: "variant-1" })], stocks: [stockFixture({ variantId: "variant-1" })], quotation: { id: "quote-1", payload: {
+    convertedCartId: "cart-1", customerDecision: { status: "ACCEPTED" }, quotation: { items: [{ productId: "product-1", variantId: "variant-1", quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: null, totals: { shippingTotal: 25 } }
+  } } });
+  const service = new CartService(prisma);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const cart = await service.replaceWithItems("customer-1", [{ productId: "product-1", variantId: "variant-1", quantity: 2 }], undefined, "quote-1");
+    assert.equal(cart.items[0]!.unitPrice, 100);
+    assert.equal(cart.totals.grandTotal, 235);
+  }
 });
 
 test("cart shipping uses the first fulfillment warehouse and the real matching rule", async () => {
