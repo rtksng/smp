@@ -4,6 +4,7 @@ import {
   Query,
   Req,
   Res,
+  StreamableFile,
   UnauthorizedException,
   UseGuards
 } from "@nestjs/common";
@@ -85,7 +86,7 @@ export class ReportsController {
     );
     response.setHeader("content-length", String(exported.body.byteLength));
 
-    return exported.body;
+    return new StreamableFile(exported.body);
   }
 }
 

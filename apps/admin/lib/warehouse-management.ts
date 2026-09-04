@@ -50,6 +50,7 @@ export type WarehouseFilters = {
   search: string;
   state: string;
   status: "" | WarehouseStatus;
+  warehouseId: string;
 };
 
 export type WarehouseFilterView = "analytics" | "create" | "list" | "staff";
@@ -158,7 +159,8 @@ export function createEmptyWarehouseFilters(): WarehouseFilters {
   return {
     search: "",
     state: "",
-    status: ""
+    status: "",
+    warehouseId: ""
   };
 }
 
@@ -175,6 +177,21 @@ export function warehouseToFormValues(warehouse: AdminWarehouse): WarehouseFormV
     pincode: warehouse.pincode,
     state: warehouse.state,
     status: warehouse.status
+  };
+}
+
+export function createWarehouseFiltersFromSearchParams(searchParams: {
+  get: (key: string) => string | null;
+}): WarehouseFilters {
+  const status = searchParams.get("status");
+
+  return {
+    search: searchParams.get("search") ?? "",
+    state: searchParams.get("state") ?? "",
+    status: (WAREHOUSE_STATUSES as readonly string[]).includes(status ?? "")
+      ? status as WarehouseStatus
+      : "",
+    warehouseId: searchParams.get("warehouseId")?.trim() ?? ""
   };
 }
 
@@ -201,7 +218,8 @@ export function buildWarehouseQuery(filters: WarehouseFilters, page = 1): QueryP
     page,
     search: filters.search || undefined,
     state: filters.state || undefined,
-    status: filters.status || undefined
+    status: filters.status || undefined,
+    warehouseId: filters.warehouseId || undefined
   };
 }
 

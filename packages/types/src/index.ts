@@ -1,3 +1,6 @@
+export { renderReportExport, REPORT_EXPORT_VIEWS } from "./report-export";
+export type { ReportExportData, ReportExportFormat, ReportExportView } from "./report-export";
+
 export type AuthAudience = "customer" | "admin" | "delivery_partner";
 
 export type AdminRole =

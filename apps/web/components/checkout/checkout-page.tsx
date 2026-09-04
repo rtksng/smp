@@ -57,6 +57,7 @@ import { EmptyState } from "../ui/empty-state";
 import { ErrorState, RetryButton } from "../ui/error-state";
 import { Input } from "../ui/input";
 import { SectionLoader } from "../ui/loading-spinner";
+import { AvailableCoupons } from "./available-coupons";
 
 const priceFormatter = new Intl.NumberFormat("en-IN", {
   currency: "INR",
@@ -116,6 +117,7 @@ function CheckoutContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+  const couponValidationRef = useRef(false);
   const customer = useCustomerAuthStore((state) => state.session?.customer);
   const setCartSummary = useCartStore((state) => state.setSummary);
   const resetCartSummary = useCartStore((state) => state.reset);
@@ -133,16 +135,24 @@ function CheckoutContent() {
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null);
+  const [couponSelection, setCouponSelection] = useState<{
+    cartKey: string;
+    validation: CouponValidation;
+  } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const cartQuery = useQuery({
-    queryFn: () => getCart(selectedAddressId),
-    queryKey: customerQueryKeys.cart()
-  });
   const addressesQuery = useQuery({
     queryFn: listCustomerAddresses,
     queryKey: customerQueryKeys.addresses()
+  });
+  const addresses = useMemo(() => addressesQuery.data ?? [], [addressesQuery.data]);
+  const selectedAddress =
+    addresses.find((address) => address.id === selectedAddressId) ?? null;
+  const cartQuery = useQuery({
+    placeholderData: (previousCart) => previousCart,
+    queryFn: () => getCart(selectedAddressId),
+    queryKey: [...customerQueryKeys.cart(), "checkout", selectedAddressId, selectedAddress?.pincode ?? null],
+    staleTime: 0
   });
   const paymentGatewayQuery = useQuery({
     queryFn: getPaymentGatewayStatus,
@@ -177,18 +187,30 @@ function CheckoutContent() {
     createCheckoutPaymentVerificationMutation()
   );
   const validateCouponMutation = useMutation({
-    mutationFn: validateCoupon,
-    onSuccess: (coupon) => {
-      setAppliedCoupon(coupon);
+    mutationFn: ({ code }: { code: string; cartKey: string }) => validateCoupon(code),
+    onSuccess: (coupon, input) => {
+      setCouponSelection({ cartKey: input.cartKey, validation: coupon });
       setCouponCode(coupon.code);
       setCouponError(null);
     }
   });
   const cart = cartQuery.data;
-  const refetchCart = cartQuery.refetch;
-  const addresses = useMemo(() => addressesQuery.data ?? [], [addressesQuery.data]);
-  const selectedAddress =
-    addresses.find((address) => address.id === selectedAddressId) ?? null;
+  const couponCartKey = JSON.stringify([
+    cart?.id,
+    cart?.totals.subtotal,
+    cart?.totals.tax,
+    cart?.items.map((item) => [item.id, item.quantity, item.unitPrice, item.subtotal, item.tax])
+  ]);
+  const hasStaleCoupon = Boolean(couponSelection && (
+    couponSelection.cartKey !== couponCartKey ||
+    couponSelection.validation.subtotal !== cart?.totals.subtotal ||
+    couponSelection.validation.tax !== cart?.totals.tax
+  ));
+  const appliedCoupon = hasStaleCoupon ? null : couponSelection?.validation ?? null;
+  const discount = appliedCoupon?.discount ?? cart?.totals.discount ?? 0;
+  const grandTotal = cart
+    ? Math.max(0, Math.round((cart.totals.subtotal + cart.totals.tax + cart.totals.deliveryCharge - discount) * 100) / 100)
+    : 0;
   const hasBlockingStockIssue =
     cart?.items.some(
       (item) => !item.isAvailable || item.quantity > item.availableQuantity
@@ -199,18 +221,13 @@ function CheckoutContent() {
     "Online payments are currently unavailable. Please choose Cash on Delivery or try again later.";
   const addressIsSaving =
     createAddressMutation.isPending || updateAddressMutation.isPending;
+  const isUpdatingTotals = cartQuery.isFetching || cartQuery.isPlaceholderData || addressesQuery.isFetching || addressIsSaving;
 
   useEffect(() => {
     if (cart) {
       setCartSummary(cart);
     }
   }, [cart, setCartSummary]);
-
-  useEffect(() => {
-    if (selectedAddressId) {
-      void refetchCart();
-    }
-  }, [refetchCart, selectedAddressId]);
 
   useEffect(() => {
     if (customer?.mobileNumber && addressForm.phone.length === 0) {
@@ -260,7 +277,7 @@ function CheckoutContent() {
           }
         : existing;
 
-    queryClient.setQueryData<Cart | undefined>(customerQueryKeys.cart(), clearCartData);
+    queryClient.setQueriesData<Cart | undefined>({ queryKey: customerQueryKeys.cart() }, clearCartData);
   }
 
   function openCreateAddressForm() {
@@ -338,6 +355,16 @@ function CheckoutContent() {
       return;
     }
 
+    if (couponValidationRef.current || validateCouponMutation.isPending || hasStaleCoupon) {
+      setSubmitError("Apply or remove the promo code before placing your order.");
+      return;
+    }
+
+    if (isUpdatingTotals || cartQuery.isError) {
+      setSubmitError("Wait for the delivery total to update before placing your order.");
+      return;
+    }
+
     const validationError = getCheckoutSubmissionError({
       cartHasItems: Boolean(cart && cart.items.length > 0),
       hasBlockingStockIssue,
@@ -411,27 +438,46 @@ function CheckoutContent() {
     }
   }
 
-  async function handleApplyCoupon() {
-    const code = couponCode.trim();
+  async function handleApplyCoupon(selectedCode?: string) {
+    if (processingRef.current || couponValidationRef.current || isUpdatingTotals || cartQuery.isError) {
+      return;
+    }
+
+    const code = (selectedCode ?? couponCode).trim();
 
     if (!code) {
       setCouponError("Enter a promo code.");
       return;
     }
 
+    couponValidationRef.current = true;
     try {
+      setCouponCode(code);
       setCouponError(null);
-      await validateCouponMutation.mutateAsync(code);
+      setSubmitError(null);
+      const coupon = await validateCouponMutation.mutateAsync({ code, cartKey: couponCartKey });
+
+      if (coupon.subtotal !== cart?.totals.subtotal || coupon.tax !== cart?.totals.tax) {
+        await queryClient.invalidateQueries({ queryKey: customerQueryKeys.cart() });
+      }
     } catch (error) {
-      setAppliedCoupon(null);
+      setCouponSelection(null);
       setCouponError(getFriendlyApiErrorMessage(error, "Unable to apply promo code."));
+      void queryClient.invalidateQueries({ queryKey: customerQueryKeys.availableCoupons() });
+    } finally {
+      couponValidationRef.current = false;
     }
   }
 
   function handleRemoveCoupon() {
-    setAppliedCoupon(null);
+    if (processingRef.current || couponValidationRef.current) {
+      return;
+    }
+
+    setCouponSelection(null);
     setCouponCode("");
     setCouponError(null);
+    setSubmitError(null);
     validateCouponMutation.reset();
   }
 
@@ -453,7 +499,7 @@ function CheckoutContent() {
                 Amount payable
               </p>
               <p className="mt-1 text-xl font-semibold text-[#123f3c]">
-                {priceFormatter.format(cart.totals.grandTotal)}
+                {priceFormatter.format(grandTotal)}
               </p>
             </div>
           ) : null}
@@ -544,10 +590,15 @@ function CheckoutContent() {
             appliedCoupon={appliedCoupon}
             cart={cart}
             couponCode={couponCode}
-            couponError={couponError}
+            couponError={couponError ?? (hasStaleCoupon ? "Your cart changed. Apply the promo code again or remove it to continue." : null)}
+            discount={discount}
+            grandTotal={grandTotal}
             hasBlockingStockIssue={hasBlockingStockIssue}
+            hasStaleCoupon={hasStaleCoupon}
             isApplyingCoupon={validateCouponMutation.isPending}
             isProcessing={isProcessing}
+            isUpdatingTotals={isUpdatingTotals}
+            totalsUnavailable={cartQuery.isError}
             paymentMethod={paymentMethod}
             selectedAddress={selectedAddress}
             setCouponCode={(value) => {
@@ -555,7 +606,8 @@ function CheckoutContent() {
               setCouponError(null);
             }}
             submitError={submitError}
-            onApplyCoupon={handleApplyCoupon}
+            onApplyCoupon={() => void handleApplyCoupon()}
+            onSelectCoupon={(code) => void handleApplyCoupon(code)}
             onPlaceOrder={handlePlaceOrder}
             onRemoveCoupon={handleRemoveCoupon}
           />
@@ -984,35 +1036,44 @@ function OrderSummary({
   cart,
   couponCode,
   couponError,
+  discount,
+  grandTotal,
   hasBlockingStockIssue,
+  hasStaleCoupon,
   isApplyingCoupon,
   isProcessing,
+  isUpdatingTotals,
   onApplyCoupon,
   onPlaceOrder,
   onRemoveCoupon,
+  onSelectCoupon,
   paymentMethod,
   selectedAddress,
   setCouponCode,
-  submitError
+  submitError,
+  totalsUnavailable
 }: {
   appliedCoupon: CouponValidation | null;
   cart: Cart;
   couponCode: string;
   couponError: string | null;
+  discount: number;
+  grandTotal: number;
   hasBlockingStockIssue: boolean;
+  hasStaleCoupon: boolean;
   isApplyingCoupon: boolean;
   isProcessing: boolean;
+  isUpdatingTotals: boolean;
   onApplyCoupon: () => void;
   onPlaceOrder: () => void;
   onRemoveCoupon: () => void;
+  onSelectCoupon: (code: string) => void;
   paymentMethod: PaymentMethod;
   selectedAddress: CustomerAddress | null;
   setCouponCode: (value: string) => void;
   submitError: string | null;
+  totalsUnavailable: boolean;
 }) {
-  const discount = appliedCoupon?.discount ?? cart.totals.discount;
-  const grandTotal = Math.max(0, cart.totals.grandTotal - discount);
-
   return (
     <aside className="h-fit rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5 xl:sticky xl:top-28">
       <SectionHeading
@@ -1045,25 +1106,34 @@ function OrderSummary({
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
           <Input
             aria-label="Promo code"
-            disabled={Boolean(appliedCoupon)}
+            disabled={Boolean(appliedCoupon) || isApplyingCoupon || isProcessing}
+            maxLength={64}
             onChange={(event) => setCouponCode(event.target.value)}
             placeholder="Enter code"
             value={couponCode}
           />
-          {appliedCoupon ? (
-            <Button onClick={onRemoveCoupon} type="button" variant="outline">
-              Remove
-            </Button>
-          ) : (
-            <Button
-              disabled={isApplyingCoupon}
-              onClick={onApplyCoupon}
-              type="button"
-              variant="outline"
-            >
-              {isApplyingCoupon ? "Applying..." : "Apply"}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {appliedCoupon || hasStaleCoupon ? (
+              <Button
+                disabled={isProcessing || isApplyingCoupon}
+                onClick={onRemoveCoupon}
+                type="button"
+                variant="outline"
+              >
+                Remove
+              </Button>
+            ) : null}
+            {!appliedCoupon ? (
+              <Button
+                disabled={isApplyingCoupon || isProcessing || isUpdatingTotals || totalsUnavailable}
+                onClick={onApplyCoupon}
+                type="button"
+                variant="outline"
+              >
+                {isApplyingCoupon ? "Applying..." : "Apply"}
+              </Button>
+            ) : null}
+          </div>
         </div>
         {appliedCoupon ? (
           <p className="mt-2 rounded-lg bg-[#e5f5f3] px-3 py-2 text-sm font-semibold text-[#0f6f68]">
@@ -1078,6 +1148,12 @@ function OrderSummary({
             {couponError}
           </p>
         ) : null}
+        <AvailableCoupons
+          appliedCode={appliedCoupon?.code ?? null}
+          disabled={isApplyingCoupon || isProcessing || isUpdatingTotals || totalsUnavailable}
+          onApply={onSelectCoupon}
+          subtotal={cart.totals.subtotal}
+        />
       </div>
 
       <div className="mt-4 rounded-lg border border-[#c4e4e0] bg-white p-4 shadow-sm shadow-[#0f6f68]/5">
@@ -1120,7 +1196,8 @@ function OrderSummary({
       ) : null}
 
       <div className="mt-6 grid gap-3">
-        <Button className="w-full" disabled={isProcessing} onClick={onPlaceOrder}>
+        {isUpdatingTotals ? <p role="status" className="text-sm text-[#55716e]">Updating delivery total...</p> : null}
+        <Button className="w-full" disabled={isProcessing || isUpdatingTotals || totalsUnavailable || isApplyingCoupon || hasStaleCoupon} onClick={onPlaceOrder}>
           {isProcessing
             ? "Processing..."
             : paymentMethod === "ONLINE"

@@ -426,27 +426,35 @@ export function validateCouponForm(values: CouponFormValues): CouponFieldErrors 
 
   if (!code) {
     errors.code = "Enter a coupon code.";
+  } else if (code.length > 64) {
+    errors.code = "Use 64 characters or fewer for the coupon code.";
   }
 
-  if (!Number.isFinite(value) || value <= 0) {
-    errors.value = "Enter a discount value above 0.";
+  if (!isCouponMoney(value) || value < 0.01) {
+    errors.value = "Enter a discount from 0.01 to 9,999,999,999.99 with up to 2 decimal places.";
   }
 
-  if (minOrderAmount !== null && (!Number.isFinite(minOrderAmount) || minOrderAmount < 0)) {
-    errors.minOrderAmount = "Enter a valid minimum order amount.";
+  if (minOrderAmount !== null && !isCouponMoney(minOrderAmount)) {
+    errors.minOrderAmount = "Enter a minimum order amount from 0 to 9,999,999,999.99 with up to 2 decimal places.";
   }
 
-  if (maxDiscount !== null && (!Number.isFinite(maxDiscount) || maxDiscount < 0)) {
-    errors.maxDiscount = "Enter a valid maximum discount.";
+  if (maxDiscount !== null && !isCouponMoney(maxDiscount)) {
+    errors.maxDiscount = "Enter a maximum discount from 0 to 9,999,999,999.99 with up to 2 decimal places.";
   }
 
   if (
     usageLimit !== null &&
-    (!Number.isInteger(usageLimit) || usageLimit < 1)
+    (!Number.isInteger(usageLimit) || usageLimit < 1 || usageLimit > 2_147_483_647)
   ) {
-    errors.usageLimit = "Enter a whole number above 0.";
+    errors.usageLimit = "Enter a whole number from 1 to 2,147,483,647.";
   }
 
+  if (values.startsAt && !Number.isFinite(Date.parse(values.startsAt))) {
+    errors.startsAt = "Enter a valid start date.";
+  }
+  if (values.expiresAt && !Number.isFinite(Date.parse(values.expiresAt))) {
+    errors.expiresAt = "Enter a valid expiry date.";
+  }
   if (
     values.startsAt &&
     values.expiresAt &&
@@ -456,6 +464,10 @@ export function validateCouponForm(values: CouponFormValues): CouponFieldErrors 
   }
 
   return errors;
+}
+
+function isCouponMoney(value: number) {
+  return Number.isFinite(value) && value >= 0 && value < 10_000_000_000 && Number(value.toFixed(2)) === value;
 }
 
 export function couponToFormValues(coupon: AdminCoupon): CouponFormValues {

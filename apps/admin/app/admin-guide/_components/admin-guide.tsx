@@ -412,7 +412,7 @@ const guideSections: GuideSection[] = [
     ],
     icon: <Truck aria-hidden size={20} />,
     id: "delivery-charges",
-    links: [{ href: "/delivery-charges", label: "Open delivery charges" }, { href: "/delivery-charges/new", label: "Create charge rule" }],
+    links: [{ href: "/delivery-charges/rules", label: "Open delivery charges" }, { href: "/delivery-charges/new", label: "Create charge rule" }],
     steps: [
       "Open Delivery Charges and choose Create rule.",
       "Enter the rule name, charge, optional location scope, order-value range, free threshold, priority, and status.",

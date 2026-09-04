@@ -1,4 +1,18 @@
+import { queryKeys } from "../query";
+
 export type PaymentMethod = "COD" | "ONLINE";
+
+export function buildCheckoutQuoteKey(addressId: string | null, pincode?: string | null) {
+  return [...queryKeys.cart(addressId), "checkout", pincode ?? null] as const;
+}
+
+export function calculateCheckoutTotal(
+  totals: { subtotal: number; tax: number; deliveryCharge: number; discount: number },
+  couponDiscount?: number | null
+) {
+  const discount = couponDiscount ?? totals.discount;
+  return Math.max(0, Math.round((totals.subtotal + totals.tax + totals.deliveryCharge - discount) * 100) / 100);
+}
 
 export function buildCheckoutIdempotencyKey(
   timestamp = Date.now(),

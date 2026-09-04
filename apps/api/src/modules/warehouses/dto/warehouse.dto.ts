@@ -141,6 +141,11 @@ export class UpdateWarehouseDto {
 }
 
 export class WarehouseListQueryDto {
+  @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
+  @IsOptional()
+  @IsUUID("4")
+  warehouseId?: string;
+
   @ApiPropertyOptional({ example: "Mumbai" })
   @IsOptional()
   @IsString()

@@ -2659,6 +2659,12 @@ h2 {
   margin-bottom: 0;
 }
 
+.reportDataTable {
+  max-height: none;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
 .reportDataTable [data-slot="table"] {
   min-width: 780px;
 }
@@ -2705,6 +2711,12 @@ h2 {
   margin-bottom: 0;
 }
 
+@media (min-width: 981px) {
+  .deliveryChargeRulesPanel .settingsSectionHeader {
+    align-items: end;
+  }
+}
+
 .deliveryChargeFormPanel .formGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2717,13 +2729,6 @@ h2 {
 
 .deliveryChargeFormOnlyPanel {
   max-width: 980px;
-}
-
-.deliveryChargeFilters {
-  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) minmax(
-      220px,
-      1fr
-    ) minmax(180px, 0.8fr) auto;
 }
 
 .deliveryChargeRulesTable [data-slot="table"] {
@@ -2854,6 +2859,12 @@ h2 {
   grid-template-columns:
     minmax(180px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1fr)
     minmax(220px, 1fr) auto;
+}
+
+.resourceTable.couponTable {
+  max-height: none;
+  overflow: hidden;
+  scrollbar-gutter: auto;
 }
 
 .couponTable [data-slot="table"] {
@@ -4964,7 +4975,6 @@ h2 {
   .inlineForm,
   .productFilters,
   .settingsFilters,
-  .deliveryChargeFilters,
   .couponFilters,
   .quoteRequestFilters,
   .productFeedbackFilters,

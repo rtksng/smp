@@ -16,8 +16,7 @@ import {
   Prisma,
   ProductStatus,
   RefundStatus,
-  StockMovementType,
-  WarehouseStatus
+  StockMovementType
 } from "../../generated/prisma/client";
 import { CartService } from "../cart/cart.service";
 import {
@@ -25,10 +24,12 @@ import {
   normalizeCouponCode
 } from "../coupons/coupons.service";
 import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
+import { buildFulfillmentStockQuery } from "../inventory/fulfillment-stock";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { PaymentsService } from "../payments/payments.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
+import { buildPendingOrderStatusFilter } from "./order-status";
 import type {
   AdminOrderListQueryDto,
   AdminReturnActionDto,
@@ -364,8 +365,6 @@ export class OrdersService {
             status: OrderStatus.CREATED
           }
         });
-        await this.incrementCouponUsage(tx, couponApplication.couponId);
-
         if (input.paymentMethod === PaymentMethod.COD) {
           await tx.cartItem.deleteMany({
             where: {
@@ -668,7 +667,7 @@ export class OrdersService {
       deletedAt: null,
       orderNumber: buildInsensitiveContainsFilter(query.orderNumber),
       paymentStatus: query.paymentStatus,
-      status: query.status,
+      status: query.pendingOnly ? buildPendingOrderStatusFilter(query.status) : query.status,
       user: buildCustomerMobileFilter(query.customerMobile),
       warehouseId: await this.buildScopedWarehouseFilter(query.warehouseId, auth)
     };
@@ -1078,25 +1077,7 @@ export class OrdersService {
     tx: Prisma.TransactionClient,
     line: FulfillmentLine
   ): Promise<SelectedWarehouseStock[]> {
-    const stocks = await tx.inventoryStock.findMany({
-      orderBy: [{ warehouseId: "asc" }, { id: "asc" }],
-      select: {
-        availableQuantity: true,
-        id: true,
-        warehouseId: true
-      },
-      where: {
-        availableQuantity: {
-          gt: 0
-        },
-        productId: line.productId,
-        variantId: line.variantId,
-        warehouse: {
-          deletedAt: null,
-          status: WarehouseStatus.ACTIVE
-        }
-      }
-    });
+    const stocks = await tx.inventoryStock.findMany(buildFulfillmentStockQuery(line));
 
     return stocks.map((stock) => ({
       availableQuantity: stock.availableQuantity,
@@ -1133,9 +1114,12 @@ export class OrdersService {
       throw new NotFoundException("Coupon was not found.");
     }
 
+    const discount = calculateCouponDiscount(coupon, subtotal);
+    await this.incrementCouponUsage(client, coupon.id);
+
     return {
       couponId: coupon.id,
-      discount: calculateCouponDiscount(coupon, subtotal)
+      discount
     };
   }
 
@@ -1162,16 +1146,35 @@ export class OrdersService {
       return;
     }
 
-    await client.coupon.update({
+    const now = new Date();
+    const claimed = await client.coupon.updateMany({
       data: {
         usedCount: {
           increment: 1
         }
       },
       where: {
-        id: couponId
+        id: couponId,
+        deletedAt: null,
+        isActive: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] },
+          {
+            OR: [
+              { usageLimit: null },
+              { usedCount: { lt: client.coupon.fields.usageLimit } }
+            ]
+          }
+        ]
       }
     });
+
+    if (claimed.count !== 1) {
+      throw new BadRequestException(
+        "Coupon is no longer available. Please apply a coupon again."
+      );
+    }
   }
 
   private async reserveBatchesForStock(

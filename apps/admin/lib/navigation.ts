@@ -138,13 +138,13 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     category: "Growth",
-    href: "/coupons",
+    href: "/coupons/list",
     label: "Coupons",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },
   {
     category: "Growth",
-    href: "/delivery-charges",
+    href: "/delivery-charges/rules",
     label: "Delivery Charges",
     permissions: [ADMIN_PERMISSION.SettingsManage]
   },

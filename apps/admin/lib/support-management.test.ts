@@ -16,11 +16,44 @@ import {
   formatSupportDateTime,
   formatSupportLabel,
   getProductFeedbackStatusTone,
+  validateCouponForm,
   validateQuoteResponseDraft,
   type AdminCoupon
 } from "./support-management";
 
 describe("admin support management helpers", () => {
+  it("accepts decimal coupons and optional zero amounts within database limits", () => {
+    expect(validateCouponForm({
+      ...createEmptyCouponFormValues(), code: "DECIMAL75", value: "7.5",
+      minOrderAmount: "0", maxDiscount: "19.99", usageLimit: "2147483647"
+    })).toEqual({});
+    expect(validateCouponForm({
+      ...createEmptyCouponFormValues(), code: "LARGE", value: "9999999999.99"
+    })).toEqual({});
+  });
+
+  it("rejects coupon values that the API or database cannot store", () => {
+    expect(validateCouponForm({
+      ...createEmptyCouponFormValues(), code: "A".repeat(65), value: "0.001",
+      minOrderAmount: "12.345", maxDiscount: "10000000000", usageLimit: "2147483648",
+      startsAt: "invalid", expiresAt: "invalid"
+    })).toEqual({
+      code: expect.any(String), value: expect.any(String), minOrderAmount: expect.any(String),
+      maxDiscount: expect.any(String), usageLimit: expect.any(String),
+      startsAt: expect.any(String), expiresAt: expect.any(String)
+    });
+  });
+
+  it("rejects missing or negative discounts, fractional usage, and reversed dates", () => {
+    for (const value of ["", "0", "-1", "Infinity"]) {
+      expect(validateCouponForm({ ...createEmptyCouponFormValues(), code: "TEST", value }).value).toBeTruthy();
+    }
+    expect(validateCouponForm({
+      ...createEmptyCouponFormValues(), code: "TEST", value: "5", usageLimit: "1.5",
+      startsAt: "2026-12-31", expiresAt: "2026-12-01"
+    })).toMatchObject({ usageLimit: expect.any(String), expiresAt: expect.any(String) });
+  });
+
   it("builds quote, coupon, and feedback queries without empty filters", () => {
     expect(
       buildQuoteRequestQuery(

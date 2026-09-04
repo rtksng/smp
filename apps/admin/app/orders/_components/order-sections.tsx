@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,6 +39,7 @@ import {
   PAYMENT_STATUSES,
   buildOrderQuery,
   createEmptyOrderFilters,
+  createOrderFiltersFromSearchParams,
   formatCurrency,
   formatDateTime,
   formatOrderLabel,
@@ -68,7 +70,8 @@ export function OrdersLandingPage() {
 }
 
 function OrdersContent() {
-  const { api } = useAdminSession();
+  const { api, hasPermission } = useAdminSession();
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
   const urlFilters = useMemo(
@@ -98,6 +101,7 @@ function OrdersContent() {
     queryKey: ["admin", "orders", orderQuery]
   });
   const warehousesQuery = useQuery({
+    enabled: canReadWarehouses,
     queryFn: () =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
         query: {
@@ -108,7 +112,12 @@ function OrdersContent() {
   });
 
   const orders = ordersQuery.data?.items ?? [];
-  const warehouses = warehousesQuery.data?.items ?? [];
+  const warehouses: Pick<WarehouseListResponse["items"][number], "id" | "name" | "code">[] = canReadWarehouses
+    ? [...(warehousesQuery.data?.items ?? [])]
+    : [...new Map(orders.flatMap((order) => order.warehouse ? [[order.warehouse.id, order.warehouse] as const] : [])).values()];
+  if (appliedFilters.warehouseId && !warehouses.some((warehouse) => warehouse.id === appliedFilters.warehouseId)) {
+    warehouses.push({ code: "", id: appliedFilters.warehouseId, name: "Selected warehouse" });
+  }
   const pagination = ordersQuery.data?.pagination;
   const openOrders = orders.filter(
     (order) => !["DELIVERED", "CANCELLED", "RETURNED"].includes(order.status)
@@ -248,10 +257,17 @@ function OrderFilterFields({
   filters: OrderFilters;
   isWarehouseLoading: boolean;
   onChange: (filters: OrderFilters) => void;
-  warehouses: WarehouseListResponse["items"];
+  warehouses: Pick<WarehouseListResponse["items"][number], "id" | "name" | "code">[];
 }) {
   return (
     <div className="filterDrawerFields">
+      <label className="checkField rowCheck">
+        <Checkbox
+          checked={filters.pendingOnly}
+          onCheckedChange={(pendingOnly) => onChange({ ...filters, pendingOnly })}
+        />
+        <span>Pending orders only</span>
+      </label>
       <Select
         aria-label="Order status"
         onValueChange={(value) =>
@@ -350,7 +366,7 @@ function OrderFilterFields({
           <SelectItem value="">All visible warehouses</SelectItem>
           {warehouses.map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>
-              {warehouse.name} ({warehouse.code})
+              {warehouse.name}{warehouse.code ? ` (${warehouse.code})` : ""}
             </SelectItem>
           ))}
         </SelectContent>
@@ -424,27 +440,4 @@ function OrdersTable({ orders }: { orders: AdminOrder[] }) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : null;
-}
-
-function createOrderFiltersFromSearchParams(searchParams: {
-  get: (key: string) => string | null;
-}) {
-  const filters = createEmptyOrderFilters();
-  const status = searchParams.get("status");
-  const paymentStatus = searchParams.get("paymentStatus");
-
-  return {
-    ...filters,
-    customerMobile: searchParams.get("customerMobile") ?? "",
-    dateFrom: searchParams.get("dateFrom") ?? "",
-    dateTo: searchParams.get("dateTo") ?? "",
-    orderNumber: searchParams.get("orderNumber") ?? "",
-    paymentStatus: (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus ?? "")
-      ? (paymentStatus as OrderFilters["paymentStatus"])
-      : "",
-    status: (ORDER_STATUSES as readonly string[]).includes(status ?? "")
-      ? (status as OrderFilters["status"])
-      : "",
-    warehouseId: searchParams.get("warehouseId") ?? ""
-  };
 }

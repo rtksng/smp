@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { plainToInstance } from "class-transformer";
+import { validateSync } from "class-validator";
 import { BadRequestException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -15,6 +17,8 @@ import { AdminOrdersController } from "../../src/modules/orders/admin-orders.con
 import type { CartService } from "../../src/modules/cart/cart.service";
 import { OrdersController } from "../../src/modules/orders/orders.controller";
 import { OrdersService } from "../../src/modules/orders/orders.service";
+import { AdminOrderListQueryDto } from "../../src/modules/orders/dto/order.dto";
+import { DeliveryChargesService } from "../../src/modules/delivery-charges/delivery-charges.service";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
@@ -155,6 +159,10 @@ class FakeDeliveryChargesService {
 
 function createOrdersPrismaMock(input?: {
   batchQuantity?: number;
+  couponIsActive?: boolean;
+  couponUsageLimit?: number | null;
+  couponUsedCount?: number;
+  couponUsedCountAtClaim?: number;
   existingOrderItems?: Array<{
     id: string;
     orderId: string;
@@ -175,7 +183,7 @@ function createOrdersPrismaMock(input?: {
     cartFindFirst: [],
     cartItemDeleteMany: [],
     couponFindFirst: [],
-    couponUpdate: [],
+    couponUpdateMany: [],
     deliveryAssignmentUpdate: [],
     deliveryStatusHistoryCreate: [],
     inventoryStockFindMany: [],
@@ -470,14 +478,14 @@ function createOrdersPrismaMock(input?: {
     deletedAt: null,
     expiresAt: new Date("2026-12-31T23:59:59.999Z"),
     id: "coupon-1",
-    isActive: true,
+    isActive: input?.couponIsActive ?? true,
     maxDiscount: "50.00",
     minOrderAmount: "200.00",
     startsAt: new Date("2026-01-01T00:00:00.000Z"),
     type: "PERCENTAGE",
     updatedAt: now,
-    usageLimit: 100,
-    usedCount: 0,
+    usageLimit: input?.couponUsageLimit === undefined ? 100 : input.couponUsageLimit,
+    usedCount: input?.couponUsedCount ?? 0,
     value: "10.00"
   };
   const invoice = {
@@ -518,14 +526,24 @@ function createOrdersPrismaMock(input?: {
       }
     },
     coupon: {
+      fields: { usageLimit: { modelName: "Coupon", name: "usageLimit" } },
       findFirst: async (args: unknown) => {
         calls.couponFindFirst.push(args);
-        return coupon;
+        return { ...coupon };
       },
-      update: async (args: { data: { usedCount?: { increment?: number } } }) => {
-        calls.couponUpdate.push(args);
+      updateMany: async (args: { data: { usedCount?: { increment?: number } } }) => {
+        calls.couponUpdateMany.push(args);
+        if (input?.couponUsedCountAtClaim !== undefined) {
+          coupon.usedCount = input.couponUsedCountAtClaim;
+        }
+        if (
+          !coupon.isActive ||
+          (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit)
+        ) {
+          return { count: 0 };
+        }
         coupon.usedCount += args.data.usedCount?.increment ?? 0;
-        return coupon;
+        return { count: 1 };
       }
     },
     inventoryStock: {
@@ -1175,7 +1193,89 @@ test("createOrder applies a valid coupon to order and payment totals", async () 
     (prisma.calls.paymentCreate[0] as { data: { amount: number } }).data.amount,
     259.2
   );
-  assert.equal(prisma.calls.couponUpdate.length, 1);
+  assert.equal(prisma.calls.couponUpdateMany.length, 1);
+  const claim = prisma.calls.couponUpdateMany[0] as {
+    data: unknown;
+    where: { AND: unknown[]; deletedAt: null; id: string; isActive: boolean };
+  };
+  assert.deepEqual(claim.data, { usedCount: { increment: 1 } });
+  assert.equal(claim.where.id, "coupon-1");
+  assert.equal(claim.where.deletedAt, null);
+  assert.equal(claim.where.isActive, true);
+  assert.deepEqual(claim.where.AND[2], {
+    OR: [
+      { usageLimit: null },
+      { usedCount: { lt: prisma.coupon.fields.usageLimit } }
+    ]
+  });
+});
+
+test("createOrder rejects a coupon whose last use was claimed after validation", async () => {
+  const prisma = createOrdersPrismaMock({
+    couponUsageLimit: 1,
+    couponUsedCount: 0,
+    couponUsedCountAtClaim: 1
+  });
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () => service.createOrder("customer-1", {
+      couponCode: "SURGICAL10",
+      paymentMethod: "COD",
+      shippingAddressId: "address-1"
+    }),
+    /Coupon is no longer available/
+  );
+  assert.equal(prisma.calls.couponUpdateMany.length, 1);
+  assert.equal(prisma.calls.orderCreate.length, 0);
+  assert.equal(prisma.calls.paymentCreate.length, 0);
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
+});
+
+test("createOrder revalidates inactive and exhausted coupons before accepting an order", async () => {
+  for (const input of [
+    { couponIsActive: false },
+    { couponUsageLimit: 1, couponUsedCount: 1 }
+  ]) {
+    const prisma = createOrdersPrismaMock(input);
+    const service = new OrdersService(
+      prisma as unknown as PrismaService,
+      new FakeWarehouseAccess() as unknown as WarehouseAccessService
+    );
+    await assert.rejects(
+      () => service.createOrder("customer-1", {
+        couponCode: "SURGICAL10",
+        paymentMethod: "COD",
+        shippingAddressId: "address-1"
+      }),
+      BadRequestException
+    );
+    assert.equal(prisma.calls.orderCreate.length, 0);
+    assert.equal(prisma.calls.couponUpdateMany.length, 0);
+  }
+});
+
+test("createOrder counts an unlimited coupon only once for a retried checkout", async () => {
+  const prisma = createOrdersPrismaMock({ couponUsageLimit: null, couponUsedCount: 100 });
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+  const input = {
+    couponCode: "SURGICAL10",
+    idempotencyKey: "checkout-coupon-retry",
+    paymentMethod: "ONLINE" as const,
+    shippingAddressId: "address-1"
+  };
+
+  await service.createOrder("customer-1", input);
+  await service.createOrder("customer-1", input);
+
+  assert.equal(prisma.calls.couponUpdateMany.length, 1);
+  assert.equal(prisma.calls.orderCreate.length, 1);
 });
 
 test("createOrder stores dynamic delivery charge on order and payment totals", async () => {
@@ -1211,6 +1311,27 @@ test("createOrder stores dynamic delivery charge on order and payment totals", a
     (prisma.calls.paymentCreate[0] as { data: { amount: number } }).data.amount,
     358.2
   );
+});
+
+test("createOrder persists the same warehouse-specific shipping charge used by cart previews", async () => {
+  const prisma = createOrdersPrismaMock();
+  const baseRule = {
+    charge: "80", createdAt: now, deletedAt: null, freeDeliveryThreshold: null,
+    id: "default", isActive: true, maxOrderAmount: null, minOrderAmount: null,
+    name: "Default", pincode: null, priority: 0, updatedAt: now, warehouseId: null
+  };
+  const deliveryCharges = new DeliveryChargesService({ deliveryChargeRule: {
+    findMany: async () => [baseRule, { ...baseRule, charge: "150", id: "warehouse", warehouseId: "warehouse-1" }]
+  } } as unknown as PrismaService);
+  const service = new OrdersService(prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    undefined, undefined, undefined, deliveryCharges);
+
+  const order = await service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" });
+  assert.equal(order.totals.deliveryCharge, 150);
+  assert.equal(order.totals.grandTotal, 433.2);
+  assert.equal((prisma.calls.orderCreate[0] as { data: { shippingTotal: number } }).data.shippingTotal, 150);
+  assert.equal((prisma.calls.paymentCreate[0] as { data: { amount: number } }).data.amount, 433.2);
 });
 
 test("createOrder enqueues an order confirmation notification after checkout succeeds", async () => {
@@ -1502,6 +1623,54 @@ test("listAdminOrders applies status, payment, date, customer, order number, and
       warehouseId: "warehouse-1"
     }
   );
+});
+
+test("pending-only order requests validate query booleans instead of treating false as true", () => {
+  // The test transpiler omits the type metadata emitted by the production compiler.
+  Reflect.defineMetadata("design:type", Boolean, AdminOrderListQueryDto.prototype, "pendingOnly");
+  for (const [value, expected] of [["true", true], ["false", false]] as const) {
+    const query = plainToInstance(AdminOrderListQueryDto, { pendingOnly: value }, { enableImplicitConversion: true });
+    assert.equal(query.pendingOnly, expected);
+    assert.deepEqual(validateSync(query), []);
+  }
+  assert.ok(validateSync(plainToInstance(AdminOrderListQueryDto, { pendingOnly: "yes" }, { enableImplicitConversion: true })).length > 0);
+});
+
+test("listAdminOrders intersects pending status scope and keeps other report filters for rows and counts", async () => {
+  const prisma = createOrdersPrismaMock();
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService
+  );
+  const cases = [
+    { expected: ["CREATED", "CONFIRMED", "PACKED", "ASSIGNED", "OUT_FOR_DELIVERY"], status: undefined },
+    { expected: ["CONFIRMED"], status: "CONFIRMED" as const },
+    { expected: [], status: "CANCELLED" as const }
+  ];
+
+  for (const [index, { expected, status }] of cases.entries()) {
+    await service.listAdminOrders({
+      dateFrom: "2026-07-05",
+      dateTo: "2026-09-03",
+      paymentStatus: "PENDING",
+      pendingOnly: true,
+      status,
+      warehouseId: "warehouse-1"
+    }, adminAuth());
+
+    const where = (prisma.calls.orderFindMany[index] as { where: unknown }).where;
+    assert.deepEqual(where, {
+      createdAt: {
+        gte: new Date("2026-07-05T00:00:00.000Z"),
+        lte: new Date("2026-09-03T23:59:59.999Z")
+      },
+      deletedAt: null,
+      paymentStatus: "PENDING",
+      status: { in: expected },
+      warehouseId: "warehouse-1"
+    });
+    assert.deepEqual((prisma.calls.orderCount[index] as { where: unknown }).where, where);
+  }
 });
 
 test("listAdminReturnRequests filters pending returns with order, customer, payment, and refund context", async () => {

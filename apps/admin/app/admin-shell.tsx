@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Badge,
   BarChart3,
@@ -13,7 +13,6 @@ import {
   ClipboardList,
   FolderTree,
   LayoutDashboard,
-  LogOut,
   Menu,
   MessageSquareHeart,
   Package,
@@ -27,6 +26,8 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { APP_NAMES } from "@surgical/config";
+import { AdminTopbar } from "@/components/admin/admin-topbar";
+import topbarStyles from "@/components/admin/admin-topbar.module.css";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -35,10 +36,7 @@ import {
   DrawerHeader
 } from "@/components/ui/drawer";
 import { ProtectedRoute, useAdminSession } from "../lib/admin-session";
-import {
-  getVisibleNavigationItems,
-  type AdminNavigationItem
-} from "../lib/navigation";
+import { getVisibleNavigationItems, type AdminNavigationItem } from "../lib/navigation";
 
 const navIconMap: Record<string, LucideIcon> = {
   Brands: Badge,
@@ -64,22 +62,9 @@ const MOBILE_SIDEBAR_SCROLL_STORAGE_KEY = "surgical.admin.mobileSidebarScrollTop
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { admin, logout } = useAdminSession();
+  const { admin } = useAdminSession();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const visibleNavItems = getVisibleNavigationItems(admin?.permissions);
-
-  async function handleLogout() {
-    await logout();
-    router.replace("/login");
-  }
-
-  const adminDisplayName = admin
-    ? formatAdminName(admin.firstName, admin.lastName)
-    : "Admin";
-  const adminInitials = admin
-    ? getAdminInitials(admin.firstName, admin.lastName)
-    : "AD";
 
   return (
     <ProtectedRoute>
@@ -109,13 +94,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
           >
             {renderNavigation(visibleNavItems, pathname)}
           </SidebarNavScroller>
-          <SidebarFooter
-            adminDisplayName={adminDisplayName}
-            adminEmail={admin?.email}
-            adminInitials={adminInitials}
-            adminRole={admin?.role.name ?? "Admin"}
-            onLogout={handleLogout}
-          />
         </aside>
 
         <Drawer
@@ -137,18 +115,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   setIsMobileNavOpen(false)
                 )}
               </SidebarNavScroller>
-              <SidebarFooter
-                adminDisplayName={adminDisplayName}
-                adminEmail={admin?.email}
-                adminInitials={adminInitials}
-                adminRole={admin?.role.name ?? "Admin"}
-                onLogout={handleLogout}
-              />
             </DrawerBody>
           </DrawerContent>
         </Drawer>
 
-        <section className="workspace">{children}</section>
+        <AdminTopbar />
+        <section className={`workspace ${topbarStyles.workspace}`}>{children}</section>
       </main>
     </ProtectedRoute>
   );
@@ -206,45 +178,6 @@ function SidebarBrand() {
     <div className="brandBlock">
       <span className="brandMark">SMEP</span>
       <span className="brand">{APP_NAMES.admin}</span>
-    </div>
-  );
-}
-
-function SidebarFooter({
-  adminDisplayName,
-  adminEmail,
-  adminInitials,
-  adminRole,
-  onLogout
-}: {
-  adminDisplayName: string;
-  adminEmail?: string;
-  adminInitials: string;
-  adminRole: string;
-  onLogout: () => Promise<void>;
-}) {
-  return (
-    <div className="sidebarFooter">
-      <div className="sidebarAdminIdentity">
-        <span aria-hidden className="sidebarAvatar">
-          {adminInitials}
-        </span>
-        <div>
-          <strong>{adminDisplayName}</strong>
-          <span>{adminRole}</span>
-          {adminEmail ? <small>{adminEmail}</small> : null}
-        </div>
-      </div>
-      <Button
-        aria-label="Log out"
-        className="iconTextButton sidebarLogoutButton"
-        onClick={() => void onLogout()}
-        type="button"
-        variant="ghost"
-      >
-        <LogOut aria-hidden size={16} />
-        <span>Logout</span>
-      </Button>
     </div>
   );
 }
@@ -321,9 +254,7 @@ function NavigationGroup({
         <div className="sidebarSubnav">
           {item.children.map((child) => (
             <Link
-              aria-current={
-                isActivePath(pathname, child.href) ? "page" : undefined
-              }
+              aria-current={isActivePath(pathname, child.href) ? "page" : undefined}
               className="sidebarNavLink sidebarSubnavLink"
               href={child.href}
               key={child.href}
@@ -341,20 +272,4 @@ function NavigationGroup({
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function formatAdminName(firstName: string, lastName: string | null) {
-  return [firstName, lastName].filter(isStringValue).join(" ");
-}
-
-function getAdminInitials(firstName: string, lastName: string | null) {
-  return [firstName, lastName]
-    .filter(isStringValue)
-    .map((name) => name.charAt(0).toUpperCase())
-    .join("")
-    .slice(0, 2);
-}
-
-function isStringValue(value: string | null): value is string {
-  return Boolean(value);
 }

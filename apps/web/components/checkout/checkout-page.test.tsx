@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cart } from "../../lib/api/cart";
+import type { CouponValidation } from "../../lib/api/coupons";
 import type { CustomerAddress } from "../../lib/api/customer-profile";
 import type { Order } from "../../lib/api/orders";
+import { customerQueryKeys } from "../../lib/api/query-keys";
 import { CheckoutPage } from "./checkout-page";
 
 const mocks = vi.hoisted(() => ({
@@ -14,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   getPaymentGatewayStatus: vi.fn(),
   getCart: vi.fn(),
   listCustomerAddresses: vi.fn(),
+  listAvailableCoupons: vi.fn(),
   openRazorpayCheckout: vi.fn(),
   routerReplace: vi.fn(),
   validateCoupon: vi.fn(),
@@ -70,6 +73,7 @@ vi.mock("../../lib/api/coupons", async () => {
 
   return {
     ...actual,
+    listAvailableCoupons: mocks.listAvailableCoupons,
     validateCoupon: mocks.validateCoupon
   };
 });
@@ -202,6 +206,7 @@ describe("CheckoutPage", () => {
     mocks.getPaymentGatewayStatus.mockReset();
     mocks.getCart.mockReset();
     mocks.listCustomerAddresses.mockReset();
+    mocks.listAvailableCoupons.mockReset();
     mocks.openRazorpayCheckout.mockReset();
     mocks.routerReplace.mockReset();
     mocks.validateCoupon.mockReset();
@@ -209,6 +214,7 @@ describe("CheckoutPage", () => {
     mocks.updateCustomerAddress.mockReset();
     mocks.getCart.mockResolvedValue(cart);
     mocks.listCustomerAddresses.mockResolvedValue([address]);
+    mocks.listAvailableCoupons.mockResolvedValue({ items: [] });
     mocks.createOrder.mockResolvedValue(order);
     mocks.createRazorpayOrder.mockResolvedValue({
       orderId: "order_1",
@@ -336,7 +342,57 @@ describe("CheckoutPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("applies a promo code and sends it with checkout", async () => {
+  it("waits for the selected address delivery quote before enabling checkout", async () => {
+    const secondAddress = { ...address, id: "address_2", isDefault: false, pincode: "110001" };
+    let resolveQuote!: (value: Cart) => void;
+    const pendingQuote = new Promise<Cart>((resolve) => { resolveQuote = resolve; });
+    mocks.listCustomerAddresses.mockResolvedValue([address, secondAddress]);
+    mocks.getCart.mockImplementation((id) => id === secondAddress.id ? pendingQuote : Promise.resolve(cart));
+    renderCheckout();
+
+    const placeOrder = await screen.findByRole("button", { name: "Place COD order" });
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    fireEvent.click(screen.getAllByRole("radio")[1]!);
+    await waitFor(() => expect(mocks.getCart).toHaveBeenCalledWith(secondAddress.id));
+    expect(placeOrder).toBeDisabled();
+    fireEvent.click(placeOrder);
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+
+    await act(async () => resolveQuote({ ...cart, totals: { ...cart.totals, deliveryCharge: 150, grandTotal: 1310 } }));
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    expect(screen.getByText("₹150.00")).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,310.00")).toHaveLength(2);
+  });
+
+  it("recalculates delivery after the selected address pincode is edited without changing its ID", async () => {
+    let resolveQuote!: (value: Cart) => void;
+    const pendingQuote = new Promise<Cart>((resolve) => { resolveQuote = resolve; });
+    const editedAddress = { ...address, pincode: "110001" };
+    mocks.updateCustomerAddress.mockImplementation(async () => {
+      mocks.listCustomerAddresses.mockResolvedValue([editedAddress]);
+      mocks.getCart.mockImplementation(() => pendingQuote);
+      return editedAddress;
+    });
+    renderCheckout();
+    const placeOrder = await screen.findByRole("button", { name: "Place COD order" });
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    const previousQuoteCalls = mocks.getCart.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("Pincode"), { target: { value: "110001" } });
+    fireEvent.click(screen.getByRole("button", { name: "Update address" }));
+    await screen.findByText("Address updated.");
+    await waitFor(() => expect(mocks.getCart.mock.calls.length).toBeGreaterThan(previousQuoteCalls));
+    expect(mocks.getCart).toHaveBeenLastCalledWith(address.id);
+    expect(placeOrder).toBeDisabled();
+
+    await act(async () => resolveQuote({ ...cart, totals: { ...cart.totals, deliveryCharge: 100, grandTotal: 1260 } }));
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    expect(screen.getByText("₹100.00")).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,260.00")).toHaveLength(2);
+  });
+
+  it("applies a promo code once in both payable totals and sends it with checkout", async () => {
     renderCheckout();
 
     fireEvent.change(
@@ -345,11 +401,14 @@ describe("CheckoutPage", () => {
         target: { value: "surgical10" }
       }
     );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(
       await screen.findByText("Coupon applied.", undefined, asyncUiTimeout)
     ).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,190.00")).toHaveLength(2);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
 
     await waitFor(() => {
@@ -369,6 +428,7 @@ describe("CheckoutPage", () => {
       await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
     ).toBeInTheDocument();
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
 
     await waitFor(() => {
@@ -380,6 +440,131 @@ describe("CheckoutPage", () => {
       });
     });
     expect(mocks.routerReplace).toHaveBeenCalledWith("/order-success/order_1");
+  });
+
+  it("waits for coupon validation before permitting an order", async () => {
+    let resolveCoupon!: (value: CouponValidation) => void;
+    mocks.validateCoupon.mockImplementation(() => new Promise<CouponValidation>((resolve) => {
+      resolveCoupon = resolve;
+    }));
+    renderCheckout();
+    const placeOrder = await screen.findByRole("button", { name: "Place COD order" });
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Promo code"), { target: { value: "SURGICAL10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(placeOrder).toBeDisabled();
+    expect(screen.getByLabelText("Promo code")).toBeDisabled();
+    fireEvent.click(placeOrder);
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(mocks.validateCoupon).toHaveBeenCalledTimes(1));
+
+    await act(async () => resolveCoupon({ code: "SURGICAL10", discount: 100, grandTotal: 1080, message: "Coupon applied.", subtotal: 1000, tax: 180 }));
+    await waitFor(() => expect(placeOrder).toBeEnabled());
+    expect(screen.getAllByText("₹1,130.00")).toHaveLength(2);
+    fireEvent.click(placeOrder);
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({ couponCode: "SURGICAL10" })));
+  });
+
+  it("applies an available coupon without requiring the customer to type its code", async () => {
+    mocks.listAvailableCoupons.mockResolvedValue({
+      items: [{ code: "SURGICAL10", type: "PERCENTAGE", value: 10, minOrderAmount: 500, maxDiscount: 40, expiresAt: null }]
+    });
+    renderCheckout();
+    const applyOffer = await screen.findByRole("button", { name: "Apply SURGICAL10" });
+    await waitFor(() => expect(applyOffer).toBeEnabled());
+    fireEvent.click(applyOffer);
+
+    expect(await screen.findByText("Coupon applied.")).toBeInTheDocument();
+    expect(mocks.validateCoupon).toHaveBeenCalledWith("SURGICAL10");
+    expect(screen.getByLabelText("Promo code")).toHaveValue("SURGICAL10");
+    expect(screen.getByRole("button", { name: "SURGICAL10 applied" })).toBeDisabled();
+    expect(screen.getAllByText("₹1,190.00")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({ couponCode: "SURGICAL10" })));
+  });
+
+  it("shows invalid coupon errors without applying a discount or sending the invalid code", async () => {
+    mocks.validateCoupon.mockRejectedValue(new Error("Coupon is not active."));
+    renderCheckout();
+    fireEvent.change(await screen.findByLabelText("Promo code"), { target: { value: "INACTIVE" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(await screen.findByText("Coupon is not active.")).toBeInTheDocument();
+    expect(screen.getAllByText("₹1,210.00")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({ couponCode: null })));
+  });
+
+  it("removes a coupon and restores the cart total before checkout", async () => {
+    renderCheckout();
+    fireEvent.change(await screen.findByLabelText("Promo code"), { target: { value: "SURGICAL10" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+
+    expect(screen.getByLabelText("Promo code")).toHaveValue("");
+    expect(screen.getAllByText("₹1,210.00")).toHaveLength(2);
+    expect(screen.queryByText("Coupon applied.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledWith(expect.objectContaining({ couponCode: null })));
+  });
+
+  it("requires a fresh coupon validation after a cart price change and supports removing a stale coupon", async () => {
+    const { queryClient } = renderCheckout();
+    fireEvent.change(await screen.findByLabelText("Promo code"), { target: { value: "SURGICAL10" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await screen.findByText("Coupon applied.");
+    mocks.getCart.mockResolvedValue({ ...cart, items: [{ ...cart.items[0], unitPrice: 250, subtotal: 500, tax: 90 }], totals: { ...cart.totals, subtotal: 500, tax: 90, grandTotal: 620 } });
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: customerQueryKeys.cart() }); });
+
+    expect(await screen.findByText("Your cart changed. Apply the promo code again or remove it to continue.")).toBeInTheDocument();
+    expect(screen.getAllByText("₹620.00")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled();
+    expect(screen.queryByText(/Your cart changed/)).not.toBeInTheDocument();
+  });
+
+  it("ignores a pending coupon result for an earlier cart and can reapply to the new cart", async () => {
+    let resolveCoupon!: (value: CouponValidation) => void;
+    mocks.validateCoupon.mockImplementationOnce(() => new Promise<CouponValidation>((resolve) => { resolveCoupon = resolve; }));
+    const { queryClient } = renderCheckout();
+    fireEvent.change(await screen.findByLabelText("Promo code"), { target: { value: "SURGICAL10" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    mocks.getCart.mockResolvedValue({ ...cart, items: [{ ...cart.items[0], quantity: 1, subtotal: 500, tax: 90 }], totals: { ...cart.totals, subtotal: 500, tax: 90, grandTotal: 620 } });
+    await act(async () => { await queryClient.invalidateQueries({ queryKey: customerQueryKeys.cart() }); });
+    await act(async () => resolveCoupon({ code: "SURGICAL10", discount: 100, grandTotal: 1080, message: "Coupon applied.", subtotal: 1000, tax: 180 }));
+
+    expect(await screen.findByText(/Your cart changed/)).toBeInTheDocument();
+    expect(screen.getAllByText("₹620.00")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeDisabled();
+    mocks.validateCoupon.mockResolvedValue({ code: "SURGICAL10", discount: 50, grandTotal: 540, message: "Coupon applied.", subtotal: 500, tax: 90 });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await screen.findByText("Coupon applied.");
+    expect(screen.getAllByText("₹590.00")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled();
+  });
+
+  it("preserves a valid merchandise coupon when only the delivery quote changes", async () => {
+    const secondAddress = { ...address, id: "address_2", isDefault: false, pincode: "110001" };
+    mocks.listCustomerAddresses.mockResolvedValue([address, secondAddress]);
+    mocks.getCart.mockImplementation((id) => Promise.resolve(id === secondAddress.id ? { ...cart, totals: { ...cart.totals, deliveryCharge: 150, grandTotal: 1310 } } : cart));
+    renderCheckout();
+    fireEvent.change(await screen.findByLabelText("Promo code"), { target: { value: "SURGICAL10" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await screen.findByText("Coupon applied.");
+    fireEvent.click(screen.getAllByRole("radio")[1]!);
+    await waitFor(() => expect(screen.getAllByText("₹1,290.00")).toHaveLength(2));
+    expect(screen.getByText("Coupon applied.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled();
+    expect(mocks.validateCoupon).toHaveBeenCalledTimes(1);
   });
 
   it("completes an online Razorpay checkout and verifies the payment", async () => {
@@ -399,6 +584,7 @@ describe("CheckoutPage", () => {
       await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place order and pay" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
 
     await waitFor(() => {
@@ -444,6 +630,7 @@ describe("CheckoutPage", () => {
       await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Online payment/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place order and pay" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Place order and pay" }));
 
     await waitFor(() => {
@@ -501,9 +688,12 @@ function renderCheckout() {
     }
   });
 
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <CheckoutPage />
-    </QueryClientProvider>
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <CheckoutPage />
+      </QueryClientProvider>
+    ),
+    queryClient
+  };
 }

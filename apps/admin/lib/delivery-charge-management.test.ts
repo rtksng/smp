@@ -5,6 +5,7 @@ import {
   createEmptyDeliveryChargeFilters,
   createEmptyDeliveryChargeFormValues,
   deliveryChargeRuleToFormValues,
+  validateDeliveryChargeFilters,
   validateDeliveryChargeForm,
   type AdminDeliveryChargeRule
 } from "./delivery-charge-management";
@@ -58,6 +59,65 @@ describe("delivery charge management helpers", () => {
       warehouseId: "warehouse-1"
     });
   });
+
+  it.each(["", "   "])("requires an explicit delivery charge for %j", (charge) => {
+    expect(
+      validateDeliveryChargeForm({
+        ...createEmptyDeliveryChargeFormValues(),
+        charge,
+        name: "Local delivery"
+      })
+    ).toEqual({ charge: "Enter a delivery charge of 0 or above." });
+  });
+
+  it.each(["0", "75.50"])("accepts an explicit delivery charge of %s", (charge) => {
+    const values = {
+      ...createEmptyDeliveryChargeFormValues(),
+      charge,
+      name: "Local delivery"
+    };
+
+    expect(validateDeliveryChargeForm(values)).toEqual({});
+    expect(buildDeliveryChargePayload(values).charge).toBe(Number(charge));
+  });
+
+  it("validates the API rule name limit after trimming", () => {
+    const values = {
+      ...createEmptyDeliveryChargeFormValues(),
+      charge: "75",
+      name: `  ${"A".repeat(160)}  `
+    };
+
+    expect(validateDeliveryChargeForm(values)).toEqual({});
+    expect(buildDeliveryChargePayload(values).name).toHaveLength(160);
+    expect(
+      validateDeliveryChargeForm({ ...values, name: "A".repeat(161) })
+    ).toEqual({ name: "Rule name must be 160 characters or fewer." });
+  });
+
+  it.each(["", "   ", "110001", " 001234 "])(
+    "allows an optional six-digit filter pincode of %j",
+    (pincode) => {
+      const filters = { ...createEmptyDeliveryChargeFilters(), pincode };
+
+      expect(validateDeliveryChargeFilters(filters)).toBeNull();
+      expect(buildDeliveryChargeQuery(filters).pincode).toBe(
+        pincode.trim() || undefined
+      );
+    }
+  );
+
+  it.each(["123", "1234567", "ABCDEF", "110 01", "12345.0"])(
+    "rejects the malformed filter pincode %j before applying",
+    (pincode) => {
+      expect(
+        validateDeliveryChargeFilters({
+          ...createEmptyDeliveryChargeFilters(),
+          pincode
+        })
+      ).toBe("Pincode must be exactly 6 digits.");
+    }
+  );
 
   it("validates delivery charge amount ranges and maps records back to forms", () => {
     expect(

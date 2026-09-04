@@ -11,6 +11,7 @@ import {
   canProcessReturnRefund,
   canRejectReturn,
   createEmptyOrderFilters,
+  createOrderFiltersFromSearchParams,
   createEmptyReturnRequestFilters,
   getLatestRefund,
   getNextOrderStatuses,
@@ -18,6 +19,29 @@ import {
 } from "./order-management";
 
 describe("order management helpers", () => {
+  it("retains the report pending scope with its date, status, payment and warehouse filters", () => {
+    const filters = createOrderFiltersFromSearchParams(new URLSearchParams({
+      dateFrom: "2026-07-05",
+      dateTo: "2026-09-03",
+      paymentStatus: "PENDING",
+      pendingOnly: "true",
+      status: "CONFIRMED",
+      warehouseId: "warehouse-1"
+    }));
+
+    expect(buildOrderQuery(filters, 2)).toMatchObject({
+      dateFrom: "2026-07-05",
+      dateTo: "2026-09-03",
+      page: 2,
+      paymentStatus: "PENDING",
+      pendingOnly: true,
+      status: "CONFIRMED",
+      warehouseId: "warehouse-1"
+    });
+    expect(createEmptyOrderFilters().pendingOnly).toBe(false);
+    expect(createOrderFiltersFromSearchParams(new URLSearchParams("pendingOnly=false")).pendingOnly).toBe(false);
+  });
+
   it("normalizes order filters into the backend admin orders query", () => {
     expect(
       buildOrderQuery(
@@ -27,6 +51,7 @@ describe("order management helpers", () => {
           dateTo: "2026-05-26",
           orderNumber: " ORD-20260525 ",
           paymentStatus: "PAID",
+          pendingOnly: false,
           status: "CONFIRMED",
           warehouseId: "warehouse-1"
         },

@@ -140,6 +140,7 @@ function createReportsPrismaMock() {
       }
     },
     warehouse: {
+      findMany: async () => [{ id: "warehouse-1", name: "Delhi warehouse", code: "DEL-01" }],
       count: async (args: unknown) => {
         calls.warehouseCount.push(args);
         return 1;

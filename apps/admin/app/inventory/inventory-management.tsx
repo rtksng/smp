@@ -59,6 +59,7 @@ import {
   buildTransferStockPayload,
   createEmptyAdjustStockFormValues,
   createEmptyInventoryFilters,
+  createInventoryFiltersFromSearchParams,
   createEmptyStockInFormValues,
   createEmptyTransferStockFormValues,
   formatMovementType,
@@ -127,7 +128,7 @@ export function InventoryManagementPage({ view }: { view: InventoryView }) {
 }
 
 function InventoryContent({ view }: { view: InventoryView }) {
-  const { api } = useAdminSession();
+  const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -142,6 +143,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
     urlFilters
   );
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [stockInValues, setStockInValues] = useState<StockInInputValues>(
     createEmptyStockInFormValues()
   );
@@ -167,6 +169,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const hasFilters = isOverviewView || isMovementsView;
 
   useEffect(() => {
+    setFilterError(null);
     setDraftFilters(urlFilters);
     setAppliedFilters(urlFilters);
   }, [urlFilters]);
@@ -192,6 +195,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
   );
 
   const warehousesQuery = useQuery({
+    enabled: hasPermission(ADMIN_PERMISSION.WarehouseRead),
     queryFn: () =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
         query: lookupQuery
@@ -199,6 +203,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
     queryKey: ["admin", "inventory", "warehouses"]
   });
   const productsQuery = useQuery({
+    enabled: hasPermission(ADMIN_PERMISSION.ProductsRead),
     queryFn: () =>
       api.request<ProductListResponse>("/admin/products", {
         query: lookupQuery
@@ -230,10 +235,10 @@ function InventoryContent({ view }: { view: InventoryView }) {
       api.request<PaginatedResponse<StockBatch>>("/admin/inventory/near-expiry", {
         query: {
           ...scopedQuery,
-          days: 30
+          days: Number(appliedFilters.nearExpiryDays)
         }
       }),
-    queryKey: ["admin", "inventory", "near-expiry", scopedQuery]
+    queryKey: ["admin", "inventory", "near-expiry", scopedQuery, appliedFilters.nearExpiryDays]
   });
   const movementsQuery = useQuery({
     enabled: isMovementsView,
@@ -291,14 +296,19 @@ function InventoryContent({ view }: { view: InventoryView }) {
     event.preventDefault();
     const parsed = inventoryFiltersSchema.safeParse(draftFilters);
 
-    if (parsed.success) {
-      setAppliedFilters(parsed.data);
-      setIsFilterDrawerOpen(false);
+    if (!parsed.success) {
+      setFilterError(parsed.error.issues[0]?.message ?? "Check the inventory filters.");
+      return;
     }
+
+    setFilterError(null);
+    setAppliedFilters(parsed.data);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
     const emptyFilters = createEmptyInventoryFilters();
+    setFilterError(null);
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
   }
@@ -450,6 +460,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
       {hasFilters ? (
         <>
           <FilterDrawer
+            error={filterError}
             isOpen={isFilterDrawerOpen}
             isSubmitting={
               inventoryQuery.isFetching ||
@@ -571,6 +582,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
               inventoryRequest.type === "batch" ? (
                 <BatchTable
                   batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
+                  nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
                   products={products}
                   warehouses={warehouses}
                 />
@@ -587,7 +599,12 @@ function InventoryContent({ view }: { view: InventoryView }) {
           </Card>
 
           <Card className="panel">
-            <PageHeader level={2} eyebrow="Near expiry" title="Positive batches expiring soon" />
+            <PageHeader
+              level={2}
+              eyebrow="Near expiry"
+              summary={`Expiry window: ${appliedFilters.nearExpiryDays} days.`}
+              title="Positive batches expiring soon"
+            />
             {nearExpiryQuery.isLoading ? (
               <LoadingState label="Loading near-expiry batches..." />
             ) : null}
@@ -600,6 +617,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
             {!nearExpiryQuery.isLoading && !nearExpiryQuery.isError ? (
               <BatchTable
                 batches={nearExpiryItems}
+                nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
                 products={products}
                 warehouses={warehouses}
               />
@@ -721,6 +739,18 @@ function InventoryFilterFields({
               }
             />
             <span>Near expiry</span>
+          </Label>
+          <Label>
+            Expiry window (days)
+            <Input
+              className="filterDrawerControl"
+              max={365}
+              min={1}
+              onChange={(event) => onChange({ ...filters, nearExpiryDays: event.target.value })}
+              step={1}
+              type="number"
+              value={filters.nearExpiryDays}
+            />
           </Label>
         </>
       ) : null}
@@ -1307,10 +1337,12 @@ function StockTable({
 
 function BatchTable({
   batches,
+  nearExpiryDays,
   products,
   warehouses
 }: {
   batches: StockBatch[];
+  nearExpiryDays: number;
   products: AdminProduct[];
   warehouses: AdminWarehouse[];
 }) {
@@ -1346,7 +1378,7 @@ function BatchTable({
               <TableCell>{batch.quantity}</TableCell>
               <TableCell className="flagList">
                 <span>{formatDate(batch.expiryDate)}</span>
-                {isNearExpiry(batch.expiryDate) ? <b>Near expiry</b> : null}
+                {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? <b>Near expiry</b> : null}
               </TableCell>
               <TableCell>
                 {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
@@ -1469,16 +1501,4 @@ function getFieldErrors<TFields extends Record<string, unknown>>(error: z.ZodErr
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : null;
-}
-
-function createInventoryFiltersFromSearchParams(searchParams: {
-  get: (key: string) => string | null;
-}) {
-  return {
-    lowStock: searchParams.get("lowStock") === "true",
-    nearExpiry: searchParams.get("nearExpiry") === "true",
-    productId: searchParams.get("productId") ?? "",
-    search: searchParams.get("search") ?? "",
-    warehouseId: searchParams.get("warehouseId") ?? ""
-  };
 }

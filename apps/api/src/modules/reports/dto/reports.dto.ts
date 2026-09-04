@@ -14,6 +14,10 @@ import { OrderStatus, PaymentStatus } from "../../../generated/prisma/client";
 
 export const DASHBOARD_EXPORT_FORMATS = ["csv", "pdf"] as const;
 export type DashboardExportFormat = (typeof DASHBOARD_EXPORT_FORMATS)[number];
+export const REPORT_EXPORT_VIEWS = [
+  "overview", "orders", "sales", "products", "inventory", "warehouses"
+] as const;
+export type ReportExportView = (typeof REPORT_EXPORT_VIEWS)[number];
 
 export class DashboardReportQueryDto {
   @ApiPropertyOptional({ example: "2026-05-01" })
@@ -51,6 +55,11 @@ export class DashboardReportQueryDto {
 }
 
 export class DashboardReportExportQueryDto extends DashboardReportQueryDto {
+  @ApiPropertyOptional({ default: "overview", enum: REPORT_EXPORT_VIEWS })
+  @IsIn(REPORT_EXPORT_VIEWS)
+  @IsOptional()
+  view?: ReportExportView;
+
   @ApiPropertyOptional({ default: "csv", enum: DASHBOARD_EXPORT_FORMATS })
   @IsIn(DASHBOARD_EXPORT_FORMATS)
   @IsOptional()
@@ -165,6 +174,14 @@ export class DashboardChartsResponseDto {
 }
 
 export class DashboardReportResponseDto {
+  @ApiProperty({ example: "2026-09-03" })
+  todayDate!: string;
+
+  @ApiProperty({ type: "array", items: { type: "object", properties: {
+    id: { type: "string" }, name: { type: "string" }, code: { type: "string" }
+  } } })
+  warehouseOptions!: Array<{ id: string; name: string; code: string }>;
+
   @ApiProperty({ type: DashboardCardsResponseDto })
   cards!: DashboardCardsResponseDto;
 

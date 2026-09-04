@@ -15,6 +15,7 @@ import type {
   UpdateCouponDto,
   ValidateCouponDto
 } from "./dto/coupon.dto";
+import { MAX_COUPON_AMOUNT, MAX_COUPON_USAGE_LIMIT } from "./coupons.constants";
 
 const CART_COUPON_INCLUDE = {
   items: {
@@ -35,6 +36,51 @@ type CouponCart = Prisma.CartGetPayload<{ include: typeof CART_COUPON_INCLUDE }>
 @Injectable()
 export class CouponsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listAvailableCoupons() {
+    const now = new Date();
+    const coupons = await this.prisma.coupon.findMany({
+      orderBy: [{ code: "asc" }, { id: "asc" }],
+      take: 100,
+      select: {
+        code: true,
+        type: true,
+        value: true,
+        minOrderAmount: true,
+        maxDiscount: true,
+        expiresAt: true
+      },
+      where: {
+        deletedAt: null,
+        isActive: true,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] },
+          {
+            OR: [
+              { usageLimit: null },
+              { usedCount: { lt: this.prisma.coupon.fields.usageLimit } }
+            ]
+          }
+        ]
+      }
+    });
+
+    return {
+      items: coupons.map((coupon) => ({
+        code: coupon.code,
+        type: coupon.type,
+        value: decimalToNumber(coupon.value),
+        minOrderAmount: coupon.minOrderAmount === null
+          ? null
+          : decimalToNumber(coupon.minOrderAmount),
+        maxDiscount: coupon.maxDiscount === null
+          ? null
+          : decimalToNumber(coupon.maxDiscount),
+        expiresAt: coupon.expiresAt
+      }))
+    };
+  }
 
   async validateForCustomerCart(customerId: string, input: ValidateCouponDto) {
     const code = normalizeCouponCode(input.code);
@@ -420,6 +466,14 @@ function normalizeRequiredMoney(value: number, field: string, minimum: number) {
     throw new BadRequestException(`${field} must be at least ${minimum}.`);
   }
 
+  if (value > MAX_COUPON_AMOUNT) {
+    throw new BadRequestException(`${field} must not exceed ${MAX_COUPON_AMOUNT}.`);
+  }
+
+  if (roundMoney(value) !== value) {
+    throw new BadRequestException(`${field} must have at most 2 decimal places.`);
+  }
+
   return roundMoney(value);
 }
 
@@ -441,6 +495,10 @@ function normalizeNullableUsageLimit(value: number | null | undefined) {
 
   if (!Number.isInteger(value) || value < 1) {
     throw new BadRequestException("usageLimit must be at least 1.");
+  }
+
+  if (value > MAX_COUPON_USAGE_LIMIT) {
+    throw new BadRequestException(`usageLimit must not exceed ${MAX_COUPON_USAGE_LIMIT}.`);
   }
 
   return value;

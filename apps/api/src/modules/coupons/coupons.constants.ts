@@ -1,0 +1,2 @@
+export const MAX_COUPON_AMOUNT = 9_999_999_999.99;
+export const MAX_COUPON_USAGE_LIMIT = 2_147_483_647;

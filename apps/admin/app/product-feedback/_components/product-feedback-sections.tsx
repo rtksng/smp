@@ -11,7 +11,8 @@ import {
   XCircle
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
@@ -117,22 +118,50 @@ export function ProductFeedbackRoute({ children }: { children: ReactNode }) {
 }
 
 export function ProductFeedbackLandingPage() {
-  return <ProductFeedbackContent view="reviews" />;
+  return <ProductFeedbackDestination view="reviews" />;
 }
 
 export function ProductReviewsPage() {
-  return <ProductFeedbackContent view="reviews" />;
+  return <ProductFeedbackDestination view="reviews" />;
 }
 
 export function ProductQuestionsPage() {
-  return <ProductFeedbackContent view="questions" />;
+  return <ProductFeedbackDestination view="questions" />;
 }
 
-function ProductFeedbackContent({ view }: { view: ProductFeedbackListView }) {
+function ProductFeedbackDestination({ view }: { view: ProductFeedbackListView }) {
+  return (
+    <Suspense fallback={<LoadingState label="Loading product feedback..." />}>
+      <ProductFeedbackUrlContent view={view} />
+    </Suspense>
+  );
+}
+
+function ProductFeedbackUrlContent({ view }: { view: ProductFeedbackListView }) {
+  const searchKey = useSearchParams().toString();
+  const params = new URLSearchParams(searchKey);
+  const status = params.get("status") ?? "";
+  const productId = (params.get("productId") ?? "").trim();
+  const initialFilters: ProductFeedbackFilters = {
+    ...createProductFeedbackFiltersForView(view),
+    status: getFeedbackStatusOptions(view).some((item) => item === status)
+      ? status as ProductFeedbackStatus
+      : "",
+    productId: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId)
+      ? productId
+      : "",
+    productSearch: (params.get("productSearch") ?? "").trim().slice(0, 160)
+  };
+  return <ProductFeedbackContent key={`${view}:${searchKey}`} initialFilters={initialFilters} view={view} />;
+}
+
+function ProductFeedbackContent({ view, initialFilters }: {
+  view: ProductFeedbackListView;
+  initialFilters: ProductFeedbackFilters;
+}) {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const canAnswer = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
-  const initialFilters = useMemo(() => createProductFeedbackFiltersForView(view), [view]);
   const [draftFilters, setDraftFilters] =
     useState<ProductFeedbackFilters>(initialFilters);
   const [appliedFilters, setAppliedFilters] =
@@ -467,11 +496,12 @@ function ProductFeedbackFilterForm({
           onChange={(event) =>
             onChange({
               ...filters,
+              productId: "",
               productSearch: event.target.value
             })
           }
           placeholder="Search by product name, SKU, or copied ID"
-          value={filters.productSearch}
+          value={filters.productSearch || filters.productId}
         />
       </label>
       <label>

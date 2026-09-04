@@ -59,13 +59,18 @@ import { useAdminSession } from "../../lib/admin-session";
 import {
   buildDashboardReportQuery,
   buildReportDrilldownHref,
+  buildTodayOrdersHref,
+  canAccessReportHref,
   createDefaultReportFilters,
   downloadDashboardReportExport,
   formatReportCurrency,
   formatReportNumber,
   formatReportStatusLabel,
   getDashboardEmptyState,
+  getReportRevenueContext,
+  getReportWarehouseOptions,
   reportDateRangeError,
+  resolveReportFilters,
   REPORT_ORDER_STATUSES,
   REPORT_PAYMENT_STATUSES,
   type DashboardCards,
@@ -73,20 +78,13 @@ import {
   type DashboardReportFilters,
   type OrdersByDayPoint,
   type ReportExportFormat,
+  type ReportView,
   type RevenueByDayPoint,
   type StockAlertPoint,
   type TopSellingProductPoint,
   type WarehouseStockSummaryPoint
 } from "../../lib/reports-management";
-import type { WarehouseListResponse } from "../../lib/warehouse-management";
-
-export type ReportView =
-  | "overview"
-  | "orders"
-  | "sales"
-  | "products"
-  | "inventory"
-  | "warehouses";
+export type { ReportView } from "../../lib/reports-management";
 
 type ReportsDashboardProps = {
   eyebrow?: string;
@@ -110,19 +108,13 @@ const reportSections: Array<{
   title: string;
 }> = [
   {
-    description: "Operational summary across orders, revenue, inventory, and coverage.",
-    href: "/reports",
-    id: "overview",
-    title: "Overview"
-  },
-  {
     description: "Daily order volume and order workflow drilldowns.",
     href: "/reports/orders",
     id: "orders",
     title: "Orders"
   },
   {
-    description: "Paid revenue by day with order drilldowns.",
+    description: "Daily sales values with matching order drilldowns.",
     href: "/reports/sales",
     id: "sales",
     title: "Sales"
@@ -165,7 +157,7 @@ const reportCopy: Record<ReportView, { summary: string; title: string }> = {
     title: "Product reports"
   },
   sales: {
-    summary: "Review paid revenue trends by day with quick access to matching orders.",
+    summary: "Review daily sales values with quick access to matching orders.",
     title: "Sales reports"
   },
   warehouses: {
@@ -200,7 +192,7 @@ export function ReportsDashboard({
   title,
   view = "overview"
 }: ReportsDashboardProps) {
-  const { api, session } = useAdminSession();
+  const { api } = useAdminSession();
   const [draftFilters, setDraftFilters] = useState<DashboardReportFilters>(() =>
     createDefaultReportFilters()
   );
@@ -225,19 +217,10 @@ export function ReportsDashboard({
       }),
     queryKey: ["admin", "reports", "dashboard", reportQuery]
   });
-  const warehousesQuery = useQuery({
-    queryFn: () =>
-      api.request<WarehouseListResponse>("/admin/warehouses", {
-        query: {
-          limit: 100,
-          status: "ACTIVE"
-        }
-      }),
-    queryKey: ["admin", "reports", "warehouses"]
-  });
-
   const report = dashboardQuery.data;
-  const warehouses = warehousesQuery.data?.items ?? [];
+  const displayedFilters = resolveReportFilters(appliedFilters, report);
+  const warehouses = getReportWarehouseOptions(report);
+  const todayDate = report?.todayDate ?? new Date().toISOString().slice(0, 10);
   const emptyState = getDashboardEmptyState(report);
   const isMainDashboard = view === "overview" && hideSectionNavigation;
   const errorMessage =
@@ -268,8 +251,8 @@ export function ReportsDashboard({
   }
 
   async function handleExport(format: ReportExportFormat) {
-    if (!session) {
-      setExportError("Admin session is required to export reports.");
+    if (!report) {
+      setExportError("Load the report before exporting.");
       return;
     }
 
@@ -278,12 +261,13 @@ export function ReportsDashboard({
 
     try {
       await downloadDashboardReportExport(
-        appliedFilters,
+        displayedFilters,
         format,
-        session.tokens.accessToken
+        report,
+        view
       );
     } catch (error) {
-      setExportError(getErrorMessage(error) ?? "Unable to export dashboard report.");
+      setExportError(getErrorMessage(error) ?? "Unable to export report.");
     } finally {
       setExportingFormat(null);
     }
@@ -307,7 +291,7 @@ export function ReportsDashboard({
               </Button>
               <Button
                 className="iconTextButton"
-                disabled={Boolean(exportingFormat)}
+                disabled={Boolean(exportingFormat) || dashboardQuery.isFetching || !report || dashboardQuery.isError}
                 onClick={() => void handleExport("csv")}
                 type="button"
                 variant="outline"
@@ -317,7 +301,7 @@ export function ReportsDashboard({
               </Button>
               <Button
                 className="iconTextButton"
-                disabled={Boolean(exportingFormat)}
+                disabled={Boolean(exportingFormat) || dashboardQuery.isFetching || !report || dashboardQuery.isError}
                 onClick={() => void handleExport("pdf")}
                 type="button"
                 variant="outline"
@@ -348,21 +332,17 @@ export function ReportsDashboard({
           onApply={applyFilters}
           onOpenChange={setIsFilterDrawerOpen}
           onReset={resetFilters}
-          summary="Set a date range and operational filters for the dashboard."
-          title="Dashboard filters"
+          summary="Choose filters for this report."
+          title="Report filters"
         >
           <ReportFilterFields
             filters={draftFilters}
-            isWarehouseLoading={warehousesQuery.isLoading}
+            isWarehouseLoading={dashboardQuery.isLoading}
             onChange={setDraftFilters}
+            view={view}
             warehouses={warehouses}
           />
         </FilterDrawer>
-        {warehousesQuery.isError ? (
-          <p className="formError" role="alert">
-            {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-          </p>
-        ) : null}
         {exportError ? (
           <p className="formError" role="alert">
             {exportError}
@@ -384,14 +364,14 @@ export function ReportsDashboard({
 
       {report ? (
         isMainDashboard ? (
-          <DashboardOverview filters={appliedFilters} report={report} />
+          <DashboardOverview filters={displayedFilters} report={report} />
         ) : (
           <>
-            <MetricGrid cards={report.cards} filters={appliedFilters} view={view} />
+            <MetricGrid cards={report.cards} filters={displayedFilters} todayDate={todayDate} view={view} />
             {view === "overview" ? (
               <ReportHub cards={report.cards} />
             ) : (
-              <ReportViewTable filters={appliedFilters} report={report} view={view} />
+              <ReportViewTable filters={displayedFilters} report={report} view={view} />
             )}
           </>
         )
@@ -411,7 +391,7 @@ function DashboardOverview({
     <>
       <DashboardKpiStrip cards={report.cards} filters={filters} />
       <section className="dashboardChartGrid" aria-label="Dashboard charts">
-        <DashboardTrendChart report={report} />
+        <DashboardTrendChart filters={filters} report={report} />
         <TopProductsChart
           filters={filters}
           items={report.charts.topSellingProducts}
@@ -437,14 +417,15 @@ function DashboardKpiStrip({
   filters: DashboardReportFilters;
 }) {
   const inventoryRisk = cards.lowStockProducts + cards.nearExpiryBatches;
+  const revenue = getReportRevenueContext(filters);
   const kpis = [
     {
       href: buildReportDrilldownHref("orders", {
         ...filters,
-        paymentStatus: "PAID"
+        paymentStatus: revenue.paymentStatus
       }),
-      label: "Revenue",
-      note: "Paid order value",
+      label: revenue.label,
+      note: "Matching order value",
       tone: "primary",
       value: formatReportCurrency(cards.revenue)
     },
@@ -456,7 +437,7 @@ function DashboardKpiStrip({
       value: formatReportNumber(cards.totalOrders)
     },
     {
-      href: buildReportDrilldownHref("orders", filters),
+      href: buildReportDrilldownHref("orders-pending", filters),
       label: "Pending queue",
       note: "Needs operation review",
       tone: cards.pendingOrders > 0 ? "warning" : "neutral",
@@ -476,7 +457,7 @@ function DashboardKpiStrip({
   return (
     <section className="dashboardKpiGrid" aria-label="Dashboard key metrics">
       {kpis.map((kpi) => (
-        <Link
+        <ReportResourceLink
           className={`dashboardKpi dashboardKpi--${kpi.tone}`}
           href={kpi.href}
           key={kpi.label}
@@ -484,14 +465,15 @@ function DashboardKpiStrip({
           <span>{kpi.label}</span>
           <strong>{kpi.value}</strong>
           <em>{kpi.note}</em>
-        </Link>
+        </ReportResourceLink>
       ))}
     </section>
   );
 }
 
-function DashboardTrendChart({ report }: { report: DashboardReport }) {
+function DashboardTrendChart({ filters, report }: { filters: DashboardReportFilters; report: DashboardReport }) {
   const data = buildTrendChartData(report);
+  const revenue = getReportRevenueContext(filters);
 
   return (
     <DashboardChartPanel
@@ -499,7 +481,7 @@ function DashboardTrendChart({ report }: { report: DashboardReport }) {
       actionLabel="Open sales report"
       emptyState="No orders or revenue in this date range."
       isEmpty={data.length === 0}
-      summary="Orders and paid revenue by day"
+      summary={`Orders and ${revenue.label.toLowerCase()} by day`}
       title="Sales and order trend"
       wide
     >
@@ -550,7 +532,7 @@ function DashboardTrendChart({ report }: { report: DashboardReport }) {
             dataKey="revenue"
             fill={dashboardChartColors.revenue}
             fillOpacity={0.12}
-            name="Revenue"
+            name={revenue.label}
             stroke={dashboardChartColors.revenue}
             strokeWidth={2}
             type="monotone"
@@ -880,15 +862,21 @@ function ReportFilterFields({
   filters,
   isWarehouseLoading,
   onChange,
+  view,
   warehouses
 }: {
   filters: DashboardReportFilters;
   isWarehouseLoading: boolean;
   onChange: (filters: DashboardReportFilters) => void;
-  warehouses: WarehouseListResponse["items"];
+  view: ReportView;
+  warehouses: NonNullable<DashboardReport["warehouseOptions"]>;
 }) {
+  const hasOrderFilters = view !== "inventory" && view !== "warehouses";
+  const hasExpiryFilter = view === "overview" || view === "inventory" || view === "warehouses";
+
   return (
     <div className="filterDrawerFields">
+      {hasOrderFilters ? <>
       <Label>
         From
         <Input
@@ -907,6 +895,7 @@ function ReportFilterFields({
           value={filters.dateTo}
         />
       </Label>
+      </> : null}
       <Label>
         Warehouse
         <Select
@@ -932,6 +921,7 @@ function ReportFilterFields({
           </SelectContent>
         </Select>
       </Label>
+      {hasOrderFilters ? <>
       <Label>
         Order status
         <Select
@@ -982,6 +972,8 @@ function ReportFilterFields({
           </SelectContent>
         </Select>
       </Label>
+      </> : null}
+      {hasExpiryFilter ? (
       <Label>
         Expiry window
         <Input
@@ -996,6 +988,7 @@ function ReportFilterFields({
           value={filters.nearExpiryDays}
         />
       </Label>
+      ) : null}
     </div>
   );
 }
@@ -1003,13 +996,16 @@ function ReportFilterFields({
 function MetricGrid({
   cards,
   filters,
+  todayDate,
   view
 }: {
   cards: DashboardCards;
   filters: DashboardReportFilters;
+  todayDate: string;
   view: ReportView;
 }) {
-  const metrics = getMetricsForView(cards, filters, view);
+  const { hasPermission } = useAdminSession();
+  const metrics = getMetricsForView(cards, filters, view, todayDate);
 
   return (
     <section className="metricGrid reportMetricGrid" aria-label="Report metrics">
@@ -1026,7 +1022,7 @@ function MetricGrid({
           </Card>
         );
 
-        return metric.href ? (
+        return metric.href && canAccessReportHref(metric.href, hasPermission) ? (
           <Link className="reportMetricLink" href={metric.href} key={metric.label}>
             {card}
           </Link>
@@ -1156,19 +1152,21 @@ function RevenueByDayTable({
   filters: DashboardReportFilters;
   items: RevenueByDayPoint[];
 }) {
+  const revenue = getReportRevenueContext(filters);
+
   return (
     <ReportTablePanel
-      emptyState="No paid revenue in this date range."
+      emptyState={`No ${revenue.label.toLowerCase()} in this date range.`}
       isEmpty={items.length === 0}
-      summary="Daily paid revenue, linked to paid order records for each day."
-      title="Revenue by day"
+      summary={`Daily ${revenue.label.toLowerCase()}, linked to matching order records for each day.`}
+      title={`${revenue.label} by day`}
     >
       <div className="resourceTable reportDataTable">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
-              <TableHead>Revenue</TableHead>
+              <TableHead>{revenue.label}</TableHead>
               <TableHead>Drilldown</TableHead>
             </TableRow>
           </TableHeader>
@@ -1186,10 +1184,10 @@ function RevenueByDayTable({
                       ...filters,
                       dateFrom: item.date,
                       dateTo: item.date,
-                      paymentStatus: "PAID"
+                      paymentStatus: revenue.paymentStatus
                     })}
                   >
-                    Open paid orders
+                    {revenue.orderLinkLabel}
                   </ReportTableLink>
                 </TableCell>
               </TableRow>
@@ -1358,7 +1356,7 @@ function WarehouseStockSummaryTable({
                 <TableCell>
                   <span className="flagList">
                     {item.lowStockProducts > 0 ? (
-                      <Link
+                      <ReportResourceLink
                         href={buildReportDrilldownHref(
                           "inventory-low-stock",
                           filters,
@@ -1366,10 +1364,10 @@ function WarehouseStockSummaryTable({
                         )}
                       >
                         {formatReportNumber(item.lowStockProducts)} low
-                      </Link>
+                      </ReportResourceLink>
                     ) : null}
                     {item.nearExpiryBatches > 0 ? (
-                      <Link
+                      <ReportResourceLink
                         href={buildReportDrilldownHref(
                           "inventory-near-expiry",
                           filters,
@@ -1377,7 +1375,7 @@ function WarehouseStockSummaryTable({
                         )}
                       >
                         {formatReportNumber(item.nearExpiryBatches)} expiry
-                      </Link>
+                      </ReportResourceLink>
                     ) : null}
                     {item.lowStockProducts === 0 && item.nearExpiryBatches === 0 ? (
                       <span>-</span>
@@ -1405,6 +1403,12 @@ function WarehouseStockSummaryTable({
 }
 
 function ReportTableLink({ children, href }: { children: ReactNode; href: string }) {
+  const { hasPermission } = useAdminSession();
+
+  if (!canAccessReportHref(href, hasPermission)) {
+    return <span aria-disabled="true" title="Your role cannot open this page.">{children}</span>;
+  }
+
   return (
     <Link className="reportTableLink" href={href}>
       <span>{children}</span>
@@ -1413,11 +1417,31 @@ function ReportTableLink({ children, href }: { children: ReactNode; href: string
   );
 }
 
+function ReportResourceLink({
+  children,
+  className,
+  href
+}: {
+  children: ReactNode;
+  className?: string;
+  href: string;
+}) {
+  const { hasPermission } = useAdminSession();
+
+  return canAccessReportHref(href, hasPermission) ? (
+    <Link className={className} href={href}>{children}</Link>
+  ) : (
+    <span className={className}>{children}</span>
+  );
+}
+
 function getMetricsForView(
   cards: DashboardCards,
   filters: DashboardReportFilters,
-  view: ReportView
+  view: ReportView,
+  todayDate: string
 ): ReportMetricCard[] {
+  const revenue = getReportRevenueContext(filters);
   const allMetrics: Record<Exclude<ReportView, "overview">, ReportMetricCard[]> = {
     inventory: [
       {
@@ -1451,14 +1475,14 @@ function getMetricsForView(
         value: formatReportNumber(cards.totalOrders)
       },
       {
-        href: buildReportDrilldownHref("orders", filters),
+        href: buildTodayOrdersHref(filters, todayDate),
         icon: <CalendarDays aria-hidden size={18} />,
         label: "Today orders",
         tone: "primary",
         value: formatReportNumber(cards.todayOrders)
       },
       {
-        href: buildReportDrilldownHref("orders", filters),
+        href: buildReportDrilldownHref("orders-pending", filters),
         icon: <AlertTriangle aria-hidden size={18} />,
         label: "Pending orders",
         tone: "warning",
@@ -1474,7 +1498,7 @@ function getMetricsForView(
       },
       {
         icon: <IndianRupee aria-hidden size={18} />,
-        label: "Revenue",
+        label: revenue.label,
         tone: "primary",
         value: formatReportCurrency(cards.revenue)
       },
@@ -1490,10 +1514,10 @@ function getMetricsForView(
       {
         href: buildReportDrilldownHref("orders", {
           ...filters,
-          paymentStatus: "PAID"
+          paymentStatus: revenue.paymentStatus
         }),
         icon: <IndianRupee aria-hidden size={18} />,
-        label: "Revenue",
+        label: revenue.label,
         tone: "primary",
         value: formatReportCurrency(cards.revenue)
       },
@@ -1549,14 +1573,14 @@ function getMetricsForView(
       value: formatReportNumber(cards.totalOrders)
     },
     {
-      href: buildReportDrilldownHref("orders", filters),
+      href: buildTodayOrdersHref(filters, todayDate),
       icon: <CalendarDays aria-hidden size={18} />,
       label: "Today orders",
       tone: "primary",
       value: formatReportNumber(cards.todayOrders)
     },
     {
-      href: buildReportDrilldownHref("orders", filters),
+      href: buildReportDrilldownHref("orders-pending", filters),
       icon: <AlertTriangle aria-hidden size={18} />,
       label: "Pending orders",
       tone: "warning",
@@ -1565,10 +1589,10 @@ function getMetricsForView(
     {
       href: buildReportDrilldownHref("orders", {
         ...filters,
-        paymentStatus: "PAID"
+        paymentStatus: revenue.paymentStatus
       }),
       icon: <IndianRupee aria-hidden size={18} />,
-      label: "Revenue",
+      label: revenue.label,
       tone: "primary",
       value: formatReportCurrency(cards.revenue)
     },
@@ -1722,7 +1746,7 @@ function formatCompactCurrencyAxis(value: number | string) {
 function formatChartTooltipValue(value: unknown, name: unknown) {
   const numericValue = typeof value === "number" ? value : Number(value) || 0;
   const label = String(name);
-  const formattedValue = label.toLowerCase().includes("revenue")
+  const formattedValue = /revenue|value/i.test(label)
     ? formatReportCurrency(numericValue)
     : formatReportNumber(numericValue);
 

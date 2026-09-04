@@ -50,7 +50,9 @@ export function Checkbox({
       }}
       data-slot="checkbox"
       defaultSelected={defaultChecked}
-      icon={<Check aria-hidden className="size-3" />}
+      icon={({ className: iconClassName }) => (
+        <Check aria-hidden className={cn(iconClassName, "size-3")} />
+      )}
       isDisabled={disabled}
       isSelected={checked}
       onValueChange={onCheckedChange}

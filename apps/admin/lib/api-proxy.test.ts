@@ -87,6 +87,20 @@ describe("admin API proxy helpers", () => {
     });
   });
 
+  it("preserves exported file bytes and download headers", async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52, 10, 0, 128, 255]);
+    const response = await buildAdminApiProxyResponse(new Response(bytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="sales-report.pdf"'
+      }
+    }));
+
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="sales-report.pdf"');
+  });
+
   it("returns no-content responses without constructing an invalid body", async () => {
     const response = await buildAdminApiProxyResponse(
       new Response(null, {

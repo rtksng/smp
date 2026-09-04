@@ -7,6 +7,7 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import { CustomerJwtGuard } from "../../src/modules/auth/guards/customer-jwt.guard";
 import { CartController } from "../../src/modules/cart/cart.controller";
 import { CartService } from "../../src/modules/cart/cart.service";
+import { DeliveryChargesService } from "../../src/modules/delivery-charges/delivery-charges.service";
 
 type ProductStatusFixture = "DRAFT" | "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 
@@ -57,8 +58,11 @@ type ProductVariantFixture = {
 
 type InventoryStockFixture = {
   availableQuantity: number;
+  id: string;
   productId: string;
   variantId: string | null;
+  warehouseId: string;
+  warehouse: { deletedAt: Date | null; status: "ACTIVE" | "INACTIVE" };
 };
 
 type AddressFixture = {
@@ -98,6 +102,7 @@ type CartPrismaMock = PrismaService & {
     cartItemFindFirst: unknown[];
     cartItemUpdate: unknown[];
     inventoryStockAggregate: unknown[];
+    inventoryStockFindMany: unknown[];
     productFindFirst: unknown[];
     productVariantFindFirst: unknown[];
     userFindFirst: unknown[];
@@ -197,8 +202,11 @@ function stockFixture(
 ): InventoryStockFixture {
   return {
     availableQuantity: 10,
+    id: "stock-1",
     productId: "product-1",
     variantId: null,
+    warehouseId: "warehouse-1",
+    warehouse: { deletedAt: null, status: "ACTIVE" },
     ...input
   };
 }
@@ -257,6 +265,7 @@ function createCartPrismaMock(input?: {
     cartItemFindFirst: [],
     cartItemUpdate: [],
     inventoryStockAggregate: [],
+    inventoryStockFindMany: [],
     productFindFirst: [],
     productVariantFindFirst: [],
     userFindFirst: []
@@ -314,6 +323,7 @@ function createCartPrismaMock(input?: {
           ...cart,
           items: items
             .filter((item) => item.cartId === cart.id)
+            .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id))
             .map((item) => ({
               ...item,
               product: products.find((product) => product.id === item.productId),
@@ -404,6 +414,19 @@ function createCartPrismaMock(input?: {
       }
     },
     inventoryStock: {
+      findMany: async (args: {
+        take?: number;
+        where: { productId: string; variantId: string | null };
+      }) => {
+        calls.inventoryStockFindMany.push(args);
+        return stocks.filter((stock) =>
+          stock.productId === args.where.productId &&
+          stock.variantId === args.where.variantId &&
+          stock.availableQuantity > 0 &&
+          stock.warehouse.deletedAt === null && stock.warehouse.status === "ACTIVE"
+        ).sort((left, right) => left.warehouseId.localeCompare(right.warehouseId) || left.id.localeCompare(right.id))
+          .slice(0, args.take);
+      },
       aggregate: async (args: {
         where?: { productId?: string; variantId?: string | null };
       }) => {
@@ -619,8 +642,71 @@ test("getCart includes a dynamic delivery charge for the selected shipping addre
   assert.deepEqual(deliveryCharges.calls[0], {
     pincode: "110001",
     subtotal: 280,
-    warehouseId: null
+    warehouseId: "warehouse-1"
   });
+});
+
+test("cart shipping uses the first fulfillment warehouse and the real matching rule", async () => {
+  const prisma = createCartPrismaMock({
+    items: [cartItemFixture()],
+    stocks: [
+      stockFixture({ id: "stock-b", warehouseId: "warehouse-2" }),
+      stockFixture({ id: "stock-zero", warehouseId: "warehouse-0", availableQuantity: 0 }),
+      stockFixture({ id: "stock-inactive", warehouseId: "warehouse-0", warehouse: { deletedAt: null, status: "INACTIVE" } }),
+      stockFixture({ id: "stock-a", availableQuantity: 1 })
+    ]
+  });
+  const baseRule = {
+    charge: "80", createdAt: now, deletedAt: null, freeDeliveryThreshold: null,
+    id: "default", isActive: true, maxOrderAmount: null, minOrderAmount: null,
+    name: "Default", pincode: null, priority: 0, updatedAt: now, warehouseId: null
+  };
+  const deliveryCharges = new DeliveryChargesService({ deliveryChargeRule: {
+    findMany: async () => [baseRule, { ...baseRule, charge: "150", id: "warehouse", warehouseId: "warehouse-1" }]
+  } } as unknown as PrismaService);
+  const service = new CartService(prisma, deliveryCharges);
+  const cart = await service.getCart("customer-1", { shippingAddressId: "address-1" });
+
+  assert.equal(cart.totals.deliveryCharge, 150);
+  assert.equal(cart.totals.grandTotal, 433.2);
+  assert.deepEqual(prisma.calls.inventoryStockFindMany[0], {
+    orderBy: [{ warehouseId: "asc" }, { id: "asc" }],
+    select: { availableQuantity: true, id: true, warehouseId: true },
+    take: 1,
+    where: {
+      availableQuantity: { gt: 0 }, productId: "product-1", variantId: null,
+      warehouse: { deletedAt: null, status: "ACTIVE" }
+    }
+  });
+  assert.equal(cart.totals.deliveryCharge, (await deliveryCharges.calculateDeliveryCharge({
+    pincode: "110001", subtotal: 240, warehouseId: "warehouse-1"
+  })).deliveryCharge);
+});
+
+test("cart preview preserves the order's first-line warehouse policy for mixed warehouse carts", async () => {
+  const prisma = createCartPrismaMock({
+    items: [cartItemFixture({ id: "cart-item-b", productId: "product-2" }), cartItemFixture({ id: "cart-item-a" })],
+    products: [productFixture(), productFixture({ id: "product-2" })],
+    stocks: [stockFixture({ warehouseId: "warehouse-2" }), stockFixture({ productId: "product-2", warehouseId: "warehouse-1" })]
+  });
+  const deliveryCharges = new FakeDeliveryChargesService(60);
+  await new CartService(prisma, deliveryCharges as never).getCart("customer-1");
+  assert.deepEqual(deliveryCharges.calls[0], { pincode: "110001", subtotal: 480, warehouseId: "warehouse-2" });
+});
+
+test("cart preview applies the first warehouse rule's free threshold to the pre-tax subtotal", async () => {
+  const prisma = createCartPrismaMock({ items: [cartItemFixture()], products: [productFixture({ sellingPrice: "250" })] });
+  const deliveryCharges = new DeliveryChargesService({ deliveryChargeRule: {
+    findMany: async () => [{
+      charge: "150", createdAt: now, deletedAt: null, freeDeliveryThreshold: "500",
+      id: "warehouse", isActive: true, maxOrderAmount: null, minOrderAmount: null,
+      name: "Warehouse", pincode: null, priority: 0, updatedAt: now, warehouseId: "warehouse-1"
+    }]
+  } } as unknown as PrismaService);
+  const cart = await new CartService(prisma, deliveryCharges).getCart("customer-1");
+  assert.equal(cart.totals.subtotal, 500);
+  assert.equal(cart.totals.deliveryCharge, 0);
+  assert.equal(cart.totals.grandTotal, 590);
 });
 
 test("replaceWithItems prepares a multi-item cart for reorder", async () => {

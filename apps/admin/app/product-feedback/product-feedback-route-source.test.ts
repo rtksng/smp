@@ -15,7 +15,7 @@ const sectionsSource = readFileSync(
 describe("product feedback route split", () => {
   it("uses the product feedback landing page for reviews instead of overview", () => {
     expect(sectionsSource).toContain("ProductFeedbackLandingPage");
-    expect(sectionsSource).toContain('<ProductFeedbackContent view="reviews" />');
+    expect(sectionsSource).toContain('<ProductFeedbackDestination view="reviews" />');
     expect(sectionsSource).not.toContain('id: "overview"');
     expect(sectionsSource).not.toContain("ProductFeedbackHub");
     expect(sectionsSource).not.toContain('placeholder="Moderation note"');

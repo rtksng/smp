@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import {
   DeliveryPartnerStatus,
@@ -8,11 +8,14 @@ import {
   WarehouseStatus
 } from "../../generated/prisma/client";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
+import { buildPendingOrderStatusFilter } from "../orders/order-status";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
 import type {
   DashboardExportFormat,
+  DashboardReportExportQueryDto,
   DashboardReportQueryDto
 } from "./dto/reports.dto";
+import { renderReportExport } from "./report-export";
 
 type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
 
@@ -60,7 +63,7 @@ type WarehouseStockSummaryRow = StockAlertRow & {
   reservedQuantity: bigint | number | string | null;
 };
 
-type DashboardReport = Awaited<ReturnType<ReportsService["getDashboard"]>>;
+export type DashboardReport = Awaited<ReturnType<ReportsService["getDashboard"]>>;
 type DashboardExportFile = {
   body: Buffer;
   contentType: string;
@@ -74,16 +77,8 @@ type ReportSqlFilters = {
   warehouseScope: WarehouseScopeFilter;
 };
 
-const DASHBOARD_SERIES_LIMIT = 30;
+const DEFAULT_REPORT_DAYS = 30;
 const TOP_PRODUCTS_LIMIT = 8;
-const STOCK_ALERT_LIMIT = 8;
-const PENDING_ORDER_STATUSES: OrderStatus[] = [
-  OrderStatus.CREATED,
-  OrderStatus.CONFIRMED,
-  OrderStatus.PACKED,
-  OrderStatus.ASSIGNED,
-  OrderStatus.OUT_FOR_DELIVERY
-];
 
 @Injectable()
 export class ReportsService {
@@ -93,15 +88,18 @@ export class ReportsService {
   ) {}
 
   async getDashboard(query: DashboardReportQueryDto, auth: AuthJwtPayload) {
-    const warehouseScope = await this.resolveWarehouseScope(query.warehouseId, auth);
+    const visibleWarehouseScope = await this.resolveWarehouseScope(undefined, auth);
+    const warehouseScope = query.warehouseId === undefined
+      ? visibleWarehouseScope
+      : await this.resolveWarehouseScope(query.warehouseId, auth);
     const warehouseFilter = this.toPrismaWarehouseFilter(warehouseScope);
-    const dateRange = buildDateRangeFilter(query.dateFrom, query.dateTo);
     const now = new Date();
     const dashboardSeriesWindow = buildDashboardSeriesWindow(
       query.dateFrom,
       query.dateTo,
       now
     );
+    const dateRange = dashboardSeriesWindow.dateRange;
     const nearExpiryCutoff = addDays(now, query.nearExpiryDays ?? 30);
     const todayRange = getUtcDayRange(now);
     const orderWhere = stripUndefined({
@@ -117,14 +115,11 @@ export class ReportsService {
     });
     const pendingOrderWhere = stripUndefined({
       ...orderWhere,
-      status: {
-        in: query.orderStatus
-          ? pendingStatusFilter(query.orderStatus)
-          : PENDING_ORDER_STATUSES
-      }
+      status: buildPendingOrderStatusFilter(query.orderStatus)
     });
     const stockWhere = stripUndefined({
-      warehouseId: warehouseFilter
+      warehouseId: warehouseFilter,
+      warehouse: { deletedAt: null, status: WarehouseStatus.ACTIVE }
     });
     const nearExpiryWhere = stripUndefined({
       expiryDate: {
@@ -134,7 +129,8 @@ export class ReportsService {
       quantity: {
         gt: 0
       },
-      warehouseId: warehouseFilter
+      warehouseId: warehouseFilter,
+      warehouse: { deletedAt: null, status: WarehouseStatus.ACTIVE }
     });
     const activeWarehouseWhere = stripUndefined({
       deletedAt: null,
@@ -156,7 +152,8 @@ export class ReportsService {
       revenueByDay,
       topSellingProducts,
       stockAlerts,
-      warehouseStockSummary
+      warehouseStockSummary,
+      warehouseOptions
     ] = await Promise.all([
       this.prisma.order.count({
         where: orderWhere
@@ -221,10 +218,21 @@ export class ReportsService {
         warehouseScope
       }),
       this.queryStockAlerts(now, nearExpiryCutoff, warehouseScope),
-      this.queryWarehouseStockSummary(now, nearExpiryCutoff, warehouseScope)
+      this.queryWarehouseStockSummary(now, nearExpiryCutoff, warehouseScope),
+      this.prisma.warehouse.findMany({
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        select: { id: true, name: true, code: true },
+        where: stripUndefined({
+          deletedAt: null,
+          id: this.toPrismaWarehouseFilter(visibleWarehouseScope),
+          status: WarehouseStatus.ACTIVE
+        })
+      })
     ]);
 
     return {
+      todayDate: formatDateOnly(now),
+      warehouseOptions,
       cards: {
         activeCustomers,
         activeDeliveryPartners,
@@ -265,8 +273,8 @@ export class ReportsService {
         }))
       },
       filters: {
-        dateFrom: query.dateFrom ?? null,
-        dateTo: query.dateTo ?? null,
+        dateFrom: formatDateOnly(dateRange.gte),
+        dateTo: formatDateOnly(dateRange.lte),
         nearExpiryDays: query.nearExpiryDays ?? 30,
         orderStatus: query.orderStatus ?? null,
         paymentStatus: query.paymentStatus ?? null,
@@ -284,26 +292,12 @@ export class ReportsService {
   }
 
   async exportDashboard(
-    query: DashboardReportQueryDto,
+    query: DashboardReportExportQueryDto,
     auth: AuthJwtPayload,
     format: DashboardExportFormat
   ): Promise<DashboardExportFile> {
     const report = await this.getDashboard(query, auth);
-    const filename = dashboardReportFilename(report, format);
-
-    if (format === "pdf") {
-      return {
-        body: renderDashboardPdf(report),
-        contentType: "application/pdf",
-        filename
-      };
-    }
-
-    return {
-      body: Buffer.from(renderDashboardCsv(report), "utf8"),
-      contentType: "text/csv; charset=utf-8",
-      filename
-    };
+    return renderReportExport(report, query.view ?? "overview", format);
   }
 
   private async resolveWarehouseScope(
@@ -362,7 +356,6 @@ export class ReportsService {
         ${warehouseSql(Prisma.sql`o."warehouseId"`, filters.warehouseScope)}
       GROUP BY date_trunc('day', o."createdAt")
       ORDER BY date_trunc('day', o."createdAt") ASC
-      LIMIT ${DASHBOARD_SERIES_LIMIT}
     `;
   }
 
@@ -379,7 +372,6 @@ export class ReportsService {
         ${warehouseSql(Prisma.sql`o."warehouseId"`, filters.warehouseScope)}
       GROUP BY date_trunc('day', o."createdAt")
       ORDER BY date_trunc('day', o."createdAt") ASC
-      LIMIT ${DASHBOARD_SERIES_LIMIT}
     `;
   }
 
@@ -455,7 +447,6 @@ export class ReportsService {
         AND w."status" = ${WarehouseStatus.ACTIVE}::"WarehouseStatus"
         ${warehouseSql(Prisma.sql`w."id"`, warehouseScope)}
       ORDER BY "lowStockProducts" DESC, "nearExpiryBatches" DESC, w."name" ASC
-      LIMIT ${STOCK_ALERT_LIMIT}
     `;
   }
 
@@ -510,7 +501,6 @@ export class ReportsService {
         AND w."status" = ${WarehouseStatus.ACTIVE}::"WarehouseStatus"
         ${warehouseSql(Prisma.sql`w."id"`, warehouseScope)}
       ORDER BY w."name" ASC
-      LIMIT ${STOCK_ALERT_LIMIT}
     `;
   }
 }
@@ -521,7 +511,7 @@ type DateRangeFilter = {
 };
 
 type DashboardSeriesWindow = {
-  dateRange: DateRangeFilter;
+  dateRange: Required<DateRangeFilter>;
   dates: string[];
 };
 
@@ -532,62 +522,25 @@ function addDays(date: Date, days: number) {
   return result;
 }
 
-function buildDateRangeFilter(dateFrom?: string, dateTo?: string) {
-  const gte = parseDateBoundary(dateFrom, "start");
-  const lte = parseDateBoundary(dateTo, "end");
-
-  if (!gte && !lte) {
-    return undefined;
-  }
-
-  return stripUndefined({
-    gte,
-    lte
-  });
-}
-
 function buildDashboardSeriesWindow(
   dateFrom: string | undefined,
   dateTo: string | undefined,
   now: Date
 ): DashboardSeriesWindow {
-  const fromBoundary = parseDateBoundary(dateFrom, "start");
-  const toBoundary = parseDateBoundary(dateTo, "end");
-  let start = fromBoundary ? startOfUtcDay(fromBoundary) : undefined;
-  let end = toBoundary ? startOfUtcDay(toBoundary) : undefined;
+  const end = parseDateBoundary(dateTo, "end") ?? endOfUtcDay(now);
+  const start = parseDateBoundary(dateFrom, "start") ??
+    addDays(startOfUtcDay(end), -(DEFAULT_REPORT_DAYS - 1));
 
-  if (!start && !end) {
-    end = startOfUtcDay(now);
-    start = addDays(end, -(DASHBOARD_SERIES_LIMIT - 1));
-  } else if (start && !end) {
-    const today = startOfUtcDay(now);
-    const windowEnd = addDays(start, DASHBOARD_SERIES_LIMIT - 1);
-    end = windowEnd > today ? today : windowEnd;
-  } else if (!start && end) {
-    start = addDays(end, -(DASHBOARD_SERIES_LIMIT - 1));
-  }
-
-  if (!start || !end || start > end) {
-    return {
-      dateRange: {},
-      dates: []
-    };
-  }
-
-  let dates = getUtcDateKeysBetween(start, end);
-
-  if (dates.length > DASHBOARD_SERIES_LIMIT) {
-    dates = dates.slice(-DASHBOARD_SERIES_LIMIT);
-    start = parseDateBoundary(dates[0], "start") ?? start;
-    end = parseDateBoundary(dates[dates.length - 1], "end") ?? end;
+  if (start > end) {
+    throw new BadRequestException("Start date must be before end date.");
   }
 
   return {
     dateRange: {
-      gte: startOfUtcDay(start),
-      lte: endOfUtcDay(end)
+      gte: start,
+      lte: end
     },
-    dates
+    dates: getUtcDateKeysBetween(start, end)
   };
 }
 
@@ -680,18 +633,25 @@ function parseDateBoundary(value: string | undefined, boundary: "end" | "start")
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number);
 
-    if (!year || !month || !day) {
-      return undefined;
+    if (year === undefined || month === undefined || day === undefined) {
+      throw new BadRequestException("Report dates must be valid dates.");
     }
 
-    return boundary === "start"
+    const parsed = boundary === "start"
       ? new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
       : new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+    if (parsed.toISOString().slice(0, 10) !== value) {
+      throw new BadRequestException("Report dates must be valid dates.");
+    }
+    return parsed;
   }
 
   const parsed = new Date(value);
 
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException("Report dates must be valid dates.");
+  }
+  return parsed;
 }
 
 function startOfUtcDay(date: Date) {
@@ -702,332 +662,6 @@ function startOfUtcDay(date: Date) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function dashboardReportFilename(
-  report: DashboardReport,
-  format: DashboardExportFormat
-) {
-  const start = report.filters.dateFrom ?? "all";
-  const end = report.filters.dateTo ?? "today";
-
-  return `dashboard-report-${start}-to-${end}.${format}`;
-}
-
-function renderDashboardCsv(report: DashboardReport) {
-  const rows: string[][] = [
-    ["Dashboard report"],
-    ["Date from", report.filters.dateFrom ?? ""],
-    ["Date to", report.filters.dateTo ?? ""],
-    ["Warehouse", report.filters.warehouseId ?? "All visible warehouses"],
-    ["Order status", report.filters.orderStatus ?? "All statuses"],
-    ["Payment status", report.filters.paymentStatus ?? "All payment statuses"],
-    ["Near expiry days", String(report.filters.nearExpiryDays)],
-    [],
-    ["Cards"],
-    ["Metric", "Value"],
-    ["Total orders", String(report.cards.totalOrders)],
-    ["Today orders", String(report.cards.todayOrders)],
-    ["Revenue", String(report.cards.revenue)],
-    ["Pending orders", String(report.cards.pendingOrders)],
-    ["Low stock products", String(report.cards.lowStockProducts)],
-    ["Near expiry batches", String(report.cards.nearExpiryBatches)],
-    ["Active customers", String(report.cards.activeCustomers)],
-    ["Active delivery partners", String(report.cards.activeDeliveryPartners)],
-    ["Active warehouses", String(report.cards.activeWarehouses)],
-    [],
-    ["Orders by day"],
-    ["Date", "Orders"],
-    ...report.charts.ordersByDay.map((item) => [
-      item.date,
-      String(item.orders)
-    ]),
-    [],
-    ["Revenue by day"],
-    ["Date", "Revenue"],
-    ...report.charts.revenueByDay.map((item) => [
-      item.date,
-      String(item.revenue)
-    ]),
-    [],
-    ["Top selling products"],
-    ["Product", "SKU", "Quantity", "Revenue", "Product ID"],
-    ...report.charts.topSellingProducts.map((item) => [
-      item.name,
-      item.sku,
-      String(item.quantity),
-      String(item.revenue),
-      item.productId
-    ]),
-    [],
-    ["Stock alerts"],
-    ["Warehouse", "Code", "Low stock products", "Near expiry batches", "Warehouse ID"],
-    ...report.charts.stockAlerts.map((item) => [
-      item.warehouseName,
-      item.warehouseCode,
-      String(item.lowStockProducts),
-      String(item.nearExpiryBatches),
-      item.warehouseId
-    ]),
-    [],
-    ["Warehouse stock summary"],
-    [
-      "Warehouse",
-      "Code",
-      "Available quantity",
-      "Reserved quantity",
-      "Active batches",
-      "Low stock products",
-      "Near expiry batches",
-      "Warehouse ID"
-    ],
-    ...report.charts.warehouseStockSummary.map((item) => [
-      item.warehouseName,
-      item.warehouseCode,
-      String(item.availableQuantity),
-      String(item.reservedQuantity),
-      String(item.activeBatches),
-      String(item.lowStockProducts),
-      String(item.nearExpiryBatches),
-      item.warehouseId
-    ])
-  ];
-
-  return `${rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n")}\n`;
-}
-
-function escapeCsvCell(value: string) {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replaceAll('"', '""')}"`;
-  }
-
-  return value;
-}
-
-const PDF_PAGE_WIDTH = 595;
-const PDF_PAGE_HEIGHT = 842;
-const PDF_MARGIN_X = 50;
-const PDF_MARGIN_TOP = 50;
-const PDF_MARGIN_BOTTOM = 50;
-const PDF_START_Y = PDF_PAGE_HEIGHT - PDF_MARGIN_TOP;
-
-type PdfFont = "F1" | "F2";
-type PdfTextLine = {
-  font?: PdfFont;
-  fontSize?: number;
-  gapAfter?: number;
-  text: string;
-};
-type PdfPlacedLine = Required<Omit<PdfTextLine, "gapAfter">> & {
-  x: number;
-  y: number;
-};
-
-function renderDashboardPdf(report: DashboardReport) {
-  const pages = paginatePdfLines(buildDashboardPdfLines(report));
-  const kids = pages
-    .map((_, index) => `${getPdfPageObjectNumber(index)} 0 R`)
-    .join(" ");
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"
-  ];
-
-  for (const [index, page] of pages.entries()) {
-    const contentObjectNumber = getPdfContentObjectNumber(index);
-    const content = buildPdfPageContent(page, index + 1, pages.length);
-
-    objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_PAGE_WIDTH} ${PDF_PAGE_HEIGHT}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
-      `<< /Length ${Buffer.byteLength(content, "utf8")} >>\nstream\n${content}\nendstream`
-    );
-  }
-
-  const chunks = ["%PDF-1.4\n"];
-  const offsets = [0];
-
-  for (const [index, object] of objects.entries()) {
-    offsets.push(Buffer.byteLength(chunks.join(""), "utf8"));
-    chunks.push(`${index + 1} 0 obj\n${object}\nendobj\n`);
-  }
-
-  const xrefOffset = Buffer.byteLength(chunks.join(""), "utf8");
-  chunks.push(`xref\n0 ${objects.length + 1}\n`);
-  chunks.push("0000000000 65535 f \n");
-
-  for (let index = 1; index < offsets.length; index += 1) {
-    chunks.push(`${String(offsets[index]).padStart(10, "0")} 00000 n \n`);
-  }
-
-  chunks.push(
-    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-  );
-
-  return Buffer.from(chunks.join(""), "utf8");
-}
-
-function buildDashboardPdfLines(report: DashboardReport): PdfTextLine[] {
-  return [
-    { font: "F2", fontSize: 20, gapAfter: 8, text: "Dashboard Report" },
-    { text: `Date range: ${report.filters.dateFrom ?? "All"} to ${report.filters.dateTo ?? "Today"}` },
-    { text: `Warehouse: ${report.filters.warehouseId ?? "All visible warehouses"}` },
-    { text: `Order status: ${report.filters.orderStatus ?? "All statuses"}` },
-    { text: `Payment status: ${report.filters.paymentStatus ?? "All payment statuses"}` },
-    { gapAfter: 8, text: `Near expiry window: ${report.filters.nearExpiryDays} days` },
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Cards" },
-    ...[
-      `Total orders: ${report.cards.totalOrders}`,
-      `Today orders: ${report.cards.todayOrders}`,
-      `Revenue: ${formatMoney(report.cards.revenue)}`,
-      `Pending orders: ${report.cards.pendingOrders}`,
-      `Low stock products: ${report.cards.lowStockProducts}`,
-      `Near expiry batches: ${report.cards.nearExpiryBatches}`,
-      `Active customers: ${report.cards.activeCustomers}`,
-      `Active delivery partners: ${report.cards.activeDeliveryPartners}`,
-      `Active warehouses: ${report.cards.activeWarehouses}`
-    ].map((text): PdfTextLine => ({ text })),
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Top selling products" },
-    ...pdfRows(
-      report.charts.topSellingProducts,
-      (item, index) =>
-        `${index + 1}. ${item.name} | SKU: ${item.sku} | Qty: ${item.quantity} | Revenue: ${formatMoney(item.revenue)}`
-    ),
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Stock alerts" },
-    ...pdfRows(
-      report.charts.stockAlerts,
-      (item) =>
-        `${item.warehouseName} (${item.warehouseCode}) | Low stock: ${item.lowStockProducts} | Near expiry: ${item.nearExpiryBatches}`
-    ),
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Warehouse stock summary" },
-    ...pdfRows(
-      report.charts.warehouseStockSummary,
-      (item) =>
-        `${item.warehouseName} (${item.warehouseCode}) | Available: ${item.availableQuantity} | Reserved: ${item.reservedQuantity} | Batches: ${item.activeBatches}`
-    ),
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Orders by day" },
-    ...pdfRows(
-      report.charts.ordersByDay,
-      (item) => `${item.date}: ${item.orders} orders`
-    ),
-    { font: "F2", fontSize: 13, gapAfter: 4, text: "Revenue by day" },
-    ...pdfRows(
-      report.charts.revenueByDay,
-      (item) => `${item.date}: ${formatMoney(item.revenue)}`
-    )
-  ];
-}
-
-function pdfRows<T>(items: T[], render: (item: T, index: number) => string) {
-  if (items.length === 0) {
-    return [{ gapAfter: 4, text: "No data for this section." }];
-  }
-
-  return items.flatMap((item, index) =>
-    wrapPdfText(render(item, index), 105).map((text): PdfTextLine => ({
-      gapAfter: 1,
-      text
-    }))
-  );
-}
-
-function paginatePdfLines(lines: PdfTextLine[]) {
-  const pages: PdfPlacedLine[][] = [];
-  let page: PdfPlacedLine[] = [];
-  let y = PDF_START_Y;
-
-  for (const line of lines) {
-    const fontSize = line.fontSize ?? 10;
-    const lineHeight = fontSize + 4;
-
-    if (y - lineHeight < PDF_MARGIN_BOTTOM && page.length > 0) {
-      pages.push(page);
-      page = [];
-      y = PDF_START_Y;
-    }
-
-    page.push({
-      font: line.font ?? "F1",
-      fontSize,
-      text: line.text,
-      x: PDF_MARGIN_X,
-      y
-    });
-    y -= lineHeight + (line.gapAfter ?? 0);
-  }
-
-  if (page.length > 0) {
-    pages.push(page);
-  }
-
-  const emptyPage: PdfPlacedLine[] = [{
-    font: "F1",
-    fontSize: 10,
-    text: "No report data.",
-    x: PDF_MARGIN_X,
-    y: PDF_START_Y
-  }];
-
-  return pages.length > 0 ? pages : [emptyPage];
-}
-
-function buildPdfPageContent(
-  page: PdfPlacedLine[],
-  pageNumber: number,
-  pageCount: number
-) {
-  const lines = page.flatMap((line) => [
-    `BT /${line.font} ${line.fontSize} Tf ${line.x} ${line.y} Td (${escapePdfText(line.text)}) Tj ET`
-  ]);
-  lines.push(
-    `BT /F1 8 Tf ${PDF_MARGIN_X} 24 Td (${escapePdfText(`Page ${pageNumber} of ${pageCount}`)}) Tj ET`
-  );
-
-  return lines.join("\n");
-}
-
-function wrapPdfText(text: string, maxChars: number) {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  }
-
-  if (current) {
-    lines.push(current);
-  }
-
-  return lines.length > 0 ? lines : [""];
-}
-
-function escapePdfText(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-}
-
-function getPdfPageObjectNumber(pageIndex: number) {
-  return 5 + pageIndex * 2;
-}
-
-function getPdfContentObjectNumber(pageIndex: number) {
-  return getPdfPageObjectNumber(pageIndex) + 1;
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    currency: "INR",
-    maximumFractionDigits: 2,
-    style: "currency"
-  }).format(value);
 }
 
 function stripUndefined<T extends Record<string, unknown>>(value: T) {
@@ -1086,8 +720,4 @@ function paymentStatusSql(column: Prisma.Sql, status: PaymentStatus | undefined)
   return status
     ? Prisma.sql`AND ${column} = ${status}::"PaymentStatus"`
     : Prisma.empty;
-}
-
-function pendingStatusFilter(status: OrderStatus) {
-  return PENDING_ORDER_STATUSES.includes(status) ? [status] : [];
 }

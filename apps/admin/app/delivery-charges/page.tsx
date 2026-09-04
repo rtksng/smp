@@ -1,12 +1,5 @@
-import {
-  DeliveryChargesLandingPage,
-  DeliveryChargesRoute
-} from "./_components/delivery-charge-sections";
+import { redirect } from "next/navigation";
 
 export default function DeliveryChargesPage() {
-  return (
-    <DeliveryChargesRoute>
-      <DeliveryChargesLandingPage />
-    </DeliveryChargesRoute>
-  );
+  redirect("/delivery-charges/rules");
 }

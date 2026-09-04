@@ -6,6 +6,9 @@ import {
   buildReturnDispositionPayload,
   buildStockInPayload,
   buildTransferStockPayload,
+  createEmptyInventoryFilters,
+  createInventoryFiltersFromSearchParams,
+  inventoryFiltersSchema,
   INVENTORY_ACTIONS_PATH,
   INVENTORY_MOVEMENTS_PATH,
   INVENTORY_OVERVIEW_PATH,
@@ -18,6 +21,25 @@ import {
 } from "./inventory-management";
 
 describe("inventory management helpers", () => {
+  it("preserves the expiry window from report navigation through filter validation and requests", () => {
+    const filters = createInventoryFiltersFromSearchParams(new URLSearchParams({
+      nearExpiry: "true",
+      nearExpiryDays: "60",
+      warehouseId: "warehouse-1"
+    }));
+    const appliedFilters = inventoryFiltersSchema.parse(filters);
+
+    expect(buildInventoryRequest(appliedFilters)).toMatchObject({
+      endpoint: "/admin/inventory/near-expiry",
+      query: { days: 60, warehouseId: "warehouse-1" }
+    });
+    for (const nearExpiryDays of ["0", "366", "1.5", "abc", ""]) {
+      expect(inventoryFiltersSchema.safeParse({ ...filters, nearExpiryDays }).success).toBe(false);
+      expect(createInventoryFiltersFromSearchParams(new URLSearchParams({ nearExpiryDays })).nearExpiryDays).toBe("30");
+    }
+    expect(createEmptyInventoryFilters().nearExpiryDays).toBe("30");
+  });
+
   it("normalizes stock-in values into the backend inventory payload", () => {
     const values = stockInFormSchema.parse({
       batchNumber: "BATCH-2026-001",
@@ -75,6 +97,7 @@ describe("inventory management helpers", () => {
   it("routes stock filters to normal, low-stock, and near-expiry inventory APIs", () => {
     expect(
       buildInventoryRequest({
+        ...createEmptyInventoryFilters(),
         lowStock: false,
         nearExpiry: false,
         productId: "product-1",
@@ -94,6 +117,7 @@ describe("inventory management helpers", () => {
 
     expect(
       buildInventoryRequest({
+        ...createEmptyInventoryFilters(),
         lowStock: true,
         nearExpiry: false,
         productId: "",
@@ -104,6 +128,7 @@ describe("inventory management helpers", () => {
 
     expect(
       buildInventoryRequest({
+        ...createEmptyInventoryFilters(),
         lowStock: false,
         nearExpiry: true,
         productId: "product-1",
@@ -141,6 +166,9 @@ describe("inventory management helpers", () => {
     expect(
       isNearExpiry("2026-08-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"))
     ).toBe(false);
+    expect(
+      isNearExpiry("2026-07-10T00:00:00.000Z", new Date("2026-05-26T00:00:00.000Z"), 60)
+    ).toBe(true);
   });
 
   it("normalizes adjustment and transfer payloads", () => {

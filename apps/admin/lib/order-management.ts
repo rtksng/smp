@@ -40,6 +40,7 @@ export type OrderFilters = {
   dateTo: string;
   orderNumber: string;
   paymentStatus: "" | PaymentStatus;
+  pendingOnly: boolean;
   status: "" | OrderStatus;
   warehouseId: string;
 };
@@ -227,6 +228,7 @@ export function createEmptyOrderFilters(): OrderFilters {
     dateTo: "",
     orderNumber: "",
     paymentStatus: "",
+    pendingOnly: false,
     status: "",
     warehouseId: ""
   };
@@ -238,6 +240,29 @@ export function createEmptyReturnRequestFilters(): ReturnRequestFilters {
     orderNumber: "",
     status: "",
     warehouseId: ""
+  };
+}
+
+export function createOrderFiltersFromSearchParams(searchParams: {
+  get: (key: string) => string | null;
+}): OrderFilters {
+  const status = searchParams.get("status");
+  const paymentStatus = searchParams.get("paymentStatus");
+
+  return {
+    ...createEmptyOrderFilters(),
+    customerMobile: searchParams.get("customerMobile") ?? "",
+    dateFrom: searchParams.get("dateFrom") ?? "",
+    dateTo: searchParams.get("dateTo") ?? "",
+    orderNumber: searchParams.get("orderNumber") ?? "",
+    paymentStatus: (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus ?? "")
+      ? (paymentStatus as OrderFilters["paymentStatus"])
+      : "",
+    pendingOnly: searchParams.get("pendingOnly") === "true",
+    status: (ORDER_STATUSES as readonly string[]).includes(status ?? "")
+      ? (status as OrderFilters["status"])
+      : "",
+    warehouseId: searchParams.get("warehouseId") ?? ""
   };
 }
 
@@ -254,6 +279,7 @@ export function buildOrderQuery(
     orderNumber: trimmedOrUndefined(filters.orderNumber),
     page,
     paymentStatus: filters.paymentStatus || undefined,
+    pendingOnly: filters.pendingOnly || undefined,
     status: filters.status || undefined,
     warehouseId: filters.warehouseId || undefined
   };

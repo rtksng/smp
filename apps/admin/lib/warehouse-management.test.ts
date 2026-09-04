@@ -6,6 +6,9 @@ import {
   buildWarehouseCreatePath,
   buildWarehouseEditPath,
   buildWarehousePayload,
+  buildWarehouseQuery,
+  createEmptyWarehouseFilters,
+  createWarehouseFiltersFromSearchParams,
   getWarehouseEditId,
   getWarehouseAnalytics,
   getWarehouseFilterContent,
@@ -35,6 +38,24 @@ const warehouse: AdminWarehouse = {
 };
 
 describe("warehouse management helpers", () => {
+  it("preserves the selected report warehouse in list requests until reset", () => {
+    const filters = createWarehouseFiltersFromSearchParams(new URLSearchParams({
+      search: "Central",
+      state: "Maharashtra",
+      status: "ACTIVE",
+      warehouseId: "warehouse-1"
+    }));
+
+    expect(buildWarehouseQuery(filters)).toMatchObject({
+      search: "Central",
+      state: "Maharashtra",
+      status: "ACTIVE",
+      warehouseId: "warehouse-1"
+    });
+    expect(buildWarehouseQuery({ ...filters, search: "Mumbai" }).warehouseId).toBe("warehouse-1");
+    expect(buildWarehouseQuery(createEmptyWarehouseFilters()).warehouseId).toBeUndefined();
+  });
+
   it("normalizes form values into the backend warehouse payload", () => {
     const values = warehouseToFormValues({
       ...warehouse,

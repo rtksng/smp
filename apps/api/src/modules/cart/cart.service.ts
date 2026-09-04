@@ -13,6 +13,7 @@ import {
 } from "../../generated/prisma/client";
 import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
+import { buildFulfillmentStockQuery } from "../inventory/fulfillment-stock";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
 
 const CART_INCLUDE = {
@@ -390,6 +391,7 @@ export class CartService {
       client,
       customerId,
       subtotal,
+      cart.items[0],
       options
     );
 
@@ -487,21 +489,23 @@ export class CartService {
     client: CartClient,
     customerId: string,
     subtotal: number,
+    firstItem: CartItemRecord | undefined,
     options: CartSerializationOptions
   ) {
     if (!this.deliveryChargesService || subtotal <= 0) {
       return 0;
     }
 
-    const pincode = await this.resolveDeliveryPincode(
-      client,
-      customerId,
-      options.shippingAddressId
-    );
+    const [pincode, stocks] = await Promise.all([
+      this.resolveDeliveryPincode(client, customerId, options.shippingAddressId),
+      firstItem
+        ? client.inventoryStock.findMany({ ...buildFulfillmentStockQuery(firstItem), take: 1 })
+        : Promise.resolve([])
+    ]);
     const quote = await this.deliveryChargesService.calculateDeliveryCharge({
       pincode,
       subtotal,
-      warehouseId: null
+      warehouseId: stocks[0]?.warehouseId ?? null
     });
 
     return quote.deliveryCharge;

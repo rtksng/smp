@@ -83,10 +83,12 @@ const ALL_WAREHOUSE_STATUSES_VALUE = "__all_warehouse_statuses__";
 
 export function WarehouseManagementPage({
   initialEditWarehouseId = null,
+  initialFilters = null,
   returnToPath = null,
   view
 }: {
   initialEditWarehouseId?: string | null;
+  initialFilters?: WarehouseFilters | null;
   returnToPath?: string | null;
   view: WarehouseView;
 }) {
@@ -95,6 +97,7 @@ export function WarehouseManagementPage({
       <ProtectedRoute permission={ADMIN_PERMISSION.WarehouseRead}>
         <WarehousesContent
           initialEditWarehouseId={initialEditWarehouseId}
+          initialFilters={initialFilters}
           returnToPath={returnToPath}
           view={view}
         />
@@ -105,21 +108,27 @@ export function WarehouseManagementPage({
 
 function WarehousesContent({
   initialEditWarehouseId,
+  initialFilters,
   returnToPath,
   view
 }: {
   initialEditWarehouseId: string | null;
+  initialFilters: WarehouseFilters | null;
   returnToPath: string | null;
   view: WarehouseView;
 }) {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const urlFilters = useMemo(
+    () => initialFilters ?? createEmptyWarehouseFilters(),
+    [initialFilters]
+  );
   const [draftFilters, setDraftFilters] = useState<WarehouseFilters>(
-    createEmptyWarehouseFilters()
+    urlFilters
   );
   const [appliedFilters, setAppliedFilters] = useState<WarehouseFilters>(
-    createEmptyWarehouseFilters()
+    urlFilters
   );
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(
@@ -238,6 +247,11 @@ function WarehousesContent({
     </Button>
   ) : null;
   const warehouseBackPath = returnToPath ?? WAREHOUSE_ANALYTICS_PATH;
+
+  useEffect(() => {
+    setDraftFilters(urlFilters);
+    setAppliedFilters(urlFilters);
+  }, [urlFilters]);
 
   useEffect(() => {
     if (view === "create" && initialEditWarehouseId) {
@@ -962,6 +976,15 @@ function WarehouseFilterFields({
 }) {
   return (
     <div className="filterDrawerFields">
+      {filters.warehouseId ? (
+        <Button
+          onClick={() => onChange({ ...filters, warehouseId: "" })}
+          type="button"
+          variant="outline"
+        >
+          Clear selected warehouse
+        </Button>
+      ) : null}
       <Label>
         Search
         <span className="searchInput">

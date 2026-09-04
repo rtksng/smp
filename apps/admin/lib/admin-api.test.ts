@@ -3,6 +3,7 @@ import {
   AdminApiClientError,
   buildAdminApiUrl,
   requestAdminApi,
+  requestAdminApiResponse,
   type AdminSession
 } from "./admin-api";
 
@@ -161,6 +162,58 @@ describe("admin API client", () => {
         "FORBIDDEN"
       )
     );
+  });
+
+  it.each([
+    ["text/csv", "date,orders\r\n2026-09-03,5\r\n"],
+    ["application/pdf", "%PDF-1.4\nreport bytes\n%%EOF"]
+  ])("preserves %s downloads through the shared request retry", async (contentType, body) => {
+    let currentSession = makeSession();
+    const refreshSession = vi.fn(async () => {
+      currentSession = makeSession("refreshed-test-session");
+      return currentSession;
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(body, {
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": 'attachment; filename="orders-report.csv"'
+        }
+      }));
+
+    const response = await requestAdminApiResponse("/admin/reports/dashboard/export", {
+      auth: {
+        clearSession: vi.fn(),
+        getSession: () => currentSession,
+        refreshSession
+      },
+      headers: { Accept: contentType }
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(response.headers.get("Content-Type")).toBe(contentType);
+    expect(response.headers.get("Content-Disposition")).toContain("orders-report");
+    expect(response.bodyUsed).toBe(false);
+    expect(await response.text()).toBe(body);
+  });
+
+  it("uses the shared preflight refresh before requesting a download", async () => {
+    const currentSession = makeSession();
+    currentSession.tokens.accessTokenExpiresAt = "2000-01-01T00:00:00.000Z";
+    const refreshSession = vi.fn(async () => makeSession("refreshed-test-session"));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("date,orders\n2026-09-03,5", { headers: { "Content-Type": "text/csv" } })
+    );
+
+    await requestAdminApiResponse("/admin/reports/dashboard/export", {
+      auth: { clearSession: vi.fn(), getSession: () => currentSession, refreshSession }
+    });
+
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(refreshSession.mock.invocationCallOrder[0]).toBeLessThan(fetchMock.mock.invocationCallOrder[0]!);
   });
 
   it("normalizes network failures into typed admin API errors", async () => {

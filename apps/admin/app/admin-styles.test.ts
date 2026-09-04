@@ -227,11 +227,10 @@ describe("admin layout styles", () => {
     expect(adminShellSource).toContain("restoreKey={pathname}");
   });
 
-  it("moves admin identity and logout into a fixed sidebar footer", () => {
-    expect(adminShellSource).toContain('className="sidebarFooter"');
-    expect(adminShellSource).toContain('className="sidebarAdminIdentity"');
-    expect(adminShellSource).toContain("handleLogout");
-    expect(adminShellSource).not.toContain('className="topbar"');
-    expect(adminShellSource).not.toContain('className="adminIdentity"');
+  it("mounts the shared admin toolbar without duplicating sidebar account controls", () => {
+    expect(adminShellSource).toContain("<AdminTopbar />");
+    expect(adminShellSource).not.toContain('className="sidebarFooter"');
+    expect(adminShellSource).not.toContain('className="sidebarAdminIdentity"');
+    expect(adminShellSource).not.toContain("handleLogout");
   });
 });

@@ -396,8 +396,12 @@ export class WarehousesService {
     const scope = await this.warehouseAccessService.getWarehouseScope(auth);
     if (!scope.allWarehouses) {
       where.id = {
-        in: scope.warehouseIds
+        in: query.warehouseId
+          ? scope.warehouseIds.filter((id) => id === query.warehouseId)
+          : scope.warehouseIds
       };
+    } else if (query.warehouseId) {
+      where.id = query.warehouseId;
     }
 
     return where;

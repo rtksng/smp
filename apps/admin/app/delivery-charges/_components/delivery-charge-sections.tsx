@@ -6,18 +6,19 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Search,
+  SlidersHorizontal,
   Trash2,
   Truck,
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ConfirmationDialog,
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
@@ -54,6 +55,7 @@ import {
   formatDeliveryDateTime,
   formatDeliveryRange,
   formatDeliveryScope,
+  validateDeliveryChargeFilters,
   validateDeliveryChargeForm,
   type AdminDeliveryChargeRule,
   type DeliveryChargeFieldErrors,
@@ -67,7 +69,8 @@ import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 
 const PAGE_SIZE = 20;
 
-type DeliveryChargeView = "overview" | "rules" | "new";
+type DeliveryChargeView = "rules" | "new";
+type DeliveryChargeWarehouse = Pick<WarehouseListResponse["items"][number], "id" | "name" | "code">;
 
 const deliveryChargeSections: Array<{
   description: string;
@@ -75,12 +78,6 @@ const deliveryChargeSections: Array<{
   id: DeliveryChargeView;
   title: string;
 }> = [
-  {
-    description: "Rule metrics and shortcuts into the focused delivery charge tools.",
-    href: "/delivery-charges",
-    id: "overview",
-    title: "Overview"
-  },
   {
     description: "Search, filter, edit, archive, and review checkout delivery fees.",
     href: "/delivery-charges/rules",
@@ -103,10 +100,6 @@ const deliveryChargeCopy: Record<
     summary: "Create one focused rule without the table, filters, and edit state competing for space.",
     title: "Create delivery charge rule"
   },
-  overview: {
-    summary: "Review checkout fee coverage and jump into focused rule management pages.",
-    title: "Delivery charges"
-  },
   rules: {
     summary: "Search, filter, edit, and archive delivery charge rules in a table-first workspace.",
     title: "Delivery charge rules"
@@ -123,10 +116,6 @@ export function DeliveryChargesRoute({ children }: { children: ReactNode }) {
   );
 }
 
-export function DeliveryChargesLandingPage() {
-  return <DeliveryChargesContent view="overview" />;
-}
-
 export function DeliveryChargeRulesPage() {
   return <DeliveryChargesContent view="rules" />;
 }
@@ -136,7 +125,8 @@ export function DeliveryChargeCreatePage() {
 }
 
 function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
-  const { api } = useAdminSession();
+  const { api, hasPermission } = useAdminSession();
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
   const queryClient = useQueryClient();
   const [draftFilters, setDraftFilters] = useState<DeliveryChargeFilters>(
     createEmptyDeliveryChargeFilters()
@@ -144,6 +134,8 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   const [appliedFilters, setAppliedFilters] = useState<DeliveryChargeFilters>(
     createEmptyDeliveryChargeFilters()
   );
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [editingRule, setEditingRule] = useState<AdminDeliveryChargeRule | null>(
     null
@@ -152,6 +144,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     createEmptyDeliveryChargeFormValues()
   );
   const [fieldErrors, setFieldErrors] = useState<DeliveryChargeFieldErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
   const ruleQuery = useMemo(
@@ -169,6 +162,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     queryKey: ["admin", "delivery-charge-rules", ruleQuery]
   });
   const warehousesQuery = useQuery({
+    enabled: canReadWarehouses,
     queryFn: () =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
         query: {
@@ -205,7 +199,20 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
       })
   });
   const rules = useMemo(() => rulesQuery.data?.items ?? [], [rulesQuery.data?.items]);
-  const warehouses = warehousesQuery.data?.items ?? [];
+  const warehouses = useMemo(() => {
+    const options = new Map<string, DeliveryChargeWarehouse>();
+    for (const warehouse of [
+      ...(warehousesQuery.data?.items ?? []),
+      ...rules.flatMap((rule) => rule.warehouse ? [rule.warehouse] : []),
+      ...(editingRule?.warehouse ? [editingRule.warehouse] : [])
+    ]) {
+      options.set(warehouse.id, warehouse);
+    }
+    if (draftFilters.warehouseId && !options.has(draftFilters.warehouseId)) {
+      options.set(draftFilters.warehouseId, { id: draftFilters.warehouseId, code: "", name: "Selected warehouse" });
+    }
+    return [...options.values()];
+  }, [warehousesQuery.data?.items, rules, editingRule, draftFilters.warehouseId]);
   const pagination = rulesQuery.data?.pagination;
   const activeVisibleCount = rules.filter((rule) => rule.isActive).length;
   const pincodeVisibleCount = rules.filter((rule) => rule.pincode !== null).length;
@@ -215,20 +222,31 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   const error =
     getErrorMessage(rulesQuery.error) ??
     getErrorMessage(warehousesQuery.error) ??
-    getErrorMessage(createMutation.error) ??
-    getErrorMessage(updateMutation.error) ??
-    getErrorMessage(deleteMutation.error);
+    saveError;
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const isDeleting = deleteMutation.isPending;
 
+  useEffect(() => {
+    if (pagination && page > Math.max(pagination.totalPages, 1)) {
+      setPage(Math.max(pagination.totalPages, 1));
+    }
+  }, [page, pagination]);
+
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nextFilterError = validateDeliveryChargeFilters(draftFilters);
+    setFilterError(nextFilterError);
+    if (nextFilterError) {
+      return;
+    }
     setPage(1);
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
     const emptyFilters = createEmptyDeliveryChargeFilters();
+    setFilterError(null);
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
     setPage(1);
@@ -247,6 +265,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     key: TKey,
     value: DeliveryChargeFormValues[TKey]
   ) {
+    if (isSaving) return;
     setFormValues((current) => ({
       ...current,
       [key]: value
@@ -254,20 +273,29 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   }
 
   function startEdit(rule: AdminDeliveryChargeRule) {
+    if (isSaving || isDeleting) return;
     setEditingRule(rule);
     setFieldErrors({});
     setMessage(null);
+    setSaveError(null);
     setFormValues(deliveryChargeRuleToFormValues(rule));
   }
 
   function resetForm() {
+    if (isSaving) return;
     setEditingRule(null);
     setFieldErrors({});
+    setSaveError(null);
     setFormValues(createEmptyDeliveryChargeFormValues());
   }
 
   async function saveRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSaving) {
+      return;
+    }
+    setMessage(null);
+    setSaveError(null);
     const errors = validateDeliveryChargeForm(formValues);
 
     if (Object.keys(errors).length > 0) {
@@ -278,26 +306,32 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     setFieldErrors({});
     const payload = buildDeliveryChargePayload(formValues);
 
-    if (editingRule) {
-      await updateMutation.mutateAsync({
-        id: editingRule.id,
-        payload
-      });
-      setMessage("Delivery charge rule updated.");
-    } else {
-      await createMutation.mutateAsync(payload);
-      setMessage("Delivery charge rule created.");
-    }
+    try {
+      if (editingRule) {
+        await updateMutation.mutateAsync({
+          id: editingRule.id,
+          payload
+        });
+        setMessage("Delivery charge rule updated.");
+      } else {
+        await createMutation.mutateAsync(payload);
+        setMessage("Delivery charge rule created.");
+      }
 
-    resetForm();
-    await refreshRules();
+      resetForm();
+      await refreshRules();
+    } catch (error) {
+      setSaveError(getErrorMessage(error) ?? "Unable to save the delivery charge rule. Please try again.");
+    }
   }
 
   function confirmDelete(rule: AdminDeliveryChargeRule) {
+    if (isSaving || isDeleting) return;
     setConfirmation({
       body: `Archive ${rule.name}? Matching carts and new orders will stop using this delivery charge rule.`,
       confirmLabel: "Archive rule",
       onConfirm: async () => {
+        setMessage(null);
         await deleteMutation.mutateAsync(rule.id);
         setMessage("Delivery charge rule archived.");
 
@@ -360,33 +394,38 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics deliveryChargeMetricGrid">
-          <MetricCard label="Total rules" tone="primary" value={pagination?.total ?? 0} />
-          <MetricCard label="Visible" value={rules.length} />
-          <MetricCard label="Active visible" value={activeVisibleCount} />
-          <MetricCard label="Pincode rules" value={pincodeVisibleCount} />
-          <MetricCard label="Warehouse rules" value={warehouseVisibleCount} />
-        </div>
+        {view === "rules" ? (
+          <div className="metricGrid resourceMetrics deliveryChargeMetricGrid">
+            <MetricCard label="Total rules" tone="primary" value={pagination?.total ?? 0} />
+            <MetricCard label="Visible" value={rules.length} />
+            <MetricCard label="Active visible" value={activeVisibleCount} />
+            <MetricCard label="Pincode rules" value={pincodeVisibleCount} />
+            <MetricCard label="Warehouse rules" value={warehouseVisibleCount} />
+          </div>
+        ) : null}
       </section>
 
-      {view === "overview" ? (
-        <DeliveryChargeHub
-          activeVisibleCount={activeVisibleCount}
-          pincodeVisibleCount={pincodeVisibleCount}
-          totalRules={pagination?.total ?? 0}
-          warehouseVisibleCount={warehouseVisibleCount}
-        />
+      {view === "rules" ? (
+        <FilterDrawer
+          error={filterError}
+          isOpen={isFilterDrawerOpen}
+          isSubmitting={rulesQuery.isFetching}
+          onApply={applyFilters}
+          onOpenChange={setIsFilterDrawerOpen}
+          onReset={resetFilters}
+          title="Delivery charge filters"
+        >
+          <DeliveryChargeFilterFields
+            filters={draftFilters}
+            isWarehouseLoading={canReadWarehouses && warehousesQuery.isLoading}
+            onChange={setDraftFilters}
+            warehouses={warehouses}
+          />
+        </FilterDrawer>
       ) : null}
 
       {view === "new" ? (
-        <section className="panel deliveryChargeFormPanel deliveryChargeFormOnlyPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow="New rule"
-            level={2}
-            summary="Define the pincode, warehouse, order range, charge, free threshold, and priority from one focused form."
-            title="Create delivery charge rule"
-          />
+        <section className="panel deliveryChargeFormPanel deliveryChargeFormOnlyPanel mt-3">
           <DeliveryChargeForm
             errors={fieldErrors}
             isEditing={false}
@@ -408,21 +447,23 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
               : "deliveryChargeWorkspaceGrid deliveryChargeWorkspaceGrid--single"
           }
         >
-          <section className="panel deliveryChargeRulesPanel">
+          <section className="panel deliveryChargeRulesPanel mt-3 ">
             <PageHeader
+              actions={
+                <Button
+                  className="iconTextButton"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  type="button"
+                >
+                  <SlidersHorizontal aria-hidden size={16} />
+                  <span>Add filter</span>
+                </Button>
+              }
               className="settingsSectionHeader"
               eyebrow="Rule list"
               level={2}
               summary="Use filters first, then edit or archive rules directly from the table."
               title="Checkout shipping fees"
-            />
-
-            <DeliveryChargeFiltersForm
-              filters={draftFilters}
-              onChange={setDraftFilters}
-              onReset={resetFilters}
-              onSubmit={applyFilters}
-              warehouses={warehouses}
             />
 
             {rulesQuery.isLoading ? (
@@ -436,6 +477,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
             ) : null}
             {rules.length > 0 ? (
               <DeliveryChargeRulesTable
+                isSaving={isSaving}
                 isDeleting={isDeleting}
                 onDelete={confirmDelete}
                 onEdit={startEdit}
@@ -457,6 +499,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
                 actions={
                   <Button
                     className="iconTextButton"
+                    disabled={isSaving}
                     onClick={resetForm}
                     type="button"
                     variant="outline"
@@ -512,63 +555,6 @@ function DeliveryChargeSectionNav({ active }: { active: DeliveryChargeView }) {
   );
 }
 
-function DeliveryChargeHub({
-  activeVisibleCount,
-  pincodeVisibleCount,
-  totalRules,
-  warehouseVisibleCount
-}: {
-  activeVisibleCount: number;
-  pincodeVisibleCount: number;
-  totalRules: number;
-  warehouseVisibleCount: number;
-}) {
-  const cards = [
-    {
-      description: "Open the table-first workspace for filtering, editing, and archiving rules.",
-      href: "/delivery-charges/rules",
-      metric: totalRules,
-      title: "Rules table"
-    },
-    {
-      description: "Create a checkout fee rule by pincode, warehouse, order amount, and priority.",
-      href: "/delivery-charges/new",
-      metric: "Create",
-      title: "New rule"
-    },
-    {
-      description: "Review rules currently enabled in the visible result set.",
-      href: "/delivery-charges/rules",
-      metric: activeVisibleCount,
-      title: "Active visible"
-    },
-    {
-      description: "Inspect pincode-scoped fee coverage in the rule table.",
-      href: "/delivery-charges/rules",
-      metric: pincodeVisibleCount,
-      title: "Pincode rules"
-    },
-    {
-      description: "Inspect warehouse-scoped fee coverage in the rule table.",
-      href: "/delivery-charges/rules",
-      metric: warehouseVisibleCount,
-      title: "Warehouse rules"
-    }
-  ];
-
-  return (
-    <section className="deliveryChargeHubGrid">
-      {cards.map((card) => (
-        <Link className="deliveryChargeHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
-  );
-}
-
 function DeliveryChargeForm({
   errors,
   isEditing,
@@ -589,7 +575,7 @@ function DeliveryChargeForm({
   ) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   values: DeliveryChargeFormValues;
-  warehouses: WarehouseListResponse["items"];
+  warehouses: DeliveryChargeWarehouse[];
 }) {
   return (
     <form className="formStack productForm deliveryChargeForm" onSubmit={onSubmit}>
@@ -669,6 +655,7 @@ function DeliveryChargeForm({
           label="Priority"
           onChange={(value) => onChange("priority", value)}
           placeholder="0"
+          step="1"
           type="number"
           value={values.priority}
         />
@@ -702,24 +689,23 @@ function DeliveryChargeForm({
   );
 }
 
-function DeliveryChargeFiltersForm({
+function DeliveryChargeFilterFields({
   filters,
+  isWarehouseLoading,
   onChange,
-  onReset,
-  onSubmit,
   warehouses
 }: {
   filters: DeliveryChargeFilters;
+  isWarehouseLoading: boolean;
   onChange: (filters: DeliveryChargeFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  warehouses: WarehouseListResponse["items"];
+  warehouses: DeliveryChargeWarehouse[];
 }) {
   return (
-    <form className="productFilters deliveryChargeFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <label>
         Search
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, search: event.target.value })}
           placeholder="Rule name"
           value={filters.search}
@@ -728,17 +714,19 @@ function DeliveryChargeFiltersForm({
       <label>
         Pincode
         <Input
+          className="filterDrawerControl"
           onChange={(event) => onChange({ ...filters, pincode: event.target.value })}
           placeholder="110001"
           value={filters.pincode}
         />
       </label>
       <Select
-        aria-label="Warehouse filter"
+        aria-label="Warehouse"
+        disabled={isWarehouseLoading}
         onValueChange={(value) => onChange({ ...filters, warehouseId: value })}
         value={filters.warehouseId}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any warehouse" />
         </SelectTrigger>
         <SelectContent>
@@ -755,7 +743,7 @@ function DeliveryChargeFiltersForm({
         </SelectContent>
       </Select>
       <Select
-        aria-label="Status filter"
+        aria-label="Status"
         onValueChange={(value) =>
           onChange({
             ...filters,
@@ -764,7 +752,7 @@ function DeliveryChargeFiltersForm({
         }
         value={filters.isActive}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
@@ -773,26 +761,19 @@ function DeliveryChargeFiltersForm({
           <SelectItem value="false">Inactive</SelectItem>
         </SelectContent>
       </Select>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 
 function DeliveryChargeRulesTable({
   isDeleting,
+  isSaving,
   onDelete,
   onEdit,
   rules
 }: {
   isDeleting: boolean;
+  isSaving: boolean;
   onDelete: (rule: AdminDeliveryChargeRule) => void;
   onEdit: (rule: AdminDeliveryChargeRule) => void;
   rules: AdminDeliveryChargeRule[];
@@ -840,6 +821,7 @@ function DeliveryChargeRulesTable({
                   <Button
                     aria-label={`Edit ${rule.name}`}
                     className="iconTextButton"
+                    disabled={isSaving || isDeleting}
                     onClick={() => onEdit(rule)}
                     size="sm"
                     type="button"
@@ -851,7 +833,7 @@ function DeliveryChargeRulesTable({
                   <Button
                     aria-label={`Archive ${rule.name}`}
                     className="iconTextButton"
-                    disabled={isDeleting}
+                    disabled={isSaving || isDeleting}
                     onClick={() => onDelete(rule)}
                     size="sm"
                     type="button"
@@ -875,6 +857,7 @@ function TextField({
   label,
   onChange,
   placeholder,
+  step,
   type = "text",
   value
 }: {
@@ -882,6 +865,7 @@ function TextField({
   label: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  step?: string;
   type?: string;
   value: string;
 }) {
@@ -889,8 +873,11 @@ function TextField({
     <label>
       {label}
       <Input
+        aria-label={label}
+        aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        step={type === "number" ? step ?? "0.01" : undefined}
         type={type}
         value={value}
       />

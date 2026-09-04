@@ -14,6 +14,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import { CouponType } from "../../../generated/prisma/enums";
+import { MAX_COUPON_AMOUNT, MAX_COUPON_USAGE_LIMIT } from "../coupons.constants";
 
 export class ValidateCouponDto {
   @ApiProperty({
@@ -42,6 +43,31 @@ export class CouponValidationResponseDto {
 
   @ApiProperty({ example: 180 })
   tax!: number;
+}
+
+export class AvailableCouponResponseDto {
+  @ApiProperty({ example: "SURGICAL10" })
+  code!: string;
+
+  @ApiProperty({ enum: CouponType, example: CouponType.PERCENTAGE })
+  type!: CouponType;
+
+  @ApiProperty({ example: 10 })
+  value!: number;
+
+  @ApiProperty({ example: 1000, nullable: true })
+  minOrderAmount!: number | null;
+
+  @ApiProperty({ example: 300, nullable: true })
+  maxDiscount!: number | null;
+
+  @ApiProperty({ example: "2026-12-31T23:59:59.999Z", nullable: true })
+  expiresAt!: Date | null;
+}
+
+export class AvailableCouponListResponseDto {
+  @ApiProperty({ type: [AvailableCouponResponseDto], maxItems: 100 })
+  items!: AvailableCouponResponseDto[];
 }
 
 export class AdminCouponListQueryDto {
@@ -78,31 +104,35 @@ export class CreateCouponDto {
   @IsEnum(CouponType)
   type!: CouponType;
 
-  @ApiProperty({ example: 10, minimum: 0.01 })
+  @ApiProperty({ example: 10, minimum: 0.01, maximum: MAX_COUPON_AMOUNT })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(MAX_COUPON_AMOUNT)
   value!: number;
 
-  @ApiPropertyOptional({ example: 1000, minimum: 0, nullable: true })
+  @ApiPropertyOptional({ example: 1000, minimum: 0, maximum: MAX_COUPON_AMOUNT, nullable: true })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
   @Min(0)
+  @Max(MAX_COUPON_AMOUNT)
   minOrderAmount?: number | null;
 
-  @ApiPropertyOptional({ example: 300, minimum: 0, nullable: true })
+  @ApiPropertyOptional({ example: 300, minimum: 0, maximum: MAX_COUPON_AMOUNT, nullable: true })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
   @Min(0)
+  @Max(MAX_COUPON_AMOUNT)
   maxDiscount?: number | null;
 
-  @ApiPropertyOptional({ example: 100, minimum: 1, nullable: true })
+  @ApiPropertyOptional({ example: 100, minimum: 1, maximum: MAX_COUPON_USAGE_LIMIT, nullable: true })
   @Type(() => Number)
   @IsInt()
   @IsOptional()
   @Min(1)
+  @Max(MAX_COUPON_USAGE_LIMIT)
   usageLimit?: number | null;
 
   @ApiPropertyOptional({ example: true })

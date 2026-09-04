@@ -24,7 +24,7 @@ import {
 } from "@/lib/api/payments";
 import { addressInputSchema, type Address, type AddressInput, type AddressType, type CartItem, type PaymentMethod } from "@/lib/api/schemas";
 import { useAuth } from "@/lib/auth/auth-context";
-import { buildCheckoutIdempotencyKey } from "@/lib/commerce/checkout";
+import { buildCheckoutIdempotencyKey, buildCheckoutQuoteKey, calculateCheckoutTotal } from "@/lib/commerce/checkout";
 import { getErrorMessage } from "@/lib/errors";
 import { formatRupees, formatStatus } from "@/lib/format";
 import {
@@ -55,7 +55,8 @@ export default function CheckoutScreen() {
   const cartQuery = useQuery({
     enabled: Boolean(session),
     queryFn: () => getCart(selectedAddressId),
-    queryKey: queryKeys.cart(selectedAddressId)
+    queryKey: buildCheckoutQuoteKey(selectedAddressId, addressesQuery.data?.find((address) => address.id === selectedAddressId)?.pincode),
+    staleTime: 0
   });
   const gatewayQuery = useQuery({
     enabled: Boolean(session),
@@ -139,11 +140,16 @@ export default function CheckoutScreen() {
   const selectedAddress = addressesQuery.data?.find(
     (address) => address.id === selectedAddressId
   );
-  const payableTotal = appliedCoupon?.grandTotal ?? cart.totals.grandTotal;
+  const payableTotal = calculateCheckoutTotal(cart.totals, appliedCoupon?.discount);
   const onlineEnabled = Boolean(gatewayQuery.data?.onlinePaymentEnabled);
+  const isUpdatingTotals = cartQuery.isFetching || addressesQuery.isFetching;
 
   async function handlePlaceOrder() {
     if (processingRef.current) {
+      return;
+    }
+    if (isUpdatingTotals || addressForm !== null) {
+      setSubmitError("Finish updating your delivery address and total before placing the order.");
       return;
     }
     if (!selectedAddressId) {
@@ -435,7 +441,7 @@ export default function CheckoutScreen() {
           </Text>
         ) : null}
         <Button
-          disabled={!selectedAddressId || hasBlockingStockIssue}
+          disabled={!selectedAddressId || hasBlockingStockIssue || isUpdatingTotals || addressForm !== null}
           loading={isProcessing}
           onPress={() => void handlePlaceOrder()}
         >

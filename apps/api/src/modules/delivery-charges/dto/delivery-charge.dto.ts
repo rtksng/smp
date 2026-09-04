@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsBoolean,
   IsIn,
@@ -10,9 +10,23 @@ import {
   Matches,
   Max,
   MaxLength,
-  Min
+  Min,
+  ValidateIf
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+
+export const MAX_DELIVERY_CHARGE_AMOUNT = 9_999_999_999.99;
+
+function DeliveryNumber() {
+  return Transform(({ obj, key }) => {
+    const value: unknown = (obj as Record<string, unknown>)[key];
+    return typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  }, { toClassOnly: true });
+}
+
+function PreserveInput() {
+  return Transform(({ obj, key }) => (obj as Record<string, unknown>)[key], { toClassOnly: true });
+}
 
 export class AdminDeliveryChargeRuleListQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1 })
@@ -54,34 +68,43 @@ export class AdminDeliveryChargeRuleListQueryDto {
 export class CreateDeliveryChargeRuleDto {
   @ApiProperty({ example: "Delhi local delivery" })
   @IsString()
+  @PreserveInput()
   @MaxLength(160)
   name!: string;
 
   @ApiProperty({ example: 75, minimum: 0 })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   charge!: number;
 
   @ApiPropertyOptional({ example: 500, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   minOrderAmount?: number | null;
 
   @ApiPropertyOptional({ example: 4999, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   maxOrderAmount?: number | null;
 
   @ApiPropertyOptional({ example: 5000, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   freeDeliveryThreshold?: number | null;
 
   @ApiPropertyOptional({ example: "110001", nullable: true })
@@ -96,49 +119,62 @@ export class CreateDeliveryChargeRuleDto {
 
   @ApiPropertyOptional({ example: 10 })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsInt()
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
+  @Min(-2_147_483_648)
+  @Max(2_147_483_647)
   priority?: number;
 
   @ApiPropertyOptional({ example: true })
+  @PreserveInput()
   @IsBoolean()
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   isActive?: boolean;
 }
 
 export class UpdateDeliveryChargeRuleDto {
   @ApiPropertyOptional({ example: "Delhi local delivery" })
   @IsString()
-  @IsOptional()
+  @PreserveInput()
+  @ValidateIf((_object, value) => value !== undefined)
   @MaxLength(160)
   name?: string;
 
   @ApiPropertyOptional({ example: 75, minimum: 0 })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   charge?: number;
 
   @ApiPropertyOptional({ example: 500, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   minOrderAmount?: number | null;
 
   @ApiPropertyOptional({ example: 4999, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   maxOrderAmount?: number | null;
 
   @ApiPropertyOptional({ example: 5000, minimum: 0, nullable: true })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @Max(MAX_DELIVERY_CHARGE_AMOUNT)
   freeDeliveryThreshold?: number | null;
 
   @ApiPropertyOptional({ example: "110001", nullable: true })
@@ -153,13 +189,17 @@ export class UpdateDeliveryChargeRuleDto {
 
   @ApiPropertyOptional({ example: 10 })
   @Type(() => Number)
+  @DeliveryNumber()
   @IsInt()
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
+  @Min(-2_147_483_648)
+  @Max(2_147_483_647)
   priority?: number;
 
   @ApiPropertyOptional({ example: true })
+  @PreserveInput()
   @IsBoolean()
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   isActive?: boolean;
 }
 

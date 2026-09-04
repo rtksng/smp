@@ -11,7 +11,7 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ConfirmationDialog,
   type ConfirmationState
@@ -48,7 +48,6 @@ import {
   COUPON_TYPES,
   buildCouponPayload,
   buildCouponQuery,
-  couponToFormValues,
   createEmptyCouponFilters,
   createEmptyCouponFormValues,
   formatCouponDiscount,
@@ -67,7 +66,7 @@ import {
 
 const PAGE_SIZE = 20;
 
-type CouponView = "overview" | "coupons" | "new";
+type CouponView = "coupons" | "new";
 
 const couponSections: Array<{
   description: string;
@@ -75,12 +74,6 @@ const couponSections: Array<{
   id: CouponView;
   title: string;
 }> = [
-  {
-    description: "Coupon metrics and shortcuts into focused discount workflows.",
-    href: "/coupons",
-    id: "overview",
-    title: "Overview"
-  },
   {
     description: "Search, filter, edit, archive, and review checkout discounts.",
     href: "/coupons/list",
@@ -103,10 +96,6 @@ const couponCopy: Record<CouponView, { summary: string; title: string }> = {
   new: {
     summary: "Create one checkout discount without the table and filters competing for space.",
     title: "Create coupon"
-  },
-  overview: {
-    summary: "Review coupon coverage and jump into focused discount management pages.",
-    title: "Coupons"
   }
 };
 
@@ -118,10 +107,6 @@ export function CouponsRoute({ children }: { children: ReactNode }) {
       </ProtectedRoute>
     </AdminShell>
   );
-}
-
-export function CouponsLandingPage() {
-  return <CouponsContent view="overview" />;
 }
 
 export function CouponListPage() {
@@ -142,7 +127,6 @@ function CouponsContent({ view }: { view: CouponView }) {
     createEmptyCouponFilters()
   );
   const [page, setPage] = useState(1);
-  const [editingCoupon, setEditingCoupon] = useState<AdminCoupon | null>(null);
   const [formValues, setFormValues] = useState<CouponFormValues>(
     createEmptyCouponFormValues()
   );
@@ -167,19 +151,6 @@ function CouponsContent({ view }: { view: CouponView }) {
         method: "POST"
       })
   });
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      payload
-    }: {
-      id: string;
-      payload: CouponPayload;
-    }) =>
-      api.request<AdminCoupon>(`/admin/coupons/${id}`, {
-        body: JSON.stringify(payload),
-        method: "PATCH"
-      })
-  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
       api.request<AdminCoupon>(`/admin/coupons/${id}`, {
@@ -199,9 +170,8 @@ function CouponsContent({ view }: { view: CouponView }) {
   const error =
     getErrorMessage(couponsQuery.error) ??
     getErrorMessage(createMutation.error) ??
-    getErrorMessage(updateMutation.error) ??
     getErrorMessage(deleteMutation.error);
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createMutation.isPending;
   const isDeleting = deleteMutation.isPending;
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
@@ -231,21 +201,15 @@ function CouponsContent({ view }: { view: CouponView }) {
     }));
   }
 
-  function startEdit(coupon: AdminCoupon) {
-    setEditingCoupon(coupon);
-    setFieldErrors({});
-    setMessage(null);
-    setFormValues(couponToFormValues(coupon));
-  }
-
   function resetForm() {
-    setEditingCoupon(null);
     setFieldErrors({});
     setFormValues(createEmptyCouponFormValues());
   }
 
   async function saveCoupon(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSaving) return;
+    setMessage(null);
     const errors = validateCouponForm(formValues);
 
     if (Object.keys(errors).length > 0) {
@@ -256,19 +220,14 @@ function CouponsContent({ view }: { view: CouponView }) {
     setFieldErrors({});
     const payload = buildCouponPayload(formValues);
 
-    if (editingCoupon) {
-      await updateMutation.mutateAsync({
-        id: editingCoupon.id,
-        payload
-      });
-      setMessage("Coupon updated.");
-    } else {
+    try {
       await createMutation.mutateAsync(payload);
       setMessage("Coupon created.");
+      resetForm();
+      await refreshCoupons();
+    } catch {
+      // The mutation error is displayed above the form; preserve the entered values.
     }
-
-    resetForm();
-    await refreshCoupons();
   }
 
   function confirmDelete(coupon: AdminCoupon) {
@@ -278,9 +237,6 @@ function CouponsContent({ view }: { view: CouponView }) {
       onConfirm: async () => {
         await deleteMutation.mutateAsync(coupon.id);
         setMessage("Coupon archived.");
-        if (editingCoupon?.id === coupon.id) {
-          resetForm();
-        }
         await refreshCoupons();
       },
       title: "Archive coupon"
@@ -288,7 +244,6 @@ function CouponsContent({ view }: { view: CouponView }) {
   }
 
   const pageCopy = couponCopy[view];
-  const editingCouponForPanel = view === "coupons" ? editingCoupon : null;
 
   return (
     <>
@@ -336,33 +291,19 @@ function CouponsContent({ view }: { view: CouponView }) {
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics couponMetricGrid">
-          <MetricCard label="Total coupons" tone="primary" value={pagination?.total ?? 0} />
-          <MetricCard label="Visible" value={coupons.length} />
-          <MetricCard label="Active visible" tone="primary" value={activeVisibleCount} />
-          <MetricCard label="Inactive visible" tone="warning" value={inactiveVisibleCount} />
-          <MetricCard label="Limited visible" value={limitedVisibleCount} />
-        </div>
+        {view === "coupons" ? (
+          <div className="metricGrid resourceMetrics couponMetricGrid">
+            <MetricCard label="Total coupons" tone="primary" value={pagination?.total ?? 0} />
+            <MetricCard label="Visible" value={coupons.length} />
+            <MetricCard label="Active visible" tone="primary" value={activeVisibleCount} />
+            <MetricCard label="Inactive visible" tone="warning" value={inactiveVisibleCount} />
+            <MetricCard label="Limited visible" value={limitedVisibleCount} />
+          </div>
+        ) : null}
       </section>
 
-      {view === "overview" ? (
-        <CouponHub
-          activeVisibleCount={activeVisibleCount}
-          inactiveVisibleCount={inactiveVisibleCount}
-          limitedVisibleCount={limitedVisibleCount}
-          totalCoupons={pagination?.total ?? 0}
-        />
-      ) : null}
-
       {view === "new" ? (
-        <section className="panel couponFormPanel couponFormOnlyPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow="New coupon"
-            level={2}
-            summary="Define coupon code, discount type, limits, dates, and active checkout status from one focused form."
-            title="Create coupon"
-          />
+        <section className="panel couponFormPanel couponFormOnlyPanel mt-3">
           <CouponForm
             errors={fieldErrors}
             isEditing={false}
@@ -376,14 +317,8 @@ function CouponsContent({ view }: { view: CouponView }) {
       ) : null}
 
       {view === "coupons" ? (
-        <div
-          className={
-            editingCouponForPanel
-              ? "couponWorkspaceGrid"
-              : "couponWorkspaceGrid couponWorkspaceGrid--single"
-          }
-        >
-          <section className="panel couponListPanel">
+        <div className="couponWorkspaceGrid couponWorkspaceGrid--single">
+          <section className="panel couponListPanel mt-3">
             <PageHeader
               className="settingsSectionHeader"
               eyebrow="Coupon list"
@@ -411,7 +346,6 @@ function CouponsContent({ view }: { view: CouponView }) {
                 coupons={coupons}
                 isDeleting={isDeleting}
                 onDelete={confirmDelete}
-                onEdit={startEdit}
               />
             ) : null}
             {pagination ? (
@@ -423,37 +357,6 @@ function CouponsContent({ view }: { view: CouponView }) {
             ) : null}
           </section>
 
-          {editingCouponForPanel ? (
-            <aside className="panel couponFormPanel">
-              <PageHeader
-                actions={
-                  <Button
-                    className="iconTextButton"
-                    onClick={resetForm}
-                    type="button"
-                    variant="outline"
-                  >
-                    <X aria-hidden size={16} />
-                    <span>Close</span>
-                  </Button>
-                }
-                className="settingsSectionHeader"
-                eyebrow="Edit coupon"
-                level={2}
-                summary="Changes apply to customer checkout after save."
-                title={editingCouponForPanel.code}
-              />
-              <CouponForm
-                errors={fieldErrors}
-                isEditing
-                isSaving={isSaving}
-                onCancel={resetForm}
-                onChange={updateFormValue}
-                onSubmit={saveCoupon}
-                values={formValues}
-              />
-            </aside>
-          ) : null}
         </div>
       ) : null}
 
@@ -467,7 +370,7 @@ function CouponsContent({ view }: { view: CouponView }) {
   );
 }
 
-function CouponSectionNav({ active }: { active: CouponView }) {
+export function CouponSectionNav({ active }: { active: CouponView }) {
   return (
     <nav className="couponSectionNav" aria-label="Coupon sections">
       {couponSections.map((section) => (
@@ -480,63 +383,6 @@ function CouponSectionNav({ active }: { active: CouponView }) {
         </Link>
       ))}
     </nav>
-  );
-}
-
-function CouponHub({
-  activeVisibleCount,
-  inactiveVisibleCount,
-  limitedVisibleCount,
-  totalCoupons
-}: {
-  activeVisibleCount: number;
-  inactiveVisibleCount: number;
-  limitedVisibleCount: number;
-  totalCoupons: number;
-}) {
-  const cards = [
-    {
-      description: "Open the table-first workspace for filtering, editing, and archiving.",
-      href: "/coupons/list",
-      metric: totalCoupons,
-      title: "Coupons table"
-    },
-    {
-      description: "Create a new percentage or fixed-amount checkout discount.",
-      href: "/coupons/new",
-      metric: "Create",
-      title: "New coupon"
-    },
-    {
-      description: "Review coupons currently enabled in the visible result set.",
-      href: "/coupons/list",
-      metric: activeVisibleCount,
-      title: "Active visible"
-    },
-    {
-      description: "Inspect coupons that are not currently usable at checkout.",
-      href: "/coupons/list",
-      metric: inactiveVisibleCount,
-      title: "Inactive visible"
-    },
-    {
-      description: "Review coupons with configured usage limits.",
-      href: "/coupons/list",
-      metric: limitedVisibleCount,
-      title: "Limited visible"
-    }
-  ];
-
-  return (
-    <section className="couponHubGrid">
-      {cards.map((card) => (
-        <Link className="couponHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
   );
 }
 
@@ -562,6 +408,7 @@ function CouponFiltersForm({
             })
           }
           placeholder="Coupon code"
+          maxLength={64}
           value={filters.search}
         />
       </label>
@@ -578,7 +425,7 @@ function CouponFiltersForm({
   );
 }
 
-function CouponForm({
+export function CouponForm({
   errors,
   isEditing,
   isSaving,
@@ -599,11 +446,13 @@ function CouponForm({
   values: CouponFormValues;
 }) {
   return (
-    <form className="formStack productForm couponForm" onSubmit={onSubmit}>
+    <form className="formStack productForm couponForm" noValidate onSubmit={onSubmit}>
+      <fieldset className="formStack m-0 min-w-0 border-0 p-0" disabled={isSaving}>
       <div className="formGrid">
         <TextField
           error={errors.code}
           label="Code"
+          maxLength={64}
           onChange={(value) => onChange("code", value)}
           placeholder="SURGICAL10"
           value={values.code}
@@ -630,6 +479,8 @@ function CouponForm({
         <TextField
           error={errors.value}
           label="Discount value"
+          min={0.01}
+          step={0.01}
           onChange={(value) => onChange("value", value)}
           placeholder={values.type === "PERCENTAGE" ? "10" : "500"}
           type="number"
@@ -638,6 +489,8 @@ function CouponForm({
         <TextField
           error={errors.minOrderAmount}
           label="Minimum order amount"
+          min={0}
+          step={0.01}
           onChange={(value) => onChange("minOrderAmount", value)}
           placeholder="1000"
           type="number"
@@ -646,6 +499,8 @@ function CouponForm({
         <TextField
           error={errors.maxDiscount}
           label="Maximum discount"
+          min={0}
+          step={0.01}
           onChange={(value) => onChange("maxDiscount", value)}
           placeholder="300"
           type="number"
@@ -654,6 +509,8 @@ function CouponForm({
         <TextField
           error={errors.usageLimit}
           label="Usage limit"
+          min={1}
+          step={1}
           onChange={(value) => onChange("usageLimit", value)}
           placeholder="50"
           type="number"
@@ -699,6 +556,7 @@ function CouponForm({
           </Button>
         ) : null}
       </div>
+      </fieldset>
     </form>
   );
 }
@@ -706,13 +564,11 @@ function CouponForm({
 function CouponsTable({
   coupons,
   isDeleting,
-  onDelete,
-  onEdit
+  onDelete
 }: {
   coupons: AdminCoupon[];
   isDeleting: boolean;
   onDelete: (coupon: AdminCoupon) => void;
-  onEdit: (coupon: AdminCoupon) => void;
 }) {
   return (
     <div className="resourceTable couponTable">
@@ -754,15 +610,18 @@ function CouponsTable({
               <TableCell>
                 <div className="tableActions">
                   <Button
-                    aria-label={`Edit ${coupon.code}`}
+                    asChild
                     className="iconTextButton"
-                    onClick={() => onEdit(coupon)}
                     size="sm"
-                    type="button"
                     variant="outline"
                   >
-                    <Pencil aria-hidden size={16} />
-                    <span>Edit</span>
+                    <Link
+                      aria-label={`Edit ${coupon.code}`}
+                      href={`/coupons/${encodeURIComponent(coupon.id)}/edit`}
+                    >
+                      <Pencil aria-hidden size={16} />
+                      <span>Edit</span>
+                    </Link>
                   </Button>
                   <Button
                     aria-label={`Archive ${coupon.code}`}
@@ -789,28 +648,41 @@ function CouponsTable({
 function TextField({
   error,
   label,
+  maxLength,
+  min,
   onChange,
   placeholder,
+  step,
   type = "text",
   value
 }: {
   error?: string;
   label: string;
+  maxLength?: number;
+  min?: number;
   onChange: (value: string) => void;
   placeholder?: string;
+  step?: number;
   type?: string;
   value: string;
 }) {
+  const errorId = useId();
   return (
     <label>
       {label}
       <Input
+        aria-label={label}
+        aria-describedby={error ? errorId : undefined}
+        aria-invalid={Boolean(error)}
+        maxLength={maxLength}
+        min={min}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        step={step}
         type={type}
         value={value}
       />
-      {error ? <span className="fieldError">{error}</span> : null}
+      {error ? <span className="fieldError" id={errorId}>{error}</span> : null}
     </label>
   );
 }

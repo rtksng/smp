@@ -5,10 +5,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
-import type {
-  AdminDeliveryChargeRuleListQueryDto,
-  CreateDeliveryChargeRuleDto,
-  UpdateDeliveryChargeRuleDto
+import {
+  MAX_DELIVERY_CHARGE_AMOUNT,
+  type AdminDeliveryChargeRuleListQueryDto,
+  type CreateDeliveryChargeRuleDto,
+  type UpdateDeliveryChargeRuleDto
 } from "./dto/delivery-charge.dto";
 
 const DELIVERY_CHARGE_RULE_INCLUDE = {
@@ -138,6 +139,7 @@ export class DeliveryChargesService {
 
   async createAdminRule(input: CreateDeliveryChargeRuleDto) {
     const data = buildRuleData(input) as Prisma.DeliveryChargeRuleUncheckedCreateInput;
+    await this.assertWarehouseExists(input.warehouseId);
     const rule = await this.prisma.deliveryChargeRule.create({
       data,
       include: DELIVERY_CHARGE_RULE_INCLUDE
@@ -149,6 +151,7 @@ export class DeliveryChargesService {
   async updateAdminRule(id: string, input: UpdateDeliveryChargeRuleDto) {
     const existing = await this.findAdminRule(id);
     const data = buildRuleData(input, existing);
+    await this.assertWarehouseExists(input.warehouseId);
     const rule = await this.prisma.deliveryChargeRule.update({
       data,
       include: DELIVERY_CHARGE_RULE_INCLUDE,
@@ -190,6 +193,18 @@ export class DeliveryChargesService {
     }
 
     return rule;
+  }
+
+  private async assertWarehouseExists(warehouseId: string | null | undefined) {
+    if (!warehouseId) return;
+
+    const warehouse = await this.prisma.warehouse.findFirst({
+      select: { id: true },
+      where: { deletedAt: null, id: warehouseId }
+    });
+    if (!warehouse) {
+      throw new NotFoundException("Warehouse was not found.");
+    }
   }
 }
 
@@ -319,6 +334,9 @@ function serializeRule(rule: DeliveryChargeRuleRecord) {
 }
 
 function normalizeRequiredText(value: string, label: string) {
+  if (typeof value !== "string") {
+    throw new BadRequestException(`${label} is required.`);
+  }
   const trimmed = value.trim();
 
   if (!trimmed) {
@@ -331,6 +349,10 @@ function normalizeRequiredText(value: string, label: string) {
 function normalizeMoney(value: number, field: string) {
   if (!Number.isFinite(value) || value < 0) {
     throw new BadRequestException(`${field} must be 0 or above.`);
+  }
+
+  if (value > MAX_DELIVERY_CHARGE_AMOUNT) {
+    throw new BadRequestException(`${field} must be ${MAX_DELIVERY_CHARGE_AMOUNT} or below.`);
   }
 
   return roundMoney(value);

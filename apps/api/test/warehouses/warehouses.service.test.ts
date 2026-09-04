@@ -202,6 +202,28 @@ test("listWarehouses scopes non-super-admins to assigned warehouses", async () =
   });
 });
 
+test("listWarehouses narrows report links without widening assigned warehouse access", async () => {
+  const prisma = createWarehousePrismaMock();
+  const service = new WarehousesService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1", "warehouse-2"]) as unknown as WarehouseAccessService
+  );
+
+  await service.listWarehouses({ warehouseId: "warehouse-2", status: "ACTIVE" }, adminAuth());
+  await service.listWarehouses({ warehouseId: "warehouse-3" }, adminAuth());
+  await service.listWarehouses({ warehouseId: "warehouse-3" }, adminAuth(AdminRoleCode.SuperAdmin));
+
+  const expected = [
+    { deletedAt: null, id: { in: ["warehouse-2"] }, status: "ACTIVE" },
+    { deletedAt: null, id: { in: [] } },
+    { deletedAt: null, id: "warehouse-3" }
+  ];
+  for (const [index, where] of expected.entries()) {
+    assert.deepEqual((prisma.calls.warehouseFindMany[index] as { where: unknown }).where, where);
+    assert.deepEqual((prisma.calls.warehouseCount[index] as { where: unknown }).where, where);
+  }
+});
+
 test("deleteWarehouse rejects warehouses with inventory, batches, or movements", async () => {
   const prisma = createWarehousePrismaMock();
   prisma.inventoryStock.count = async (args: unknown) => {

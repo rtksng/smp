@@ -45,6 +45,7 @@ export type ReturnStockDisposition = (typeof RETURN_STOCK_DISPOSITIONS)[number];
 export type InventoryFilters = {
   lowStock: boolean;
   nearExpiry: boolean;
+  nearExpiryDays: string;
   productId: string;
   search: string;
   warehouseId: string;
@@ -164,6 +165,10 @@ const signedIntegerString = (label: string) =>
 export const inventoryFiltersSchema = z.object({
   lowStock: z.boolean(),
   nearExpiry: z.boolean(),
+  nearExpiryDays: z.string().trim().refine(
+    (value) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 365,
+    "Expiry window must be a whole number between 1 and 365 days."
+  ),
   productId: z.string().trim(),
   search: z.string().trim().max(160, "Search is too long."),
   warehouseId: z.string().trim()
@@ -233,6 +238,7 @@ export function createEmptyInventoryFilters(): InventoryFilters {
   return {
     lowStock: false,
     nearExpiry: false,
+    nearExpiryDays: "30",
     productId: "",
     search: "",
     warehouseId: ""
@@ -252,6 +258,23 @@ export function createEmptyStockInFormValues() {
     sellingPrice: "",
     variantId: "",
     warehouseId: ""
+  };
+}
+
+export function createInventoryFiltersFromSearchParams(searchParams: {
+  get: (key: string) => string | null;
+}): InventoryFilters {
+  const days = inventoryFiltersSchema.shape.nearExpiryDays.safeParse(
+    searchParams.get("nearExpiryDays") ?? "30"
+  );
+
+  return {
+    lowStock: searchParams.get("lowStock") === "true",
+    nearExpiry: searchParams.get("nearExpiry") === "true",
+    nearExpiryDays: days.success ? days.data : "30",
+    productId: searchParams.get("productId") ?? "",
+    search: searchParams.get("search") ?? "",
+    warehouseId: searchParams.get("warehouseId") ?? ""
   };
 }
 
@@ -309,7 +332,7 @@ export function buildInventoryRequest(
       endpoint: "/admin/inventory/near-expiry",
       query: {
         ...query,
-        days: options.days ?? 30
+        days: options.days ?? Number(filters.nearExpiryDays)
       },
       type: "batch"
     };

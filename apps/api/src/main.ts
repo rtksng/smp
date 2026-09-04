@@ -38,6 +38,7 @@ async function bootstrap() {
     allowedHeaders: ["Accept", "Authorization", "Content-Type", "X-Request-Id"],
     credentials: true,
     exposedHeaders: [
+      "Content-Disposition",
       "Retry-After",
       "X-RateLimit-Limit",
       "X-RateLimit-Remaining",

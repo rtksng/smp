@@ -182,6 +182,13 @@ export async function requestAdminApi<T>(
   path: string,
   options: AdminApiRequestOptions = {}
 ): Promise<T> {
+  return parseEnvelope<T>(await requestAdminApiResponse(path, options));
+}
+
+export async function requestAdminApiResponse(
+  path: string,
+  options: AdminApiRequestOptions = {}
+): Promise<Response> {
   const {
     auth,
     headers,
@@ -213,7 +220,7 @@ export async function requestAdminApi<T>(
       const refreshedSession = await auth.refreshSession();
 
       if (refreshedSession) {
-        return requestAdminApi<T>(path, {
+        return requestAdminApiResponse(path, {
           ...options,
           skipAuthRefresh: true,
           tokenOverride: refreshedSession.tokens.accessToken
@@ -226,7 +233,7 @@ export async function requestAdminApi<T>(
     auth.clearSession();
   }
 
-  return parseEnvelope<T>(response);
+  return response;
 }
 
 export class AdminApiClient {
@@ -256,6 +263,17 @@ export class AdminApiClient {
 
   request<T>(path: string, init: AdminApiRequestOptions = {}) {
     return requestAdminApi<T>(path, {
+      ...init,
+      auth: {
+        clearSession: this.options.clearSession,
+        getSession: this.options.getSession,
+        refreshSession: () => this.refreshSession()
+      }
+    });
+  }
+
+  requestResponse(path: string, init: AdminApiRequestOptions = {}) {
+    return requestAdminApiResponse(path, {
       ...init,
       auth: {
         clearSession: this.options.clearSession,

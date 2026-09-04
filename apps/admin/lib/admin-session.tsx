@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   requestAdminApi,
+  requestAdminApiResponse,
   type AdminApiRequestOptions
 } from "./admin-api";
 import { useAdminAuthStore } from "./auth-store";
@@ -24,6 +25,15 @@ export function useAdminSession() {
     () => ({
       request: <T,>(path: string, init: AdminApiRequestOptions = {}) =>
         requestAdminApi<T>(path, {
+          ...init,
+          auth: {
+            clearSession: useAdminAuthStore.getState().clearSession,
+            getSession: () => useAdminAuthStore.getState().session,
+            refreshSession: () => useAdminAuthStore.getState().refreshSession()
+          }
+        }),
+      requestResponse: (path: string, init: AdminApiRequestOptions = {}) =>
+        requestAdminApiResponse(path, {
           ...init,
           auth: {
             clearSession: useAdminAuthStore.getState().clearSession,

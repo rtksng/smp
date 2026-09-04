@@ -1,5 +1,6 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
+  IsBoolean,
   IsEnum,
   IsDateString,
   IsInt,
@@ -82,6 +83,15 @@ export class OrderListQueryDto {
 }
 
 export class AdminOrderListQueryDto extends OrderListQueryDto {
+  @ApiPropertyOptional({ description: "Only orders awaiting completion.", type: Boolean })
+  @Transform(({ obj, key }) => {
+    const value: unknown = (obj as Record<string, unknown>)[key];
+    return value === "true" ? true : value === "false" ? false : value;
+  }, { toClassOnly: true })
+  @IsBoolean()
+  @IsOptional()
+  pendingOnly?: boolean;
+
   @ApiPropertyOptional({
     enum: OrderStatus,
     example: OrderStatus.CONFIRMED

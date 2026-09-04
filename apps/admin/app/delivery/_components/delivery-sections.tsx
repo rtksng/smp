@@ -11,7 +11,9 @@ import {
   XCircle
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -106,6 +108,7 @@ const emptyAssignmentForm: AssignDeliveryValues = {
 };
 
 type DeliveryView = "overview" | "partners" | "assignments" | "assign";
+type AssignmentFilters = DeliveryAssignmentFilters & { search: string };
 
 const deliverySections: Array<{
   description: string;
@@ -209,14 +212,40 @@ export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) 
 }
 
 export function DeliveryAssignmentsPage() {
-  return <DeliveryContent view="assignments" />;
+  return (
+    <Suspense fallback={<LoadingState label="Loading delivery assignments..." />}>
+      <DeliveryAssignmentDestination />
+    </Suspense>
+  );
+}
+
+function DeliveryAssignmentDestination() {
+  const searchKey = useSearchParams().toString();
+  const params = new URLSearchParams(searchKey);
+  const status = params.get("status") ?? "";
+  const initialAssignmentFilters: AssignmentFilters = {
+    ...createEmptyDeliveryAssignmentFilters(),
+    status: DELIVERY_ASSIGNMENT_STATUSES.some((item) => item === status)
+      ? status as AssignmentFilters["status"]
+      : "",
+    search: (params.get("search") ?? "").trim().slice(0, 100)
+  };
+
+  // Remount the filter state when another notification opens this same route.
+  return <DeliveryContent key={searchKey} initialAssignmentFilters={initialAssignmentFilters} view="assignments" />;
 }
 
 export function DeliveryAssignPage() {
   return <DeliveryContent view="assign" />;
 }
 
-function DeliveryContent({ view }: { view: DeliveryView }) {
+function DeliveryContent({
+  view,
+  initialAssignmentFilters = { ...createEmptyDeliveryAssignmentFilters(), search: "" }
+}: {
+  view: DeliveryView;
+  initialAssignmentFilters?: AssignmentFilters;
+}) {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
@@ -230,9 +259,9 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
     createEmptyDeliveryPartnerFilters()
   );
   const [assignmentDraftFilters, setAssignmentDraftFilters] =
-    useState<DeliveryAssignmentFilters>(createEmptyDeliveryAssignmentFilters());
+    useState<AssignmentFilters>(initialAssignmentFilters);
   const [assignmentFilters, setAssignmentFilters] =
-    useState<DeliveryAssignmentFilters>(createEmptyDeliveryAssignmentFilters());
+    useState<AssignmentFilters>(initialAssignmentFilters);
   const [assignmentForm, setAssignmentForm] =
     useState<AssignDeliveryValues>(emptyAssignmentForm);
 
@@ -241,12 +270,14 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
     [partnerFilters, partnerPage]
   );
   const assignmentQuery = useMemo(
-    () =>
-      buildDeliveryAssignmentQuery(
+    () => ({
+      ...buildDeliveryAssignmentQuery(
         assignmentFilters,
         assignmentPage,
         DELIVERY_PAGE_SIZE
       ),
+      search: assignmentFilters.search.trim().slice(0, 100) || undefined
+    }),
     [assignmentFilters, assignmentPage]
   );
 
@@ -378,7 +409,7 @@ function DeliveryContent({ view }: { view: DeliveryView }) {
   }
 
   function resetAssignmentFilters() {
-    const emptyFilters = createEmptyDeliveryAssignmentFilters();
+    const emptyFilters = { ...createEmptyDeliveryAssignmentFilters(), search: "" };
     setAssignmentPage(1);
     setAssignmentDraftFilters(emptyFilters);
     setAssignmentFilters(emptyFilters);
@@ -1050,9 +1081,9 @@ function AssignmentFilterForm({
   partners,
   warehouses
 }: {
-  filters: DeliveryAssignmentFilters;
+  filters: AssignmentFilters;
   isWarehouseLoading: boolean;
-  onChange: (filters: DeliveryAssignmentFilters) => void;
+  onChange: (filters: AssignmentFilters) => void;
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   partners: AdminDeliveryPartner[];
@@ -1060,6 +1091,13 @@ function AssignmentFilterForm({
 }) {
   return (
     <form className="deliveryFilters deliveryAssignmentFilters" onSubmit={onSubmit}>
+      <Input
+        aria-label="Search delivery assignments"
+        maxLength={100}
+        onChange={(event) => onChange({ ...filters, search: event.target.value })}
+        placeholder="Search order or customer"
+        value={filters.search}
+      />
       <Select
         aria-label="Assignment status"
         onValueChange={(value) =>

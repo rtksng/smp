@@ -1,9 +1,6 @@
-import {
-  AdminApiClientError,
-  buildAdminApiUrl,
-  fetchAdminApi,
-  type QueryParams
-} from "./admin-api";
+import type { ReportExportData } from "@surgical/types";
+import type { QueryParams } from "./admin-api";
+import { ADMIN_PERMISSION } from "./permissions";
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -15,15 +12,18 @@ import {
 export const REPORT_ORDER_STATUSES = ORDER_STATUSES;
 export const REPORT_PAYMENT_STATUSES = PAYMENT_STATUSES;
 export const REPORT_EXPORT_FORMATS = ["csv", "pdf"] as const;
+export const REPORT_VIEWS = ["overview", "orders", "sales", "products", "inventory", "warehouses"] as const;
 
 export type ReportOrderStatus = OrderStatus;
 export type ReportPaymentStatus = PaymentStatus;
 export type ReportExportFormat = (typeof REPORT_EXPORT_FORMATS)[number];
+export type ReportView = (typeof REPORT_VIEWS)[number];
 export type ReportDrilldownTarget =
   | "customers"
   | "inventory-low-stock"
   | "inventory-near-expiry"
   | "orders"
+  | "orders-pending"
   | "product"
   | "warehouse";
 
@@ -91,6 +91,8 @@ export type DashboardCharts = {
 export type DashboardReport = {
   cards: DashboardCards;
   charts: DashboardCharts;
+  todayDate?: string;
+  warehouseOptions?: Array<{ id: string; name: string; code: string }>;
   filters?: {
     dateFrom: string | null;
     dateTo: string | null;
@@ -139,32 +141,6 @@ export function buildDashboardReportQuery(filters: DashboardReportFilters): Quer
   };
 }
 
-export function buildReportExportUrl(
-  filters: DashboardReportFilters,
-  format: ReportExportFormat
-) {
-  const query = buildDashboardReportQuery(filters);
-
-  return buildRelativePath("/admin/reports/dashboard/export", {
-    dateFrom: query.dateFrom,
-    dateTo: query.dateTo,
-    format,
-    nearExpiryDays: query.nearExpiryDays,
-    orderStatus: query.orderStatus,
-    paymentStatus: query.paymentStatus,
-    warehouseId: query.warehouseId
-  });
-}
-
-export function dashboardReportDownloadFilename(
-  filters: DashboardReportFilters,
-  format: ReportExportFormat
-) {
-  return `dashboard-report-${filters.dateFrom || "all"}-to-${
-    filters.dateTo || "today"
-  }.${format}`;
-}
-
 export function buildReportDrilldownHref(
   target: ReportDrilldownTarget,
   filters: DashboardReportFilters,
@@ -181,13 +157,16 @@ export function buildReportDrilldownHref(
     case "inventory-near-expiry":
       return buildRelativePath("/inventory", {
         nearExpiry: true,
+        nearExpiryDays: buildDashboardReportQuery(filters).nearExpiryDays ?? 30,
         warehouseId: resourceId || filters.warehouseId || undefined
       });
     case "orders":
+    case "orders-pending":
       return buildRelativePath("/orders", {
         dateFrom: filters.dateFrom || undefined,
         dateTo: filters.dateTo || undefined,
         paymentStatus: filters.paymentStatus || undefined,
+        pendingOnly: target === "orders-pending" ? true : undefined,
         status: filters.orderStatus || undefined,
         warehouseId: filters.warehouseId || undefined
       });
@@ -203,40 +182,105 @@ export function buildReportDrilldownHref(
 export async function downloadDashboardReportExport(
   filters: DashboardReportFilters,
   format: ReportExportFormat,
-  accessToken: string
+  report: DashboardReport,
+  view: ReportView = "overview"
 ) {
-  const response = await fetchAdminApi(
-    buildAdminApiUrl(buildReportExportUrl(filters, format)),
-    {
-      headers: {
-        Accept: format === "pdf" ? "application/pdf" : "text/csv",
-        Authorization: `Bearer ${accessToken}`
-      }
+  const snapshot = structuredClone(buildReportExportData(filters, report));
+  const { renderReportExport } = await import("@surgical/types");
+  const exported = renderReportExport(snapshot, view, format);
+  const blob = new Blob([new Uint8Array(exported.body)], { type: exported.contentType });
+
+  triggerBrowserDownload(blob, exported.filename);
+
+  return exported.filename;
+}
+
+export function getReportWarehouseOptions(report: DashboardReport | undefined) {
+  return report?.warehouseOptions ?? report?.charts.warehouseStockSummary.map((warehouse) => ({
+    id: warehouse.warehouseId,
+    name: warehouse.warehouseName,
+    code: warehouse.warehouseCode
+  })) ?? [];
+}
+
+export function buildReportExportData(
+  filters: DashboardReportFilters,
+  report: DashboardReport
+): ReportExportData {
+  const resolved = resolveReportFilters(filters, report);
+
+  return {
+    cards: report.cards,
+    charts: report.charts,
+    todayDate: report.todayDate ?? new Date().toISOString().slice(0, 10),
+    warehouseOptions: getReportWarehouseOptions(report),
+    filters: {
+      dateFrom: resolved.dateFrom,
+      dateTo: resolved.dateTo,
+      nearExpiryDays: Number(buildDashboardReportQuery(resolved).nearExpiryDays ?? 30),
+      orderStatus: resolved.orderStatus || null,
+      paymentStatus: resolved.paymentStatus || null,
+      warehouseId: resolved.warehouseId || null
     }
-  );
+  };
+}
 
-  if (!response.ok) {
-    const message = await readExportErrorMessage(response);
+export function resolveReportFilters(
+  filters: DashboardReportFilters,
+  report: DashboardReport | undefined
+): DashboardReportFilters {
+  return {
+    ...filters,
+    dateFrom: report?.filters?.dateFrom?.slice(0, 10) ?? filters.dateFrom,
+    dateTo: report?.filters?.dateTo?.slice(0, 10) ?? filters.dateTo,
+    nearExpiryDays: String(report?.filters?.nearExpiryDays ?? filters.nearExpiryDays),
+    orderStatus: report?.filters ? report.filters.orderStatus ?? "" : filters.orderStatus,
+    paymentStatus: report?.filters ? report.filters.paymentStatus ?? "" : filters.paymentStatus,
+    warehouseId: report?.filters ? report.filters.warehouseId ?? "" : filters.warehouseId
+  };
+}
 
-    throw new AdminApiClientError(
-      message || "Unable to export dashboard report.",
-      response.status
-    );
-  }
+export function getReportRevenueContext(filters: DashboardReportFilters) {
+  const paymentStatus = filters.paymentStatus || "PAID";
+  const statusLabel = formatReportStatusLabel(paymentStatus);
 
-  const blob = await response.blob();
-  const filename =
-    getDispositionFilename(response.headers.get("content-disposition")) ??
-    dashboardReportDownloadFilename(filters, format);
+  return {
+    paymentStatus,
+    label: paymentStatus === "PAID" ? "Paid revenue" : `${statusLabel} order value`,
+    orderLinkLabel: `Open ${statusLabel.toLowerCase()} orders`
+  };
+}
 
-  triggerBrowserDownload(blob, filename);
+export function buildTodayOrdersHref(filters: DashboardReportFilters, todayDate: string) {
+  return buildReportDrilldownHref("orders", {
+    ...filters,
+    dateFrom: todayDate,
+    dateTo: todayDate
+  });
+}
 
-  return filename;
+export function canAccessReportHref(href: string, hasPermission: (permission: string) => boolean) {
+  const route = href.split(/[?#]/, 1)[0] ?? "";
+  const requiredPermission = [
+    ["/orders", ADMIN_PERMISSION.OrdersRead],
+    ["/inventory", ADMIN_PERMISSION.InventoryRead],
+    ["/products", ADMIN_PERMISSION.ProductsRead],
+    ["/warehouses", ADMIN_PERMISSION.WarehouseRead],
+    ["/customers", ADMIN_PERMISSION.UsersRead],
+    ["/reports", ADMIN_PERMISSION.ReportsRead]
+  ].find(([prefix]) => route === prefix || route.startsWith(`${prefix}/`))?.[1];
+
+  return Boolean(requiredPermission && hasPermission(requiredPermission));
 }
 
 export function reportDateRangeError(filters: DashboardReportFilters) {
   if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
     return "Start date must be before end date.";
+  }
+
+  const days = Number(filters.nearExpiryDays);
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    return "Expiry window must be a whole number between 1 and 365 days.";
   }
 
   return null;
@@ -293,19 +337,6 @@ function buildRelativePath(path: string, query: QueryParams) {
   const queryString = searchParams.toString();
 
   return queryString ? `${path}?${queryString}` : path;
-}
-
-async function readExportErrorMessage(response: Response) {
-  const envelope = await response.json().catch(() => null);
-  const message = envelope?.error?.message;
-
-  return Array.isArray(message) ? message.join(", ") : message;
-}
-
-function getDispositionFilename(disposition: string | null) {
-  const match = disposition?.match(/filename="?(?<filename>[^";]+)"?/i);
-
-  return match?.groups?.filename;
 }
 
 function triggerBrowserDownload(blob: Blob, filename: string) {

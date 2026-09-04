@@ -108,6 +108,16 @@ export function buildDeliveryChargeQuery(
   };
 }
 
+export function validateDeliveryChargeFilters(
+  filters: DeliveryChargeFilters
+): string | null {
+  const pincode = filters.pincode.trim();
+
+  return pincode && !/^\d{6}$/.test(pincode)
+    ? "Pincode must be exactly 6 digits."
+    : null;
+}
+
 export function buildDeliveryChargePayload(
   values: DeliveryChargeFormValues
 ): DeliveryChargePayload {
@@ -141,11 +151,15 @@ export function validateDeliveryChargeForm(
     : null;
   const pincode = values.pincode.trim();
 
-  if (!values.name.trim()) {
+  const name = values.name.trim();
+
+  if (!name) {
     errors.name = "Enter a rule name.";
+  } else if (name.length > 160) {
+    errors.name = "Rule name must be 160 characters or fewer.";
   }
 
-  if (!Number.isFinite(charge) || charge < 0) {
+  if (!values.charge.trim() || !Number.isFinite(charge) || charge < 0) {
     errors.charge = "Enter a delivery charge of 0 or above.";
   }
 

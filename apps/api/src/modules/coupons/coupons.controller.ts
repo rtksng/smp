@@ -29,6 +29,7 @@ import { PermissionCode } from "../permissions/permissions.constants";
 import { CouponsService } from "./coupons.service";
 import {
   AdminCouponListQueryDto,
+  AvailableCouponListResponseDto,
   CouponListResponseDto,
   CouponResponseDto,
   CouponValidationResponseDto,
@@ -42,6 +43,18 @@ import {
 @Controller("coupons")
 export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
+
+  @Get("available")
+  @UseGuards(CustomerJwtGuard)
+  @ApiOperation({ summary: "List up to 100 currently available checkout coupons." })
+  @ApiOkResponse({
+    description: "Available coupons returned. Cart minimums are checked when applying a code.",
+    type: AvailableCouponListResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
+  listAvailableCoupons() {
+    return this.couponsService.listAvailableCoupons();
+  }
 
   @Post("validate")
   @UseGuards(CustomerJwtGuard)

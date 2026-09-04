@@ -1,9 +1,5 @@
-import { CouponsLandingPage, CouponsRoute } from "./_components/coupon-sections";
+import { redirect } from "next/navigation";
 
 export default function CouponsPage() {
-  return (
-    <CouponsRoute>
-      <CouponsLandingPage />
-    </CouponsRoute>
-  );
+  redirect("/coupons/list");
 }
