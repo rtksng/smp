@@ -125,7 +125,7 @@ describe("admin support management helpers", () => {
     draft.items = [
       {
         name: " Curved Artery Forceps ",
-        productId: " product-1 ",
+        productId: " 00000000-0000-4000-8000-000000000001 ",
         quantity: "2",
         sku: " FORCEPS-001 ",
         taxRate: "18",
@@ -135,7 +135,7 @@ describe("admin support management helpers", () => {
     ];
     draft.notes = " Prices valid for current stock. ";
     draft.shippingTotal = "50";
-    draft.validUntil = "2026-06-30";
+    draft.validUntil = "2099-06-30";
 
     expect(validateQuoteResponseDraft(draft)).toEqual([]);
     expect(calculateQuoteResponseDraftTotals(draft)).toEqual({
@@ -148,7 +148,7 @@ describe("admin support management helpers", () => {
       items: [
         {
           name: "Curved Artery Forceps",
-          productId: "product-1",
+          productId: "00000000-0000-4000-8000-000000000001",
           quantity: 2,
           sku: "FORCEPS-001",
           taxRate: 18,
@@ -158,7 +158,7 @@ describe("admin support management helpers", () => {
       ],
       notes: "Prices valid for current stock.",
       shippingTotal: 50,
-      validUntil: "2026-06-30"
+      validUntil: "2099-06-30"
     });
   });
 

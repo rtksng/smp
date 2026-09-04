@@ -51,6 +51,7 @@ import {
   formatSupportDateTime,
   formatSupportLabel,
   formatCurrency,
+  getQuoteRequestStatusOptions,
   validateQuoteResponseDraft,
   type AdminQuoteRequest,
   type PaginatedAdminResponse,
@@ -238,7 +239,8 @@ export function QuoteRequestDetailPage() {
   const [draft, setDraft] = useState<QuoteResponseDraft>(
     createEmptyQuoteResponseDraft()
   );
-  const [_message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const quoteRequestQuery = useQuery({
     enabled: Boolean(quoteRequestId),
@@ -274,28 +276,34 @@ export function QuoteRequestDetailPage() {
     getErrorMessage(sendQuoteMutation.error);
 
   useEffect(() => {
-    if (quoteRequest) {
+    const version = quoteRequest ? `${quoteRequest.id}:${quoteRequest.quotation?.respondedAt ?? "new"}` : null;
+    if (quoteRequest && version !== draftVersion) {
       setDraft(quoteRequestToDraft(quoteRequest));
+      setDraftVersion(version);
     }
-  }, [quoteRequest]);
+  }, [quoteRequest, draftVersion]);
 
   async function refreshQuoteRequest() {
     await queryClient.invalidateQueries({ queryKey: ["admin", "quote-requests"] });
   }
 
   async function updateStatus(status: QuoteRequestStatus) {
-    if (!quoteRequest || quoteRequest.status === status) {
+    if (!quoteRequest || quoteRequest.status === status || updateStatusMutation.isPending || sendQuoteMutation.isPending) {
       return;
     }
 
     setFormError(null);
-    await updateStatusMutation.mutateAsync(status);
-    setMessage("Quote request status updated.");
-    await refreshQuoteRequest();
+    setMessage(null);
+    sendQuoteMutation.reset();
+    try {
+      await updateStatusMutation.mutateAsync(status);
+      setMessage("Quote request status updated.");
+      await refreshQuoteRequest();
+    } catch { /* The mutation error is rendered below. */ }
   }
 
   async function sendQuotation() {
-    if (!quoteRequest) {
+    if (!quoteRequest || sendQuoteMutation.isPending || updateStatusMutation.isPending) {
       return;
     }
 
@@ -308,9 +316,13 @@ export function QuoteRequestDetailPage() {
     }
 
     setFormError(null);
-    await sendQuoteMutation.mutateAsync(buildQuoteResponsePayload(draft));
-    setMessage("Quotation response sent.");
-    await refreshQuoteRequest();
+    setMessage(null);
+    updateStatusMutation.reset();
+    try {
+      await sendQuoteMutation.mutateAsync(buildQuoteResponsePayload(draft));
+      setMessage("Quotation response sent.");
+      await refreshQuoteRequest();
+    } catch { /* The mutation error is rendered below. */ }
   }
 
   return (
@@ -353,6 +365,7 @@ export function QuoteRequestDetailPage() {
         ) : null}
       </section>
 
+      {message && !error ? <p className="formSuccess" role="status">{message}</p> : null}
       {quoteRequestQuery.isLoading ? (
         <LoadingState label="Loading quote request..." />
       ) : null}
@@ -562,7 +575,7 @@ function QuoteRequestResponsePanel({
       </div>
       <Select
         aria-label={`Update ${quoteRequest.name} status`}
-        disabled={isUpdating}
+        disabled={isUpdating || isSending || getQuoteRequestStatusOptions(quoteRequest).length === 1}
         onValueChange={(value) => void onStatusChange(value as QuoteRequestStatus)}
         value={quoteRequest.status}
       >
@@ -570,20 +583,22 @@ function QuoteRequestResponsePanel({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {QUOTE_REQUEST_STATUSES.map((status) => (
+          {getQuoteRequestStatusOptions(quoteRequest).map((status) => (
             <SelectItem key={status} value={status}>
               {formatSupportLabel(status)}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <QuoteResponseEditor
+      {(["CLOSED", "CONVERTED"].includes(quoteRequest.status) || quoteRequest.convertedCartId || quoteRequest.convertedOrderId) ? (
+        <><ExistingQuoteSummary quoteRequest={quoteRequest} /><p className="text-sm text-muted-foreground">Closed or converted quotations cannot be edited.</p></>
+      ) : <fieldset className="min-w-0 border-0 p-0" disabled={isSending || isUpdating}><QuoteResponseEditor
         draft={draft}
         isSending={isSending}
         onChange={onDraftChange}
         onSend={onSendQuotation}
         quoteRequest={quoteRequest}
-      />
+      /></fieldset>}
     </>
   );
 }
@@ -860,6 +875,7 @@ function ExistingQuoteSummary({
           Cart prepared: {quoteRequest.convertedCartId}
         </p>
       ) : null}
+      {quoteRequest.convertedOrderId ? <Link className="text-sm font-semibold underline" href={`/orders/${quoteRequest.convertedOrderId}`}>View converted order</Link> : null}
     </div>
   );
 }

@@ -9,11 +9,13 @@ import {
   XCircle
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   acceptQuoteRequest,
   convertQuoteToCart,
   convertQuoteToOrder,
   listCustomerQuoteRequests,
+  isQuoteExpired,
   rejectQuoteRequest,
   type QuoteRequest
 } from "../../lib/api/quote-requests";
@@ -48,9 +50,11 @@ export function AccountQuotes() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const setCartSummary = useCartStore((state) => state.setSummary);
+  const [page, setPage] = useState(1);
   const quotesQuery = useQuery({
-    queryFn: () => listCustomerQuoteRequests(),
-    queryKey: customerQueryKeys.quotes(1, 20)
+    queryFn: () => listCustomerQuoteRequests(page, 20),
+    queryKey: customerQueryKeys.quotes(page, 20),
+    staleTime: 0
   });
   const quotes = quotesQuery.data?.items ?? [];
   const latestQuote = quotes[0];
@@ -88,6 +92,10 @@ export function AccountQuotes() {
     getFriendlyApiErrorMessage(rejectMutation.error, "") ||
     getFriendlyApiErrorMessage(convertMutation.error, "") ||
     getFriendlyApiErrorMessage(orderMutation.error, "");
+  const isActing = acceptMutation.isPending || rejectMutation.isPending || convertMutation.isPending || orderMutation.isPending;
+  function clearActionErrors() {
+    acceptMutation.reset(); rejectMutation.reset(); convertMutation.reset(); orderMutation.reset();
+  }
 
   return (
     <CustomerAccountShell
@@ -116,15 +124,15 @@ export function AccountQuotes() {
               value: String(quotesQuery.data.pagination.total)
             },
             {
-              label: "Latest",
+              label: "Latest on this page",
               value: latestQuote ? formatDate(latestQuote.createdAt) : "-"
             },
             {
-              label: "Awaiting decision",
+              label: "Awaiting decision on this page",
               value: String(quotedCount)
             },
             {
-              label: "Accepted",
+              label: "Accepted on this page",
               value: String(acceptedCount)
             }
           ]}
@@ -139,7 +147,7 @@ export function AccountQuotes() {
 
       {quotesQuery.isSuccess && quotes.length === 0 ? (
         <PrivateEmptyState
-          action={<Button href="/#bulk-quote">Request quote</Button>}
+          action={<Button href="/#bulk">Request quote</Button>}
           description="Submitted bulk quote requests and itemized responses will appear here."
           title="No quote requests yet"
         />
@@ -148,7 +156,7 @@ export function AccountQuotes() {
       {quotes.length > 0 ? (
         <AccountSection>
           <AccountSectionHeader
-            description="Quote responses are matched to your account email and can be accepted before checkout."
+            description="Review requests matched to your account email or mobile number, then accept a quotation to continue."
             title="Quote history"
           />
           <div className="mt-4 grid gap-4">
@@ -158,16 +166,24 @@ export function AccountQuotes() {
                 isCreatingOrder={orderMutation.isPending}
                 isConverting={convertMutation.isPending}
                 isRejecting={rejectMutation.isPending}
+                isActing={isActing}
                 key={quote.id}
-                onAccept={() => acceptMutation.mutate(quote.id)}
-                onConvert={() => convertMutation.mutate(quote.id)}
-                onCreateOrder={() => orderMutation.mutate(quote.id)}
-                onReject={() => rejectMutation.mutate(quote.id)}
+                onAccept={() => { clearActionErrors(); acceptMutation.mutate(quote.id); }}
+                onConvert={() => { clearActionErrors(); convertMutation.mutate(quote.id); }}
+                onCreateOrder={() => { clearActionErrors(); orderMutation.mutate(quote.id); }}
+                onReject={() => { clearActionErrors(); rejectMutation.mutate(quote.id); }}
                 quote={quote}
               />
             ))}
           </div>
         </AccountSection>
+      ) : null}
+      {quotesQuery.data && quotesQuery.data.pagination.totalPages > 1 ? (
+        <nav aria-label="Quote history pages" className="flex items-center justify-between gap-3">
+          <Button disabled={page <= 1 || isActing} onClick={() => setPage(value => value - 1)} variant="outline">Previous</Button>
+          <span>Page {page} of {quotesQuery.data.pagination.totalPages}</span>
+          <Button disabled={!quotesQuery.data.pagination.hasNextPage || isActing} onClick={() => setPage(value => value + 1)} variant="outline">Next</Button>
+        </nav>
       ) : null}
     </CustomerAccountShell>
   );
@@ -178,6 +194,7 @@ function QuoteHistoryCard({
   isCreatingOrder,
   isConverting,
   isRejecting,
+  isActing,
   onAccept,
   onConvert,
   onCreateOrder,
@@ -188,12 +205,14 @@ function QuoteHistoryCard({
   isCreatingOrder: boolean;
   isConverting: boolean;
   isRejecting: boolean;
+  isActing: boolean;
   onAccept: () => void;
   onConvert: () => void;
   onCreateOrder: () => void;
   onReject: () => void;
   quote: QuoteRequest;
 }) {
+  const expired = isQuoteExpired(quote);
   const canPrepareCart =
     quote.quotation !== null &&
     quote.quotation.items.length > 0 &&
@@ -243,13 +262,14 @@ function QuoteHistoryCard({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
+        {expired && !quote.convertedOrderId ? <p className="w-full text-sm font-semibold text-[#7a271a]">This quotation has expired. Request an updated quotation.</p> : null}
         {quote.status === "QUOTED" ? (
           <>
-            <Button disabled={isAccepting} onClick={onAccept}>
+            <Button disabled={isActing || expired} onClick={onAccept}>
               <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
               {isAccepting ? "Accepting..." : "Accept quote"}
             </Button>
-            <Button disabled={isRejecting} onClick={onReject} variant="outline">
+            <Button disabled={isActing} onClick={onReject} variant="outline">
               <XCircle aria-hidden="true" className="h-4 w-4" />
               {isRejecting ? "Rejecting..." : "Reject"}
             </Button>
@@ -257,7 +277,7 @@ function QuoteHistoryCard({
         ) : null}
 
         {["ACCEPTED", "CONVERTED"].includes(quote.status) && canPrepareCart ? (
-          <Button disabled={isConverting} onClick={onConvert} variant="secondary">
+          <Button disabled={isActing || expired} onClick={onConvert} variant="secondary">
             <ShoppingCart aria-hidden="true" className="h-4 w-4" />
             {isConverting ? "Preparing cart..." : "Prepare cart"}
           </Button>
@@ -279,7 +299,7 @@ function QuoteHistoryCard({
         canCreateOrder &&
         !quote.convertedOrderId ? (
           <Button
-            disabled={isCreatingOrder}
+            disabled={isActing || expired}
             onClick={onCreateOrder}
             variant="secondary"
           >

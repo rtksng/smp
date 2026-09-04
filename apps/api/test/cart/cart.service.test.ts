@@ -241,6 +241,7 @@ class FakeDeliveryChargesService {
 }
 
 function createCartPrismaMock(input?: {
+  quotation?: { payload: unknown };
   cart?: CartFixture;
   items?: CartItemFixture[];
   products?: ProductFixture[];
@@ -273,6 +274,7 @@ function createCartPrismaMock(input?: {
 
   const prisma = {
     calls,
+    notificationLog: { findFirst: async () => input?.quotation ?? null },
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
       callback(prisma),
     address: {
@@ -644,6 +646,29 @@ test("getCart includes a dynamic delivery charge for the selected shipping addre
     subtotal: 280,
     warehouseId: "warehouse-1"
   });
+});
+
+test("accepted quote amounts survive cart refresh while changed quantities use catalog pricing", async () => {
+  const quote = { customerDecision: { status: "ACCEPTED" }, quotation: {
+    items: [{ productId: "product-1", variantId: "variant-1", quantity: 2, unitPrice: 100.25, taxRate: 5 }],
+    validUntil: null, totals: { shippingTotal: 25.5 }
+  } };
+  const prisma = createCartPrismaMock({ items: [cartItemFixture({ variantId: "variant-1" })], quotation: { payload: quote }, stocks: [stockFixture({ variantId: "variant-1" })] });
+  const service = new CartService(prisma);
+  const cart = await service.getCart("customer-1");
+  assert.equal(cart.items[0]?.unitPrice, 100.25);
+  assert.deepEqual(cart.totals, { subtotal: 200.5, tax: 10.03, discount: 0, deliveryCharge: 25.5, grandTotal: 236.03 });
+  quote.quotation.items[0]!.quantity = 3;
+  const changed = await service.getCart("customer-1");
+  assert.equal(changed.items[0]?.unitPrice, 140);
+  assert.equal(changed.totals.deliveryCharge, 0);
+});
+
+test("expired quote pricing blocks checkout previews instead of silently replacing agreed prices", async () => {
+  const prisma = createCartPrismaMock({ items: [cartItemFixture({ variantId: "variant-1" })], stocks: [stockFixture({ variantId: "variant-1" })], quotation: { payload: {
+    customerDecision: { status: "ACCEPTED" }, quotation: { items: [{ productId: "product-1", variantId: "variant-1", quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: "2000-01-01", totals: { shippingTotal: 0 } }
+  } } });
+  await assert.rejects(new CartService(prisma).getCart("customer-1"), /quotation has expired/);
 });
 
 test("cart shipping uses the first fulfillment warehouse and the real matching rule", async () => {

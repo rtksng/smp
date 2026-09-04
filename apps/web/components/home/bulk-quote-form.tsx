@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { getFriendlyApiErrorMessage } from "../../lib/api/error-messages";
@@ -23,6 +23,7 @@ const emptyForm: QuoteRequestInput = {
 type FieldErrors = Partial<Record<keyof QuoteRequestInput, string>>;
 
 export function BulkQuoteForm() {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<QuoteRequestInput>(emptyForm);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -32,11 +33,13 @@ export function BulkQuoteForm() {
       setForm(emptyForm);
       setErrors({});
       setSuccessMessage(`Quote request ${request.id} received.`);
+      void queryClient.invalidateQueries({ queryKey: ["customer-quotes"] });
     }
   });
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (quoteMutation.isPending) return;
 
     const parsed = quoteRequestInputSchema.safeParse({
       ...form,
@@ -66,7 +69,8 @@ export function BulkQuoteForm() {
   }
 
   return (
-    <form className="grid gap-3" onSubmit={handleSubmit}>
+    <form className="grid gap-3" onSubmit={handleSubmit} noValidate>
+      <fieldset className="grid min-w-0 gap-3 border-0 p-0" disabled={quoteMutation.isPending}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input
           aria-label="Name"
@@ -133,6 +137,7 @@ export function BulkQuoteForm() {
       >
         {quoteMutation.isPending ? "Submitting..." : "Request bulk quote"}
       </Button>
+      </fieldset>
     </form>
   );
 

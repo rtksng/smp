@@ -52,6 +52,7 @@ export type PaginatedAdminResponse<T> = {
 };
 
 export type AdminQuoteRequest = {
+  convertedOrderId?: string | null;
   createdAt: string;
   convertedCartId: string | null;
   customerDecision: {
@@ -266,8 +267,8 @@ export function buildQuoteRequestQuery(
 export function validateQuoteResponseDraft(values: QuoteResponseDraft) {
   const errors: string[] = [];
 
-  if (values.items.length === 0) {
-    errors.push("Add at least one quoted item.");
+  if (values.items.length === 0 || values.items.length > 100) {
+    errors.push("Add between 1 and 100 quoted items.");
   }
 
   values.items.forEach((item, index) => {
@@ -276,34 +277,43 @@ export function validateQuoteResponseDraft(values: QuoteResponseDraft) {
     const unitPrice = toNumberOrNaN(item.unitPrice);
     const taxRate = item.taxRate.trim() ? toNumberOrNaN(item.taxRate) : 0;
 
-    if (!item.sku.trim()) {
+    if (!item.sku.trim() || item.sku.trim().length > 120) {
       errors.push(`${lineLabel}: enter a SKU.`);
     }
 
-    if (!item.name.trim()) {
+    if (!item.name.trim() || item.name.trim().length > 240) {
       errors.push(`${lineLabel}: enter an item name.`);
     }
 
-    if (!Number.isInteger(quantity) || quantity < 1) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2_147_483_647) {
       errors.push(`${lineLabel}: quantity must be a whole number above 0.`);
     }
 
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-      errors.push(`${lineLabel}: unit price must be 0 or higher.`);
+    if (!validQuoteAmount(unitPrice)) {
+      errors.push(`${lineLabel}: enter a valid unit price with at most 2 decimal places.`);
     }
 
     if (!Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
       errors.push(`${lineLabel}: tax rate must be between 0 and 100.`);
     }
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (item.productId.trim() && !uuid.test(item.productId.trim())) errors.push(`${lineLabel}: enter a valid product ID.`);
+    if (item.variantId.trim() && (!item.productId.trim() || !uuid.test(item.variantId.trim()))) errors.push(`${lineLabel}: a valid variant ID requires a product ID.`);
   });
 
   const shippingTotal = values.shippingTotal.trim()
     ? toNumberOrNaN(values.shippingTotal)
     : 0;
 
-  if (!Number.isFinite(shippingTotal) || shippingTotal < 0) {
-    errors.push("Shipping must be 0 or higher.");
+  if (!validQuoteAmount(shippingTotal)) {
+    errors.push("Enter valid shipping with at most 2 decimal places.");
   }
+  if (values.notes.trim().length > 1000) errors.push("Quotation notes must be 1000 characters or fewer.");
+  if (values.validUntil) {
+    const deadline = new Date(`${values.validUntil}T23:59:59.999Z`).getTime();
+    if (!Number.isFinite(deadline) || deadline < Date.now()) errors.push("Choose today or a future date for quotation validity.");
+  }
+  if (calculateQuoteResponseDraftTotals(values).grandTotal > 9_999_999_999.99) errors.push("The quotation total exceeds the supported amount.");
 
   return errors;
 }
@@ -384,6 +394,19 @@ export function buildProductFeedbackQuery(
     status: filters.status || undefined,
     type: filters.type || undefined
   };
+}
+
+function validQuoteAmount(value: number) {
+  return Number.isFinite(value) && value >= 0 && value <= 9_999_999_999.99 && Math.abs(value * 100 - Math.round(value * 100)) < 0.001;
+}
+
+export function getQuoteRequestStatusOptions(quote: AdminQuoteRequest): QuoteRequestStatus[] {
+  const next: QuoteRequestStatus[] = quote.status === "CLOSED"
+    ? (quote.convertedCartId || quote.convertedOrderId ? [] : ["CONTACTED"])
+    : quote.status === "NEW" ? ["CONTACTED", "CLOSED"]
+    : quote.status === "CONTACTED" && !quote.quotation ? ["NEW", "CLOSED"]
+    : ["CLOSED"];
+  return Array.from(new Set([quote.status, ...next]));
 }
 
 export function buildProductFeedbackModerationPayload(

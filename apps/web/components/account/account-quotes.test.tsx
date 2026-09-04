@@ -165,6 +165,38 @@ describe("AccountQuotes", () => {
     });
   });
 
+  it("prevents opposing decisions while a request is pending", async () => {
+    mocks.acceptQuoteRequest.mockReturnValue(new Promise(() => {}));
+    renderAccountQuotes();
+    fireEvent.click(await screen.findByRole("button", { name: "Accept quote" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
+    expect(mocks.rejectQuoteRequest).not.toHaveBeenCalled();
+  });
+
+  it("shows expired quotations and prevents acceptance while still allowing rejection", async () => {
+    const expired = accountQuote({ status: "QUOTED" });
+    expired.quotation!.validUntil = "2000-01-01";
+    mocks.listCustomerQuoteRequests.mockResolvedValue({ items: [expired], pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false } });
+    renderAccountQuotes();
+    expect(await screen.findByText(/This quotation has expired/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accept quote" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+  });
+
+  it("loads older quotation pages and returns to the first page", async () => {
+    mocks.listCustomerQuoteRequests.mockImplementation(async (page: number) => ({
+      items: [accountQuote({ id: page === 2 ? "quote_older" : "quote_1" })],
+      pagination: { page, limit: 20, total: 21, totalPages: 2, hasNextPage: page === 1, hasPreviousPage: page === 2 }
+    }));
+    renderAccountQuotes();
+    fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+    await waitFor(() => expect(mocks.listCustomerQuoteRequests).toHaveBeenCalledWith(2, 20));
+    expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+  });
+
   it("prepares the cart from an accepted quote and routes to cart review", async () => {
     mocks.listCustomerQuoteRequests.mockResolvedValue({
       items: [
@@ -232,7 +264,7 @@ describe("AccountQuotes", () => {
               subtotal: 500,
               taxTotal: 90
             },
-            validUntil: "2026-06-30"
+            validUntil: "2099-06-30"
           },
           status: "ACCEPTED"
         })
@@ -315,7 +347,7 @@ function accountQuote(overrides: Partial<QuoteRequest> = {}): QuoteRequest {
         subtotal: 280,
         taxTotal: 50.4
       },
-      validUntil: "2026-06-30"
+      validUntil: "2099-06-30"
     },
     status: "QUOTED",
     ...overrides

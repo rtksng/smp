@@ -157,7 +157,51 @@ class FakeDeliveryChargesService {
   }
 }
 
+test("checkout preserves accepted catalog quote prices, tax and shipping in the order and payment", async () => {
+  const prisma = createOrdersPrismaMock({ quotation: { payload: {
+    customerDecision: { status: "ACCEPTED" },
+    quotation: { items: [{ productId: "product-1", variantId: null, quantity: 2, unitPrice: 100.25, taxRate: 5 }], validUntil: null, totals: { shippingTotal: 25.5 } }
+  } } });
+  const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService);
+  const order = await service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" });
+  assert.equal(order.totals.grandTotal, 236.03);
+  assert.equal(order.items[0]?.unitPrice, 100.25);
+  assert.equal(order.items[0]?.taxRate, 5);
+  assert.equal((prisma.calls.paymentCreate[0] as { data: { amount: number } }).data.amount, 236.03);
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 1);
+});
+
+test("expired accepted quotations cannot silently proceed at catalog prices", async () => {
+  const prisma = createOrdersPrismaMock({ quotation: { payload: {
+    customerDecision: { status: "ACCEPTED" },
+    quotation: { items: [{ productId: "product-1", variantId: null, quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: "2000-01-01", totals: { shippingTotal: 0 } }
+  } } });
+  const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService);
+  await assert.rejects(service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" }), /quotation has expired/);
+  assert.equal(prisma.calls.orderCreate.length, 0);
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
+});
+
+test("custom quote order retries return one order and mixed catalog lines reserve stock", async () => {
+  const prisma = createOrdersPrismaMock();
+  const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService);
+  const input = { quoteId: "quote-retry", notes: null, totals: { subtotal: 250.5, taxTotal: 10.03, shippingTotal: 25.5, grandTotal: 286.03 }, items: [
+    { productId: null, variantId: null, name: "Custom kit", sku: "CUSTOM", quantity: 1, unitPrice: 50, taxRate: 0, taxAmount: 0, lineSubtotal: 50, lineTotal: 50 },
+    { productId: "product-1", variantId: null, name: "Catalog forceps", sku: "FORCEPS", quantity: 2, unitPrice: 100.25, taxRate: 5, taxAmount: 10.03, lineSubtotal: 200.5, lineTotal: 210.53 }
+  ] };
+  const first = await service.createOrderFromQuote("customer-1", input);
+  const retry = await service.createOrderFromQuote("customer-1", input);
+  assert.equal(retry.id, first.id);
+  assert.equal(first.totals.grandTotal, 286.03);
+  assert.equal(prisma.calls.orderCreate.length, 1);
+  assert.equal(prisma.calls.paymentCreate.length, 1);
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 1);
+  assert.equal(prisma.calls.stockMovementCreate.length, 1);
+  assert.equal(prisma.calls.orderItemCreate.length, 2);
+});
+
 function createOrdersPrismaMock(input?: {
+  quotation?: { payload: unknown };
   batchQuantity?: number;
   couponIsActive?: boolean;
   couponUsageLimit?: number | null;
@@ -505,6 +549,9 @@ function createOrdersPrismaMock(input?: {
   };
   const prisma = {
     calls,
+    notificationLog: { findFirst: async () => input?.quotation ?? null },
+    product: { findFirst: async () => ({ id: "product-1", status: "ACTIVE" }) },
+    productVariant: { findFirst: async () => ({ id: "variant-1", status: "ACTIVE" }) },
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>
       callback(prisma),
     address: {

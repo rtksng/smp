@@ -1,6 +1,7 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   ArrayMinSize,
+  ArrayMaxSize,
   IsArray,
   IsDateString,
   IsEmail,
@@ -9,9 +10,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -33,6 +36,8 @@ export type QuoteCustomerDecisionStatus = (typeof QUOTE_CUSTOMER_DECISIONS)[numb
 export class CreateQuoteRequestDto {
   @ApiProperty({ example: "Dr Asha Rao" })
   @IsString()
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @MinLength(2)
   @MaxLength(120)
   name!: string;
 
@@ -54,6 +59,8 @@ export class CreateQuoteRequestDto {
 
   @ApiProperty({ example: "Need 20 forceps and 8 draping kits for Mumbai." })
   @IsString()
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @MinLength(10)
   @MaxLength(2000)
   message!: string;
 }
@@ -227,41 +234,45 @@ export class UpdateQuoteRequestStatusDto {
 export class SendQuoteItemDto {
   @ApiPropertyOptional({ example: "product-id", nullable: true })
   @IsOptional()
-  @IsString()
-  @MaxLength(80)
+  @IsUUID()
   productId?: string | null;
 
   @ApiPropertyOptional({ example: "variant-id", nullable: true })
   @IsOptional()
-  @IsString()
-  @MaxLength(80)
+  @IsUUID()
   variantId?: string | null;
 
   @ApiProperty({ example: "FORCEPS-001" })
   @IsString()
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @MinLength(1)
   @MaxLength(120)
   sku!: string;
 
   @ApiProperty({ example: "Curved Artery Forceps" })
   @IsString()
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @MinLength(1)
   @MaxLength(240)
   name!: string;
 
   @ApiProperty({ example: 2, minimum: 1 })
-  @Type(() => Number)
+  @QuoteNumber()
   @IsInt()
   @Min(1)
+  @Max(2_147_483_647)
   quantity!: number;
 
   @ApiProperty({ example: 140, minimum: 0 })
-  @Type(() => Number)
-  @IsNumber()
+  @QuoteNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(9_999_999_999.99)
   unitPrice!: number;
 
   @ApiPropertyOptional({ example: 18, maximum: 100, minimum: 0 })
-  @Type(() => Number)
-  @IsNumber()
+  @QuoteNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
   @Min(0)
   @Max(100)
@@ -272,15 +283,17 @@ export class SendQuoteResponseDto {
   @ApiProperty({ type: [SendQuoteItemDto] })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => SendQuoteItemDto)
   items!: SendQuoteItemDto[];
 
   @ApiPropertyOptional({ example: 50, minimum: 0 })
-  @Type(() => Number)
-  @IsNumber()
+  @QuoteNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
   @Min(0)
+  @Max(9_999_999_999.99)
   shippingTotal?: number;
 
   @ApiPropertyOptional({ example: "Prices valid for current stock." })
@@ -290,9 +303,16 @@ export class SendQuoteResponseDto {
   notes?: string | null;
 
   @ApiPropertyOptional({ example: "2026-06-30" })
-  @IsDateString()
+  @IsDateString({ strict: true })
   @IsOptional()
   validUntil?: string | null;
+}
+
+function QuoteNumber() {
+  return Transform(({ obj, key }) => {
+    const value: unknown = (obj as Record<string, unknown>)[key];
+    return typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  }, { toClassOnly: true });
 }
 
 export class UpdateCustomerQuoteDecisionDto {

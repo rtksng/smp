@@ -9,6 +9,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import { CartService } from "../cart/cart.service";
 import { OrdersService } from "../orders/orders.service";
+import { assertQuotationIsCurrent, quoteLineKey } from "./quote-cart-pricing";
 import type {
   CreateQuoteRequestDto,
   QuoteRequestListQueryDto,
@@ -184,6 +185,7 @@ export class QuoteRequestsService {
   async sendAdminQuotation(id: string, input: SendQuoteResponseDto) {
     const request = await this.findQuoteRequest(id);
     const payload = readQuotePayload(request.payload);
+    assertQuoteCanBeEdited(request.status, payload);
     const quotation = buildQuotation(input);
     const updated = await this.prisma.notificationLog.update({
       data: {
@@ -205,7 +207,17 @@ export class QuoteRequestsService {
   }
 
   async updateAdminQuoteRequestStatus(id: string, input: UpdateQuoteRequestStatusDto) {
-    await this.findQuoteRequest(id);
+    const request = await this.findQuoteRequest(id);
+    const payload = readQuotePayload(request.payload);
+    if (input.status === request.status) return serializeQuoteRequest(request);
+    const allowed = request.status === "CLOSED"
+      ? (payload.convertedCartId || payload.convertedOrderId ? [] : ["CONTACTED"])
+      : request.status === "NEW" ? ["CONTACTED", "CLOSED"]
+      : request.status === "CONTACTED" && !payload.quotation ? ["NEW", "CLOSED"]
+      : ["CLOSED"];
+    if (!allowed.includes(input.status)) {
+      throw new BadRequestException("Send a quotation, record the customer decision, or convert it through the quote workflow instead of setting that status manually.");
+    }
 
     const updated = await this.prisma.notificationLog.update({
       data: {
@@ -236,6 +248,7 @@ export class QuoteRequestsService {
         "Only quoted requests can be accepted or rejected."
       );
     }
+    if (input.decision === "ACCEPTED") assertQuotationIsCurrent(payload.quotation);
 
     const status: QuoteRequestStatus = input.decision;
     const customerDecision: QuoteCustomerDecision = {
@@ -272,6 +285,7 @@ export class QuoteRequestsService {
     if (!["ACCEPTED", "CONVERTED"].includes(request.status)) {
       throw new BadRequestException("Accept the quotation before preparing the cart.");
     }
+    assertQuotationIsCurrent(payload.quotation);
 
     const cartItems = payload.quotation.items.map((item) => {
       if (!item.productId) {
@@ -286,24 +300,28 @@ export class QuoteRequestsService {
         variantId: item.variantId
       };
     });
-    const cart = await this.cartService.replaceWithItems(customerId, cartItems);
-    const updated = await this.prisma.notificationLog.update({
+    const cart = await this.cartService.replaceWithItems(customerId, cartItems, async (tx, cartId) => {
+      const update = await tx.notificationLog.updateMany({
       data: {
         payload: toJsonValue({
           ...payload,
-          convertedCartId: getCartId(cart),
+          convertedCartId: cartId,
           convertedOrderId: null
         }),
         status: "CONVERTED"
       },
       where: {
-        id
+        id,
+        status: request.status,
+        updatedAt: request.updatedAt
       }
+    });
+      if (update.count !== 1) throw new BadRequestException("The quotation changed. Refresh it before preparing the cart.");
     });
 
     return {
       cart,
-      quote: serializeQuoteRequest(updated)
+      quote: serializeQuoteRequest(await this.findQuoteRequest(id))
     };
   }
 
@@ -332,6 +350,7 @@ export class QuoteRequestsService {
         quote: serializeQuoteRequest(request)
       };
     }
+    assertQuotationIsCurrent(payload.quotation);
 
     const containsCustomLines = payload.quotation.items.some((item) => !item.productId);
 
@@ -424,10 +443,13 @@ export class QuoteRequestsService {
 }
 
 function normalizeQuotePayload(input: CreateQuoteRequestDto): QuotePayload {
+  if (input.name.trim().length < 2 || input.message.trim().length < 10) {
+    throw new BadRequestException("Enter your name and describe the requested items.");
+  }
   return {
     email: input.email.trim().toLowerCase(),
     message: input.message.trim(),
-    mobileNumber: input.mobileNumber.trim(),
+    mobileNumber: normalizeQuoteMobile(input.mobileNumber),
     name: input.name.trim(),
     organization: input.organization?.trim() || null,
     quotation: null,
@@ -477,10 +499,20 @@ function readQuotePayload(value: unknown): QuotePayload {
 }
 
 function buildQuotation(input: SendQuoteResponseDto): QuoteQuotation {
+  if (!input.items.length || input.items.length > 100) {
+    throw new BadRequestException("A quotation must contain between 1 and 100 items.");
+  }
+  if (input.validUntil) assertQuotationIsCurrent({ validUntil: input.validUntil });
   const items = input.items.map((item) => buildQuotationItem(item));
+  const catalogKeys = items.filter(item => item.productId).map(quoteLineKey);
+  if (new Set(catalogKeys).size !== catalogKeys.length) {
+    throw new BadRequestException("Combine repeated catalog items into a single quotation line.");
+  }
   const subtotal = roundMoney(items.reduce((sum, item) => sum + item.lineSubtotal, 0));
   const taxTotal = roundMoney(items.reduce((sum, item) => sum + item.taxAmount, 0));
   const shippingTotal = roundMoney(input.shippingTotal ?? 0);
+  assertQuoteMoney(shippingTotal, "Shipping");
+  assertQuoteMoney(subtotal + taxTotal + shippingTotal, "Quotation total");
 
   return {
     items,
@@ -497,11 +529,22 @@ function buildQuotation(input: SendQuoteResponseDto): QuoteQuotation {
 }
 
 function buildQuotationItem(input: SendQuoteItemDto): QuoteQuotationItem {
+  if (!input.sku.trim() || !input.name.trim()) {
+    throw new BadRequestException("Each quotation line needs a SKU and item name.");
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 2_147_483_647) {
+    throw new BadRequestException("Quotation quantities must be positive whole numbers within the supported range.");
+  }
+  assertQuoteMoney(input.unitPrice, "Unit price");
+  if (!Number.isFinite(input.taxRate ?? 0) || (input.taxRate ?? 0) < 0 || (input.taxRate ?? 0) > 100) {
+    throw new BadRequestException("Tax rate must be between 0 and 100.");
+  }
   const quantity = Math.trunc(input.quantity);
   const unitPrice = roundMoney(input.unitPrice);
   const taxRate = roundMoney(input.taxRate ?? 0);
   const lineSubtotal = roundMoney(quantity * unitPrice);
   const taxAmount = roundMoney(lineSubtotal * (taxRate / 100));
+  assertQuoteMoney(lineSubtotal + taxAmount, "Line total");
 
   return {
     lineSubtotal,
@@ -601,17 +644,42 @@ function buildCustomerQuoteOwnershipWhere(customer: CustomerOwner) {
 
   if (customer.email) {
     ownership.push({
+      userId: null,
       recipient: customer.email.toLowerCase()
     });
   }
 
   if (customer.mobileNumber) {
-    ownership.push({
-      recipient: customer.mobileNumber
-    });
+    const normalized = normalizeQuoteMobile(customer.mobileNumber);
+    const local = normalized.slice(3);
+    for (const mobileNumber of new Set([customer.mobileNumber, normalized, local, `91${local}`, `0${local}`])) {
+      ownership.push({ userId: null, payload: { path: ["mobileNumber"], equals: mobileNumber } });
+    }
   }
 
   return ownership;
+}
+
+function normalizeQuoteMobile(value: string) {
+  const digits = value.replace(/[\s()+-]/g, "");
+  const local = digits.length === 12 && digits.startsWith("91") ? digits.slice(2)
+    : digits.length === 11 && digits.startsWith("0") ? digits.slice(1) : digits;
+  if (!/^[6-9]\d{9}$/.test(local)) {
+    throw new BadRequestException("Enter a valid Indian mobile number.");
+  }
+  return `+91${local}`;
+}
+
+function assertQuoteCanBeEdited(status: string, payload: QuotePayload) {
+  if (status === "CLOSED" || status === "CONVERTED" || payload.convertedCartId || payload.convertedOrderId) {
+    throw new BadRequestException("Closed or converted requests cannot receive a new quotation. Reopen an unconverted request or submit a new one.");
+  }
+}
+
+function assertQuoteMoney(value: number, label: string) {
+  if (!Number.isFinite(value) || value < 0 || value > 9_999_999_999.99) {
+    throw new BadRequestException(`${label} must be between 0 and 9999999999.99.`);
+  }
 }
 
 function trimmedOrNull(value: string | null | undefined) {
@@ -628,16 +696,6 @@ function toNumber(value: unknown) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function getCartId(cart: unknown) {
-  if (cart && typeof cart === "object" && "id" in cart) {
-    const id = (cart as { id?: unknown }).id;
-
-    return typeof id === "string" ? id : null;
-  }
-
-  return null;
 }
 
 function getOrderId(order: unknown) {

@@ -15,6 +15,7 @@ import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
 import { buildFulfillmentStockQuery } from "../inventory/fulfillment-stock";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
+import { getCartQuotePricing, quoteLineKey, type QuotePriceLine } from "../quote-requests/quote-cart-pricing";
 
 const CART_INCLUDE = {
   items: {
@@ -53,6 +54,7 @@ type CartClient =
       | "cart"
       | "cartItem"
       | "inventoryStock"
+      | "notificationLog"
       | "product"
       | "productVariant"
       | "user"
@@ -148,7 +150,11 @@ export class CartService {
     });
   }
 
-  async replaceWithItems(customerId: string, inputs: ReplaceCartItemInput[]) {
+  async replaceWithItems(
+    customerId: string,
+    inputs: ReplaceCartItemInput[],
+    onReplaced?: (tx: Prisma.TransactionClient, cartId: string) => Promise<void>
+  ) {
     await this.assertActiveCustomer(customerId);
     const lines = mergeCartLines(inputs);
 
@@ -185,6 +191,7 @@ export class CartService {
         });
       }
 
+      if (onReplaced) await onReplaced(tx, cart.id);
       return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
     });
   }
@@ -379,15 +386,16 @@ export class CartService {
     customerId = cart.userId,
     options: CartSerializationOptions = {}
   ) {
+    const quotation = await getCartQuotePricing(client, cart);
     const items = await Promise.all(
-      cart.items.map((item) => this.serializeCartItem(item, client))
+      cart.items.map((item) => this.serializeCartItem(item, client, quotation?.lines.get(quoteLineKey(item))))
     );
     const subtotal = roundMoney(
       items.reduce((sum, item) => sum + item.subtotal, 0)
     );
     const tax = roundMoney(items.reduce((sum, item) => sum + item.tax, 0));
     const discount = 0;
-    const deliveryCharge = await this.calculateDeliveryCharge(
+    const deliveryCharge = quotation?.shippingTotal ?? await this.calculateDeliveryCharge(
       client,
       customerId,
       subtotal,
@@ -411,17 +419,17 @@ export class CartService {
     };
   }
 
-  private async serializeCartItem(item: CartItemRecord, client: CartClient) {
+  private async serializeCartItem(item: CartItemRecord, client: CartClient, quotePrice?: QuotePriceLine) {
     const availableQuantity = await this.getAvailableQuantity(
       client,
       item.productId,
       item.variantId
     );
     const productImage = getPrimaryImage(item.product.images);
-    const unitPrice = decimalToNumber(
+    const unitPrice = quotePrice?.unitPrice ?? decimalToNumber(
       item.variant?.sellingPrice ?? item.product.sellingPrice
     );
-    const taxRate = decimalToNumber(item.product.taxRate);
+    const taxRate = quotePrice?.taxRate ?? decimalToNumber(item.product.taxRate);
     const subtotal = roundMoney(unitPrice * item.quantity);
     const tax = roundMoney(subtotal * (taxRate / 100));
     const variantIsAvailable =

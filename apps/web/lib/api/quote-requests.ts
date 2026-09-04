@@ -3,15 +3,16 @@ import { cartSchema } from "./cart";
 import { requestApi } from "./client";
 import { requestCustomerApi } from "./customer-client";
 import { orderSchema } from "./orders";
+import { isValidIndianMobileNumber, normalizeIndianMobileNumber } from "../auth/mobile";
 
 export const quoteRequestInputSchema = z.object({
-  email: z.string().trim().email("Enter a valid email."),
+  email: z.string().trim().email("Enter a valid email.").max(160),
   message: z
     .string()
     .trim()
     .min(10, "Describe SKUs, quantities, and delivery needs.")
     .max(2000),
-  mobileNumber: z.string().trim().min(8, "Enter a contact number.").max(24),
+  mobileNumber: z.string().trim().max(24).refine(isValidIndianMobileNumber, "Enter a valid Indian mobile number.").transform(normalizeIndianMobileNumber),
   name: z.string().trim().min(2, "Enter your name.").max(120),
   organization: z.string().trim().max(160).nullable().optional()
 });
@@ -106,6 +107,13 @@ export type QuoteRequestList = z.infer<typeof quoteRequestListSchema>;
 export type QuoteDecisionInput = z.infer<typeof quoteDecisionInputSchema>;
 export type QuoteConversion = z.infer<typeof quoteConversionSchema>;
 export type QuoteOrderConversion = z.infer<typeof quoteOrderConversionSchema>;
+
+export function isQuoteExpired(quote: QuoteRequest) {
+  const value = quote.quotation?.validUntil;
+  if (!value) return false;
+  const expiry = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59.999Z` : value).getTime();
+  return !Number.isFinite(expiry) || expiry < Date.now();
+}
 
 export function createQuoteRequest(input: QuoteRequestInput) {
   const parsedInput = quoteRequestInputSchema.parse(input);
