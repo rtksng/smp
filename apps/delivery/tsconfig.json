@@ -13,7 +13,8 @@
       ]
     },
     "types": [
-      "vitest/globals"
+      "vitest/globals",
+      "expo/types"
     ]
   },
   "include": [
