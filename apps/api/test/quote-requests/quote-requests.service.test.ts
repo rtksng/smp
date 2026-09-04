@@ -488,6 +488,19 @@ test("converted quotations keep their conversion reference and cannot be resent"
   await assert.rejects(service.updateAdminQuoteRequestStatus("quote-1", { status: "CONTACTED" }), /workflow/);
 });
 
+test("a catalog quotation converted to an order cannot create a second quoted cart", async () => {
+  const prisma = createQuoteRequestsPrismaMock();
+  const cart = createCartServiceMock(prisma);
+  const service = new QuoteRequestsService(prisma as unknown as PrismaService, cart as unknown as CartService);
+  await service.createQuoteRequest(requestInput);
+  await service.sendAdminQuotation("quote-1", { items: [{ ...quotationInput.items[0]!, productId: "product-1" }] });
+  await service.updateCustomerQuoteDecision("customer-1", "quote-1", { decision: "ACCEPTED" });
+  (prisma.logs[0]!.payload as Record<string, unknown>).convertedOrderId = "order-1";
+  prisma.logs[0]!.status = "CONVERTED";
+  await assert.rejects(service.convertCustomerQuoteToCart("customer-1", "quote-1"), /already has an order/);
+  assert.equal(cart.calls.replaceWithItems.length, 0);
+});
+
 test("quotation DTOs reject malformed identifiers, blank lines and unsafe numbers", async () => {
   const valid = { ...quotationInput, validUntil: "2099-06-30" };
   assert.equal((await validate(plainToInstance(SendQuoteResponseDto, valid))).length, 0);

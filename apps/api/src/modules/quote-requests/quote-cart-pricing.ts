@@ -30,7 +30,30 @@ export async function getCartQuotePricing(
   const lines = new Map(quotation.items.map(item => [quoteLineKey(item), item]));
   if (lines.size !== cart.items.length || cart.items.some(item => lines.get(quoteLineKey(item))?.quantity !== item.quantity)) return null;
   assertQuotationIsCurrent(quotation);
-  return { lines, shippingTotal: quotation.totals.shippingTotal };
+  return { lines, record, shippingTotal: quotation.totals.shippingTotal };
+}
+
+export async function clearCartQuotePricing(client: Pick<Prisma.TransactionClient, "notificationLog">, cartId: string) {
+  const records = await client.notificationLog.findMany({ where: {
+    channel: "support", templateKey: "bulk_quote_request",
+    payload: { path: ["convertedCartId"], equals: cartId }
+  } });
+  for (const record of records) {
+    await updateCartQuoteLink(client, record, null);
+  }
+}
+
+export async function updateCartQuoteLink(
+  client: Pick<Prisma.TransactionClient, "notificationLog">,
+  record: Prisma.NotificationLogGetPayload<Record<string, never>>,
+  orderId: string | null
+) {
+  const payload = record.payload as Prisma.JsonObject;
+  const updated = await client.notificationLog.updateMany({
+    where: { id: record.id, updatedAt: record.updatedAt },
+    data: { payload: { ...payload, convertedCartId: null, ...(orderId ? { convertedOrderId: orderId } : {}) } as Prisma.InputJsonValue }
+  });
+  if (updated.count !== 1) throw new BadRequestException("The quotation changed. Refresh your cart and try again.");
 }
 
 export function quoteLineKey(item: { productId: string | null; variantId: string | null }) {

@@ -256,6 +256,7 @@ function createCartPrismaMock(input?: {
   const variants = input?.variants ?? [variantFixture()];
   const stocks = input?.stocks ?? [stockFixture()];
   const addresses = input?.addresses ?? [addressFixture()];
+  let quotation = input?.quotation ?? null;
   const calls: CartPrismaMock["calls"] = {
     addressFindFirst: [],
     cartCreate: [],
@@ -274,7 +275,11 @@ function createCartPrismaMock(input?: {
 
   const prisma = {
     calls,
-    notificationLog: { findFirst: async () => input?.quotation ?? null },
+    notificationLog: {
+      findFirst: async () => quotation,
+      findMany: async () => quotation ? [quotation] : [],
+      updateMany: async () => { quotation = null; return { count: 1 }; }
+    },
     $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
       callback(prisma),
     address: {
@@ -669,6 +674,18 @@ test("expired quote pricing blocks checkout previews instead of silently replaci
     customerDecision: { status: "ACCEPTED" }, quotation: { items: [{ productId: "product-1", variantId: "variant-1", quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: "2000-01-01", totals: { shippingTotal: 0 } }
   } } });
   await assert.rejects(new CartService(prisma).getCart("customer-1"), /quotation has expired/);
+});
+
+test("clearing a quoted cart detaches the quote before the same product is added again", async () => {
+  const prisma = createCartPrismaMock({ items: [cartItemFixture({ variantId: "variant-1" })], stocks: [stockFixture({ variantId: "variant-1" })], quotation: { payload: {
+    convertedCartId: "cart-1", customerDecision: { status: "ACCEPTED" }, quotation: { items: [{ productId: "product-1", variantId: "variant-1", quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: null, totals: { shippingTotal: 25 } }
+  } } });
+  const service = new CartService(prisma);
+  assert.equal((await service.getCart("customer-1")).items[0]?.unitPrice, 100);
+  await service.clearCart("customer-1");
+  const next = await service.addItem("customer-1", { productId: "product-1", variantId: "variant-1", quantity: 2 });
+  assert.equal(next.items[0]?.unitPrice, 140);
+  assert.equal(next.totals.deliveryCharge, 0);
 });
 
 test("cart shipping uses the first fulfillment warehouse and the real matching rule", async () => {

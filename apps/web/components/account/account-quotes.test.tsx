@@ -232,6 +232,17 @@ describe("AccountQuotes", () => {
     expect(mocks.routerPush).toHaveBeenCalledWith("/cart");
   });
 
+  it("links a converted catalog quote to its order without allowing another cart conversion", async () => {
+    mocks.listCustomerQuoteRequests.mockResolvedValue({
+      items: [accountQuote({ status: "CONVERTED", convertedOrderId: "order_existing" })],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false }
+    });
+    renderAccountQuotes();
+    expect(await screen.findByRole("link", { name: "View order" })).toHaveAttribute("href", "/account/orders/order_existing");
+    expect(screen.queryByRole("button", { name: "Prepare cart" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create order" })).not.toBeInTheDocument();
+  });
+
   it("creates an order from an accepted custom quote and routes to order detail", async () => {
     mocks.listCustomerQuoteRequests.mockResolvedValue({
       items: [

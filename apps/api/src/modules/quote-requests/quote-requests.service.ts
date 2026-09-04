@@ -258,6 +258,7 @@ export class QuoteRequestsService {
     };
     const updated = await this.prisma.notificationLog.update({
       data: {
+        userId: customerId,
         payload: toJsonValue({
           ...payload,
           convertedCartId: status === "REJECTED" ? null : payload.convertedCartId,
@@ -285,6 +286,7 @@ export class QuoteRequestsService {
     if (!["ACCEPTED", "CONVERTED"].includes(request.status)) {
       throw new BadRequestException("Accept the quotation before preparing the cart.");
     }
+    if (payload.convertedOrderId) throw new BadRequestException("This quotation already has an order. View the existing order instead.");
     assertQuotationIsCurrent(payload.quotation);
 
     const cartItems = payload.quotation.items.map((item) => {

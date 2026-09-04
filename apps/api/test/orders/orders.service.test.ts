@@ -549,7 +549,10 @@ function createOrdersPrismaMock(input?: {
   };
   const prisma = {
     calls,
-    notificationLog: { findFirst: async () => input?.quotation ?? null },
+    notificationLog: {
+      findFirst: async () => input?.quotation ?? null,
+      updateMany: async (args: { data: { payload: unknown } }) => { if (input?.quotation) input.quotation.payload = args.data.payload; return { count: 1 }; }
+    },
     product: { findFirst: async () => ({ id: "product-1", status: "ACTIVE" }) },
     productVariant: { findFirst: async () => ({ id: "variant-1", status: "ACTIVE" }) },
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>

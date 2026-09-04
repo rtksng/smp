@@ -15,7 +15,7 @@ import type { AddCartItemDto, UpdateCartItemDto } from "./dto/cart.dto";
 import { DeliveryChargesService } from "../delivery-charges/delivery-charges.service";
 import { buildFulfillmentStockQuery } from "../inventory/fulfillment-stock";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
-import { getCartQuotePricing, quoteLineKey, type QuotePriceLine } from "../quote-requests/quote-cart-pricing";
+import { clearCartQuotePricing, getCartQuotePricing, quoteLineKey, type QuotePriceLine } from "../quote-requests/quote-cart-pricing";
 
 const CART_INCLUDE = {
   items: {
@@ -63,6 +63,7 @@ type CartClient =
 type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
 type CartSerializationOptions = {
   shippingAddressId?: string | null;
+  clearQuote?: boolean;
 };
 
 @Injectable()
@@ -120,7 +121,7 @@ export class CartService {
         });
       }
 
-      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx, customerId, { clearQuote: true });
     });
   }
 
@@ -146,7 +147,7 @@ export class CartService {
         }
       });
 
-      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx, customerId, { clearQuote: true });
     });
   }
 
@@ -191,6 +192,7 @@ export class CartService {
         });
       }
 
+      await clearCartQuotePricing(tx, cart.id);
       if (onReplaced) await onReplaced(tx, cart.id);
       return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
     });
@@ -221,7 +223,7 @@ export class CartService {
         }
       });
 
-      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx, customerId, { clearQuote: true });
     });
   }
 
@@ -236,7 +238,7 @@ export class CartService {
         }
       });
 
-      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx, customerId, { clearQuote: true });
     });
   }
 
@@ -252,7 +254,7 @@ export class CartService {
         }
       });
 
-      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx);
+      return this.serializeCart(await this.getCartSnapshot(customerId, tx), tx, customerId, { clearQuote: true });
     });
   }
 
@@ -386,6 +388,7 @@ export class CartService {
     customerId = cart.userId,
     options: CartSerializationOptions = {}
   ) {
+    if (options.clearQuote) await clearCartQuotePricing(client, cart.id);
     const quotation = await getCartQuotePricing(client, cart);
     const items = await Promise.all(
       cart.items.map((item) => this.serializeCartItem(item, client, quotation?.lines.get(quoteLineKey(item))))

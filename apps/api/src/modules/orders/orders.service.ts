@@ -30,7 +30,7 @@ import { PaymentsService } from "../payments/payments.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
 import { buildPendingOrderStatusFilter } from "./order-status";
-import { getCartQuotePricing, quoteLineKey } from "../quote-requests/quote-cart-pricing";
+import { getCartQuotePricing, quoteLineKey, updateCartQuoteLink } from "../quote-requests/quote-cart-pricing";
 import type {
   AdminOrderListQueryDto,
   AdminReturnActionDto,
@@ -371,6 +371,7 @@ export class OrdersService {
             status: OrderStatus.CREATED
           }
         });
+        if (quotation) await updateCartQuoteLink(tx, quotation.record, order.id);
         if (input.paymentMethod === PaymentMethod.COD) {
           await tx.cartItem.deleteMany({
             where: {

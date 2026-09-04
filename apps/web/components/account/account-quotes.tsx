@@ -276,7 +276,7 @@ function QuoteHistoryCard({
           </>
         ) : null}
 
-        {["ACCEPTED", "CONVERTED"].includes(quote.status) && canPrepareCart ? (
+        {["ACCEPTED", "CONVERTED"].includes(quote.status) && canPrepareCart && !quote.convertedOrderId ? (
           <Button disabled={isActing || expired} onClick={onConvert} variant="secondary">
             <ShoppingCart aria-hidden="true" className="h-4 w-4" />
             {isConverting ? "Preparing cart..." : "Prepare cart"}
@@ -284,7 +284,6 @@ function QuoteHistoryCard({
         ) : null}
 
         {["ACCEPTED", "CONVERTED"].includes(quote.status) &&
-        canCreateOrder &&
         quote.convertedOrderId ? (
           <Button
             href={`/account/orders/${encodeURIComponent(quote.convertedOrderId)}`}
