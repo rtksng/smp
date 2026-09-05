@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cart } from "../../lib/api/cart";
@@ -164,6 +164,30 @@ const reorderedCart: Cart = {
 
 describe("AccountOrderDetail", () => {
   const asyncUiTimeout = { timeout: 5000 };
+
+  it("refreshes delivery progress, shows COD payment and proof, then stops polling completed orders", async () => {
+    const tracking = { assignedAt: order.createdAt, deliveredAt: null, deliveryPartnerName: "QA Driver", failureReason: null, id: "delivery-1", pickedUpAt: order.createdAt, proofOfDeliveryUrl: null, status: "OUT_FOR_DELIVERY" as const, statusHistory: [], vehicleNumber: "DL01QA0001" };
+    const delivered: Order = { ...order, status: "DELIVERED", paymentStatus: "PAID", deliveryTracking: [{ ...tracking, status: "DELIVERED", deliveredAt: order.updatedAt, proofOfDeliveryUrl: "https://example.test/proof.jpg" }] };
+    mocks.getOrder.mockResolvedValueOnce({ ...order, status: "OUT_FOR_DELIVERY", deliveryTracking: [tracking] }).mockResolvedValue(delivered);
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const view = renderAccountOrderDetail();
+    try {
+      await screen.findByText("QA Driver | DL01QA0001");
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(await screen.findByRole("link", { name: "View proof of delivery" })).toHaveAttribute("href", "https://example.test/proof.jpg");
+      expect(screen.getAllByText("Paid").length).toBeGreaterThan(0);
+      const requestsAfterDelivery = mocks.getOrder.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(mocks.getOrder).toHaveBeenCalledTimes(requestsAfterDelivery);
+    } finally { view.unmount(); vi.useRealTimers(); }
+  });
+
+  it("does not offer cancellation after driver pickup", async () => {
+    mocks.getOrder.mockResolvedValue({ ...order, status: "ASSIGNED", deliveryTracking: [{ assignedAt: order.createdAt, deliveredAt: null, deliveryPartnerName: "QA Driver", failureReason: null, id: "delivery-1", pickedUpAt: order.createdAt, proofOfDeliveryUrl: null, status: "PICKED_UP", statusHistory: [], vehicleNumber: null }] });
+    renderAccountOrderDetail();
+    await screen.findByText("QA Driver");
+    expect(screen.queryByRole("button", { name: /cancel order/i })).not.toBeInTheDocument();
+  });
 
   beforeEach(() => {
     mocks.createRazorpayOrder.mockReset();

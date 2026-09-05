@@ -86,6 +86,7 @@ import {
   createEmptyDeliveryPartnerFilters,
   formatDeliveryDateTime,
   formatDeliveryLabel,
+  loadDeliveryOptions,
   type AdminDeliveryAssignment,
   type AdminDeliveryPartner,
   type DeliveryAssignmentFilters,
@@ -228,7 +229,9 @@ function DeliveryAssignmentDestination() {
     status: DELIVERY_ASSIGNMENT_STATUSES.some((item) => item === status)
       ? status as AssignmentFilters["status"]
       : "",
-    search: (params.get("search") ?? "").trim().slice(0, 100)
+    search: (params.get("search") ?? "").trim().slice(0, 100),
+    deliveryPartnerId: params.get("deliveryPartnerId") ?? "",
+    warehouseId: params.get("warehouseId") ?? ""
   };
 
   // Remount the filter state when another notification opens this same route.
@@ -299,27 +302,33 @@ function DeliveryContent({
           query: assignmentQuery
         }
       ),
-    queryKey: ["admin", "delivery", "assignments", assignmentQuery]
+    queryKey: ["admin", "delivery", "assignments", assignmentQuery],
+    refetchInterval: 15_000
+  });
+  const partnerOptionsQuery = useQuery({
+    enabled: view === "assign" || view === "assignments",
+    queryFn: () => loadDeliveryOptions((page) =>
+      api.request<PaginatedResponse<AdminDeliveryPartner>>("/admin/delivery-partners", {
+        query: { limit: 100, page, status: view === "assign" ? "ACTIVE" : undefined }
+      })),
+    queryKey: ["admin", "delivery", "partner-options", view]
   });
   const ordersQuery = useQuery({
-    enabled: hasPermission(ADMIN_PERMISSION.OrdersRead),
-    queryFn: () =>
-      api.request<OrderPaginatedResponse<AdminOrder>>("/admin/orders", {
-        query: {
-          limit: 100
-        }
-      }),
+    enabled: view === "assign" && hasPermission(ADMIN_PERMISSION.OrdersRead),
+    queryFn: async () => (await Promise.all(["CONFIRMED", "PACKED"].map((status) =>
+      loadDeliveryOptions((page) => api.request<OrderPaginatedResponse<AdminOrder>>("/admin/orders", {
+        query: { limit: 100, page, status }
+      }))
+    ))).flat(),
     queryKey: ["admin", "delivery", "orders"]
   });
   const warehousesQuery = useQuery({
-    enabled: hasPermission(ADMIN_PERMISSION.WarehouseRead),
-    queryFn: () =>
+    enabled: (view === "assign" || view === "assignments") && hasPermission(ADMIN_PERMISSION.WarehouseRead),
+    queryFn: () => loadDeliveryOptions((page) =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
-        query: {
-          limit: 100
-        }
-      }),
-    queryKey: ["admin", "delivery", "warehouses"]
+        query: { limit: 100, page, status: view === "assign" ? "ACTIVE" : undefined }
+      })),
+    queryKey: ["admin", "delivery", "warehouses", view]
   });
 
   const partners = useMemo(
@@ -331,13 +340,13 @@ function DeliveryContent({
     [assignmentsQuery.data?.items]
   );
   const warehouses = useMemo(
-    () => warehousesQuery.data?.items ?? [],
-    [warehousesQuery.data?.items]
+    () => warehousesQuery.data ?? [],
+    [warehousesQuery.data]
   );
-  const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
+  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
   const activePartners = useMemo(
-    () => partners.filter((partner) => partner.status === "ACTIVE"),
-    [partners]
+    () => (partnerOptionsQuery.data ?? []).filter((partner) => partner.status === "ACTIVE"),
+    [partnerOptionsQuery.data]
   );
   const assignableOrders = useMemo(
     () => orders.filter((order) => canAssignDelivery(order.status)),
@@ -376,10 +385,7 @@ function DeliveryContent({
     getErrorMessage(assignMutation.error);
 
   async function refreshDeliveryData() {
-    await Promise.all([
-      partnersQuery.refetch(),
-      assignmentsQuery.refetch()
-    ]);
+    await queryClient.invalidateQueries({ queryKey: ["admin", "delivery"] });
   }
 
   async function invalidateDeliveryData() {
@@ -588,7 +594,7 @@ function DeliveryContent({
             onChange={setAssignmentDraftFilters}
             onReset={resetAssignmentFilters}
             onSubmit={applyAssignmentFilters}
-            partners={partners}
+            partners={partnerOptionsQuery.data ?? []}
             warehouses={warehouses}
           />
           {warehousesQuery.isError ? (
@@ -646,6 +652,12 @@ function DeliveryContent({
                 {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
               </p>
             ) : null}
+            {partnerOptionsQuery.isLoading ? <LoadingState label="Loading active delivery partners..." /> : null}
+            {partnerOptionsQuery.isError || warehousesQuery.isError ? (
+              <p className="formError" role="alert">
+                {getErrorMessage(partnerOptionsQuery.error) ?? getErrorMessage(warehousesQuery.error)}
+              </p>
+            ) : null}
             <AssignmentForm
               activePartners={activePartners}
               assignableOrders={assignableOrders}
@@ -657,8 +669,8 @@ function DeliveryContent({
               showEmptyStates={
                 !ordersQuery.isLoading &&
                 !ordersQuery.isError &&
-                !partnersQuery.isLoading &&
-                !partnersQuery.isError
+                !partnerOptionsQuery.isLoading &&
+                !partnerOptionsQuery.isError
               }
               values={assignmentForm}
               warehouses={warehouses}

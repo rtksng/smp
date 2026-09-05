@@ -89,7 +89,14 @@ export function markStatusUpdateSucceeded(
 }
 
 export function nextStatusUpdate(queue: QueuedStatusUpdate[], now = new Date()) {
+  const seenAssignments = new Set<string>();
   return [...queue]
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    .filter((item) => {
+      if (seenAssignments.has(item.assignmentId)) return false;
+      seenAssignments.add(item.assignmentId);
+      return true;
+    })
     .filter((item) => item.attempts < MAX_STATUS_UPDATE_ATTEMPTS)
     .filter((item) => {
       if (!item.nextAttemptAt) {
@@ -103,7 +110,7 @@ export function nextStatusUpdate(queue: QueuedStatusUpdate[], now = new Date()) 
         nextAttemptAt.getTime() <= now.getTime()
       );
     })
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))[0];
+    [0];
 }
 
 export function shouldRetryStatusUpdate(status?: number) {

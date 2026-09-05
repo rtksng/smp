@@ -85,11 +85,13 @@ export default function AssignmentDetailScreen() {
     null
   );
   const cashRef = useRef<TextInput>(null);
+  const submittingRef = useRef(false);
   const noteRef = useRef<TextInput>(null);
   const assignmentQuery = useQuery({
     enabled: Boolean(accessToken && id),
     queryFn: () => getAssignment(accessToken ?? "", id),
-    queryKey: ["delivery-assignment", id]
+    queryKey: ["delivery-assignment", id],
+    refetchInterval: (query) => query.state.data && nextStatuses(query.state.data.status).length > 0 ? 15_000 : false
   });
   const assignment = assignmentQuery.data ?? null;
   const statusMutation = useMutation({
@@ -148,7 +150,7 @@ export default function AssignmentDetailScreen() {
       : null;
 
   async function submitStatus(status: DeliveryStatus) {
-    if (!assignment || !accessToken) {
+    if (!assignment || !accessToken || submittingRef.current || queuedForAssignment) {
       return;
     }
 
@@ -187,6 +189,7 @@ export default function AssignmentDetailScreen() {
         }
       : null;
 
+    submittingRef.current = true;
     setSubmittingStatus(status);
     try {
       if (status === "DELIVERED" && proofAsset && !proof) {
@@ -252,6 +255,7 @@ export default function AssignmentDetailScreen() {
     } catch (error) {
       feedback.error(errorMessage(error));
     } finally {
+      submittingRef.current = false;
       setSubmittingStatus(null);
     }
   }

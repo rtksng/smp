@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { File } from "expo-file-system";
 import type {
   DeliveryAssignmentListParams,
   DeliveryIncidentType,
@@ -200,14 +201,7 @@ export function uploadDeliveryProof(
     type: string;
   }
 ) {
-  const formData = new FormData();
-  formData.append("file", file as unknown as Blob);
-
-  return apiRequest("/delivery-partner/uploads/proof", uploadResponseSchema, {
-    accessToken,
-    body: formData,
-    method: "POST"
-  });
+  return uploadFile(accessToken, "/delivery-partner/uploads/proof", file);
 }
 
 export function uploadPartnerDocument(
@@ -223,7 +217,8 @@ function uploadFile(
   file: { uri: string; name: string; type: string }
 ) {
   const formData = new FormData();
-  formData.append("file", file as unknown as Blob);
+  // Expo's fetch accepts File/Blob parts, not React Native URI descriptor objects.
+  formData.append("file", new File(file.uri), file.name);
 
   return apiRequest(path, uploadResponseSchema, {
     accessToken,

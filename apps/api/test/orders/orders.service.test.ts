@@ -219,6 +219,8 @@ function createOrdersPrismaMock(input?: {
     warehouseId: string | null;
   }>;
   orderStatus?: string;
+  deliveryStatusAtCancellation?: string;
+  cancellationClaimCount?: number;
   paymentStatus?: string;
   splitWarehouseStock?: boolean;
   stockAvailable?: number;
@@ -239,6 +241,7 @@ function createOrdersPrismaMock(input?: {
     orderFindMany: [],
     orderItemCreate: [],
     orderUpdate: [],
+    orderUpdateMany: [],
     paymentCreate: [],
     refundCreate: [],
     refundFindFirst: [],
@@ -696,6 +699,15 @@ function createOrdersPrismaMock(input?: {
       }
     },
     order: {
+      updateMany: async (args: { data: Record<string, unknown>; where: { id: string; status: string } }) => {
+        calls.orderUpdateMany.push(args);
+        if (input?.cancellationClaimCount === 0) return { count: 0 };
+        if (input?.deliveryStatusAtCancellation) deliveryAssignments[0].status = input.deliveryStatusAtCancellation;
+        const existing = orders.find((order) => order.id === args.where.id);
+        if (existing && existing.status !== args.where.status) return { count: 0 };
+        if (existing) Object.assign(existing, args.data);
+        return { count: 1 };
+      },
       count: async (args: unknown) => {
         calls.orderCount.push(args);
         return orders.length;
@@ -1823,6 +1835,31 @@ test("getAdminOrder serializes customer, warehouse, payment, and invoice details
       tax: 43.2
     }
   });
+});
+
+test("admin and customer cancellation also cancel active delivery assignments", async () => {
+  for (const actor of ["admin", "customer"] as const) {
+    const prisma = createOrdersPrismaMock({ orderStatus: "ASSIGNED" });
+    const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+    if (actor === "admin") {
+      await service.cancelOrder("order-1", { reason: "QA cancellation" }, { auth: adminAuth() });
+    } else {
+      await service.cancelMyOrder("customer-1", "order-1", { reason: "QA cancellation" });
+    }
+    assert.equal(prisma.calls.orderUpdateMany.length, 1);
+    assert.equal(prisma.calls.deliveryAssignmentUpdate.length, 1);
+    assert.equal((prisma.calls.deliveryAssignmentUpdate[0] as { data: { status: string } }).data.status, "CANCELLED");
+  }
+});
+
+test("cancellation rejects a concurrent pickup or changed order without releasing inventory", async () => {
+  for (const options of [{ deliveryStatusAtCancellation: "PICKED_UP" }, { cancellationClaimCount: 0 }]) {
+    const prisma = createOrdersPrismaMock({ orderStatus: "ASSIGNED", ...options });
+    const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+    await assert.rejects(() => service.cancelOrder("order-1", { reason: "QA cancellation" }, { auth: adminAuth() }));
+    assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
+    assert.equal(prisma.calls.deliveryAssignmentUpdate.length, 0);
+  }
 });
 
 test("cancelOrder releases reserved inventory and records a cancelled history entry", async () => {

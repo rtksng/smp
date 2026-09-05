@@ -140,7 +140,8 @@ export function AccountOrderDetail({ orderId }: { orderId: string }) {
   const queryClient = useQueryClient();
   const orderQuery = useQuery({
     queryFn: () => getOrder(orderId),
-    queryKey: customerQueryKeys.order(orderId)
+    queryKey: customerQueryKeys.order(orderId),
+    refetchInterval: (query) => query.state.data && !["DELIVERED", "CANCELLED", "RETURNED"].includes(query.state.data.status) ? 15_000 : false
   });
   const order = orderQuery.data;
   const setCartSummary = useCartStore((state) => state.setSummary);
@@ -671,6 +672,11 @@ function DeliveryTracking({ order }: { order: Order }) {
                     {tracking.failureReason}
                   </p>
                 ) : null}
+                {tracking.proofOfDeliveryUrl && /^https?:\/\//i.test(tracking.proofOfDeliveryUrl) ? (
+                  <a className="mt-2 inline-block text-sm font-semibold text-[#0f6f68] underline" href={tracking.proofOfDeliveryUrl} target="_blank" rel="noopener noreferrer">
+                    View proof of delivery
+                  </a>
+                ) : null}
               </div>
             </div>
             <div className="mt-4 grid gap-3 border-t border-[#c4e4e0] pt-4">
@@ -813,7 +819,8 @@ function OrderStatusBadge({ status }: { status: Order["status"] }) {
 }
 
 function canCancelOrder(order: Order) {
-  return ["ASSIGNED", "CONFIRMED", "CREATED", "PACKED"].includes(order.status);
+  return ["ASSIGNED", "CONFIRMED", "CREATED", "PACKED"].includes(order.status) &&
+    !order.deliveryTracking.some((tracking) => ["PICKED_UP", "OUT_FOR_DELIVERY"].includes(tracking.status));
 }
 
 function canRequestReturn(order: Order) {

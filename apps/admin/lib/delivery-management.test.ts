@@ -6,10 +6,20 @@ import {
   createEmptyDeliveryAssignmentFilters,
   createEmptyDeliveryPartnerFilters,
   formatDeliveryLabel,
-  getNextDeliveryStatuses
+  getNextDeliveryStatuses,
+  loadDeliveryOptions
 } from "./delivery-management";
 
 describe("delivery management helpers", () => {
+  it("loads dispatch options beyond the first table page", async () => {
+    const pages: number[] = [];
+    const items = await loadDeliveryOptions(async (page) => {
+      pages.push(page);
+      return { items: [page], pagination: { hasNextPage: page < 3, hasPreviousPage: page > 1, page, limit: 1, total: 3, totalPages: 3 } };
+    });
+    expect(pages).toEqual([1, 2, 3]);
+    expect(items).toEqual([1, 2, 3]);
+  });
   it("normalizes delivery partner filters into the backend query", () => {
     expect(
       buildDeliveryPartnerQuery(

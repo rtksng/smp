@@ -24,7 +24,7 @@ import {
   shouldRetryStatusUpdate,
   type QueuedStatusUpdate
 } from "./status-queue";
-import { loadStatusQueue, saveStatusQueue } from "./status-queue-store";
+import { loadStatusQueue, updateStatusQueue } from "./status-queue-store";
 
 type StatusQueueContextValue = {
   discardUpdate: (id: string) => Promise<void>;
@@ -48,9 +48,10 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
   const [queuedUpdates, setQueuedUpdates] = useState<QueuedStatusUpdate[]>([]);
   const [retryTick, setRetryTick] = useState(0);
 
-  const persistQueue = useCallback(async (queue: QueuedStatusUpdate[]) => {
+  const persistQueue = useCallback(async (update: (queue: QueuedStatusUpdate[]) => QueuedStatusUpdate[]) => {
+    const queue = await updateStatusQueue(update);
     setQueuedUpdates(queue);
-    await saveStatusQueue(queue);
+    return queue;
   }, []);
 
   const enqueueUpdate = useCallback(
@@ -60,26 +61,22 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
         id?: string;
       }
     ) => {
-      const storedQueue = await loadStatusQueue();
-      const nextQueue = enqueueStatusUpdate(storedQueue, item);
-      await persistQueue(nextQueue);
-      return nextQueue;
+      return persistQueue((queue) => enqueueStatusUpdate(queue, item));
     },
     [persistQueue]
   );
 
   const discardUpdate = useCallback(
     async (id: string) => {
-      await persistQueue(dropStatusUpdate(await loadStatusQueue(), id));
+      await persistQueue((queue) => dropStatusUpdate(queue, id));
     },
     [persistQueue]
   );
 
   const retryUpdate = useCallback(
     async (id: string) => {
-      const queue = await loadStatusQueue();
       await persistQueue(
-        queue.map((item) =>
+        (queue) => queue.map((item) =>
           item.id === id
             ? {
                 ...item,
@@ -158,7 +155,7 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
     drainingRef.current = true;
     updateAssignmentStatus(accessToken, next.assignmentId, next.payload)
       .then(async () => {
-        await persistQueue(markStatusUpdateSucceeded(queuedUpdates, next.id));
+        await persistQueue((queue) => markStatusUpdateSucceeded(queue, next.id));
         await queryClient.invalidateQueries({ queryKey: ["delivery-assignments"] });
         await queryClient.invalidateQueries({
           queryKey: ["delivery-assignment", next.assignmentId]
@@ -168,11 +165,9 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
       })
       .catch(async (error) => {
         const status = error instanceof ApiError ? error.status : undefined;
-        const nextQueue = shouldRetryStatusUpdate(status)
-          ? markStatusUpdateRetried(queuedUpdates, next.id)
-          : markStatusUpdateExhausted(queuedUpdates, next.id);
-
-        await persistQueue(nextQueue);
+        await persistQueue((queue) => shouldRetryStatusUpdate(status)
+          ? markStatusUpdateRetried(queue, next.id)
+          : markStatusUpdateExhausted(queue, next.id));
       })
       .finally(() => {
         drainingRef.current = false;

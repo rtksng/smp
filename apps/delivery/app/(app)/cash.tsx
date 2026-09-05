@@ -23,12 +23,14 @@ export default function CashScreen() {
   const cashQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => getCashSummary(accessToken ?? ""),
-    queryKey: ["delivery-cash"]
+    queryKey: ["delivery-cash"],
+    refetchInterval: 30_000
   });
   const dashboardQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => getDeliveryDashboard(accessToken ?? ""),
-    queryKey: ["delivery-dashboard"]
+    queryKey: ["delivery-dashboard"],
+    refetchInterval: 30_000
   });
 
   if (cashQuery.isLoading) {

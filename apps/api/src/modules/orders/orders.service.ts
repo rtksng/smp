@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Optional,
@@ -626,6 +627,7 @@ export class OrdersService {
         );
       }
 
+      await this.claimOrderCancellation(tx, order);
       await this.releaseReservedInventoryForCancelledOrder(tx, order);
       await this.cancelActiveDeliveryAssignments(tx, order, input.reason);
 
@@ -941,7 +943,9 @@ export class OrdersService {
         );
       }
 
+      await this.claimOrderCancellation(tx, order);
       await this.releaseReservedInventoryForCancelledOrder(tx, order);
+      await this.cancelActiveDeliveryAssignments(tx, order, input.reason);
       await tx.order.update({
         data: {
           status: OrderStatus.CANCELLED
@@ -1498,6 +1502,22 @@ export class OrdersService {
         }
       });
     }
+  }
+
+  private async claimOrderCancellation(tx: Prisma.TransactionClient, order: OrderRecord) {
+    const claim = await tx.order.updateMany({
+      data: { status: OrderStatus.CANCELLED },
+      where: { id: order.id, deletedAt: null, status: order.status }
+    });
+    if (claim.count !== 1) throw new ConflictException("Order status changed. Refresh before cancelling.");
+    // Read after acquiring the order lock so a concurrent pickup cannot release stock.
+    const current = await tx.order.findFirst({ where: { id: order.id }, include: ORDER_INCLUDE });
+    if (!current || current.deliveryAssignments.some((assignment) =>
+      assignment.status === DeliveryStatus.PICKED_UP || assignment.status === DeliveryStatus.OUT_FOR_DELIVERY
+    )) {
+      throw new ConflictException("This order has already been picked up and cannot be cancelled.");
+    }
+    order.deliveryAssignments = current.deliveryAssignments;
   }
 
   private async cancelActiveDeliveryAssignments(

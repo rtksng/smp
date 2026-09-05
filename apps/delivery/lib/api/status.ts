@@ -36,7 +36,8 @@ export function isCodAssignment(assignment: DeliveryAssignment) {
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
     currency: "INR",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
     style: "currency"
   }).format(value);
 }

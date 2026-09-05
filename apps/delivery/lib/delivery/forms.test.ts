@@ -102,6 +102,10 @@ describe("delivery form validation", () => {
     });
   });
 
+  test.each(["Infinity", "NaN", "1225.001", "10000000000"])("rejects invalid COD cash amount %s", (cashCollectedAmount) => {
+    expect(validateDeliveryStatusForm({ cashCollectedAmount, expectedCodAmount: 1225, failureReason: "", isCod: true, proofSelected: true, receiverName: "QA Receiver", status: "DELIVERED" }).isValid).toBe(false);
+  });
+
   test("validates delivered non-COD and failed status payloads", () => {
     expect(
       validateDeliveryStatusForm({

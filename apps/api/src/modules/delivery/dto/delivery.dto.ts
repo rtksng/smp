@@ -286,8 +286,9 @@ export class CreateDeliveryLedgerEntryDto {
 
   @ApiProperty({ example: 250, minimum: 0.01 })
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
+  @Max(9_999_999_999.99)
   amount!: number;
 
   @ApiProperty({ example: "Delivery earning for weekly settlement" })
@@ -362,9 +363,10 @@ export class UpdateDeliveryAssignmentStatusDto {
     minimum: 0
   })
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
   @Min(0)
+  @Max(9_999_999_999.99)
   cashCollectedAmount?: number;
 
   @ApiPropertyOptional({

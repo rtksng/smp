@@ -17,6 +17,7 @@ import {
   DeliveryStatus,
   OrderStatus,
   PaymentMethod,
+  PaymentStatus,
   WarehouseStatus
 } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
@@ -694,7 +695,7 @@ export class DeliveryService {
     const partner = await this.findPartnerById(this.prisma, deliveryPartnerId, {
       requireActive: true
     });
-    const [assignments, ledgerEntries] = await Promise.all([
+    const [assignments, ledgerEntries, cashTotals] = await Promise.all([
       this.prisma.deliveryAssignment.findMany({
         include: ASSIGNMENT_INCLUDE,
         orderBy: [{ cashCollectedAt: "desc" }, { assignedAt: "desc" }],
@@ -708,6 +709,12 @@ export class DeliveryService {
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         take: 100,
         where: { deliveryPartnerId }
+      }),
+      this.prisma.deliveryAssignment.groupBy({
+        by: ["cashSettlementStatus"],
+        _count: { _all: true },
+        _sum: { cashCollectedAmount: true },
+        where: { deliveryPartnerId, cashCollectedAmount: { not: null } }
       })
     ]);
     let cashInHand = 0;
@@ -715,24 +722,25 @@ export class DeliveryService {
     let settledAmount = 0;
     let pendingCount = 0;
 
-    const items = assignments.map((assignment) => {
-      const amount = decimalToNumberOrNull(assignment.cashCollectedAmount) ?? 0;
-
-      if (assignment.cashSettlementStatus === CashCollectionStatus.COLLECTED) {
+    for (const total of cashTotals) {
+      const amount = decimalToNumberOrNull(total._sum.cashCollectedAmount) ?? 0;
+      if (total.cashSettlementStatus === CashCollectionStatus.COLLECTED) {
         cashInHand += amount;
-        pendingCount += 1;
+        pendingCount += total._count._all;
       } else if (
-        assignment.cashSettlementStatus === CashCollectionStatus.SUBMITTED
+        total.cashSettlementStatus === CashCollectionStatus.SUBMITTED
       ) {
         submittedAmount += amount;
       } else if (
-        assignment.cashSettlementStatus === CashCollectionStatus.SETTLED
+        total.cashSettlementStatus === CashCollectionStatus.SETTLED
       ) {
         settledAmount += amount;
       }
+    }
 
+    const items = assignments.map((assignment) => {
       return {
-        amount,
+        amount: decimalToNumberOrNull(assignment.cashCollectedAmount) ?? 0,
         assignmentId: assignment.id,
         collectedAt: assignment.cashCollectedAt,
         orderNumber: assignment.order.orderNumber,
@@ -900,6 +908,8 @@ export class DeliveryService {
       throw new BadRequestException("No collected COD cash exists for this delivery.");
     }
 
+    if (existing.cashSettlementStatus === input.status) return this.serializeAssignment(existing);
+
     if (
       input.status === CashCollectionStatus.SUBMITTED &&
       existing.cashSettlementStatus !== CashCollectionStatus.COLLECTED
@@ -915,11 +925,12 @@ export class DeliveryService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const assignment = await tx.deliveryAssignment.update({
+      const claim = await tx.deliveryAssignment.updateMany({
         data: { cashSettlementStatus: input.status },
-        include: ASSIGNMENT_INCLUDE,
-        where: { id: assignmentId }
+        where: { id: assignmentId, cashSettlementStatus: existing.cashSettlementStatus }
       });
+      if (claim.count !== 1) throw new ConflictException("Cash settlement changed. Refresh before trying again.");
+      const assignment = await this.findAssignmentById(tx, assignmentId);
 
       await this.writeAuditLog(tx, context, {
         action: "delivery.cash_settlement",
@@ -999,16 +1010,7 @@ export class DeliveryService {
     }
 
     const entry = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.deliveryPartnerLedgerEntry.create({
-        data: {
-          amount,
-          deliveryPartnerId,
-          description: input.description.trim(),
-          reference: input.reference?.trim() || null,
-          type: input.type
-        }
-      });
-      await tx.deliveryPartner.update({
+      const balanceUpdate = await tx.deliveryPartner.updateMany({
         data: {
           totalEarnings:
             input.type === DeliveryLedgerEntryType.DELIVERY_EARNING
@@ -1019,7 +1021,22 @@ export class DeliveryService {
               ? { decrement: amount }
               : { increment: amount }
         },
-        where: { id: deliveryPartnerId }
+        where: {
+          id: deliveryPartnerId,
+          deletedAt: null,
+          status: DeliveryPartnerStatus.ACTIVE,
+          walletBalance: input.type === DeliveryLedgerEntryType.PAYOUT ? { gte: amount } : undefined
+        }
+      });
+      if (balanceUpdate.count !== 1) throw new ConflictException("Partner status or wallet balance changed. Refresh before recording this entry.");
+      const created = await tx.deliveryPartnerLedgerEntry.create({
+        data: {
+          amount,
+          deliveryPartnerId,
+          description: input.description.trim(),
+          reference: input.reference?.trim() || null,
+          type: input.type
+        }
       });
       await this.writeAuditLog(tx, context, {
         action: "delivery_partner.ledger.create",
@@ -1121,15 +1138,39 @@ export class DeliveryService {
         assignmentId
       );
 
+      // A retry after a lost response must not repeat inventory or cash writes.
+      if (assignment.status === input.status || assignment.statusHistory.some((entry) => entry.status === input.status)) {
+        return this.serializeAssignment(assignment);
+      }
+      if (assignment.order.status !== OrderStatus.ASSIGNED && assignment.order.status !== OrderStatus.OUT_FOR_DELIVERY) {
+        throw new ConflictException("This order is no longer available for delivery updates.");
+      }
+
       this.assertAllowedAssignmentTransition(assignment.status, input.status);
       this.assertRequiredStatusPayload(assignment, input);
 
-      await tx.deliveryAssignment.update({
+      // Lock the order before the assignment, matching order cancellation.
+      const orderClaim = await tx.order.updateMany({
+        data: { status: assignment.order.status },
+        where: { id: assignment.orderId, deletedAt: null, status: assignment.order.status }
+      });
+      if (orderClaim.count !== 1) throw new ConflictException("Order status changed. Refresh this delivery.");
+
+      const assignmentClaim = await tx.deliveryAssignment.updateMany({
         data: this.buildAssignmentStatusUpdateData(input, assignment),
         where: {
-          id: assignment.id
+          id: assignment.id,
+          deliveryPartnerId,
+          status: assignment.status
         }
       });
+      if (assignmentClaim.count !== 1) {
+        const current = await this.findPartnerAssignment(tx, deliveryPartnerId, assignmentId);
+        if (current.status === input.status || current.statusHistory.some((entry) => entry.status === input.status)) {
+          return this.serializeAssignment(current);
+        }
+        throw new ConflictException("Delivery status changed. Refresh this delivery.");
+      }
       await tx.deliveryStatusHistory.create({
         data: {
           deliveryAssignmentId: assignment.id,
@@ -1239,7 +1280,7 @@ export class DeliveryService {
     input: UpdateDeliveryAssignmentStatusDto,
     assignment: DeliveryAssignmentRecord
   ) {
-    const data: Prisma.DeliveryAssignmentUpdateInput = {
+    const data: Prisma.DeliveryAssignmentUpdateManyMutationInput = {
       status: input.status
     };
 
@@ -1259,7 +1300,7 @@ export class DeliveryService {
         data.cashSettlementStatus = CashCollectionStatus.NOT_REQUIRED;
       }
     }
-    if (input.status === DeliveryStatus.FAILED) {
+    if (input.status === DeliveryStatus.FAILED || input.status === DeliveryStatus.CANCELLED) {
       data.failureReason = trimToUndefined(input.failureReason ?? input.note);
     }
 
@@ -1285,7 +1326,7 @@ export class DeliveryService {
         const collectedAmount = input.cashCollectedAmount;
         const expectedAmount = decimalToNumber(assignment.order.grandTotal);
 
-        if (collectedAmount === undefined || collectedAmount < expectedAmount) {
+        if (typeof collectedAmount !== "number" || !Number.isFinite(collectedAmount) || collectedAmount < expectedAmount || collectedAmount > 9_999_999_999.99 || Number(collectedAmount.toFixed(2)) !== collectedAmount) {
           throw new BadRequestException(
             "COD deliveries require the collected cash amount before marking delivered."
           );
@@ -1335,9 +1376,17 @@ export class DeliveryService {
 
     if (input.status === DeliveryStatus.DELIVERED) {
       await this.clearReservedInventoryForDeliveredOrder(tx, assignment);
+      const collectedCod = this.assignmentRequiresCodCollection(assignment);
+      if (collectedCod) {
+        await tx.payment.updateMany({
+          data: { paidAt: new Date(), status: PaymentStatus.PAID },
+          where: { id: assignment.order.payments[0]!.id, orderId: assignment.orderId, method: PaymentMethod.COD }
+        });
+      }
       await tx.order.update({
         data: {
-          status: OrderStatus.DELIVERED
+          status: OrderStatus.DELIVERED,
+          ...(collectedCod ? { paymentStatus: PaymentStatus.PAID } : {})
         },
         where: {
           id: assignment.orderId
@@ -1348,6 +1397,19 @@ export class DeliveryService {
           note: input.note,
           orderId: assignment.orderId,
           status: OrderStatus.DELIVERED
+        }
+      });
+    }
+
+    if (input.status === DeliveryStatus.FAILED || input.status === DeliveryStatus.CANCELLED) {
+      // An unsuccessful delivery attempt does not cancel the customer's order
+      // or release its reserved stock. Keep it ready for dispatch again.
+      await tx.order.update({ data: { status: OrderStatus.PACKED }, where: { id: assignment.orderId } });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: assignment.orderId,
+          status: OrderStatus.PACKED,
+          note: `Delivery ${input.status.toLowerCase()}; awaiting reassignment. ${trimToUndefined(input.failureReason ?? input.note) ?? ""}`.trim()
         }
       });
     }

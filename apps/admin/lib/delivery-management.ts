@@ -118,6 +118,18 @@ export type DeliveryStatusPayload = {
   status: DeliveryAssignmentStatus;
 };
 
+/** Load every page for dispatch selectors, which must not inherit table pagination. */
+export async function loadDeliveryOptions<T>(
+  loadPage: (page: number) => Promise<PaginatedResponse<T>>
+): Promise<T[]> {
+  const items: T[] = [];
+  for (let page = 1; ; page += 1) {
+    const result = await loadPage(page);
+    items.push(...result.items);
+    if (!result.pagination?.hasNextPage) return items;
+  }
+}
+
 const NEXT_DELIVERY_STATUSES: Record<
   DeliveryAssignmentStatus,
   DeliveryAssignmentStatus[]

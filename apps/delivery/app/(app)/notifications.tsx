@@ -22,7 +22,8 @@ export default function NotificationsScreen() {
   const notificationsQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => listNotifications(accessToken ?? ""),
-    queryKey: ["delivery-notifications"]
+    queryKey: ["delivery-notifications"],
+    refetchInterval: 30_000
   });
   const readMutation = useMutation({
     mutationFn: (notificationId: string) =>

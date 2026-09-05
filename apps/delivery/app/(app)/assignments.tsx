@@ -74,7 +74,8 @@ export default function AssignmentsScreen() {
   const dashboardQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => getDeliveryDashboard(accessToken ?? ""),
-    queryKey: ["delivery-dashboard"]
+    queryKey: ["delivery-dashboard"],
+    refetchInterval: 30_000
   });
   const assignmentsQuery = useInfiniteQuery({
     enabled: Boolean(accessToken),
@@ -93,12 +94,14 @@ export default function AssignmentsScreen() {
     },
     getNextPageParam: (lastPage) =>
       lastPage.pagination.hasNextPage ? lastPage.pagination.page + 1 : undefined,
-    queryKey: ["delivery-assignments", selectedStatus, search, sort, dateRange]
+    queryKey: ["delivery-assignments", selectedStatus, search, sort, dateRange],
+    refetchInterval: 15_000
   });
   const notificationsQuery = useQuery({
     enabled: Boolean(accessToken),
     queryFn: () => listNotifications(accessToken ?? ""),
-    queryKey: ["delivery-notifications"]
+    queryKey: ["delivery-notifications"],
+    refetchInterval: 30_000
   });
   const onlineMutation = useMutation({
     mutationFn: (isOnline: boolean) => updateOnlineStatus(accessToken ?? "", isOnline),

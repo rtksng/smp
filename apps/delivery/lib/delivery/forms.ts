@@ -176,7 +176,9 @@ export function validateDeliveryStatusForm(input: {
     if (input.isCod) {
       if (
         cashCollectedAmount === undefined ||
-        Number.isNaN(cashCollectedAmount) ||
+        !Number.isFinite(cashCollectedAmount) ||
+        cashCollectedAmount > 9_999_999_999.99 ||
+        Number(cashCollectedAmount.toFixed(2)) !== cashCollectedAmount ||
         cashCollectedAmount < input.expectedCodAmount
       ) {
         errors.cashCollectedAmount = `Collect at least ${formatCurrency(

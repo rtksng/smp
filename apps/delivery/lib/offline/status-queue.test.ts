@@ -14,6 +14,15 @@ import {
 } from "./status-queue";
 
 describe("status retry queue", () => {
+  test("never skips a delayed or exhausted transition for the same assignment", () => {
+    let queue = enqueueStatusUpdate([], { assignmentId: "one", id: "accept", createdAt: "2026-09-01T10:00:00Z", payload: { status: "ACCEPTED" } });
+    queue = enqueueStatusUpdate(queue, { assignmentId: "one", id: "pickup", createdAt: "2026-09-01T10:01:00Z", payload: { status: "PICKED_UP" } });
+    queue = enqueueStatusUpdate(queue, { assignmentId: "two", id: "other", createdAt: "2026-09-01T10:02:00Z", payload: { status: "ACCEPTED" } });
+    const delayed = markStatusUpdateRetried(queue, "accept", new Date("2026-09-01T10:03:00Z"));
+    expect(nextStatusUpdate(delayed, new Date("2026-09-01T10:03:01Z"))?.id).toBe("other");
+    expect(nextStatusUpdate(markStatusUpdateExhausted(queue, "accept"))?.id).toBe("other");
+    expect(nextStatusUpdate(markStatusUpdateSucceeded(queue, "accept"))?.id).toBe("pickup");
+  });
   test("keeps the newest status update for the same assignment and status", () => {
     const queue = enqueueStatusUpdate([], {
       assignmentId: "assignment-1",

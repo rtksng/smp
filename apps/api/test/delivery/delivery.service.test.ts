@@ -4,8 +4,6 @@ import { test } from "node:test";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import type { PrismaService } from "../../src/database/prisma.service";
-import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
-import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import { AdminJwtGuard } from "../../src/modules/auth/guards/admin-jwt.guard";
 import { DeliveryPartnerJwtGuard } from "../../src/modules/auth/guards/delivery-partner-jwt.guard";
 import { PermissionGuard } from "../../src/modules/auth/guards/permission.guard";
@@ -14,335 +12,9 @@ import { AdminDeliveryController } from "../../src/modules/delivery/admin-delive
 import { AdminDeliveryPartnersController } from "../../src/modules/delivery/admin-delivery-partners.controller";
 import { DeliveryController } from "../../src/modules/delivery/delivery.controller";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
-import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
-const now = new Date("2026-05-25T10:00:00.000Z");
-
-function adminAuth(): AuthJwtPayload {
-  return {
-    audience: AuthTokenAudience.Admin,
-    permissions: [PermissionCode.DeliveryRead, PermissionCode.DeliveryAssign],
-    role: AdminRoleCode.DeliveryManager,
-    sessionId: "admin-session-1",
-    sub: "admin-1",
-    tokenType: "access"
-  };
-}
-
-class FakeWarehouseAccess {
-  readonly assertedWarehouseIds: string[] = [];
-
-  async assertCanManageWarehouse(_auth: AuthJwtPayload, warehouseId: string) {
-    this.assertedWarehouseIds.push(warehouseId);
-  }
-}
-
-function createDeliveryPrismaMock(input?: {
-  orderStatus?: string;
-  orderStatusClaimCount?: number;
-}) {
-  const calls: Record<string, unknown[]> = {
-    adminAuditLogCreate: [],
-    deliveryAssignmentCreate: [],
-    deliveryAssignmentCount: [],
-    deliveryAssignmentFindFirst: [],
-    deliveryAssignmentFindMany: [],
-    deliveryAssignmentUpdate: [],
-    deliveryPartnerDeviceUpsert: [],
-    deliveryPartnerDocumentCreate: [],
-    deliveryPartnerCount: [],
-    deliveryPartnerFindFirst: [],
-    deliveryPartnerFindMany: [],
-    deliveryPartnerUpdate: [],
-    deliveryStatusHistoryCreate: [],
-    inventoryStockUpdateMany: [],
-    orderFindFirst: [],
-    orderStatusHistoryCreate: [],
-    orderUpdate: [],
-    orderUpdateMany: [],
-    warehouseFindFirst: []
-  };
-  const deliveryPartner = {
-    createdAt: now,
-    deletedAt: null,
-    documents: [
-      {
-        createdAt: now,
-        deliveryPartnerId: "partner-1",
-        fileKey: "delivery-partners/documents/license.pdf",
-        fileUrl: "http://localhost/uploads/license.pdf",
-        id: "document-1",
-        title: "Driving license",
-        type: "DRIVING_LICENSE",
-        updatedAt: now,
-        verifiedAt: null
-      }
-    ],
-    email: "driver@example.com",
-    fullName: "Asha Driver",
-    id: "partner-1",
-    isOnline: false,
-    lastLatitude: null,
-    lastLocationAt: null,
-    lastLongitude: null,
-    lastSeenAt: null,
-    mobileNumber: "+919876543210",
-    status: "ACTIVE",
-    totalEarnings: "0.00",
-    updatedAt: now,
-    vehicleNumber: "DL01AB1234",
-    walletBalance: "0.00"
-  };
-  const pickupWarehouse = {
-    address: "Warehouse Road",
-    city: "Delhi",
-    code: "DEL-01",
-    contactNumber: "+911145678900",
-    contactPerson: "Dispatch Desk",
-    id: "warehouse-1",
-    latitude: "28.6139390",
-    longitude: "77.2090230",
-    name: "Delhi warehouse",
-    pincode: "110001",
-    state: "Delhi"
-  };
-  const shippingAddress = {
-    city: "Delhi",
-    country: "India",
-    fullName: "Dr. Nisha Rao",
-    id: "address-1",
-    landmark: "Near metro gate 2",
-    latitude: "28.6200000",
-    line1: "Clinic 12, Ring Road",
-    line2: "First floor",
-    longitude: "77.2200000",
-    mobileNumber: "+919999888877",
-    pincode: "110024",
-    state: "Delhi"
-  };
-  const customer = {
-    businessName: "Rao Surgical Clinic",
-    email: "nisha@example.com",
-    firstName: "Nisha",
-    id: "customer-1",
-    lastName: "Rao",
-    mobileNumber: "+919999888877"
-  };
-  const order = {
-    createdAt: now,
-    deletedAt: null,
-    discountTotal: "25.00",
-    grandTotal: "1225.00",
-    id: "order-1",
-    items: [
-      {
-        id: "item-1",
-        name: "Sterile gloves",
-        productId: "product-1",
-        quantity: 2,
-        sku: "GLV-100",
-        taxAmount: "100.00",
-        total: "1200.00",
-        unitPrice: "550.00",
-        variantId: null,
-        warehouseId: "warehouse-1"
-      }
-    ],
-    notes: "Call before delivery.",
-    orderNumber: "ORD-20260525-000001",
-    paymentStatus: "PENDING",
-    payments: [
-      {
-        amount: "1225.00",
-        createdAt: now,
-        id: "payment-1",
-        method: "COD",
-        status: "PENDING"
-      }
-    ],
-    shippingAddress,
-    status: input?.orderStatus ?? "PACKED",
-    subtotal: "1100.00",
-    taxTotal: "100.00",
-    shippingTotal: "50.00",
-    updatedAt: now,
-    user: customer,
-    warehouseId: "warehouse-1"
-  };
-  const statusHistory: Array<{
-    createdAt: Date;
-    id: string;
-    latitude: number | null;
-    longitude: number | null;
-    note: string | null;
-    status: string;
-  }> = [];
-  let assignment = {
-    assignedAt: now,
-    createdAt: now,
-    deliveredAt: null as Date | null,
-    deliveryPartner,
-    deliveryPartnerId: "partner-1",
-    failureReason: null as string | null,
-    id: "assignment-1",
-    order,
-    orderId: "order-1",
-    pickedUpAt: null as Date | null,
-    pickupWarehouse,
-    pickupWarehouseId: "warehouse-1",
-    proofOfDeliveryKey: null as string | null,
-    proofOfDeliveryUrl: null as string | null,
-    cashCollectedAmount: null as string | null,
-    cashCollectedAt: null as Date | null,
-    cashSettlementStatus: "NOT_REQUIRED",
-    receiverName: null as string | null,
-    status: "ASSIGNED",
-    statusHistory,
-    updatedAt: now
-  };
-  const prisma = {
-    calls,
-    $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>
-      callback(prisma),
-    adminAuditLog: {
-      create: async (args: unknown) => {
-        calls.adminAuditLogCreate.push(args);
-        return { id: "audit-1" };
-      }
-    },
-    deliveryAssignment: {
-      count: async (args: unknown) => {
-        calls.deliveryAssignmentCount.push(args);
-        return 1;
-      },
-      create: async (args: { data: Record<string, unknown> }) => {
-        calls.deliveryAssignmentCreate.push(args);
-        assignment = {
-          ...assignment,
-          ...args.data,
-          statusHistory
-        };
-        return assignment;
-      },
-      findFirst: async (args: unknown) => {
-        calls.deliveryAssignmentFindFirst.push(args);
-        return assignment;
-      },
-      findMany: async (args: unknown) => {
-        calls.deliveryAssignmentFindMany.push(args);
-        return [assignment];
-      },
-      update: async (args: { data: Record<string, unknown>; where: { id: string } }) => {
-        calls.deliveryAssignmentUpdate.push(args);
-        assignment = {
-          ...assignment,
-          ...args.data,
-          statusHistory
-        };
-        return assignment;
-      }
-    },
-    deliveryPartner: {
-      count: async (args: unknown) => {
-        calls.deliveryPartnerCount.push(args);
-        return 1;
-      },
-      findFirst: async (args: unknown) => {
-        calls.deliveryPartnerFindFirst.push(args);
-        return deliveryPartner;
-      },
-      findMany: async (args: unknown) => {
-        calls.deliveryPartnerFindMany.push(args);
-        return [deliveryPartner];
-      },
-      update: async (args: { data: Record<string, unknown> }) => {
-        calls.deliveryPartnerUpdate.push(args);
-        Object.assign(deliveryPartner, args.data);
-        return deliveryPartner;
-      }
-    },
-    deliveryPartnerDevice: {
-      upsert: async (args: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
-        calls.deliveryPartnerDeviceUpsert.push(args);
-        return {
-          id: "device-1",
-          createdAt: now,
-          updatedAt: now,
-          ...args.create,
-          ...args.update
-        };
-      }
-    },
-    deliveryPartnerDocument: {
-      create: async (args: { data: Record<string, unknown> }) => {
-        calls.deliveryPartnerDocumentCreate.push(args);
-        const document = {
-          createdAt: now,
-          id: "document-2",
-          updatedAt: now,
-          verifiedAt: null,
-          ...args.data
-        };
-        deliveryPartner.documents.push(document);
-        return document;
-      }
-    },
-    deliveryStatusHistory: {
-      create: async (args: { data: Record<string, unknown> }) => {
-        calls.deliveryStatusHistoryCreate.push(args);
-        const history = {
-          createdAt: now,
-          id: `delivery-history-${statusHistory.length + 1}`,
-          latitude: (args.data.latitude as number | null | undefined) ?? null,
-          longitude: (args.data.longitude as number | null | undefined) ?? null,
-          note: (args.data.note as string | null | undefined) ?? null,
-          status: args.data.status as string
-        };
-        statusHistory.push(history);
-        return history;
-      }
-    },
-    inventoryStock: {
-      updateMany: async (args: unknown) => {
-        calls.inventoryStockUpdateMany.push(args);
-        return { count: 1 };
-      }
-    },
-    order: {
-      findFirst: async (args: unknown) => {
-        calls.orderFindFirst.push(args);
-        return order;
-      },
-      update: async (args: { data: Record<string, unknown> }) => {
-        calls.orderUpdate.push(args);
-        Object.assign(order, args.data);
-        return order;
-      },
-      updateMany: async (args: { data: Record<string, unknown> }) => {
-        calls.orderUpdateMany.push(args);
-        if ((input?.orderStatusClaimCount ?? 1) > 0) {
-          Object.assign(order, args.data);
-        }
-        return { count: input?.orderStatusClaimCount ?? 1 };
-      }
-    },
-    orderStatusHistory: {
-      create: async (args: unknown) => {
-        calls.orderStatusHistoryCreate.push(args);
-        return { id: "order-history-1" };
-      }
-    },
-    warehouse: {
-      findFirst: async (args: unknown) => {
-        calls.warehouseFindFirst.push(args);
-        return pickupWarehouse;
-      }
-    }
-  };
-
-  return prisma;
-}
+import { adminAuth, FakeWarehouseAccess, createDeliveryPrismaMock } from "./delivery.fixture";
 
 test("listAdminDeliveryPartners returns profiles with documents, online state, and wallet placeholders", async () => {
   const prisma = createDeliveryPrismaMock();
@@ -423,7 +95,7 @@ test("rejectDeliveryPartner marks the partner inactive, offline, and writes an a
 });
 
 test("assignOrder creates an assignment, initial status history, and order assignment status", async () => {
-  const prisma = createDeliveryPrismaMock();
+  const prisma = createDeliveryPrismaMock({ orderStatus: "PACKED" });
   const warehouseAccess = new FakeWarehouseAccess();
   const service = new DeliveryService(
     prisma as unknown as PrismaService,
@@ -494,7 +166,7 @@ test("assignOrder only accepts confirmed or packed orders", async () => {
 });
 
 test("assignOrder rejects concurrent assignment when the order status was already claimed", async () => {
-  const prisma = createDeliveryPrismaMock({ orderStatusClaimCount: 0 });
+  const prisma = createDeliveryPrismaMock({ orderStatus: "PACKED", orderStatusClaimCount: 0 });
   const service = new DeliveryService(
     prisma as unknown as PrismaService,
     new FakeWarehouseAccess() as unknown as WarehouseAccessService
@@ -699,6 +371,79 @@ test("delivery partner status updates store pickup and delivered timestamps with
     (prisma.calls.orderUpdate.at(-1) as { data: { status: string } }).data.status,
     "DELIVERED"
   );
+});
+
+test("delivery retries do not repeat stock or cash writes and COD receipt marks customer payment paid", async () => {
+  const prisma = createDeliveryPrismaMock({ orderStatus: "ASSIGNED" });
+  const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  for (const status of ["ACCEPTED", "PICKED_UP", "OUT_FOR_DELIVERY"] as const) {
+    await service.updateAssignmentStatus("partner-1", "assignment-1", { status });
+  }
+  const payload = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
+  await service.updateAssignmentStatus("partner-1", "assignment-1", payload);
+  const retried = await service.updateAssignmentStatus("partner-1", "assignment-1", payload);
+  assert.equal(retried.status, "DELIVERED");
+  assert.equal(retried.payment.status, "PAID");
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 1);
+  assert.equal(prisma.calls.paymentUpdateMany.length, 1);
+  assert.equal(prisma.calls.deliveryStatusHistoryCreate.length, 4);
+});
+
+test("cash summary includes older collections beyond the 100-row history window", async () => {
+  const prisma = createDeliveryPrismaMock();
+  prisma.deliveryAssignment.groupBy = async () => [
+    { cashSettlementStatus: "COLLECTED", _sum: { cashCollectedAmount: "150000.00" }, _count: { _all: 125 } },
+    { cashSettlementStatus: "SUBMITTED", _sum: { cashCollectedAmount: "2500.00" }, _count: { _all: 2 } },
+    { cashSettlementStatus: "SETTLED", _sum: { cashCollectedAmount: "50000.00" }, _count: { _all: 101 } }
+  ];
+  const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  const summary = await service.getMyCashSummary("partner-1");
+  assert.equal(summary.cashInHand, 150000);
+  assert.equal(summary.pendingCount, 125);
+  assert.equal(summary.submittedAmount, 2500);
+  assert.equal(summary.settledAmount, 50000);
+  assert.equal(summary.items.length, 1);
+});
+
+test("concurrent payouts cannot overdraw a delivery partner wallet", async () => {
+  const prisma = createDeliveryPrismaMock();
+  prisma.state.deliveryPartner.walletBalance = "100.00";
+  const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  const results = await Promise.allSettled([1, 2].map(() => service.createLedgerEntry("partner-1", { type: "PAYOUT", amount: 70, description: "QA payout" }, { auth: adminAuth() })));
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(prisma.state.deliveryPartner.walletBalance, "30");
+  assert.equal(prisma.state.ledgerEntries.length, 1);
+});
+
+test("failed and cancelled attempts preserve their reasons and release the order for reassignment", async () => {
+  for (const status of ["FAILED", "CANCELLED"] as const) {
+    const prisma = createDeliveryPrismaMock({ orderStatus: "ASSIGNED" });
+    const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+    if (status === "FAILED") {
+      for (const next of ["ACCEPTED", "PICKED_UP", "OUT_FOR_DELIVERY"] as const) await service.updateAssignmentStatus("partner-1", "assignment-1", { status: next });
+    }
+    const attempt = await service.updateAssignmentStatus("partner-1", "assignment-1", { status, failureReason: " QA retry required " });
+    assert.equal(attempt.failureReason, "QA retry required");
+    assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
+    const reassigned = await service.assignOrder({ orderId: "order-1", deliveryPartnerId: "partner-1" }, { auth: adminAuth() });
+    assert.equal(reassigned.status, "ASSIGNED");
+  }
+});
+
+test("delivery status updates reject stale concurrent writes and cancelled orders", async () => {
+  for (const options of [{ orderStatus: "CANCELLED" }, { orderStatus: "ASSIGNED", assignmentStatusClaimCount: 0 }]) {
+    const prisma = createDeliveryPrismaMock(options);
+    const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+    await assert.rejects(() => service.updateAssignmentStatus("partner-1", "assignment-1", { status: "ACCEPTED" }), ConflictException);
+    assert.equal(prisma.calls.deliveryStatusHistoryCreate.length, 0);
+  }
+});
+
+test("another delivery partner cannot update an assignment", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  await assert.rejects(() => service.updateAssignmentStatus("partner-2", "assignment-1", { status: "ACCEPTED" }));
+  assert.equal(prisma.calls.deliveryStatusHistoryCreate.length, 0);
 });
 
 test("delivery partner must provide proof and receiver name before marking delivered", async () => {
