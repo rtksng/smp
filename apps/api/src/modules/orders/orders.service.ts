@@ -132,9 +132,9 @@ const PROCESSABLE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CREATED]: [OrderStatus.CONFIRMED],
   [OrderStatus.CONFIRMED]: [OrderStatus.PACKED],
-  [OrderStatus.PACKED]: [OrderStatus.ASSIGNED],
-  [OrderStatus.ASSIGNED]: [OrderStatus.OUT_FOR_DELIVERY],
-  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
+  [OrderStatus.PACKED]: [],
+  [OrderStatus.ASSIGNED]: [],
+  [OrderStatus.OUT_FOR_DELIVERY]: [],
   [OrderStatus.DELIVERED]: [OrderStatus.RETURNED],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.RETURNED]: []
@@ -792,10 +792,17 @@ export class OrdersService {
   async updateStatus(
     orderId: string,
     input: UpdateOrderStatusDto,
-    context: AdminActionContext
+    context: AdminActionContext,
+    options: { allowReturnTransition?: boolean } = {}
   ) {
     if (input.status === OrderStatus.CANCELLED) {
       throw new BadRequestException("Use the cancel endpoint to cancel orders.");
+    }
+
+    if (input.status === OrderStatus.RETURNED && !options.allowReturnTransition) {
+      throw new BadRequestException(
+        "Use the return approval endpoint to return orders."
+      );
     }
 
     let invoiceOrderId: string | null = null;
@@ -803,6 +810,15 @@ export class OrdersService {
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
       this.assertAllowedStatusTransition(order.status, input.status);
+
+      if (
+        input.status === OrderStatus.RETURNED &&
+        !order.refunds.some((refund) =>
+          ACTIVE_RETURN_REFUND_STATUSES.has(refund.status)
+        )
+      ) {
+        throw new BadRequestException("No pending return request was found.");
+      }
 
       if (input.status === OrderStatus.DELIVERED) {
         await this.clearReservedInventoryForDeliveredOrder(tx, order);
@@ -866,7 +882,8 @@ export class OrdersService {
         note: input.note ?? "Return request approved.",
         status: OrderStatus.RETURNED
       },
-      context
+      context,
+      { allowReturnTransition: true }
     );
   }
 

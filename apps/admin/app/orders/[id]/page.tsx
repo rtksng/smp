@@ -77,7 +77,7 @@ export default function OrderDetailPage() {
   );
 }
 
-function OrderDetailContent() {
+export function OrderDetailContent() {
   const params = useParams<{ id: string | string[] }>();
   const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { api, hasPermission } = useAdminSession();
@@ -100,9 +100,15 @@ function OrderDetailContent() {
     queryFn: () => api.request<AdminOrder>(`/admin/orders/${orderId}`),
     queryKey: ["admin", "orders", orderId]
   });
+  const order = orderQuery.data ?? null;
   const canReadDelivery = hasPermission(ADMIN_PERMISSION.DeliveryRead);
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
+  const canAssignCurrentOrder = Boolean(
+    order && canAssignDelivery(order.status)
+  );
+  const canLoadAssignmentOptions = canReadDelivery && canAssignCurrentOrder;
   const partnersQuery = useQuery({
-    enabled: canReadDelivery,
+    enabled: canLoadAssignmentOptions,
     queryFn: () =>
       api.request<ListResponse<DeliveryPartner>>("/admin/delivery-partners", {
         query: {
@@ -113,6 +119,7 @@ function OrderDetailContent() {
     queryKey: ["admin", "orders", orderId, "delivery-partners"]
   });
   const warehousesQuery = useQuery({
+    enabled: canReadWarehouses && canLoadAssignmentOptions,
     queryFn: () =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
         query: {
@@ -122,7 +129,6 @@ function OrderDetailContent() {
     queryKey: ["admin", "orders", orderId, "warehouses"]
   });
 
-  const order = orderQuery.data ?? null;
   const nextStatuses = useMemo(
     () => (order ? getNextOrderStatuses(order.status) : []),
     [order]
@@ -280,7 +286,10 @@ function OrderDetailContent() {
             }
             eyebrow="Order detail"
             summary="Customer, fulfillment, payment, invoice, and timeline details for this order."
-            title={order?.orderNumber ?? "Loading order"}
+            title={
+              order?.orderNumber ??
+              (orderQuery.isError ? "Order unavailable" : "Loading order")
+            }
           />
 
           {message ? <p className="formSuccess">{message}</p> : null}
@@ -605,7 +614,7 @@ function OrderDetailContent() {
                         Pickup warehouse
                         <Select
                           aria-label="Pickup warehouse"
-                          disabled={warehousesQuery.isLoading}
+                          disabled={!canReadWarehouses || warehousesQuery.isLoading}
                           onValueChange={(value) =>
                             setAssignValues({
                               ...assignValues,

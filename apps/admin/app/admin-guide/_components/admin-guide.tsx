@@ -245,7 +245,7 @@ const guideSections: GuideSection[] = [
     ],
     fields: [
       { label: "Order filters", text: "Filter by order status, payment status, date range, customer mobile, order number, or warehouse." },
-      { label: "Order status", text: "Created, Confirmed, Packed, Assigned, Out for delivery, Delivered, Cancelled, or Returned. Each order only offers its next allowed stage." },
+      { label: "Order status", text: "Created and Confirmed orders offer their next manual stage. Assignment and delivery statuses are recorded through the delivery workflow, while returns are handled from Returns & Refunds." },
       { label: "Payment status", text: "Pending, Authorized, Paid, Failed, Refunded, Partially refunded, or Cancelled. This describes money, not delivery progress." },
       { label: "Order detail", text: "Shows items, customer and delivery address, linked warehouse, payment information, totals, invoice, refunds, and status history." },
       { label: "Cancel reason", text: "Explain why the order is being cancelled so another employee can understand the decision." }

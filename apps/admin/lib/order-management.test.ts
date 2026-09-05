@@ -77,7 +77,10 @@ describe("order management helpers", () => {
 
   it("derives allowed order actions from the current order status", () => {
     expect(getNextOrderStatuses("CONFIRMED")).toEqual(["PACKED"]);
-    expect(getNextOrderStatuses("DELIVERED")).toEqual(["RETURNED"]);
+    expect(getNextOrderStatuses("PACKED")).toEqual([]);
+    expect(getNextOrderStatuses("ASSIGNED")).toEqual([]);
+    expect(getNextOrderStatuses("OUT_FOR_DELIVERY")).toEqual([]);
+    expect(getNextOrderStatuses("DELIVERED")).toEqual([]);
     expect(getNextOrderStatuses("CANCELLED")).toEqual([]);
     expect(canCancelOrder("PACKED")).toBe(true);
     expect(canCancelOrder("DELIVERED")).toBe(false);

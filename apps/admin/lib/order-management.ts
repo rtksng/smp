@@ -196,13 +196,13 @@ export type AssignDeliveryValues = {
 };
 
 const NEXT_STATUSES: Record<OrderStatus, OrderStatus[]> = {
-  ASSIGNED: ["OUT_FOR_DELIVERY"],
+  ASSIGNED: [],
   CANCELLED: [],
   CONFIRMED: ["PACKED"],
   CREATED: ["CONFIRMED"],
-  DELIVERED: ["RETURNED"],
-  OUT_FOR_DELIVERY: ["DELIVERED"],
-  PACKED: ["ASSIGNED"],
+  DELIVERED: [],
+  OUT_FOR_DELIVERY: [],
+  PACKED: [],
   RETURNED: []
 };
 

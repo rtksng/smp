@@ -1957,7 +1957,32 @@ test("updateStatus enqueues invoice generation when an admin confirms an order",
   assert.ok(Date.parse((queue.invoiceJobs[0] as { requestedAt: string }).requestedAt));
 });
 
-test("updateStatus processes pending refund when an admin accepts a delivered return", async () => {
+test("updateStatus keeps delivery and return stages inside their dedicated workflows", async () => {
+  for (const [currentStatus, nextStatus] of [
+    ["PACKED", "ASSIGNED"],
+    ["ASSIGNED", "OUT_FOR_DELIVERY"],
+    ["OUT_FOR_DELIVERY", "DELIVERED"],
+    ["DELIVERED", "RETURNED"]
+  ] as const) {
+    const prisma = createOrdersPrismaMock({ orderStatus: currentStatus });
+    const service = new OrdersService(
+      prisma as unknown as PrismaService,
+      new FakeWarehouseAccess() as unknown as WarehouseAccessService
+    );
+
+    await assert.rejects(
+      service.updateStatus(
+        "order-1",
+        { status: nextStatus },
+        { auth: adminAuth() }
+      ),
+      BadRequestException
+    );
+    assert.equal(prisma.calls.orderUpdate.length, 0);
+  }
+});
+
+test("return approval requires and processes a pending return request", async () => {
   const prisma = createOrdersPrismaMock({
     orderStatus: "DELIVERED",
     paymentStatus: "PAID"
@@ -1971,16 +1996,24 @@ test("updateStatus processes pending refund when an admin accepts a delivered re
     refunds as never
   );
 
-  const order = await service.updateStatus(
+  await assert.rejects(
+    service.approveAdminReturn(
+      "order-1",
+      { note: "Returned item received by warehouse." },
+      { auth: adminAuth() }
+    ),
+    /No pending return request was found/
+  );
+  assert.equal(prisma.calls.orderUpdate.length, 0);
+
+  await service.requestMyOrderReturn("customer-1", "order-1", {
+    reason: "Seal was damaged on arrival"
+  });
+  const order = await service.approveAdminReturn(
     "order-1",
+    { note: "Returned item received by warehouse." },
     {
-      note: "Returned item received by warehouse.",
-      status: "RETURNED"
-    },
-    {
-      auth: adminAuth(),
-      ipAddress: "127.0.0.1",
-      userAgent: "node-test"
+      auth: adminAuth()
     }
   );
 
