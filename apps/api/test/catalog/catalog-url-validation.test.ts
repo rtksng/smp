@@ -7,10 +7,13 @@ import { CreateBrandDto } from "../../src/modules/brands/dto/create-brand.dto";
 import { UpdateBrandDto } from "../../src/modules/brands/dto/update-brand.dto";
 import { CreateCategoryDto } from "../../src/modules/categories/dto/create-category.dto";
 import { UpdateCategoryDto } from "../../src/modules/categories/dto/update-category.dto";
+import { CreateProductDto } from "../../src/modules/products/dto/create-product.dto";
 import {
   ProductDocumentInputDto,
-  ProductImageInputDto
+  ProductImageInputDto,
+  ProductVariantInputDto
 } from "../../src/modules/products/dto/product-input.dto";
+import { UpdateProductDto } from "../../src/modules/products/dto/update-product.dto";
 
 test("admin catalog asset DTOs accept local upload URLs with a protocol", async () => {
   const image = Object.assign(new ProductImageInputDto(), {
@@ -121,4 +124,116 @@ test("category DTOs normalize text and reject whitespace-only names", async () =
   assert.equal(blankCreate.imageUrl, null);
   assert.equal(blankCreate.parentId, null);
   assert.ok((await validate(blankUpdate)).length > 0);
+});
+
+test("product DTOs normalize nested text and reject whitespace-only required values", async () => {
+  const product = plainToInstance(CreateProductDto, {
+    basePrice: 100,
+    brandId: "  7d9f8f33-d348-4a89-94e8-907be76a91c6  ",
+    categoryId: "  cdbf28c6-6696-4de7-b4d3-a20f39d2c06e  ",
+    description: "  Reusable surgical instrument.  ",
+    disposable: false,
+    documents: [
+      {
+        fileKey: "  catalog/products/documents/manual.pdf  ",
+        fileUrl: "  http://localhost:4000/uploads/catalog/products/documents/manual.pdf  ",
+        title: "  Product manual  ",
+        type: "MANUAL"
+      }
+    ],
+    expirySensitive: false,
+    images: [
+      {
+        altText: "   ",
+        url: "  http://localhost:4000/uploads/catalog/products/images/main.png  "
+      }
+    ],
+    material: "   ",
+    medicalSpecialty: "  General Surgery  ",
+    metaDescription: "   ",
+    metaTitle: "  Surgical Instrument  ",
+    mrp: 150,
+    name: "  Surgical Instrument  ",
+    packSize: "   ",
+    searchTags: ["  instrument  ", "", "  reusable  "],
+    sellingPrice: 120,
+    shortDescription: "  Reusable instrument.  ",
+    sku: "  INSTRUMENT-001  ",
+    slug: "  surgical-instrument  ",
+    status: "ACTIVE",
+    sterile: true,
+    subcategoryId: "  10b142a8-2a82-4c67-b929-835b04c48bda  ",
+    taxRate: 18,
+    unit: "  piece  ",
+    variants: [
+      {
+        attributes: { size: "standard" },
+        mrp: 175,
+        name: "  Standard  ",
+        sellingPrice: 140,
+        sku: "  INSTRUMENT-001-STD  "
+      }
+    ]
+  });
+
+  assert.deepEqual(await validate(product), []);
+  assert.equal(product.name, "Surgical Instrument");
+  assert.equal(product.description, "Reusable surgical instrument.");
+  assert.equal(product.material, null);
+  assert.equal(product.medicalSpecialty, "General Surgery");
+  assert.equal(product.metaDescription, null);
+  assert.equal(product.packSize, null);
+  assert.deepEqual(product.searchTags, ["instrument", "reusable"]);
+  assert.equal(product.images?.[0]?.altText, null);
+  assert.equal(
+    product.images?.[0]?.url,
+    "http://localhost:4000/uploads/catalog/products/images/main.png"
+  );
+  assert.equal(product.documents?.[0]?.title, "Product manual");
+  assert.equal(product.variants?.[0]?.name, "Standard");
+  assert.equal(product.unit, "piece");
+
+  const blankCreate = plainToInstance(CreateProductDto, {
+    basePrice: 0,
+    brandId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+    categoryId: "cdbf28c6-6696-4de7-b4d3-a20f39d2c06e",
+    description: "   ",
+    disposable: false,
+    expirySensitive: false,
+    mrp: 0,
+    name: "   ",
+    sellingPrice: 0,
+    shortDescription: "   ",
+    sku: "VALID-001",
+    slug: "valid-product",
+    status: "DRAFT",
+    sterile: false,
+    taxRate: 0,
+    unit: ""
+  });
+  const blankUpdate = plainToInstance(UpdateProductDto, { name: "   " });
+
+  assert.ok((await validate(blankCreate)).length >= 3);
+  assert.ok((await validate(blankUpdate)).length > 0);
+});
+
+test("nested product DTOs reject whitespace-only required text", async () => {
+  const image = plainToInstance(ProductImageInputDto, { url: "   " });
+  const document = plainToInstance(ProductDocumentInputDto, {
+    fileKey: "   ",
+    fileUrl: "   ",
+    title: "   ",
+    type: "MANUAL"
+  });
+  const variant = plainToInstance(ProductVariantInputDto, {
+    attributes: {},
+    mrp: 10,
+    name: "   ",
+    sellingPrice: 9,
+    sku: "   "
+  });
+
+  assert.ok((await validate(image)).length > 0);
+  assert.ok((await validate(document)).length >= 3);
+  assert.ok((await validate(variant)).length >= 2);
 });

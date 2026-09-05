@@ -334,19 +334,24 @@ function ProductManagementContent({
     setUploadError(null);
     const payload = buildProductPayload(values);
 
-    if (isEditView) {
-      if (!productId) {
-        setUploadError("Product ID is missing.");
-        return;
+    try {
+      if (isEditView) {
+        if (!productId) {
+          setUploadError("Product ID is missing.");
+          return;
+        }
+
+        await updateMutation.mutateAsync({ id: productId, payload });
+      } else {
+        await createMutation.mutateAsync(payload);
       }
 
-      await updateMutation.mutateAsync({ id: productId, payload });
-    } else {
-      await createMutation.mutateAsync(payload);
+      await refreshProducts();
+      router.push(PRODUCT_LIST_PATH);
+    } catch {
+      // React Query exposes the request error through mutationError above.
+      return;
     }
-
-    await refreshProducts();
-    router.push(PRODUCT_LIST_PATH);
   }
 
   function requestDeactivate(product: AdminProduct) {
@@ -983,6 +988,13 @@ export function ProductForm({
   }, [editingProduct, form, nameValue, slugValue]);
 
   useEffect(() => {
+    if (
+      isLookupLoading ||
+      selectedCategoryId !== form.getValues("categoryId")
+    ) {
+      return;
+    }
+
     const selectedSubcategoryId = form.getValues("subcategoryId");
 
     if (
@@ -994,7 +1006,7 @@ export function ProductForm({
         shouldValidate: true
       });
     }
-  }, [form, selectedCategoryId, subcategories]);
+  }, [form, isLookupLoading, selectedCategoryId, subcategories]);
 
   async function submit(values: ProductFormValues) {
     await onSave(values);

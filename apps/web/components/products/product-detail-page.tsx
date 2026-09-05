@@ -557,7 +557,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                         product.disposable ? "disposable" : undefined
                       ]
                         .filter(Boolean)
-                        .join(" / ")}
+                        .join(" / ") || "Not specified"}
                     />
                   </div>
 
@@ -859,7 +859,7 @@ function ProductFacts({ product }: { product: Product }) {
     { label: "Disposable", value: product.disposable ? "Yes" : "No" },
     { label: "Material", value: product.material ?? "Not specified" },
     { label: "Pack size", value: product.packSize ?? "Not specified" },
-    { label: "Unit", value: product.unit },
+    { label: "Unit", value: product.unit || "Not specified" },
     {
       label: "Medical specialty",
       value: product.medicalSpecialty ?? "General medical use"

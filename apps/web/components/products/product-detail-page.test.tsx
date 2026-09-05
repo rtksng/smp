@@ -344,6 +344,17 @@ describe("ProductDetailPage", () => {
     );
   });
 
+  it("shows a fallback when imported products do not have pack or unit details", () => {
+    renderWithQueryClient(
+      <ProductDetailPage
+        initialProduct={{ ...product, packSize: null, sterile: false, unit: "" }}
+        slug={product.slug}
+      />
+    );
+
+    expect(screen.getAllByText("Not specified")).toHaveLength(3);
+  });
+
   it("presents feedback as buyer reviews and product questions", async () => {
     feedbackMocks.getProductFeedback.mockResolvedValueOnce({
       questions: [

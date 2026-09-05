@@ -28,6 +28,17 @@ describe("product management route flow", () => {
     expect(productManagementSource).toContain("router.push(PRODUCT_LIST_PATH)");
   });
 
+  it("keeps failed create and edit requests inside the form error state", () => {
+    const saveHandler = productManagementSource.slice(
+      productManagementSource.indexOf("async function handleSave"),
+      productManagementSource.indexOf("function requestDeactivate")
+    );
+
+    expect(saveHandler).toContain("try {");
+    expect(saveHandler).toContain("} catch {");
+    expect(saveHandler).toContain("mutationError above");
+  });
+
   it("uses Lexical for product description rich text editing", () => {
     expect(productManagementSource).toContain("LexicalComposer");
     expect(productManagementSource).toContain("RichTextPlugin");

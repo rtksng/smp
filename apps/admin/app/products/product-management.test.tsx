@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductForm } from "./product-management";
-import type { AdminBrand, AdminCategory } from "../../lib/product-form";
+import type {
+  AdminBrand,
+  AdminCategory,
+  AdminProduct
+} from "../../lib/product-form";
 
 const { requestAdminApiMock } = vi.hoisted(() => ({
   requestAdminApiMock: vi.fn()
@@ -29,6 +33,76 @@ const brands: AdminBrand[] = [
 const categories: AdminCategory[] = [
   {
     children: [],
+    id: "category-1",
+    isActive: true,
+    name: "Surgical Instruments",
+    parentId: null,
+    slug: "surgical-instruments",
+    sortOrder: 1
+  }
+];
+
+const productWithSubcategory: AdminProduct = {
+  basePrice: 100,
+  brand: {
+    id: "brand-1",
+    name: "Acme Surgical",
+    slug: "acme-surgical"
+  },
+  brandId: "brand-1",
+  category: {
+    id: "category-1",
+    name: "Surgical Instruments",
+    slug: "surgical-instruments"
+  },
+  categoryId: "category-1",
+  createdAt: "2026-09-05T00:00:00.000Z",
+  description: "A product used to verify edit form initialization.",
+  disposable: false,
+  documents: [],
+  expirySensitive: false,
+  id: "product-1",
+  images: [],
+  inStock: false,
+  material: null,
+  medicalSpecialty: null,
+  metaDescription: null,
+  metaTitle: null,
+  mrp: 150,
+  name: "Operating Chair",
+  packSize: null,
+  searchTags: [],
+  sellingPrice: 120,
+  shortDescription: "Operating chair for surgical use.",
+  sku: "OPERATING-CHAIR",
+  slug: "operating-chair",
+  status: "ACTIVE",
+  sterile: false,
+  subcategory: {
+    id: "subcategory-1",
+    name: "Operating Chair",
+    slug: "operating-chair"
+  },
+  subcategoryId: "subcategory-1",
+  taxRate: 18,
+  unit: "piece",
+  updatedAt: "2026-09-05T00:00:00.000Z",
+  variants: []
+};
+
+const categoriesWithSubcategory: AdminCategory[] = [
+  {
+    children: [
+      {
+        children: [],
+        id: "subcategory-1",
+        isActive: true,
+        name: "Operating Chair",
+        parentId: "category-1",
+        slug: "operating-chair",
+        sortOrder: 1
+      }
+    ],
     id: "category-1",
     isActive: true,
     name: "Surgical Instruments",
@@ -124,6 +198,27 @@ describe("ProductForm", () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText("Slug")).toHaveValue("custom-slug-2026");
+    });
+  }, 15000);
+
+  it("preserves the existing subcategory when an edit form initializes", async () => {
+    render(
+      <ProductForm
+        brands={brands}
+        canSave
+        categories={categoriesWithSubcategory}
+        editingProduct={productWithSubcategory}
+        isLookupLoading={false}
+        isSaving={false}
+        onSave={vi.fn()}
+        onUploadError={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Subcategory")).toHaveTextContent(
+        "Operating Chair"
+      );
     });
   }, 15000);
 
