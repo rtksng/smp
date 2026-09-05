@@ -277,27 +277,32 @@ function CategoriesContent({
     setUploadError(null);
     const payload = buildCategoryPayload(parsed.data);
 
-    if (isEditView) {
-      if (!categoryId) {
-        setUploadError("Category ID is missing.");
-        return;
+    try {
+      if (isEditView) {
+        if (!categoryId) {
+          setUploadError("Category ID is missing.");
+          return;
+        }
+
+        await updateMutation.mutateAsync({
+          id: categoryId,
+          payload
+        });
+      } else {
+        await createMutation.mutateAsync(payload);
       }
 
-      await updateMutation.mutateAsync({
-        id: categoryId,
-        payload
-      });
-    } else {
-      await createMutation.mutateAsync(payload);
+      await refreshCategories();
+      router.push(CATEGORY_LIST_PATH);
+    } catch {
+      // React Query exposes the request error through mutationError above.
+      return;
     }
-
-    await refreshCategories();
-    router.push(CATEGORY_LIST_PATH);
   }
 
   function requestDelete(category: AdminCategory) {
     setConfirmation({
-      body: `Soft delete ${category.name}? Child categories will also be hidden from the catalog.`,
+      body: `Soft delete ${category.name}? Child categories will also be hidden from the catalog. Reassign or delete linked products first.`,
       confirmLabel: "Delete category",
       onConfirm: async () => {
         setMessage(null);

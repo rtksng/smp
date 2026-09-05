@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
   IsBoolean,
   IsInt,
@@ -8,8 +9,20 @@ import {
   IsUUID,
   Matches,
   MaxLength,
-  Min
+  Min,
+  MinLength
 } from "class-validator";
+
+const trimText = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim() : value;
+const trimOptionalText = ({ value }: { value: unknown }) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
 export class CreateCategoryDto {
   @ApiPropertyOptional({
@@ -17,6 +30,7 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   @IsString()
+  @Transform(trimOptionalText)
   @MaxLength(1000)
   description?: string | null;
 
@@ -25,6 +39,7 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   @IsUrl({ require_protocol: true, require_tld: false })
+  @Transform(trimOptionalText)
   @MaxLength(2048)
   imageUrl?: string | null;
 
@@ -40,6 +55,8 @@ export class CreateCategoryDto {
     example: "Surgical Instruments"
   })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   name!: string;
 
@@ -50,6 +67,7 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   @IsUUID("4")
+  @Transform(trimOptionalText)
   parentId?: string | null;
 
   @ApiProperty({
@@ -57,6 +75,7 @@ export class CreateCategoryDto {
     example: "surgical-instruments"
   })
   @IsString()
+  @Transform(trimText)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   @MaxLength(160)
   slug!: string;

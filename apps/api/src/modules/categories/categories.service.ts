@@ -199,6 +199,30 @@ export class CategoriesService {
       }
     });
     const categoryIds = this.findDescendantIds(id, categories);
+    const linkedProductCount = await this.prisma.product.count({
+      where: {
+        deletedAt: null,
+        OR: [
+          {
+            categoryId: {
+              in: categoryIds
+            }
+          },
+          {
+            subcategoryId: {
+              in: categoryIds
+            }
+          }
+        ]
+      }
+    });
+
+    if (linkedProductCount > 0) {
+      throw new ConflictException(
+        "Reassign or delete linked products before deleting this category."
+      );
+    }
+
     const deletedAt = new Date();
 
     await this.prisma.$transaction(async (tx) => {

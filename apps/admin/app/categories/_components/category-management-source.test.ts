@@ -28,6 +28,21 @@ describe("category management route flow", () => {
     expect(categoryManagementSource).toContain("router.push(CATEGORY_LIST_PATH)");
   });
 
+  it("keeps failed create and edit requests inside the form error state", () => {
+    const submitHandler = categoryManagementSource.slice(
+      categoryManagementSource.indexOf("async function handleSubmit"),
+      categoryManagementSource.indexOf("function requestDelete")
+    );
+
+    expect(submitHandler).toContain("try {");
+    expect(submitHandler).toContain("} catch {");
+    expect(submitHandler).toContain("mutationError above");
+  });
+
+  it("warns that linked products must be cleared before category deletion", () => {
+    expect(categoryManagementSource).toContain("Reassign or delete linked products first.");
+  });
+
   it("summarizes child categories in the table and opens a modal to choose one", () => {
     expect(categoryManagementSource).toContain("filterRootCategories");
     expect(categoryManagementSource).toContain("formatChildCategoryCount");

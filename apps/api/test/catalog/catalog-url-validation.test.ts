@@ -6,6 +6,7 @@ import { validate } from "class-validator";
 import { CreateBrandDto } from "../../src/modules/brands/dto/create-brand.dto";
 import { UpdateBrandDto } from "../../src/modules/brands/dto/update-brand.dto";
 import { CreateCategoryDto } from "../../src/modules/categories/dto/create-category.dto";
+import { UpdateCategoryDto } from "../../src/modules/categories/dto/update-category.dto";
 import {
   ProductDocumentInputDto,
   ProductImageInputDto
@@ -84,5 +85,40 @@ test("brand DTOs normalize text and reject whitespace-only names", async () => {
   assert.ok((await validate(blankCreate)).length > 0);
   assert.equal(blankCreate.description, null);
   assert.equal(blankCreate.logoUrl, null);
+  assert.ok((await validate(blankUpdate)).length > 0);
+});
+
+test("category DTOs normalize text and reject whitespace-only names", async () => {
+  const category = plainToInstance(CreateCategoryDto, {
+    description: "  Operating room equipment.  ",
+    imageUrl: "  http://localhost:4000/uploads/catalog/categories/images/main.png  ",
+    name: "  Operating Room  ",
+    parentId: "  7d9f8f33-d348-4a89-94e8-907be76a91c6  ",
+    slug: "  operating-room  "
+  });
+
+  assert.deepEqual(await validate(category), []);
+  assert.equal(category.description, "Operating room equipment.");
+  assert.equal(
+    category.imageUrl,
+    "http://localhost:4000/uploads/catalog/categories/images/main.png"
+  );
+  assert.equal(category.name, "Operating Room");
+  assert.equal(category.parentId, "7d9f8f33-d348-4a89-94e8-907be76a91c6");
+  assert.equal(category.slug, "operating-room");
+
+  const blankCreate = plainToInstance(CreateCategoryDto, {
+    description: "   ",
+    imageUrl: "   ",
+    name: "   ",
+    parentId: "   ",
+    slug: "category"
+  });
+  const blankUpdate = plainToInstance(UpdateCategoryDto, { name: "   " });
+
+  assert.ok((await validate(blankCreate)).length > 0);
+  assert.equal(blankCreate.description, null);
+  assert.equal(blankCreate.imageUrl, null);
+  assert.equal(blankCreate.parentId, null);
   assert.ok((await validate(blankUpdate)).length > 0);
 });

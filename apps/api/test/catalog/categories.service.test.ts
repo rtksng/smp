@@ -1,7 +1,11 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException
+} from "@nestjs/common";
 import { CategoriesService } from "../../src/modules/categories/categories.service";
 import { AdminCategoriesController } from "../../src/modules/categories/admin-categories.controller";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
@@ -58,18 +62,23 @@ type CategoryPrismaMock = PrismaService & {
     create: unknown[];
     findFirst: unknown[];
     findMany: unknown[];
+    productCount: unknown[];
     transaction: unknown[];
     update: unknown[];
     updateMany: unknown[];
   };
 };
 
-function createCategoryPrismaMock(records: CategoryFixture[]): CategoryPrismaMock {
+function createCategoryPrismaMock(
+  records: CategoryFixture[],
+  options: { linkedProductCount?: number } = {}
+): CategoryPrismaMock {
   const calls: CategoryPrismaMock["calls"] = {
     adminAuditLogCreate: [],
     create: [],
     findFirst: [],
     findMany: [],
+    productCount: [],
     transaction: [],
     update: [],
     updateMany: []
@@ -138,6 +147,12 @@ function createCategoryPrismaMock(records: CategoryFixture[]): CategoryPrismaMoc
       updateMany: async (args: unknown) => {
         calls.updateMany.push(args);
         return { count: 1 };
+      }
+    },
+    product: {
+      count: async (args: unknown) => {
+        calls.productCount.push(args);
+        return options.linkedProductCount ?? 0;
       }
     }
   };
@@ -457,6 +472,39 @@ test("deleteCategory soft deletes the category and descendants", async () => {
   assert.deepEqual(auditCall.data.after.deletedCategoryIds, ["root", "child"]);
   assert.equal(auditCall.data.entityId, root.id);
   assert.equal(auditCall.data.entityType, "Category");
+});
+
+test("deleteCategory rejects categories or descendants assigned to products", async () => {
+  const root = categoryFixture({
+    id: "root",
+    name: "Root",
+    slug: "root"
+  });
+  const child = categoryFixture({
+    id: "child",
+    name: "Child",
+    parentId: root.id,
+    slug: "child"
+  });
+  const prisma = createCategoryPrismaMock([root, child], { linkedProductCount: 1 });
+  const service = new CategoriesService(prisma);
+
+  await assert.rejects(
+    () => service.deleteCategory(root.id, adminContext),
+    ConflictException
+  );
+
+  assert.deepEqual(prisma.calls.productCount[0], {
+    where: {
+      deletedAt: null,
+      OR: [
+        { categoryId: { in: ["root", "child"] } },
+        { subcategoryId: { in: ["root", "child"] } }
+      ]
+    }
+  });
+  assert.equal(prisma.calls.transaction.length, 0);
+  assert.equal(prisma.calls.updateMany.length, 0);
 });
 
 test("admin category controller methods declare catalog permissions", () => {
