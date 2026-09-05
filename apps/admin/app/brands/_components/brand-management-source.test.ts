@@ -26,6 +26,17 @@ describe("brand management route flow", () => {
     expect(brandManagementSource).toContain("router.push(BRAND_LIST_PATH)");
   });
 
+  it("keeps failed create and edit requests inside the form error state", () => {
+    const submitHandler = brandManagementSource.slice(
+      brandManagementSource.indexOf("async function handleSubmit"),
+      brandManagementSource.indexOf("function requestDelete")
+    );
+
+    expect(submitHandler).toContain("try {");
+    expect(submitHandler).toContain("} catch {");
+    expect(submitHandler).toContain("mutationError above");
+  });
+
   it("shows brand images in the table and uses image upload copy in the form", () => {
     expect(brandManagementSource).toContain("Brand image");
     expect(brandManagementSource).toContain("<img");

@@ -1,12 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
   IsBoolean,
   IsOptional,
   IsString,
   IsUrl,
   Matches,
-  MaxLength
+  MaxLength,
+  MinLength
 } from "class-validator";
+
+const trimText = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim() : value;
+const trimOptionalText = ({ value }: { value: unknown }) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
 export class CreateBrandDto {
   @ApiPropertyOptional({
@@ -14,6 +27,7 @@ export class CreateBrandDto {
   })
   @IsOptional()
   @IsString()
+  @Transform(trimOptionalText)
   @MaxLength(1000)
   description?: string | null;
 
@@ -30,6 +44,7 @@ export class CreateBrandDto {
   })
   @IsOptional()
   @IsUrl({ require_protocol: true, require_tld: false })
+  @Transform(trimOptionalText)
   @MaxLength(2048)
   logoUrl?: string | null;
 
@@ -37,6 +52,8 @@ export class CreateBrandDto {
     example: "Acme Surgical"
   })
   @IsString()
+  @Transform(trimText)
+  @MinLength(1)
   @MaxLength(120)
   name!: string;
 
@@ -45,6 +62,7 @@ export class CreateBrandDto {
     example: "acme-surgical"
   })
   @IsString()
+  @Transform(trimText)
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   @MaxLength(160)
   slug!: string;

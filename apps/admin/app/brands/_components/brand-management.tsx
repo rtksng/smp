@@ -240,23 +240,28 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
     setUploadError(null);
     const payload = buildBrandPayload(parsed.data);
 
-    if (isEditView) {
-      if (!brandId) {
-        setMessage(null);
-        setUploadError("Brand ID is missing.");
-        return;
+    try {
+      if (isEditView) {
+        if (!brandId) {
+          setMessage(null);
+          setUploadError("Brand ID is missing.");
+          return;
+        }
+
+        await updateMutation.mutateAsync({
+          id: brandId,
+          payload
+        });
+      } else {
+        await createMutation.mutateAsync(payload);
       }
 
-      await updateMutation.mutateAsync({
-        id: brandId,
-        payload
-      });
-    } else {
-      await createMutation.mutateAsync(payload);
+      await refreshBrands();
+      router.push(BRAND_LIST_PATH);
+    } catch {
+      // React Query exposes the request error through mutationError above.
+      return;
     }
-
-    await refreshBrands();
-    router.push(BRAND_LIST_PATH);
   }
 
   function requestDelete(brand: AdminBrand) {
