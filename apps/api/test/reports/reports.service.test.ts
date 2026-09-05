@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { PrismaService } from "../../src/database/prisma.service";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
 import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
+import { PaymentStatus } from "../../src/generated/prisma/client";
 import { ReportsService } from "../../src/modules/reports/reports.service";
 import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
@@ -235,6 +236,9 @@ test("admin dashboard reports apply date filters and assigned warehouse scope", 
     firstOrderCount.where.createdAt.lte.toISOString(),
     "2026-05-26T23:59:59.999Z"
   );
+
+  const topProductsQuery = prisma.calls.queryRaw[2];
+  assert.ok(rawQueryContains(topProductsQuery, PaymentStatus.PAID));
 });
 
 test("admin dashboard reports validate an explicit warehouse filter", async () => {

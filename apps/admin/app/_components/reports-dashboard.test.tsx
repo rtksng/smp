@@ -40,6 +40,19 @@ function renderReport(view: ReportView) {
   return render(<QueryClientProvider client={client}><ReportsDashboard view={view} /></QueryClientProvider>);
 }
 
+function renderDashboard() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ReportsDashboard
+        eyebrow="Dashboard"
+        hideSectionNavigation
+        title="Admin dashboard"
+      />
+    </QueryClientProvider>
+  );
+}
+
 async function readDownloadedBlob() {
   const blob = vi.mocked(URL.createObjectURL).mock.calls[0]![0] as Blob;
   const content = await new Promise<string>((resolve, reject) => {
@@ -61,6 +74,11 @@ describe("Reports page integration", () => {
     request.mockReset().mockResolvedValue(report);
     requestResponse.mockReset().mockRejectedValue(new Error("property view should not exist"));
     hasPermission.mockReset().mockReturnValue(true);
+    vi.stubGlobal("ResizeObserver", class {
+      disconnect() {}
+      observe() {}
+      unobserve() {}
+    });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     vi.stubGlobal("URL", class extends URL {
       static createObjectURL = vi.fn(() => "blob:test-report");
@@ -72,6 +90,85 @@ describe("Reports page integration", () => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("renders the main dashboard with filtered KPI links and a complete export", async () => {
+    renderDashboard();
+
+    const metrics = await screen.findByRole("region", {
+      name: "Dashboard key metrics"
+    });
+    expect(screen.queryByRole("navigation", { name: "Report sections" })).toBeNull();
+
+    const revenueHref = within(metrics)
+      .getByRole("link", { name: /Pending order value/ })
+      .getAttribute("href");
+    const revenueUrl = new URL(revenueHref!, "http://localhost");
+    expect(revenueUrl.searchParams.get("dateFrom")).toBe("2026-07-05");
+    expect(revenueUrl.searchParams.get("dateTo")).toBe("2026-09-03");
+    expect(revenueUrl.searchParams.get("paymentStatus")).toBe("PENDING");
+    expect(revenueUrl.searchParams.get("warehouseId")).toBe("warehouse-1");
+
+    const inventoryUrl = new URL(
+      within(metrics)
+        .getByRole("link", { name: /Inventory risk/ })
+        .getAttribute("href")!,
+      "http://localhost"
+    );
+    expect(inventoryUrl.pathname).toBe("/inventory");
+    expect(inventoryUrl.searchParams.get("lowStock")).toBe("true");
+    expect(inventoryUrl.searchParams.get("warehouseId")).toBe("warehouse-1");
+
+    expect(screen.getByRole("region", { name: "Dashboard charts" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    const { content } = await readDownloadedBlob();
+    expect(content).toContain("Dashboard report");
+    expect(content).toContain("Orders by day");
+    expect(content).toContain("Top selling products");
+    expect(content).toContain("Warehouse stock summary");
+  });
+
+  it("keeps main-dashboard resource drilldowns disabled for reports-only staff", async () => {
+    hasPermission.mockImplementation((permission) => permission === "reports.read");
+    renderDashboard();
+
+    const metrics = await screen.findByRole("region", {
+      name: "Dashboard key metrics"
+    });
+    expect(within(metrics).queryAllByRole("link")).toHaveLength(0);
+    expect(screen.queryByRole("link", { name: "Curved Forceps" })).toBeNull();
+    expect(screen.getAllByText("Curved Forceps").length).toBeGreaterThan(0);
+    expect(screen.getByText("Open inventory")).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+    expect(screen.getByText("Open warehouses")).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+    expect(screen.getByRole("link", { name: "Open sales report" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open product report" })).toBeInTheDocument();
+  });
+
+  it("validates dashboard filters before requesting another report", async () => {
+    renderDashboard();
+    await screen.findByRole("region", { name: "Dashboard key metrics" });
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    const drawer = await screen.findByRole("dialog", { name: "Report filters" });
+
+    fireEvent.change(within(drawer).getByLabelText("From"), {
+      target: { value: "2026-09-04" }
+    });
+    fireEvent.change(within(drawer).getByLabelText("To"), {
+      target: { value: "2026-09-03" }
+    });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Apply filters" }));
+
+    expect(await within(drawer).findByRole("alert")).toHaveTextContent(
+      "Start date must be before end date."
+    );
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   for (const view of ["orders", "sales", "products", "inventory", "warehouses"] as const) {

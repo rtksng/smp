@@ -393,7 +393,10 @@ export class ReportsService {
         ])})
         ${dateRangeSql(Prisma.sql`o."createdAt"`, filters.dateRange)}
         ${orderStatusSql(Prisma.sql`o."status"`, filters.orderStatus)}
-        ${paymentStatusSql(Prisma.sql`o."paymentStatus"`, filters.paymentStatus)}
+        ${paymentStatusSql(
+          Prisma.sql`o."paymentStatus"`,
+          filters.paymentStatus ?? PaymentStatus.PAID
+        )}
         ${warehouseSql(
           Prisma.sql`COALESCE(oi."warehouseId", o."warehouseId")`,
           filters.warehouseScope
