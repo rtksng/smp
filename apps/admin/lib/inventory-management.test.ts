@@ -3,6 +3,7 @@ import {
   adjustStockFormSchema,
   buildAdjustStockPayload,
   buildInventoryRequest,
+  buildStockMovementQuery,
   buildReturnDispositionPayload,
   buildStockInPayload,
   buildTransferStockPayload,
@@ -15,6 +16,7 @@ import {
   INVENTORY_TABS,
   isLowStock,
   isNearExpiry,
+  loadAllPaginatedItems,
   returnDispositionFormSchema,
   stockInFormSchema,
   transferStockFormSchema
@@ -22,11 +24,13 @@ import {
 
 describe("inventory management helpers", () => {
   it("preserves the expiry window from report navigation through filter validation and requests", () => {
-    const filters = createInventoryFiltersFromSearchParams(new URLSearchParams({
-      nearExpiry: "true",
-      nearExpiryDays: "60",
-      warehouseId: "warehouse-1"
-    }));
+    const filters = createInventoryFiltersFromSearchParams(
+      new URLSearchParams({
+        nearExpiry: "true",
+        nearExpiryDays: "60",
+        warehouseId: "warehouse-1"
+      })
+    );
     const appliedFilters = inventoryFiltersSchema.parse(filters);
 
     expect(buildInventoryRequest(appliedFilters)).toMatchObject({
@@ -34,8 +38,13 @@ describe("inventory management helpers", () => {
       query: { days: 60, warehouseId: "warehouse-1" }
     });
     for (const nearExpiryDays of ["0", "366", "1.5", "abc", ""]) {
-      expect(inventoryFiltersSchema.safeParse({ ...filters, nearExpiryDays }).success).toBe(false);
-      expect(createInventoryFiltersFromSearchParams(new URLSearchParams({ nearExpiryDays })).nearExpiryDays).toBe("30");
+      expect(
+        inventoryFiltersSchema.safeParse({ ...filters, nearExpiryDays }).success
+      ).toBe(false);
+      expect(
+        createInventoryFiltersFromSearchParams(new URLSearchParams({ nearExpiryDays }))
+          .nearExpiryDays
+      ).toBe("30");
     }
     expect(createEmptyInventoryFilters().nearExpiryDays).toBe("30");
   });
@@ -146,6 +155,82 @@ describe("inventory management helpers", () => {
     });
   });
 
+  it("requires a batch for adjustments and transfers to keep batch totals synchronized", () => {
+    expect(
+      adjustStockFormSchema.safeParse({
+        batchNumber: "",
+        lowStockThreshold: "",
+        productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+        quantityDelta: "1",
+        reason: "Cycle count",
+        variantId: "",
+        warehouseId: "9d9f8f33-d348-4a89-94e8-907be76a91c6"
+      }).success
+    ).toBe(false);
+    expect(
+      transferStockFormSchema.safeParse({
+        batchNumber: "",
+        fromWarehouseId: "9d9f8f33-d348-4a89-94e8-907be76a91c6",
+        notes: "",
+        productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
+        quantity: "1",
+        toWarehouseId: "8d9f8f33-d348-4a89-94e8-907be76a91c6",
+        variantId: ""
+      }).success
+    ).toBe(false);
+  });
+
+  it("builds paginated movement filters including movement type", () => {
+    expect(
+      buildStockMovementQuery(
+        {
+          ...createEmptyInventoryFilters(),
+          movementType: "ADJUSTMENT",
+          search: "forceps",
+          warehouseId: "warehouse-1"
+        },
+        3,
+        20
+      )
+    ).toEqual({
+      limit: 20,
+      page: 3,
+      productId: undefined,
+      search: "forceps",
+      type: "ADJUSTMENT",
+      warehouseId: "warehouse-1"
+    });
+  });
+
+  it("normalizes conflicting warning query parameters to one inventory view", () => {
+    expect(
+      createInventoryFiltersFromSearchParams(
+        new URLSearchParams({ lowStock: "true", nearExpiry: "true" })
+      )
+    ).toMatchObject({ lowStock: false, nearExpiry: true });
+  });
+
+  it("loads every lookup page so inventory labels and actions are complete", async () => {
+    const requestedPages: number[] = [];
+    const items = await loadAllPaginatedItems(async (page) => {
+      requestedPages.push(page);
+      return {
+        items: [`product-${page}`],
+        pagination: {
+          hasNextPage: page < 3,
+          hasPreviousPage: page > 1,
+          limit: 1,
+          page,
+          total: 3,
+          totalPages: 3
+        }
+      };
+    });
+
+    expect(requestedPages).toEqual([1, 2, 3]);
+    expect(items).toEqual(["product-1", "product-2", "product-3"]);
+  });
+
   it("defines inventory route tabs for overview, stock actions, and movements", () => {
     expect(INVENTORY_OVERVIEW_PATH).toBe("/inventory");
     expect(INVENTORY_ACTIONS_PATH).toBe("/inventory/actions");
@@ -175,7 +260,7 @@ describe("inventory management helpers", () => {
     expect(
       buildAdjustStockPayload(
         adjustStockFormSchema.parse({
-          batchNumber: "",
+          batchNumber: "BATCH-1",
           lowStockThreshold: "",
           productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
           quantityDelta: "-2",
@@ -185,7 +270,7 @@ describe("inventory management helpers", () => {
         })
       )
     ).toEqual({
-      batchNumber: undefined,
+      batchNumber: "BATCH-1",
       lowStockThreshold: undefined,
       productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
       quantityDelta: -2,
@@ -197,7 +282,7 @@ describe("inventory management helpers", () => {
     expect(
       buildTransferStockPayload(
         transferStockFormSchema.parse({
-          batchNumber: "",
+          batchNumber: "BATCH-1",
           fromWarehouseId: "9d9f8f33-d348-4a89-94e8-907be76a91c6",
           notes: "",
           productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",
@@ -207,7 +292,7 @@ describe("inventory management helpers", () => {
         })
       )
     ).toEqual({
-      batchNumber: undefined,
+      batchNumber: "BATCH-1",
       fromWarehouseId: "9d9f8f33-d348-4a89-94e8-907be76a91c6",
       notes: undefined,
       productId: "7d9f8f33-d348-4a89-94e8-907be76a91c6",

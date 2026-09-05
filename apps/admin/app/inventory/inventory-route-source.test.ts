@@ -40,6 +40,7 @@ describe("inventory route split", () => {
     expect(managementSource).not.toContain(
       'api.request<ProductListResponse>("/products"'
     );
+    expect(managementSource).toContain("loadAllPaginatedItems<AdminProduct>");
   });
 
   it("keeps the heavy inventory sections scoped to their own pages", () => {
@@ -49,5 +50,7 @@ describe("inventory route split", () => {
     expect(managementSource).toContain("showWarningFilters={isOverviewView}");
     expect(managementSource).toContain("StockTable");
     expect(managementSource).toContain("MovementTable");
+    expect(managementSource).toContain("PaginationControls");
+    expect(managementSource).toContain("showMovementType={isMovementsView}");
   });
 });

@@ -83,6 +83,7 @@ test("predefined non-super-admin roles keep their intended permission sets", () 
     PermissionCode.ReportsRead
   ]);
   assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.WarehouseManager], [
+    PermissionCode.ProductsRead,
     PermissionCode.InventoryRead,
     PermissionCode.InventoryUpdate,
     PermissionCode.WarehouseRead,

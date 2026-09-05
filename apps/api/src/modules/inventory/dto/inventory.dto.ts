@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -27,6 +28,7 @@ export enum ReturnStockDisposition {
 export class StockInDto {
   @ApiProperty({ example: "BATCH-2026-001" })
   @IsString()
+  @Matches(/\S/, { message: "batchNumber must contain non-whitespace characters" })
   @MaxLength(120)
   batchNumber!: string;
 
@@ -82,11 +84,11 @@ export class StockInDto {
 }
 
 export class AdjustStockDto {
-  @ApiPropertyOptional({ example: "BATCH-2026-001" })
-  @IsOptional()
+  @ApiProperty({ example: "BATCH-2026-001" })
   @IsString()
+  @Matches(/\S/, { message: "batchNumber must contain non-whitespace characters" })
   @MaxLength(120)
-  batchNumber?: string;
+  batchNumber!: string;
 
   @ApiPropertyOptional({ example: 5, minimum: 0 })
   @IsOptional()
@@ -96,6 +98,7 @@ export class AdjustStockDto {
 
   @ApiProperty({ example: "Cycle count correction." })
   @IsString()
+  @Matches(/\S/, { message: "reason must contain non-whitespace characters" })
   @MaxLength(1000)
   reason!: string;
 
@@ -104,7 +107,8 @@ export class AdjustStockDto {
   productId!: string;
 
   @ApiProperty({
-    description: "Signed adjustment quantity. Positive adds stock; negative removes stock.",
+    description:
+      "Signed adjustment quantity. Positive adds stock; negative removes stock.",
     example: -2
   })
   @IsInt()
@@ -122,11 +126,11 @@ export class AdjustStockDto {
 }
 
 export class TransferStockDto {
-  @ApiPropertyOptional({ example: "BATCH-2026-001" })
-  @IsOptional()
+  @ApiProperty({ example: "BATCH-2026-001" })
   @IsString()
+  @Matches(/\S/, { message: "batchNumber must contain non-whitespace characters" })
   @MaxLength(120)
-  batchNumber?: string;
+  batchNumber!: string;
 
   @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
   @IsUUID("4")
@@ -231,7 +235,10 @@ export class InventoryStockResponseDto {
 }
 
 export class ReturnDispositionItemDto {
-  @ApiProperty({ enum: ReturnStockDisposition, example: ReturnStockDisposition.RESTOCK })
+  @ApiProperty({
+    enum: ReturnStockDisposition,
+    example: ReturnStockDisposition.RESTOCK
+  })
   @IsEnum(ReturnStockDisposition)
   disposition!: ReturnStockDisposition;
 
@@ -300,8 +307,14 @@ export class StockBatchResponseDto {
 }
 
 export class StockMovementResponseDto {
+  @ApiProperty({ example: "2026-05-25T10:00:00.000Z" })
+  createdAt!: Date;
+
   @ApiProperty({ example: "movement-id" })
   id!: string;
+
+  @ApiProperty({ example: "Cycle count correction.", nullable: true })
+  notes!: string | null;
 
   @ApiProperty({ example: "product-id" })
   productId!: string;
@@ -309,8 +322,17 @@ export class StockMovementResponseDto {
   @ApiProperty({ example: 3 })
   quantity!: number;
 
+  @ApiProperty({ example: "transfer-id", nullable: true })
+  referenceId!: string | null;
+
+  @ApiProperty({ example: "STOCK_TRANSFER", nullable: true })
+  referenceType!: string | null;
+
   @ApiProperty({ enum: StockMovementType, example: StockMovementType.IN })
   type!: StockMovementType;
+
+  @ApiProperty({ example: "variant-id", nullable: true })
+  variantId!: string | null;
 
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;

@@ -58,9 +58,13 @@ type StockBatchRecord = {
   warehouseId: string;
 };
 type StockMovementRecord = {
+  createdAt: Date;
   id: string;
+  notes: string | null;
   productId: string;
   quantity: number;
+  referenceId: string | null;
+  referenceType: string | null;
   type: StockMovementType;
   variantId: string | null;
   warehouseId: string;
@@ -207,37 +211,30 @@ export class InventoryService {
         throw new BadRequestException("Stock cannot become negative.");
       }
 
-      let batchId: string | null = null;
-      let beforeBatch: StockBatchRecord | null = null;
-      let afterBatch: StockBatchRecord | null = null;
+      const beforeBatch = await this.findStockBatch(tx, {
+        batchNumber: input.batchNumber,
+        productId: input.productId,
+        variantId: input.variantId ?? null,
+        warehouseId: input.warehouseId
+      });
 
-      if (input.batchNumber !== undefined) {
-        beforeBatch = await this.findStockBatch(tx, {
-          batchNumber: input.batchNumber,
-          productId: input.productId,
-          variantId: input.variantId ?? null,
-          warehouseId: input.warehouseId
-        });
-
-        if (!beforeBatch) {
-          throw new NotFoundException("Stock batch was not found.");
-        }
-        if (beforeBatch.quantity + input.quantityDelta < 0) {
-          throw new BadRequestException("Batch quantity cannot become negative.");
-        }
-
-        afterBatch = await tx.stockBatch.update({
-          data: {
-            quantity: {
-              increment: input.quantityDelta
-            }
-          },
-          where: {
-            id: beforeBatch.id
-          }
-        });
-        batchId = afterBatch.id;
+      if (!beforeBatch) {
+        throw new NotFoundException("Stock batch was not found.");
       }
+      if (beforeBatch.quantity + input.quantityDelta < 0) {
+        throw new BadRequestException("Batch quantity cannot become negative.");
+      }
+
+      const afterBatch = await tx.stockBatch.update({
+        data: {
+          quantity: {
+            increment: input.quantityDelta
+          }
+        },
+        where: {
+          id: beforeBatch.id
+        }
+      });
 
       const updatedStock = await this.incrementInventoryStock(tx, {
         delta: input.quantityDelta,
@@ -257,7 +254,7 @@ export class InventoryService {
           productId: input.productId,
           quantity: input.quantityDelta,
           referenceType: "STOCK_ADJUSTMENT",
-          stockBatchId: batchId,
+          stockBatchId: afterBatch.id,
           type: StockMovementType.ADJUSTMENT,
           variantId: input.variantId ?? null,
           warehouseId: input.warehouseId
@@ -695,6 +692,10 @@ export class InventoryService {
       },
       warehouseId: warehouseWhere
     };
+    if (query.search !== undefined && query.search.trim().length > 0) {
+      const search = query.search.trim();
+      where.OR = productSearchWhere(search);
+    }
     const [items, total] = await Promise.all([
       this.prisma.stockBatch.findMany({
         orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
@@ -727,6 +728,10 @@ export class InventoryService {
       type: query.type,
       warehouseId: warehouseWhere
     };
+    if (query.search !== undefined && query.search.trim().length > 0) {
+      const search = query.search.trim();
+      where.OR = productSearchWhere(search);
+    }
     const [items, total] = await Promise.all([
       this.prisma.stockMovement.findMany({
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
@@ -751,13 +756,6 @@ export class InventoryService {
     tx: Prisma.TransactionClient,
     input: TransferStockDto
   ) {
-    if (input.batchNumber === undefined) {
-      return {
-        destinationBatchId: null,
-        sourceBatchId: null
-      };
-    }
-
     const sourceBatch = await this.findStockBatch(tx, {
       batchNumber: input.batchNumber,
       productId: input.productId,
@@ -1131,14 +1129,39 @@ export class InventoryService {
 
   private serializeMovement(movement: StockMovementRecord) {
     return {
+      createdAt: movement.createdAt,
       id: movement.id,
+      notes: movement.notes,
       productId: movement.productId,
       quantity: movement.quantity,
+      referenceId: movement.referenceId,
+      referenceType: movement.referenceType,
       type: movement.type,
       variantId: movement.variantId,
       warehouseId: movement.warehouseId
     };
   }
+}
+
+function productSearchWhere(search: string) {
+  return [
+    {
+      product: {
+        name: {
+          contains: search,
+          mode: "insensitive" as const
+        }
+      }
+    },
+    {
+      product: {
+        sku: {
+          contains: search,
+          mode: "insensitive" as const
+        }
+      }
+    }
+  ];
 }
 
 function decimalToNumber(value: DecimalValue) {

@@ -33,17 +33,14 @@ export const STOCK_MOVEMENT_TYPES = [
   "RETURN"
 ] as const;
 
-export const RETURN_STOCK_DISPOSITIONS = [
-  "RESTOCK",
-  "QUARANTINE",
-  "SCRAP"
-] as const;
+export const RETURN_STOCK_DISPOSITIONS = ["RESTOCK", "QUARANTINE", "SCRAP"] as const;
 
 export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
 export type ReturnStockDisposition = (typeof RETURN_STOCK_DISPOSITIONS)[number];
 
 export type InventoryFilters = {
   lowStock: boolean;
+  movementType: "" | StockMovementType;
   nearExpiry: boolean;
   nearExpiryDays: string;
   productId: string;
@@ -83,9 +80,13 @@ export type StockBatch = {
 };
 
 export type StockMovement = {
+  createdAt: Date | string;
   id: string;
+  notes: string | null;
   productId: string;
   quantity: number;
+  referenceId: string | null;
+  referenceType: string | null;
   type: StockMovementType;
   variantId: string | null;
   warehouseId: string;
@@ -164,11 +165,15 @@ const signedIntegerString = (label: string) =>
 
 export const inventoryFiltersSchema = z.object({
   lowStock: z.boolean(),
+  movementType: z.union([z.literal(""), z.enum(STOCK_MOVEMENT_TYPES)]),
   nearExpiry: z.boolean(),
-  nearExpiryDays: z.string().trim().refine(
-    (value) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 365,
-    "Expiry window must be a whole number between 1 and 365 days."
-  ),
+  nearExpiryDays: z
+    .string()
+    .trim()
+    .refine(
+      (value) => /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 365,
+      "Expiry window must be a whole number between 1 and 365 days."
+    ),
   productId: z.string().trim(),
   search: z.string().trim().max(160, "Search is too long."),
   warehouseId: z.string().trim()
@@ -194,7 +199,7 @@ export const stockInFormSchema = z.object({
 });
 
 export const adjustStockFormSchema = z.object({
-  batchNumber: optionalText("Batch number", 120),
+  batchNumber: requiredText("Batch number", 120),
   lowStockThreshold: optionalWholeNumberString("Low-stock threshold"),
   productId: uuidField("Product"),
   quantityDelta: signedIntegerString("Quantity delta"),
@@ -205,7 +210,7 @@ export const adjustStockFormSchema = z.object({
 
 export const transferStockFormSchema = z
   .object({
-    batchNumber: optionalText("Batch number", 120),
+    batchNumber: requiredText("Batch number", 120),
     fromWarehouseId: uuidField("Source warehouse"),
     notes: optionalText("Notes", 1000),
     productId: uuidField("Product"),
@@ -230,13 +235,12 @@ export type InventoryFilterValues = z.infer<typeof inventoryFiltersSchema>;
 export type StockInFormValues = z.infer<typeof stockInFormSchema>;
 export type AdjustStockFormValues = z.infer<typeof adjustStockFormSchema>;
 export type TransferStockFormValues = z.infer<typeof transferStockFormSchema>;
-export type ReturnDispositionFormValues = z.infer<
-  typeof returnDispositionFormSchema
->;
+export type ReturnDispositionFormValues = z.infer<typeof returnDispositionFormSchema>;
 
 export function createEmptyInventoryFilters(): InventoryFilters {
   return {
     lowStock: false,
+    movementType: "",
     nearExpiry: false,
     nearExpiryDays: "30",
     productId: "",
@@ -267,10 +271,14 @@ export function createInventoryFiltersFromSearchParams(searchParams: {
   const days = inventoryFiltersSchema.shape.nearExpiryDays.safeParse(
     searchParams.get("nearExpiryDays") ?? "30"
   );
+  const nearExpiry = searchParams.get("nearExpiry") === "true";
 
   return {
-    lowStock: searchParams.get("lowStock") === "true",
-    nearExpiry: searchParams.get("nearExpiry") === "true",
+    lowStock: !nearExpiry && searchParams.get("lowStock") === "true",
+    movementType:
+      z.enum(STOCK_MOVEMENT_TYPES).safeParse(searchParams.get("movementType")).data ??
+      "",
+    nearExpiry,
     nearExpiryDays: days.success ? days.data : "30",
     productId: searchParams.get("productId") ?? "",
     search: searchParams.get("search") ?? "",
@@ -345,6 +353,42 @@ export function buildInventoryRequest(
   };
 }
 
+export function buildStockMovementQuery(
+  filters: InventoryFilters,
+  page = 1,
+  limit = 20
+): QueryParams {
+  return {
+    ...buildInventoryRequest(
+      {
+        ...filters,
+        lowStock: false,
+        nearExpiry: false
+      },
+      { limit, page }
+    ).query,
+    type: filters.movementType || undefined
+  };
+}
+
+export async function loadAllPaginatedItems<T>(
+  fetchPage: (page: number) => Promise<PaginatedResponse<T>>
+) {
+  const first = await fetchPage(1);
+  const items = [...first.items];
+  let currentPage = first.pagination.page;
+  let hasNextPage = first.pagination.hasNextPage;
+
+  while (hasNextPage) {
+    const next = await fetchPage(currentPage + 1);
+    items.push(...next.items);
+    currentPage = next.pagination.page;
+    hasNextPage = next.pagination.hasNextPage;
+  }
+
+  return items;
+}
+
 export function buildStockInPayload(values: StockInFormValues) {
   return {
     batchNumber: values.batchNumber.trim(),
@@ -364,7 +408,7 @@ export function buildStockInPayload(values: StockInFormValues) {
 
 export function buildAdjustStockPayload(values: AdjustStockFormValues) {
   return {
-    batchNumber: blankToUndefined(values.batchNumber),
+    batchNumber: values.batchNumber.trim(),
     lowStockThreshold:
       values.lowStockThreshold === "" ? undefined : Number(values.lowStockThreshold),
     productId: values.productId,
@@ -377,7 +421,7 @@ export function buildAdjustStockPayload(values: AdjustStockFormValues) {
 
 export function buildTransferStockPayload(values: TransferStockFormValues) {
   return {
-    batchNumber: blankToUndefined(values.batchNumber),
+    batchNumber: values.batchNumber.trim(),
     fromWarehouseId: values.fromWarehouseId,
     notes: blankToUndefined(values.notes),
     productId: values.productId,
@@ -387,9 +431,7 @@ export function buildTransferStockPayload(values: TransferStockFormValues) {
   };
 }
 
-export function buildReturnDispositionPayload(
-  values: ReturnDispositionFormValues
-) {
+export function buildReturnDispositionPayload(values: ReturnDispositionFormValues) {
   return {
     items: [
       {

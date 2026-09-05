@@ -22,6 +22,7 @@ import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,6 +56,7 @@ import {
   adjustStockFormSchema,
   buildAdjustStockPayload,
   buildInventoryRequest,
+  buildStockMovementQuery,
   buildStockInPayload,
   buildTransferStockPayload,
   createEmptyAdjustStockFormValues,
@@ -67,6 +69,8 @@ import {
   inventoryFiltersSchema,
   isLowStock,
   isNearExpiry,
+  loadAllPaginatedItems,
+  STOCK_MOVEMENT_TYPES,
   stockInFormSchema,
   transferStockFormSchema,
   type AdjustStockFormValues,
@@ -94,6 +98,9 @@ type FieldErrors<TFields extends Record<string, unknown>> = Partial<
 const PRODUCT_SELECT_EMPTY_VALUE = "__product_select_empty__";
 const VARIANT_SELECT_EMPTY_VALUE = "__variant_select_empty__";
 const WAREHOUSE_SELECT_EMPTY_VALUE = "__warehouse_select_empty__";
+const MOVEMENT_TYPE_SELECT_EMPTY_VALUE = "__movement_type_select_empty__";
+const INVENTORY_PAGE_SIZE = 20;
+const LOOKUP_PAGE_SIZE = 100;
 
 const INVENTORY_VIEW_CONTENT: Record<
   InventoryView,
@@ -136,12 +143,8 @@ function InventoryContent({ view }: { view: InventoryView }) {
     () => createInventoryFiltersFromSearchParams(new URLSearchParams(searchKey)),
     [searchKey]
   );
-  const [draftFilters, setDraftFilters] = useState<InventoryFilters>(
-    urlFilters
-  );
-  const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>(
-    urlFilters
-  );
+  const [draftFilters, setDraftFilters] = useState<InventoryFilters>(urlFilters);
+  const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>(urlFilters);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [stockInValues, setStockInValues] = useState<StockInInputValues>(
@@ -162,6 +165,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
   >({});
   const [message, setMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [nearExpiryPage, setNearExpiryPage] = useState(1);
+  const [movementsPage, setMovementsPage] = useState(1);
   const viewContent = INVENTORY_VIEW_CONTENT[view];
   const isOverviewView = view === "overview";
   const isActionsView = view === "actions";
@@ -175,39 +181,48 @@ function InventoryContent({ view }: { view: InventoryView }) {
   }, [urlFilters]);
 
   const inventoryRequest = useMemo(
-    () => buildInventoryRequest(appliedFilters),
-    [appliedFilters]
-  );
-  const lookupQuery = useMemo(
-    () => ({
-      limit: 100
-    }),
-    []
+    () =>
+      buildInventoryRequest(appliedFilters, {
+        limit: INVENTORY_PAGE_SIZE,
+        page: inventoryPage
+      }),
+    [appliedFilters, inventoryPage]
   );
   const scopedQuery = useMemo(
     () =>
-      buildInventoryRequest({
-        ...appliedFilters,
-        lowStock: false,
-        nearExpiry: false
-      }).query,
+      buildInventoryRequest(
+        {
+          ...appliedFilters,
+          lowStock: false,
+          nearExpiry: false
+        },
+        { limit: LOOKUP_PAGE_SIZE, page: 1 }
+      ).query,
     [appliedFilters]
+  );
+  const movementQuery = useMemo(
+    () => buildStockMovementQuery(appliedFilters, movementsPage, INVENTORY_PAGE_SIZE),
+    [appliedFilters, movementsPage]
   );
 
   const warehousesQuery = useQuery({
     enabled: hasPermission(ADMIN_PERMISSION.WarehouseRead),
     queryFn: () =>
-      api.request<WarehouseListResponse>("/admin/warehouses", {
-        query: lookupQuery
-      }),
+      loadAllPaginatedItems<AdminWarehouse>((page) =>
+        api.request<WarehouseListResponse>("/admin/warehouses", {
+          query: { limit: LOOKUP_PAGE_SIZE, page }
+        })
+      ),
     queryKey: ["admin", "inventory", "warehouses"]
   });
   const productsQuery = useQuery({
     enabled: hasPermission(ADMIN_PERMISSION.ProductsRead),
     queryFn: () =>
-      api.request<ProductListResponse>("/admin/products", {
-        query: lookupQuery
-      }),
+      loadAllPaginatedItems<AdminProduct>((page) =>
+        api.request<ProductListResponse>("/admin/products", {
+          query: { limit: LOOKUP_PAGE_SIZE, page }
+        })
+      ),
     queryKey: ["admin", "inventory", "products"]
   });
   const inventoryQuery = useQuery({
@@ -232,21 +247,30 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const nearExpiryQuery = useQuery({
     enabled: isOverviewView,
     queryFn: () =>
-      api.request<PaginatedResponse<StockBatch>>("/admin/inventory/near-expiry", {
-        query: {
-          ...scopedQuery,
-          days: Number(appliedFilters.nearExpiryDays)
-        }
-      }),
-    queryKey: ["admin", "inventory", "near-expiry", scopedQuery, appliedFilters.nearExpiryDays]
+      loadAllPaginatedItems<StockBatch>((page) =>
+        api.request<PaginatedResponse<StockBatch>>("/admin/inventory/near-expiry", {
+          query: {
+            ...scopedQuery,
+            days: Number(appliedFilters.nearExpiryDays),
+            page
+          }
+        })
+      ),
+    queryKey: [
+      "admin",
+      "inventory",
+      "near-expiry",
+      scopedQuery,
+      appliedFilters.nearExpiryDays
+    ]
   });
   const movementsQuery = useQuery({
     enabled: isMovementsView,
     queryFn: () =>
       api.request<PaginatedResponse<StockMovement>>("/admin/inventory/movements", {
-        query: scopedQuery
+        query: movementQuery
       }),
-    queryKey: ["admin", "inventory", "movements", scopedQuery]
+    queryKey: ["admin", "inventory", "movements", movementQuery]
   });
 
   const stockInMutation = useMutation({
@@ -271,13 +295,13 @@ function InventoryContent({ view }: { view: InventoryView }) {
       })
   });
 
-  const products = productsQuery.data?.items ?? [];
-  const warehouses = warehousesQuery.data?.items ?? [];
+  const products = productsQuery.data ?? [];
+  const warehouses = warehousesQuery.data ?? [];
   const stockInVariants = getProductVariants(products, stockInValues.productId);
   const adjustVariants = getProductVariants(products, adjustValues.productId);
   const transferVariants = getProductVariants(products, transferValues.productId);
   const lowStockItems = lowStockQuery.data?.items ?? [];
-  const nearExpiryItems = nearExpiryQuery.data?.items ?? [];
+  const nearExpiryItems = nearExpiryQuery.data ?? [];
   const movements = movementsQuery.data?.items ?? [];
   const lowStockKeys = new Set(lowStockItems.map(stockKey));
   const nearExpiryKeys = new Set(nearExpiryItems.map(batchKey));
@@ -287,6 +311,41 @@ function InventoryContent({ view }: { view: InventoryView }) {
     getErrorMessage(transferMutation.error);
   const isMutating =
     stockInMutation.isPending || adjustMutation.isPending || transferMutation.isPending;
+  const isLookupLoading = productsQuery.isLoading || warehousesQuery.isLoading;
+  const inventoryPagination = inventoryQuery.data?.pagination;
+  const movementPagination = movementsQuery.data?.pagination;
+  const nearExpiryTotalPages = Math.max(
+    Math.ceil(nearExpiryItems.length / INVENTORY_PAGE_SIZE),
+    1
+  );
+  const visibleNearExpiryItems = nearExpiryItems.slice(
+    (nearExpiryPage - 1) * INVENTORY_PAGE_SIZE,
+    nearExpiryPage * INVENTORY_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (
+      inventoryPagination &&
+      inventoryPage > Math.max(inventoryPagination.totalPages, 1)
+    ) {
+      setInventoryPage(Math.max(inventoryPagination.totalPages, 1));
+    }
+  }, [inventoryPage, inventoryPagination]);
+
+  useEffect(() => {
+    if (
+      movementPagination &&
+      movementsPage > Math.max(movementPagination.totalPages, 1)
+    ) {
+      setMovementsPage(Math.max(movementPagination.totalPages, 1));
+    }
+  }, [movementPagination, movementsPage]);
+
+  useEffect(() => {
+    if (nearExpiryPage > nearExpiryTotalPages) {
+      setNearExpiryPage(nearExpiryTotalPages);
+    }
+  }, [nearExpiryPage, nearExpiryTotalPages]);
 
   async function refreshInventory() {
     await queryClient.invalidateQueries({ queryKey: ["admin", "inventory"] });
@@ -303,6 +362,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
 
     setFilterError(null);
     setAppliedFilters(parsed.data);
+    setInventoryPage(1);
+    setMovementsPage(1);
+    setNearExpiryPage(1);
     setIsFilterDrawerOpen(false);
   }
 
@@ -311,6 +373,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
     setFilterError(null);
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
+    setInventoryPage(1);
+    setMovementsPage(1);
+    setNearExpiryPage(1);
   }
 
   function handleStockInSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -435,7 +500,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
         {isOverviewView ? (
           <div className="metricGrid resourceMetrics">
             <MetricCard
-              label="Stock rows"
+              label={
+                inventoryRequest.type === "batch" ? "Matching batches" : "Stock rows"
+              }
               tone="primary"
               value={inventoryQuery.data?.pagination.total ?? 0}
             />
@@ -447,12 +514,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
             <MetricCard
               label="Near expiry"
               tone="warning"
-              value={nearExpiryQuery.data?.pagination.total ?? nearExpiryItems.length}
+              value={nearExpiryItems.length}
             />
-            <MetricCard
-              label="Warehouses"
-              value={warehousesQuery.data?.pagination.total ?? warehouses.length}
-            />
+            <MetricCard label="Warehouses" value={warehouses.length} />
           </div>
         ) : null}
       </Card>
@@ -480,6 +544,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
               onChange={setDraftFilters}
               products={products}
               showWarningFilters={isOverviewView}
+              showMovementType={isMovementsView}
               warehouses={warehouses}
             />
           </FilterDrawer>
@@ -570,7 +635,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
                   : "Current aggregate stock"
               }
             />
-            {inventoryQuery.isLoading ? (
+            {inventoryQuery.isLoading || isLookupLoading ? (
               <LoadingState label="Loading inventory..." />
             ) : null}
             {inventoryQuery.isError ? (
@@ -578,7 +643,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 {getErrorMessage(inventoryQuery.error) ?? "Unable to load inventory."}
               </p>
             ) : null}
-            {!inventoryQuery.isLoading && !inventoryQuery.isError ? (
+            {!inventoryQuery.isLoading &&
+            !isLookupLoading &&
+            !inventoryQuery.isError ? (
               inventoryRequest.type === "batch" ? (
                 <BatchTable
                   batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
@@ -596,40 +663,62 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 />
               )
             ) : null}
-          </Card>
-
-          <Card className="panel">
-            <PageHeader
-              level={2}
-              eyebrow="Near expiry"
-              summary={`Expiry window: ${appliedFilters.nearExpiryDays} days.`}
-              title="Positive batches expiring soon"
-            />
-            {nearExpiryQuery.isLoading ? (
-              <LoadingState label="Loading near-expiry batches..." />
-            ) : null}
-            {nearExpiryQuery.isError ? (
-              <p className="formError" role="alert">
-                {getErrorMessage(nearExpiryQuery.error) ??
-                  "Unable to load near-expiry batches."}
-              </p>
-            ) : null}
-            {!nearExpiryQuery.isLoading && !nearExpiryQuery.isError ? (
-              <BatchTable
-                batches={nearExpiryItems}
-                nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
-                products={products}
-                warehouses={warehouses}
+            {inventoryPagination && inventoryPagination.totalPages > 1 ? (
+              <PaginationControls
+                onChange={setInventoryPage}
+                page={inventoryPagination.page}
+                totalPages={inventoryPagination.totalPages}
               />
             ) : null}
           </Card>
+
+          {!appliedFilters.nearExpiry ? (
+            <Card className="panel">
+              <PageHeader
+                level={2}
+                eyebrow="Near expiry"
+                summary={`Expiry window: ${appliedFilters.nearExpiryDays} days.`}
+                title="Positive batches expiring soon"
+              />
+              {nearExpiryQuery.isLoading || isLookupLoading ? (
+                <LoadingState label="Loading near-expiry batches..." />
+              ) : null}
+              {nearExpiryQuery.isError ? (
+                <p className="formError" role="alert">
+                  {getErrorMessage(nearExpiryQuery.error) ??
+                    "Unable to load near-expiry batches."}
+                </p>
+              ) : null}
+              {!nearExpiryQuery.isLoading &&
+              !isLookupLoading &&
+              !nearExpiryQuery.isError ? (
+                <BatchTable
+                  batches={visibleNearExpiryItems}
+                  nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
+                  products={products}
+                  warehouses={warehouses}
+                />
+              ) : null}
+              {nearExpiryTotalPages > 1 ? (
+                <PaginationControls
+                  onChange={setNearExpiryPage}
+                  page={nearExpiryPage}
+                  totalPages={nearExpiryTotalPages}
+                />
+              ) : null}
+            </Card>
+          ) : null}
         </>
       ) : null}
 
       {view === "movements" ? (
         <Card className="panel mt-3">
-          <PageHeader level={2} eyebrow="Movement history" title="Stock movement audit trail" />
-          {movementsQuery.isLoading ? (
+          <PageHeader
+            level={2}
+            eyebrow="Movement history"
+            title="Stock movement audit trail"
+          />
+          {movementsQuery.isLoading || isLookupLoading ? (
             <LoadingState label="Loading movement history..." />
           ) : null}
           {movementsQuery.isError ? (
@@ -638,11 +727,18 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 "Unable to load stock movements."}
             </p>
           ) : null}
-          {!movementsQuery.isLoading && !movementsQuery.isError ? (
+          {!movementsQuery.isLoading && !isLookupLoading && !movementsQuery.isError ? (
             <MovementTable
               movements={movements}
               products={products}
               warehouses={warehouses}
+            />
+          ) : null}
+          {movementPagination && movementPagination.totalPages > 1 ? (
+            <PaginationControls
+              onChange={setMovementsPage}
+              page={movementPagination.page}
+              totalPages={movementPagination.totalPages}
             />
           ) : null}
         </Card>
@@ -683,6 +779,7 @@ function InventoryFilterFields({
   onChange,
   products,
   showWarningFilters = true,
+  showMovementType = false,
   warehouses
 }: {
   filters: InventoryFilters;
@@ -690,6 +787,7 @@ function InventoryFilterFields({
   onChange: (filters: InventoryFilters) => void;
   products: AdminProduct[];
   showWarningFilters?: boolean;
+  showMovementType?: boolean;
   warehouses: AdminWarehouse[];
 }) {
   return (
@@ -720,13 +818,48 @@ function InventoryFilterFields({
         value={filters.warehouseId}
         warehouses={warehouses}
       />
+      {showMovementType ? (
+        <Label>
+          Movement type
+          <Select
+            onValueChange={(nextValue) =>
+              onChange({
+                ...filters,
+                movementType:
+                  nextValue === MOVEMENT_TYPE_SELECT_EMPTY_VALUE
+                    ? ""
+                    : (nextValue as (typeof STOCK_MOVEMENT_TYPES)[number])
+              })
+            }
+            value={filters.movementType || MOVEMENT_TYPE_SELECT_EMPTY_VALUE}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All movement types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={MOVEMENT_TYPE_SELECT_EMPTY_VALUE}>
+                All movement types
+              </SelectItem>
+              {STOCK_MOVEMENT_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {formatMovementType(type)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Label>
+      ) : null}
       {showWarningFilters ? (
         <>
           <Label className="checkField rowCheck">
             <Checkbox
               checked={filters.lowStock}
               onCheckedChange={(checked) =>
-                onChange({ ...filters, lowStock: checked === true })
+                onChange({
+                  ...filters,
+                  lowStock: checked === true,
+                  nearExpiry: checked === true ? false : filters.nearExpiry
+                })
               }
             />
             <span>Low stock</span>
@@ -735,7 +868,11 @@ function InventoryFilterFields({
             <Checkbox
               checked={filters.nearExpiry}
               onCheckedChange={(checked) =>
-                onChange({ ...filters, nearExpiry: checked === true })
+                onChange({
+                  ...filters,
+                  lowStock: checked === true ? false : filters.lowStock,
+                  nearExpiry: checked === true
+                })
               }
             />
             <span>Near expiry</span>
@@ -746,7 +883,9 @@ function InventoryFilterFields({
               className="filterDrawerControl"
               max={365}
               min={1}
-              onChange={(event) => onChange({ ...filters, nearExpiryDays: event.target.value })}
+              onChange={(event) =>
+                onChange({ ...filters, nearExpiryDays: event.target.value })
+              }
               step={1}
               type="number"
               value={filters.nearExpiryDays}
@@ -932,7 +1071,6 @@ function AdjustStockForm({
         error={errors.batchNumber}
         label="Batch number"
         onChange={(value) => updateValue("batchNumber", value)}
-        required={false}
         value={values.batchNumber}
       />
       <TextField
@@ -1028,7 +1166,6 @@ function TransferStockForm({
         error={errors.batchNumber}
         label="Batch number"
         onChange={(value) => updateValue("batchNumber", value)}
-        required={false}
         value={values.batchNumber}
       />
       <TextField
@@ -1071,11 +1208,7 @@ function InventoryActionForm({
           <span>{title}</span>
         </h3>
         {children}
-        <Button
-          className="iconTextButton"
-          disabled={isSaving}
-          type="submit"
-        >
+        <Button className="iconTextButton" disabled={isSaving} type="submit">
           <CheckCircle2 aria-hidden size={16} />
           <span>{isSaving ? "Working..." : submitLabel}</span>
         </Button>
@@ -1348,7 +1481,10 @@ function BatchTable({
 }) {
   if (batches.length === 0) {
     return (
-      <EmptyState body="No batches match the selected filters." title="No batches found" />
+      <EmptyState
+        body="No batches match the selected filters."
+        title="No batches found"
+      />
     );
   }
 
@@ -1378,7 +1514,9 @@ function BatchTable({
               <TableCell>{batch.quantity}</TableCell>
               <TableCell className="flagList">
                 <span>{formatDate(batch.expiryDate)}</span>
-                {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? <b>Near expiry</b> : null}
+                {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? (
+                  <b>Near expiry</b>
+                ) : null}
               </TableCell>
               <TableCell>
                 {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
@@ -1414,21 +1552,27 @@ function MovementTable({
       <Table className="brandDataTable inventoryDataTable">
         <TableHeader>
           <TableRow>
+            <TableHead>Time</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Product</TableHead>
             <TableHead>Warehouse</TableHead>
             <TableHead>Quantity</TableHead>
+            <TableHead>Reason / reference</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {movements.map((movement) => (
             <TableRow key={movement.id}>
+              <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
               <TableCell>{formatMovementType(movement.type)}</TableCell>
               <TableCell>
                 {productLabel(products, movement.productId, movement.variantId)}
               </TableCell>
               <TableCell>{warehouseLabel(warehouses, movement.warehouseId)}</TableCell>
               <TableCell>{movement.quantity}</TableCell>
+              <TableCell>
+                {movement.notes || formatMovementReference(movement) || "-"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -1474,6 +1618,35 @@ function batchKey(batch: Pick<StockBatch, "productId" | "variantId" | "warehouse
 
 function formatDate(value: Date | string | null) {
   return value ? new Date(value).toLocaleDateString("en-IN") : "-";
+}
+
+function formatDateTime(value: Date | string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
+function formatMovementReference(
+  movement: Pick<StockMovement, "referenceId" | "referenceType">
+) {
+  if (!movement.referenceType) {
+    return movement.referenceId;
+  }
+
+  const referenceType = movement.referenceType.toLowerCase().replaceAll("_", " ");
+  return movement.referenceId
+    ? `${referenceType} ${movement.referenceId}`
+    : referenceType;
 }
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {

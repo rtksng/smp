@@ -58,10 +58,7 @@ export const DEFAULT_ROLES: RoleSeed[] = [
   }
 ];
 
-export const DEFAULT_ROLE_PERMISSION_CODES: Record<
-  AdminRoleCode,
-  PermissionCode[]
-> = {
+export const DEFAULT_ROLE_PERMISSION_CODES: Record<AdminRoleCode, PermissionCode[]> = {
   [AdminRoleCode.SuperAdmin]: DEFAULT_PERMISSION_CODES,
   [AdminRoleCode.InventoryManager]: [
     PermissionCode.ProductsCreate,
@@ -73,6 +70,7 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<
     PermissionCode.ReportsRead
   ],
   [AdminRoleCode.WarehouseManager]: [
+    PermissionCode.ProductsRead,
     PermissionCode.InventoryRead,
     PermissionCode.InventoryUpdate,
     PermissionCode.WarehouseRead,
