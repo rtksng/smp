@@ -64,6 +64,11 @@ import {
   type ProductFeedbackStatus
 } from "../../../lib/support-management";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { feedbackBulkActions } from "@/lib/bulk-module-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+
 const PAGE_SIZE = 20;
 const PRODUCT_QUESTION_FILTER_STATUSES: ProductFeedbackStatus[] = [
   "PENDING",
@@ -167,6 +172,7 @@ function ProductFeedbackContent({ view, initialFilters }: {
   const [appliedFilters, setAppliedFilters] =
     useState<ProductFeedbackFilters>(initialFilters);
   const [page, setPage] = useState(1);
+  const [bulkNote, setBulkNote] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
   const [answerDialogItem, setAnswerDialogItem] =
@@ -223,6 +229,10 @@ function ProductFeedbackContent({ view, initialFilters }: {
     [feedbackListQuery.data?.items]
   );
   const pagination = feedbackListQuery.data?.pagination;
+  const bulk = useBulkSelection(JSON.stringify([view, appliedFilters]), feedback);
+  const bulkActions = feedbackBulkActions(api, view, bulkNote).map((action) => ({ ...action,
+    fields: <label>Moderation note (optional)<Input maxLength={500} value={bulkNote} onChange={(event) => setBulkNote(event.target.value)} /></label>
+  }));
   const reviewVisibleCount = feedback.filter((item) => item.type === "REVIEW").length;
   const questionVisibleCount = feedback.filter(
     (item) => item.type === "QUESTION"
@@ -403,6 +413,11 @@ function ProductFeedbackContent({ view, initialFilters }: {
         {feedbackListQuery.isLoading ? (
           <LoadingState label={`Loading product ${view}...`} />
         ) : null}
+        {canAnswer ? <BulkActions key={bulk.scope} selection={bulk} actions={bulkActions}
+          total={pagination?.total ?? 0} disabled={feedbackListQuery.isFetching || feedbackListQuery.isError || answerMutation.isPending || moderationMutation.isPending}
+          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminProductFeedback>>("/admin/product-feedback", { query: buildProductFeedbackQuery(appliedFilters, next, limit) }))}
+          getLabel={(item) => `${item.customerName}: ${item.title || item.question || item.comment || item.productName}`}
+          onComplete={refreshFeedback} /> : null}
         {!feedbackListQuery.isLoading &&
           !feedbackListQuery.isError &&
           feedback.length === 0 ? (
@@ -413,10 +428,11 @@ function ProductFeedbackContent({ view, initialFilters }: {
         ) : null}
         {feedback.length > 0 ? (
           <ProductFeedbackTable
+            bulk={bulk}
             canAnswer={canAnswer}
             copiedProductId={copiedProductId}
             feedback={feedback}
-            isSaving={answerMutation.isPending || moderationMutation.isPending}
+            isSaving={bulk.isBusy || answerMutation.isPending || moderationMutation.isPending}
             onCopyProductId={copyProductId}
             onOpenAnswer={openAnswerDialog}
             onModerate={moderateFeedback}
@@ -425,7 +441,7 @@ function ProductFeedbackContent({ view, initialFilters }: {
         ) : null}
         {pagination ? (
           <PaginationControls
-            onChange={setPage}
+            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
             page={pagination.page}
             totalPages={Math.max(pagination.totalPages, 1)}
           />
@@ -543,6 +559,7 @@ function ProductFeedbackFilterForm({
 }
 
 function ProductFeedbackTable({
+  bulk,
   canAnswer,
   copiedProductId,
   feedback,
@@ -552,6 +569,7 @@ function ProductFeedbackTable({
   onModerate,
   view
 }: {
+  bulk: BulkSelection<AdminProductFeedback>;
   canAnswer: boolean;
   copiedProductId: string | null;
   feedback: AdminProductFeedback[];
@@ -577,6 +595,7 @@ function ProductFeedbackTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {canAnswer ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Customer</TableHead>
             <TableHead>Product</TableHead>
             <TableHead>{isQuestionView ? "Question" : "Review"}</TableHead>
@@ -589,6 +608,7 @@ function ProductFeedbackTable({
         <TableBody>
           {feedback.map((item) => (
             <TableRow key={item.id}>
+              {canAnswer ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={item} label={`${item.customerName} ${item.productName}`} /></TableCell> : null}
               <TableCell>
                 <strong>{item.customerName}</strong>
                 <em>{formatSupportLabel(item.type)}</em>

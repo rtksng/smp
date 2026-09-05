@@ -1,5 +1,10 @@
 "use client";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -50,7 +55,6 @@ import {
   buildDeliveryChargeQuery,
   createEmptyDeliveryChargeFilters,
   createEmptyDeliveryChargeFormValues,
-  deliveryChargeRuleToFormValues,
   formatCurrency,
   formatDeliveryDateTime,
   formatDeliveryRange,
@@ -70,7 +74,10 @@ import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 const PAGE_SIZE = 20;
 
 type DeliveryChargeView = "rules" | "new";
-type DeliveryChargeWarehouse = Pick<WarehouseListResponse["items"][number], "id" | "name" | "code">;
+export type DeliveryChargeWarehouse = Pick<
+  WarehouseListResponse["items"][number],
+  "id" | "name" | "code"
+>;
 
 const deliveryChargeSections: Array<{
   description: string;
@@ -137,9 +144,6 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [editingRule, setEditingRule] = useState<AdminDeliveryChargeRule | null>(
-    null
-  );
   const [formValues, setFormValues] = useState<DeliveryChargeFormValues>(
     createEmptyDeliveryChargeFormValues()
   );
@@ -179,19 +183,6 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
         method: "POST"
       })
   });
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      payload
-    }: {
-      id: string;
-      payload: DeliveryChargePayload;
-    }) =>
-      api.request<AdminDeliveryChargeRule>(`/admin/delivery-charge-rules/${id}`, {
-        body: JSON.stringify(payload),
-        method: "PATCH"
-      })
-  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
       api.request<AdminDeliveryChargeRule>(`/admin/delivery-charge-rules/${id}`, {
@@ -203,8 +194,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     const options = new Map<string, DeliveryChargeWarehouse>();
     for (const warehouse of [
       ...(warehousesQuery.data?.items ?? []),
-      ...rules.flatMap((rule) => rule.warehouse ? [rule.warehouse] : []),
-      ...(editingRule?.warehouse ? [editingRule.warehouse] : [])
+      ...rules.flatMap((rule) => rule.warehouse ? [rule.warehouse] : [])
     ]) {
       options.set(warehouse.id, warehouse);
     }
@@ -212,7 +202,8 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
       options.set(draftFilters.warehouseId, { id: draftFilters.warehouseId, code: "", name: "Selected warehouse" });
     }
     return [...options.values()];
-  }, [warehousesQuery.data?.items, rules, editingRule, draftFilters.warehouseId]);
+  }, [warehousesQuery.data?.items, rules, draftFilters.warehouseId]);
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), rules);
   const pagination = rulesQuery.data?.pagination;
   const activeVisibleCount = rules.filter((rule) => rule.isActive).length;
   const pincodeVisibleCount = rules.filter((rule) => rule.pincode !== null).length;
@@ -223,7 +214,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     getErrorMessage(rulesQuery.error) ??
     getErrorMessage(warehousesQuery.error) ??
     saveError;
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createMutation.isPending;
   const isDeleting = deleteMutation.isPending;
 
   useEffect(() => {
@@ -272,18 +263,8 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     }));
   }
 
-  function startEdit(rule: AdminDeliveryChargeRule) {
-    if (isSaving || isDeleting) return;
-    setEditingRule(rule);
-    setFieldErrors({});
-    setMessage(null);
-    setSaveError(null);
-    setFormValues(deliveryChargeRuleToFormValues(rule));
-  }
-
   function resetForm() {
     if (isSaving) return;
-    setEditingRule(null);
     setFieldErrors({});
     setSaveError(null);
     setFormValues(createEmptyDeliveryChargeFormValues());
@@ -307,16 +288,8 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
     const payload = buildDeliveryChargePayload(formValues);
 
     try {
-      if (editingRule) {
-        await updateMutation.mutateAsync({
-          id: editingRule.id,
-          payload
-        });
-        setMessage("Delivery charge rule updated.");
-      } else {
-        await createMutation.mutateAsync(payload);
-        setMessage("Delivery charge rule created.");
-      }
+      await createMutation.mutateAsync(payload);
+      setMessage("Delivery charge rule created.");
 
       resetForm();
       await refreshRules();
@@ -335,10 +308,6 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
         await deleteMutation.mutateAsync(rule.id);
         setMessage("Delivery charge rule archived.");
 
-        if (editingRule?.id === rule.id) {
-          resetForm();
-        }
-
         await refreshRules();
       },
       title: "Archive delivery charge rule"
@@ -346,8 +315,6 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   }
 
   const pageCopy = deliveryChargeCopy[view];
-  const editingRuleForPanel = view === "rules" ? editingRule : null;
-
   return (
     <>
       <section className="panel deliveryChargeOverviewPanel">
@@ -440,13 +407,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
       ) : null}
 
       {view === "rules" ? (
-        <div
-          className={
-            editingRuleForPanel
-              ? "deliveryChargeWorkspaceGrid"
-              : "deliveryChargeWorkspaceGrid deliveryChargeWorkspaceGrid--single"
-          }
-        >
+        <div className="deliveryChargeWorkspaceGrid deliveryChargeWorkspaceGrid--single">
           <section className="panel deliveryChargeRulesPanel mt-3 ">
             <PageHeader
               actions={
@@ -469,6 +430,10 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
             {rulesQuery.isLoading ? (
               <LoadingState label="Loading delivery charge rules..." />
             ) : null}
+            <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminDeliveryChargeRule>(api, "delivery-charge-rules")} total={pagination?.total ?? 0}
+              disabled={rulesQuery.isFetching || rulesQuery.isError || isSaving || isDeleting}
+              loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedDeliveryChargeResponse>("/admin/delivery-charge-rules", { query: buildDeliveryChargeQuery(appliedFilters, next, limit) }))}
+              getLabel={(rule) => rule.name} onComplete={refreshRules} />
             {!rulesQuery.isLoading && !rulesQuery.isError && rules.length === 0 ? (
               <EmptyState
                 body="No delivery charge rules match the current filters."
@@ -477,55 +442,22 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
             ) : null}
             {rules.length > 0 ? (
               <DeliveryChargeRulesTable
+                bulk={bulk}
                 isSaving={isSaving}
-                isDeleting={isDeleting}
+                isDeleting={isDeleting || bulk.isBusy}
                 onDelete={confirmDelete}
-                onEdit={startEdit}
                 rules={rules}
               />
             ) : null}
             {pagination ? (
               <PaginationControls
-                onChange={setPage}
+                onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
                 page={pagination.page}
                 totalPages={Math.max(pagination.totalPages, 1)}
               />
             ) : null}
           </section>
 
-          {editingRuleForPanel ? (
-            <aside className="panel deliveryChargeFormPanel">
-              <PageHeader
-                actions={
-                  <Button
-                    className="iconTextButton"
-                    disabled={isSaving}
-                    onClick={resetForm}
-                    type="button"
-                    variant="outline"
-                  >
-                    <X aria-hidden size={16} />
-                    <span>Close</span>
-                  </Button>
-                }
-                className="settingsSectionHeader"
-                eyebrow="Edit rule"
-                level={2}
-                summary="Changes apply to matching carts and future orders after save."
-                title={editingRuleForPanel.name}
-              />
-              <DeliveryChargeForm
-                errors={fieldErrors}
-                isEditing
-                isSaving={isSaving}
-                onCancel={resetForm}
-                onChange={updateFormValue}
-                onSubmit={saveRule}
-                values={formValues}
-                warehouses={warehouses}
-              />
-            </aside>
-          ) : null}
         </div>
       ) : null}
 
@@ -539,7 +471,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
   );
 }
 
-function DeliveryChargeSectionNav({ active }: { active: DeliveryChargeView }) {
+export function DeliveryChargeSectionNav({ active }: { active: DeliveryChargeView }) {
   return (
     <nav className="deliveryChargeSectionNav" aria-label="Delivery charge sections">
       {deliveryChargeSections.map((section) => (
@@ -555,7 +487,7 @@ function DeliveryChargeSectionNav({ active }: { active: DeliveryChargeView }) {
   );
 }
 
-function DeliveryChargeForm({
+export function DeliveryChargeForm({
   errors,
   isEditing,
   isSaving,
@@ -766,16 +698,16 @@ function DeliveryChargeFilterFields({
 }
 
 function DeliveryChargeRulesTable({
+  bulk,
   isDeleting,
   isSaving,
   onDelete,
-  onEdit,
   rules
 }: {
   isDeleting: boolean;
   isSaving: boolean;
   onDelete: (rule: AdminDeliveryChargeRule) => void;
-  onEdit: (rule: AdminDeliveryChargeRule) => void;
+  bulk: BulkSelection<AdminDeliveryChargeRule>;
   rules: AdminDeliveryChargeRule[];
 }) {
   return (
@@ -783,6 +715,7 @@ function DeliveryChargeRulesTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
             <TableHead>Rule</TableHead>
             <TableHead>Charge</TableHead>
             <TableHead>Scope</TableHead>
@@ -796,6 +729,7 @@ function DeliveryChargeRulesTable({
         <TableBody>
           {rules.map((rule) => (
             <TableRow key={rule.id}>
+              <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={rule} label={rule.name} /></TableCell>
               <TableCell>
                 <strong>{rule.name}</strong>
                 <em>Priority {rule.priority}</em>
@@ -819,16 +753,18 @@ function DeliveryChargeRulesTable({
               <TableCell>
                 <div className="tableActions">
                   <Button
-                    aria-label={`Edit ${rule.name}`}
+                    asChild
                     className="iconTextButton"
-                    disabled={isSaving || isDeleting}
-                    onClick={() => onEdit(rule)}
                     size="sm"
-                    type="button"
                     variant="outline"
                   >
-                    <Pencil aria-hidden size={16} />
-                    <span>Edit</span>
+                    <Link
+                      aria-label={`Edit ${rule.name}`}
+                      href={`/delivery-charges/${encodeURIComponent(rule.id)}/edit`}
+                    >
+                      <Pencil aria-hidden size={16} />
+                      <span>Edit</span>
+                    </Link>
                   </Button>
                   <Button
                     aria-label={`Archive ${rule.name}`}

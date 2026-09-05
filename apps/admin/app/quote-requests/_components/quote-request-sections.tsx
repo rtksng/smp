@@ -1,5 +1,10 @@
 "use client";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { quoteBulkActions } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -118,7 +123,11 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
     () => quoteRequestsQuery.data?.items ?? [],
     [quoteRequestsQuery.data?.items]
   );
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), quoteRequests);
   const pagination = quoteRequestsQuery.data?.pagination;
+  useEffect(() => {
+    if (pagination && page > Math.max(pagination.totalPages, 1)) setPage(Math.max(pagination.totalPages, 1));
+  }, [page, pagination]);
   const newVisibleCount = quoteRequests.filter((item) => item.status === "NEW").length;
   const contactedVisibleCount = quoteRequests.filter(
     (item) => item.status === "CONTACTED"
@@ -207,6 +216,10 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
           {quoteRequestsQuery.isLoading ? (
             <LoadingState label="Loading quote requests..." />
           ) : null}
+          <BulkActions key={bulk.scope} selection={bulk} actions={quoteBulkActions(api)} total={pagination?.total ?? 0}
+            disabled={quoteRequestsQuery.isFetching || quoteRequestsQuery.isError}
+            loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminQuoteRequest>>("/admin/quote-requests", { query: buildQuoteRequestQuery(appliedFilters, next, limit) }))}
+            getLabel={(quoteRequest) => quoteRequest.name} onComplete={refreshQuoteRequests} />
           {!quoteRequestsQuery.isLoading &&
           !quoteRequestsQuery.isError &&
           quoteRequests.length === 0 ? (
@@ -216,11 +229,11 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
             />
           ) : null}
           {quoteRequests.length > 0 ? (
-            <QuoteRequestsTable quoteRequests={quoteRequests} />
+            <QuoteRequestsTable bulk={bulk} quoteRequests={quoteRequests} />
           ) : null}
           {pagination ? (
             <PaginationControls
-              onChange={setPage}
+              onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
               page={pagination.page}
               totalPages={Math.max(pagination.totalPages, 1)}
             />
@@ -431,8 +444,10 @@ export function QuoteRequestDetailPage() {
 }
 
 function QuoteRequestsTable({
+  bulk,
   quoteRequests
 }: {
+  bulk: BulkSelection<AdminQuoteRequest>;
   quoteRequests: AdminQuoteRequest[];
 }) {
   return (
@@ -440,6 +455,7 @@ function QuoteRequestsTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
             <TableHead>Customer</TableHead>
             <TableHead>Contact</TableHead>
             <TableHead>Request</TableHead>
@@ -452,6 +468,7 @@ function QuoteRequestsTable({
         <TableBody>
           {quoteRequests.map((quoteRequest) => (
             <TableRow key={quoteRequest.id}>
+              <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={quoteRequest} label={quoteRequest.name} /></TableCell>
               <TableCell>
                 <strong>{quoteRequest.name}</strong>
                 <em>{quoteRequest.organization ?? "Individual customer"}</em>

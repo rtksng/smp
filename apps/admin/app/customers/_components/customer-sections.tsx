@@ -1,9 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { CustomerBulkActions } from "@/components/admin/customer-bulk-actions";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, RefreshCw, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { AdminShell } from "../../admin-shell";
 import { EmptyState } from "@/components/admin/empty-state";
 import { FilterDrawer } from "@/components/admin/filter-drawer";
@@ -64,7 +69,9 @@ export function CustomersLandingPage() {
 }
 
 function CustomersContent() {
-  const { api } = useAdminSession();
+  const { api, hasPermission } = useAdminSession();
+  const queryClient = useQueryClient();
+  const canUpdate = hasPermission(ADMIN_PERMISSION.UsersUpdate);
   const [draftFilters, setDraftFilters] = useState<CustomerFilters>(
     createEmptyCustomerFilters()
   );
@@ -84,7 +91,11 @@ function CustomersContent() {
     () => customersQuery.data?.items ?? [],
     [customersQuery.data?.items]
   );
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), customers);
   const pagination = customersQuery.data?.pagination;
+  useEffect(() => {
+    if (pagination && page > Math.max(pagination.totalPages, 1)) setPage(Math.max(pagination.totalPages, 1));
+  }, [page, pagination]);
   const activeVisibleCount = customers.filter((customer) => customer.isActive).length;
   const inactiveVisibleCount = customers.length - activeVisibleCount;
 
@@ -174,10 +185,14 @@ function CustomersContent() {
             title="No customers found"
           />
         ) : null}
-        {customers.length > 0 ? <CustomerTable customers={customers} /> : null}
+        {canUpdate ? <CustomerBulkActions key={bulk.scope} selection={bulk} total={pagination?.total ?? 0}
+          disabled={customersQuery.isFetching || customersQuery.isError}
+          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedCustomerResponse>("/admin/customers", { query: buildCustomerQuery(appliedFilters, next, limit) }))}
+          onComplete={() => queryClient.invalidateQueries({ queryKey: ["admin", "customers"] })} /> : null}
+        {customers.length > 0 ? <CustomerTable customers={customers} bulk={bulk} canUpdate={canUpdate} /> : null}
         {pagination ? (
           <PaginationControls
-            onChange={setPage}
+            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
             page={pagination.page}
             totalPages={Math.max(pagination.totalPages, 1)}
           />
@@ -231,12 +246,13 @@ function CustomerFilterFields({
   );
 }
 
-function CustomerTable({ customers }: { customers: AdminCustomer[] }) {
+function CustomerTable({ customers, bulk, canUpdate }: { customers: AdminCustomer[]; bulk: BulkSelection<AdminCustomer>; canUpdate: boolean }) {
   return (
     <div className="resourceTable customerTable">
       <Table>
         <TableHeader>
           <TableRow>
+            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Customer</TableHead>
             <TableHead>Mobile</TableHead>
             <TableHead>Email</TableHead>
@@ -253,6 +269,7 @@ function CustomerTable({ customers }: { customers: AdminCustomer[] }) {
 
             return (
               <TableRow key={customer.id}>
+                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={customer} label={customer.name} /></TableCell> : null}
                 <TableCell>
                   <Link className="tablePrimaryLink" href={`/customers/${customer.id}`}>
                     {customer.name}

@@ -33,6 +33,7 @@ import {
   YAxis
 } from "recharts";
 import { AdminShell } from "../../admin-shell";
+import { DeliveryBulkAssignment } from "./delivery-bulk-assignment";
 import {
   ConfirmationDialog,
   type ConfirmationState
@@ -675,6 +676,10 @@ function DeliveryContent({
               values={assignmentForm}
               warehouses={warehouses}
             />
+            {hasPermission(ADMIN_PERMISSION.OrdersRead) ? <DeliveryBulkAssignment
+              orders={assignableOrders} partners={activePartners} warehouses={warehouses}
+              disabled={isMutating || ordersQuery.isFetching || ordersQuery.isError || partnerOptionsQuery.isFetching || partnerOptionsQuery.isError || warehousesQuery.isError}
+              onComplete={invalidateDeliveryData} /> : null}
           </section>
         </PermissionGate>
       ) : null}

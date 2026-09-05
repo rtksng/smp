@@ -110,6 +110,10 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { AdminShell } from "../admin-shell";
+import { BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { ProductBulkActions } from "@/components/admin/product-bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
@@ -293,6 +297,7 @@ function ProductManagementContent({
   });
 
   const products = productsQuery.data?.items ?? [];
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), products);
   const pagination = productsQuery.data?.pagination;
   const editingProduct = productQuery.data ?? null;
   const brands = brandsQuery.data ?? [];
@@ -557,6 +562,10 @@ function ProductManagementContent({
         />
 
         {productsQuery.isLoading ? <LoadingState label="Loading products..." /> : null}
+        {canUpdate ? <ProductBulkActions key={bulk.scope} selection={bulk} brands={brands} categories={categoryTree}
+          total={pagination?.total ?? 0} disabled={productsQuery.isFetching || productsQuery.isError || deleteMutation.isPending || statusMutation.isPending}
+          loadAll={() => loadBulkRows((next, limit) => api.request<ProductListResponse>("/admin/products", { query: { ...buildProductQuery(appliedFilters, next), limit } }))}
+          onComplete={refreshProducts} /> : null}
         {productsQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
@@ -564,9 +573,10 @@ function ProductManagementContent({
         ) : null}
         {!productsQuery.isLoading && !productsQuery.isError ? (
           <ProductTable
+            bulk={bulk}
             canDelete={canDelete}
             canUpdate={canUpdate}
-            isMutating={deleteMutation.isPending || statusMutation.isPending}
+            isMutating={bulk.isBusy || deleteMutation.isPending || statusMutation.isPending}
             onActivate={(product) => void updateProductStatus(product, "ACTIVE")}
             onDeactivate={requestDeactivate}
             onDelete={requestDelete}
@@ -576,7 +586,7 @@ function ProductManagementContent({
 
         {pagination && pagination.totalPages > 1 ? (
           <PaginationControls
-            onChange={setPage}
+            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
             page={pagination.page}
             totalPages={pagination.totalPages}
           />
@@ -760,6 +770,7 @@ function ProductFilterFields({
 }
 
 function ProductTable({
+  bulk,
   canDelete,
   canUpdate,
   isMutating,
@@ -768,6 +779,7 @@ function ProductTable({
   onDelete,
   products
 }: {
+  bulk: BulkSelection<AdminProduct>;
   canDelete: boolean;
   canUpdate: boolean;
   isMutating: boolean;
@@ -780,6 +792,7 @@ function ProductTable({
     <div className="brandTableScroll">
       <Table className="brandDataTable productDataTable">
         <colgroup>
+          {canUpdate ? <col className="bulkCheckboxColumn" /> : null}
           <col className="productTableProductColumn" />
           <col className="productTableSkuColumn" />
           <col className="productTableCategoryColumn" />
@@ -791,6 +804,7 @@ function ProductTable({
         </colgroup>
         <TableHeader>
           <TableRow>
+            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Product</TableHead>
             <TableHead>SKU</TableHead>
             <TableHead>Category</TableHead>
@@ -804,11 +818,12 @@ function ProductTable({
         <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8}>No products match the selected filters.</TableCell>
+              <TableCell colSpan={canUpdate ? 9 : 8}>No products match the selected filters.</TableCell>
             </TableRow>
           ) : (
             products.map((product) => (
               <TableRow key={product.id}>
+                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={product} label={product.name} /></TableCell> : null}
                 <TableCell>
                   <strong>{product.name}</strong>
                   <span className="tableSubtext">

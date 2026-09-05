@@ -1,5 +1,11 @@
 "use client";
 
+import { BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { InventoryBulkActions } from "@/components/admin/inventory-bulk-actions";
+import type { BulkInventoryRow } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
@@ -312,6 +318,8 @@ function InventoryContent({ view }: { view: InventoryView }) {
   const isMutating =
     stockInMutation.isPending || adjustMutation.isPending || transferMutation.isPending;
   const isLookupLoading = productsQuery.isLoading || warehousesQuery.isLoading;
+  const canBulkUpdate = hasPermission(ADMIN_PERMISSION.InventoryUpdate);
+  const bulk = useBulkSelection<BulkInventoryRow>(JSON.stringify(appliedFilters), inventoryQuery.data?.items ?? []);
   const inventoryPagination = inventoryQuery.data?.pagination;
   const movementPagination = movementsQuery.data?.pagination;
   const nearExpiryTotalPages = Math.max(
@@ -643,11 +651,20 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 {getErrorMessage(inventoryQuery.error) ?? "Unable to load inventory."}
               </p>
             ) : null}
+            {canBulkUpdate ? <InventoryBulkActions key={bulk.scope} selection={bulk} warehouses={warehouses} total={inventoryPagination?.total ?? 0}
+              disabled={inventoryQuery.isFetching || inventoryQuery.isError || isLookupLoading || isMutating}
+              loadAll={() => loadBulkRows((next, limit) => {
+                const request = buildInventoryRequest(appliedFilters, { page: next, limit });
+                return api.request<PaginatedResponse<BulkInventoryRow>>(request.endpoint, { query: request.query });
+              })}
+              getLabel={(item) => [productLabel(products, item.productId, item.variantId), warehouseLabel(warehouses, item.warehouseId), "batchNumber" in item ? item.batchNumber : ""].filter(Boolean).join(" / ")}
+              onComplete={refreshInventory} /> : null}
             {!inventoryQuery.isLoading &&
             !isLookupLoading &&
             !inventoryQuery.isError ? (
               inventoryRequest.type === "batch" ? (
                 <BatchTable
+                  bulk={canBulkUpdate ? bulk : undefined}
                   batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
                   nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
                   products={products}
@@ -655,6 +672,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 />
               ) : (
                 <StockTable
+                  bulk={canBulkUpdate ? bulk : undefined}
                   lowStockKeys={lowStockKeys}
                   nearExpiryKeys={nearExpiryKeys}
                   products={products}
@@ -665,7 +683,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
             ) : null}
             {inventoryPagination && inventoryPagination.totalPages > 1 ? (
               <PaginationControls
-                onChange={setInventoryPage}
+                onChange={(next) => { if (!bulk.isBusy) setInventoryPage(next); }}
                 page={inventoryPagination.page}
                 totalPages={inventoryPagination.totalPages}
               />
@@ -1403,12 +1421,14 @@ function TextAreaField({
 }
 
 function StockTable({
+  bulk,
   lowStockKeys,
   nearExpiryKeys,
   products,
   stocks,
   warehouses
 }: {
+  bulk?: BulkSelection<BulkInventoryRow>;
   lowStockKeys: Set<string>;
   nearExpiryKeys: Set<string>;
   products: AdminProduct[];
@@ -1429,6 +1449,7 @@ function StockTable({
       <Table className="brandDataTable inventoryDataTable">
         <TableHeader>
           <TableRow>
+            {bulk ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Product</TableHead>
             <TableHead>Warehouse</TableHead>
             <TableHead>Available</TableHead>
@@ -1445,6 +1466,7 @@ function StockTable({
 
             return (
               <TableRow key={stock.id}>
+                {bulk ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={stock} label={productLabel(products, stock.productId, stock.variantId) + " / " + warehouseLabel(warehouses, stock.warehouseId)} /></TableCell> : null}
                 <TableCell>
                   <strong>
                     {productLabel(products, stock.productId, stock.variantId)}
@@ -1469,11 +1491,13 @@ function StockTable({
 }
 
 function BatchTable({
+  bulk,
   batches,
   nearExpiryDays,
   products,
   warehouses
 }: {
+  bulk?: BulkSelection<BulkInventoryRow>;
   batches: StockBatch[];
   nearExpiryDays: number;
   products: AdminProduct[];
@@ -1493,6 +1517,7 @@ function BatchTable({
       <Table className="brandDataTable inventoryDataTable">
         <TableHeader>
           <TableRow>
+            {bulk ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Batch</TableHead>
             <TableHead>Product</TableHead>
             <TableHead>Warehouse</TableHead>
@@ -1504,6 +1529,7 @@ function BatchTable({
         <TableBody>
           {batches.map((batch) => (
             <TableRow key={batch.id}>
+              {bulk ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={batch} label={batch.batchNumber} /></TableCell> : null}
               <TableCell>
                 <strong>{batch.batchNumber}</strong>
               </TableCell>

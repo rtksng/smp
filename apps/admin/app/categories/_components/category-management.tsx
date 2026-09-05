@@ -1,5 +1,9 @@
 "use client";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -172,6 +176,7 @@ function CategoriesContent({
       ),
     [categories, editingCategory]
   );
+  const bulk = useBulkSelection(search, filteredRootCategories);
   const canCreate = hasPermission(ADMIN_PERMISSION.ProductsCreate);
   const canUpdate = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
   const canDelete = hasPermission(ADMIN_PERMISSION.ProductsDelete);
@@ -459,6 +464,7 @@ function CategoriesContent({
             <span className="searchInput">
               <Search aria-hidden size={16} />
               <Input
+                disabled={bulk.isBusy}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Surgical instruments"
                 value={search}
@@ -479,12 +485,16 @@ function CategoriesContent({
             {getErrorMessage(categoriesQuery.error) ?? "Unable to load categories."}
           </p>
         ) : null}
+        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
+          total={filteredRootCategories.length} disabled={categoriesQuery.isFetching || categoriesQuery.isError || isMutating}
+          loadAll={async () => filteredRootCategories} getLabel={(category) => category.name} onComplete={refreshCategories} /> : null}
         {!categoriesQuery.isLoading && !categoriesQuery.isError ? (
           <CategoryTable
+            bulk={bulk}
             canDelete={canDelete}
             canUpdate={canUpdate}
             categories={filteredRootCategories}
-            isMutating={isMutating}
+            isMutating={isMutating || bulk.isBusy}
             onDelete={requestDelete}
             onManageChildren={(category) => setChildCategoryModal(category)}
           />
@@ -492,6 +502,7 @@ function CategoriesContent({
       </Card>
 
       <ChildCategoryModal
+        onComplete={refreshCategories}
         canDelete={canDelete}
         canUpdate={canUpdate}
         isMutating={isMutating}
@@ -500,7 +511,7 @@ function CategoriesContent({
           setChildCategoryModal(null);
           requestDelete(category);
         }}
-        rootCategory={childCategoryModal}
+        rootCategory={categories.find((category) => category.id === childCategoryModal?.id) ?? null}
       />
 
       <ConfirmationDialog
@@ -514,6 +525,7 @@ function CategoriesContent({
 }
 
 function CategoryTable({
+  bulk,
   canDelete,
   canUpdate,
   categories,
@@ -523,6 +535,7 @@ function CategoryTable({
 }: {
   canDelete: boolean;
   canUpdate: boolean;
+  bulk: BulkSelection<AdminCategory>;
   categories: AdminCategory[];
   isMutating: boolean;
   onDelete: (category: AdminCategory) => void;
@@ -533,6 +546,7 @@ function CategoryTable({
       <Table className="brandDataTable categoryDataTable">
         <TableHeader>
           <TableRow>
+            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Category</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Child categories</TableHead>
@@ -544,11 +558,12 @@ function CategoryTable({
         <TableBody>
           {categories.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6}>No categories match the current search.</TableCell>
+              <TableCell colSpan={canUpdate ? 7 : 6}>No categories match the current search.</TableCell>
             </TableRow>
           ) : (
             categories.map((category) => (
               <TableRow key={category.id}>
+                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={category} label={category.name} /></TableCell> : null}
                 <TableCell>
                   <strong>{category.name}</strong>
                   {category.description ? (
@@ -638,6 +653,7 @@ function ChildCategorySummary({
 }
 
 function ChildCategoryModal({
+  onComplete,
   canDelete,
   canUpdate,
   isMutating,
@@ -645,6 +661,7 @@ function ChildCategoryModal({
   onDelete,
   rootCategory
 }: {
+  onComplete: () => Promise<unknown>;
   canDelete: boolean;
   canUpdate: boolean;
   isMutating: boolean;
@@ -652,12 +669,14 @@ function ChildCategoryModal({
   onDelete: (category: AdminCategory) => void;
   rootCategory: AdminCategory | null;
 }) {
+  const { api } = useAdminSession();
+  const bulk = useBulkSelection(rootCategory?.id ?? "", rootCategory?.children ?? []);
   if (!rootCategory) {
     return null;
   }
 
   return (
-    <Dialog open={Boolean(rootCategory)} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={Boolean(rootCategory)} onOpenChange={(open) => { if (!open && !bulk.isBusy) onClose(); }}>
       <DialogContent className="categoryChildDialog">
         <DialogHeader>
           <p className="eyebrow">Child categories</p>
@@ -667,12 +686,16 @@ function ChildCategoryModal({
           </DialogDescription>
         </DialogHeader>
 
+        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
+          total={rootCategory.children.length} disabled={isMutating} loadAll={async () => rootCategory.children}
+          getLabel={(category) => category.name} onComplete={onComplete} /> : null}
         {rootCategory.children.length === 0 ? (
           <EmptyState body="No child categories available." title="No child categories" />
         ) : (
           <Table aria-label={`Child categories for ${rootCategory.name}`}>
             <TableHeader>
               <TableRow>
+                {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
                 <TableHead>Status</TableHead>
@@ -682,6 +705,7 @@ function ChildCategoryModal({
             <TableBody>
               {rootCategory.children.map((subcategory) => (
                 <TableRow key={subcategory.id}>
+                  {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={subcategory} label={subcategory.name} /></TableCell> : null}
                   <TableCell>
                     <strong>{subcategory.name}</strong>
                   </TableCell>

@@ -1,0 +1,211 @@
+.bulkActions {
+  margin: 18px 0;
+  padding: var(--admin-space-lg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+.bulkActionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.bulkSelectionSummary {
+  display: grid;
+  gap: 5px;
+  margin-right: auto;
+}
+.bulkSelectionSummary strong {
+  color: var(--text);
+  font-size: var(--admin-text-label);
+}
+.bulkSelectionHint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+.bulkActionForm {
+  display: grid;
+  gap: var(--admin-space-sm);
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  max-width: 680px;
+}
+.bulkActionForm > button {
+  justify-self: start;
+}
+.bulkFields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+.bulkFields:empty {
+  display: none;
+}
+.bulkInventoryBatches {
+  display: grid;
+  gap: 12px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.bulkFields label,
+.bulkSelectField {
+  display: grid;
+  gap: 7px;
+  font-size: var(--admin-text-sm);
+}
+.bulkResultsTrigger {
+  margin-top: 14px;
+}
+.adminDialogPanel.bulkReviewDialog {
+  width: calc(100% - 32px);
+  max-width: 680px;
+  max-height: calc(100dvh - 48px);
+  gap: var(--admin-space-lg);
+  overflow-y: auto;
+}
+.bulkReviewSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  font-size: var(--admin-text-sm);
+}
+.bulkReviewSummary span {
+  color: var(--muted);
+}
+.bulkResultList {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+  max-height: min(360px, 45dvh);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.bulkResultList li {
+  display: grid;
+  gap: 7px;
+  padding: 11px var(--admin-space-md);
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.bulkResultList li:last-child {
+  border-bottom: 0;
+}
+.bulkResultHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bulkResultHeading > strong {
+  display: block;
+  min-width: 0;
+  font-size: var(--admin-text-sm);
+  line-height: 1.5;
+}
+.bulkResultMessage {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bulkResultBadge {
+  flex-shrink: 0;
+  border-radius: 20px;
+  padding: 3px 9px;
+  text-transform: capitalize;
+  font-size: 11px;
+  font-weight: 700;
+}
+.bulkResultBadge[data-status="succeeded"] {
+  color: #0b625a;
+  background: #d8f1ee;
+}
+.bulkResultBadge[data-status="skipped"] {
+  color: #875c0d;
+  background: #fff3d6;
+}
+.bulkResultBadge[data-status="failed"] {
+  color: #9b2226;
+  background: #fee2e2;
+}
+.bulkResultTotals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.bulkResultTotals > div {
+  display: grid;
+  gap: 5px;
+  padding: var(--admin-space-sm);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+.bulkResultTotals strong {
+  font-size: var(--admin-text-heading);
+  line-height: 1.2;
+}
+.bulkResultTotals span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.bulkCheckboxColumn {
+  width: 48px;
+}
+th.bulkCheckboxCell,
+td.bulkCheckboxCell {
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+}
+.bulkDeliverySection {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.bulkDeliverySection h3,
+.bulkDeliverySection p {
+  margin: 0;
+}
+.bulkDeliverySection > label {
+  display: grid;
+  gap: 7px;
+  max-width: 480px;
+}
+@media (max-width: 640px) {
+  .bulkActionBar {
+    align-items: stretch;
+  }
+  .bulkActionBar button {
+    width: 100%;
+  }
+  .bulkSelectionSummary {
+    width: 100%;
+  }
+  .bulkActions {
+    padding: var(--admin-space-sm);
+  }
+  .bulkActionForm > button {
+    width: 100%;
+  }
+  .adminDialogPanel.bulkReviewDialog {
+    padding: var(--admin-space-lg);
+    max-height: calc(100dvh - 32px);
+  }
+}

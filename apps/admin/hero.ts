@@ -3,6 +3,12 @@ import { heroui } from "@heroui/theme";
 export default heroui({
   defaultTheme: "light",
   layout: {
+    fontSize: {
+      tiny: "0.75rem",
+      small: "var(--admin-text-sm)",
+      medium: "var(--admin-text-base)",
+      large: "var(--admin-text-lg)"
+    },
     borderWidth: {
       small: "1px",
       medium: "1px",
@@ -32,7 +38,7 @@ export default heroui({
           foreground: "#ffffff"
         },
         warning: {
-          DEFAULT: "#b7791f",
+          DEFAULT: "#936019",
           foreground: "#ffffff"
         },
         danger: {

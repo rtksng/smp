@@ -5,10 +5,11 @@ import {
   Checkbox as HeroCheckbox,
   type CheckboxProps as HeroCheckboxProps
 } from "@heroui/checkbox";
-import { Check } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type CheckboxProps = Omit<ComponentProps<"input">, "onChange" | "type"> & {
+  indeterminate?: boolean;
   onCheckedChange?: (checked: boolean) => void;
 };
 
@@ -17,6 +18,7 @@ export function Checkbox({
   className,
   defaultChecked,
   disabled,
+  indeterminate,
   onCheckedChange,
   ...props
 }: CheckboxProps) {
@@ -50,10 +52,25 @@ export function Checkbox({
       }}
       data-slot="checkbox"
       defaultSelected={defaultChecked}
-      icon={({ className: iconClassName }) => (
-        <Check aria-hidden className={cn(iconClassName, "size-3")} />
-      )}
+      icon={({ className: iconClassName, isSelected, isIndeterminate }) => {
+        const Icon = isIndeterminate ? Minus : Check;
+        return (
+          <Icon
+            aria-hidden
+            className={cn(iconClassName, "size-3")}
+            strokeWidth={3}
+            style={{
+              color: "#fff",
+              margin: 0,
+              opacity: isSelected || isIndeterminate ? 1 : 0,
+              width: 12,
+              height: 12
+            }}
+          />
+        );
+      }}
       isDisabled={disabled}
+      isIndeterminate={indeterminate}
       isSelected={checked}
       onValueChange={onCheckedChange}
       radius="sm"

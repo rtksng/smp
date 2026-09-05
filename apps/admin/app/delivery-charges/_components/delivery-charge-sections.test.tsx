@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DeliveryChargeCreatePage, DeliveryChargeRulesPage } from "./delivery-charge-sections";
 import type { AdminDeliveryChargeRule } from "../../../lib/delivery-charge-management";
@@ -52,80 +52,16 @@ describe("Delivery charge admin flow", () => {
     });
 
     renderPage("rules");
-    expect(await screen.findByRole("button", { name: "Edit Delhi delivery" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Edit Delhi delivery" })).toHaveAttribute(
+      "href",
+      "/delivery-charges/rule-1/edit"
+    );
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => expect(request.mock.calls.filter(([path]) => path === "/admin/delivery-charge-rules")).toHaveLength(2));
     expect(hasPermission).toHaveBeenCalledWith(ADMIN_PERMISSION.WarehouseRead);
     expect(request.mock.calls.some(([path]) => path === "/admin/warehouses")).toBe(false);
     expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("displays and preserves a saved warehouse scope when it is absent from active warehouse options", async () => {
-    const scopedRule: AdminDeliveryChargeRule = {
-      ...rule,
-      warehouseId: "warehouse-retired",
-      warehouse: { id: "warehouse-retired", code: "OLD-01", name: "Retired warehouse" }
-    };
-    request.mockImplementation(async (path: string, options?: { method?: string }) => {
-      if (path === "/admin/warehouses") {
-        return { items: [{ id: "warehouse-active", code: "DEL-02", name: "Active warehouse" }] };
-      }
-      if (options?.method === "PATCH") return { ...scopedRule, charge: 80.25 };
-      return listResponse([scopedRule]);
-    });
-
-    renderPage("rules");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit Delhi delivery" }));
-    const editPanel = screen.getByRole("complementary");
-    expect(within(editPanel).getByRole("button", { name: /Warehouse/ })).toHaveTextContent("OLD-01 Retired warehouse");
-    fill("Delivery charge", "80.25", "spinbutton");
-    fireEvent.click(within(editPanel).getByRole("button", { name: "Save changes" }));
-
-    expect(await screen.findByText("Delivery charge rule updated.")).toBeInTheDocument();
-    const [path, options] = request.mock.calls.find(([, options]) => options?.method === "PATCH")!;
-    expect(path).toBe("/admin/delivery-charge-rules/rule-1");
-    expect(JSON.parse(options.body)).toMatchObject({ charge: 80.25, warehouseId: "warehouse-retired" });
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("prevents changing or archiving edits during a save and restores controls after success", async () => {
-    const secondRule = { ...rule, id: "rule-2", name: "Mumbai delivery" };
-    let resolvePatch!: (savedRule: AdminDeliveryChargeRule) => void;
-    const pendingPatch = new Promise<AdminDeliveryChargeRule>((resolve) => { resolvePatch = resolve; });
-    request.mockImplementation(async (path: string, options?: { method?: string }) => {
-      if (path === "/admin/warehouses") return { items: [] };
-      if (options?.method === "PATCH") return pendingPatch;
-      return listResponse([rule, secondRule]);
-    });
-
-    renderPage("rules");
-    fireEvent.click(await screen.findByRole("button", { name: "Edit Delhi delivery" }));
-    fill("Delivery charge", "90.50", "spinbutton");
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled());
-
-    const editPanel = screen.getByRole("complementary");
-    const editOtherRule = screen.getByRole("button", { name: "Edit Mumbai delivery" });
-    const archiveRule = screen.getByRole("button", { name: "Archive Delhi delivery" });
-    const closeEditor = within(editPanel).getByRole("button", { name: "Close" });
-    expect(editOtherRule).toBeDisabled();
-    expect(archiveRule).toBeDisabled();
-    expect(closeEditor).toBeDisabled();
-    expect(within(editPanel).getByRole("button", { name: "Cancel edit" })).toBeDisabled();
-    fireEvent.click(editOtherRule);
-    fireEvent.click(archiveRule);
-    fireEvent.click(closeEditor);
-    expect(screen.getByRole("textbox", { name: "Rule name" })).toHaveValue("Delhi delivery");
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    await act(async () => { resolvePatch({ ...rule, charge: 90.5 }); });
-    expect(await screen.findByText("Delivery charge rule updated.")).toBeInTheDocument();
-    expect(screen.queryByRole("complementary")).toBeNull();
-    expect(screen.getByRole("button", { name: "Edit Mumbai delivery" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Archive Delhi delivery" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Edit Mumbai delivery" }));
-    expect(screen.getByRole("textbox", { name: "Rule name" })).toHaveValue("Mumbai delivery");
   });
 
   it("blocks a missing charge before creating a rule", async () => {
@@ -195,12 +131,12 @@ describe("Delivery charge admin flow", () => {
       return listResponse(page === 2 ? archived ? [] : [{ ...rule, name: "Last rule" }] : [rule], page, archived ? 20 : 21);
     });
     renderPage("rules");
-    await screen.findByRole("button", { name: "Edit Delhi delivery" });
+    await screen.findByRole("link", { name: "Edit Delhi delivery" });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(await screen.findByRole("button", { name: "Archive Last rule" }));
     const confirmation = await screen.findByRole("dialog");
     fireEvent.click(within(confirmation).getByRole("button", { name: "Archive rule" }));
-    expect(await screen.findByRole("button", { name: "Edit Delhi delivery" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Edit Delhi delivery" })).toBeInTheDocument();
     expect(screen.queryByText("No delivery charge rules found")).toBeNull();
     expect(request.mock.calls.filter(([, options]) => options?.method === "DELETE")).toHaveLength(1);
   });

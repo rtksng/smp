@@ -71,12 +71,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px 12px;
+  padding: var(--admin-space-lg) var(--admin-space-lg) 12px;
   gap: 12px;
 }
 .heading h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   font-weight: 700;
 }
 .heading p {
@@ -101,7 +101,7 @@
   cursor: default;
 }
 .toolbar {
-  padding: 0 18px 12px;
+  padding: 0 var(--admin-space-lg) 12px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -148,7 +148,7 @@
 .item {
   display: flex;
   gap: 11px;
-  padding: 14px 18px;
+  padding: var(--admin-space-sm) var(--admin-space-lg);
   position: relative;
   align-items: flex-start;
 }

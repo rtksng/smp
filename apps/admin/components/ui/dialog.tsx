@@ -7,6 +7,7 @@ import {
   isValidElement,
   useContext,
   useId,
+  useState,
   type ComponentProps,
   type MouseEvent,
   type ReactElement,
@@ -28,10 +29,15 @@ type DialogContextValue = {
 type DialogContentContextValue = {
   descriptionId: string;
   titleId: string;
+  portalContainer: HTMLElement | null;
 };
 
 const DialogContext = createContext<DialogContextValue>({});
 const DialogContentContext = createContext<DialogContentContextValue | null>(null);
+
+export function useDialogPortalContainer() {
+  return useContext(DialogContentContext)?.portalContainer ?? undefined;
+}
 
 export type DialogProps = {
   children?: ReactNode;
@@ -133,6 +139,7 @@ export function DialogContent({
   ...props
 }: DialogContentProps) {
   const { open = false, onOpenChange } = useContext(DialogContext);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const generatedId = useId();
   const titleId = `${generatedId}-title`;
   const descriptionId = `${generatedId}-description`;
@@ -145,6 +152,7 @@ export function DialogContent({
 
   return (
     <HeroModal
+      ref={setPortalContainer}
       classNames={{
         backdrop: "z-40 bg-black/45 adminDialogBackdrop",
         base: cn(
@@ -170,7 +178,7 @@ export function DialogContent({
         aria-labelledby={labelledBy}
         data-slot="dialog-content-panel"
       >
-        <DialogContentContext.Provider value={{ descriptionId, titleId }}>
+        <DialogContentContext.Provider value={{ descriptionId, titleId, portalContainer }}>
           {children}
           {hideCloseButton ? null : (
             <DialogClose className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground">

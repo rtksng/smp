@@ -1,5 +1,9 @@
 "use client";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -142,6 +146,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
         brand.slug.toLowerCase().includes(searchText)
     );
   }, [brands, search]);
+  const bulk = useBulkSelection(search, filteredBrands);
   const canCreate = hasPermission(ADMIN_PERMISSION.ProductsCreate);
   const canUpdate = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
   const canDelete = hasPermission(ADMIN_PERMISSION.ProductsDelete);
@@ -415,6 +420,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
             <span className="searchInput">
               <Search aria-hidden size={16} />
               <Input
+                disabled={bulk.isBusy}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Acme Surgical"
                 value={search}
@@ -435,12 +441,16 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
             {getErrorMessage(brandsQuery.error) ?? "Unable to load brands."}
           </p>
         ) : null}
+        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminBrand>(api, "brands")}
+          total={filteredBrands.length} disabled={brandsQuery.isFetching || brandsQuery.isError || isMutating}
+          loadAll={async () => filteredBrands} getLabel={(brand) => brand.name} onComplete={refreshBrands} /> : null}
         {!brandsQuery.isLoading && !brandsQuery.isError ? (
           <BrandTable
+            bulk={bulk}
             brands={filteredBrands}
             canDelete={canDelete}
             canUpdate={canUpdate}
-            isMutating={isMutating}
+            isMutating={isMutating || bulk.isBusy}
             onDelete={requestDelete}
           />
         ) : null}
@@ -457,12 +467,14 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
 }
 
 function BrandTable({
+  bulk,
   brands,
   canDelete,
   canUpdate,
   isMutating,
   onDelete
 }: {
+  bulk: BulkSelection<AdminBrand>;
   brands: AdminBrand[];
   canDelete: boolean;
   canUpdate: boolean;
@@ -474,6 +486,7 @@ function BrandTable({
       <Table className="brandDataTable">
         <TableHeader>
           <TableRow>
+            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
             <TableHead>Brand</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Brand image</TableHead>
@@ -484,11 +497,12 @@ function BrandTable({
         <TableBody>
           {brands.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5}>No brands match the current search.</TableCell>
+              <TableCell colSpan={canUpdate ? 6 : 5}>No brands match the current search.</TableCell>
             </TableRow>
           ) : (
             brands.map((brand) => (
               <TableRow key={brand.id}>
+                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={brand} label={brand.name} /></TableCell> : null}
                 <TableCell>
                   <strong>{brand.name}</strong>
                   {brand.description ? (

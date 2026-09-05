@@ -15,6 +15,7 @@ import {
 } from "@heroui/select";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDialogPortalContainer } from "./dialog";
 
 type SelectEntry =
   | {
@@ -258,6 +259,7 @@ export function Select({
   onValueChange,
   value
 }: SelectProps) {
+  const portalContainer = useDialogPortalContainer();
   const data: SelectContextData = { entries: [] };
 
   collectSelectData(children, data);
@@ -298,6 +300,7 @@ export function Select({
         }
       }}
       placeholder={data.placeholder}
+      popoverProps={{ portalContainer }}
       radius="sm"
       selectedKeys={value ? new Set([value]) : new Set()}
       selectorIcon={<ChevronDown aria-hidden className="size-4 shrink-0 opacity-70" />}

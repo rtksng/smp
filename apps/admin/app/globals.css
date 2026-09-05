@@ -2,6 +2,29 @@
 @plugin "../hero.ts";
 @source "../../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
 
+/* Reduce shared card/table padding without scaling heights or icon hit areas. */
+@layer utilities {
+  .p-5 {
+    padding: var(--admin-space-xl);
+  }
+
+  .p-6 {
+    padding: var(--admin-space-2xl);
+  }
+
+  :is(.p-5, .p-6).pt-0 {
+    padding-top: 0;
+  }
+
+  .px-4 {
+    padding-inline: var(--admin-space-md);
+  }
+
+  .py-3 {
+    padding-block: 0.625rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text);
@@ -27,9 +50,37 @@
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 8px;
+  --text-xs: 0.75rem;
+  --text-sm: var(--admin-text-sm);
+  --text-base: var(--admin-text-base);
+  --text-lg: var(--admin-text-lg);
+  --text-xl: var(--admin-text-xl);
+  --text-2xl: var(--admin-text-2xl);
+  --text-3xl: var(--admin-text-3xl);
+  --text-4xl: var(--admin-text-4xl);
 }
 
 :root {
+  /* Compact admin density. Keep the root font and control/icon sizing unchanged. */
+  --admin-text-sm: 0.8125rem;
+  --admin-text-label: 0.875rem;
+  --admin-text-base: 0.9375rem;
+  --admin-text-md: 1rem;
+  --admin-text-lg: 1.0625rem;
+  --admin-text-xl: 1.125rem;
+  --admin-text-section: 1.25rem;
+  --admin-text-2xl: 1.375rem;
+  --admin-text-heading: 1.5625rem;
+  --admin-text-3xl: 1.6875rem;
+  --admin-text-4xl: 2rem;
+  --admin-text-display: 2.875rem;
+  --admin-space-sm: 0.75rem;
+  --admin-space-md: 0.875rem;
+  --admin-space-lg: 1rem;
+  --admin-space-xl: 1.125rem;
+  --admin-space-2xl: 1.25rem;
+  --admin-space-3xl: 1.5rem;
+  --admin-topbar-height: 74px;
   --admin-sidebar-width: 280px;
   --brand-primary: #17a89d;
   --brand-primary-strong: #0f6f68;
@@ -41,10 +92,10 @@
   --surface: #ffffff;
   --surface-muted: #f3f8f7;
   --text: #123432;
-  --muted: #607a77;
+  --muted: #58716e;
   --border: #cbdedb;
   --primary: var(--brand-primary-strong);
-  --warning: #b7791f;
+  --warning: #936019;
   --admin-accent-soft: #d8f1ee;
   --admin-sidebar-active: rgba(255, 255, 255, 0.08);
   --admin-danger-soft: #fee2e2;
@@ -84,6 +135,8 @@
 body {
   background: var(--background);
   color: var(--text);
+  font-size: var(--admin-text-base);
+  line-height: 1.5;
   font-family:
     var(--font-admin),
     ui-sans-serif,
@@ -277,7 +330,14 @@ button {
   max-height: min(620px, calc(100dvh - 180px));
   max-width: 100%;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
+  scrollbar-gutter: auto;
+}
+
+/* The shared viewport owns scrolling; outer table shells only clip their corners. */
+:is(.resourceTable, .brandTableScroll):not(.adminTableViewport):has(> .adminTableViewport) {
+  max-height: none;
+  overflow: clip;
   scrollbar-gutter: auto;
 }
 
@@ -323,7 +383,7 @@ button {
 .deliveryAssignmentTable {
   max-height: min(620px, calc(100dvh - 180px));
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -340,7 +400,7 @@ button {
   box-shadow: 14px 0 36px rgba(15, 23, 42, 0.14);
   color: #ffffff;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100dvh;
   left: 0;
@@ -377,7 +437,7 @@ button {
 
 .brand {
   display: block;
-  font-size: 15px;
+  font-size: var(--admin-text-label);
   font-weight: 850;
   margin-bottom: 36px;
 }
@@ -406,7 +466,7 @@ button {
 
 .sidebar nav {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .sidebarNavSection {
@@ -524,7 +584,7 @@ button {
   min-height: 100vh;
   min-width: 0;
   overflow-x: hidden;
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 
 /* Keep the guide table of contents attached to the page viewport while reading. */
@@ -553,13 +613,13 @@ h2 {
 }
 
 h1 {
-  font-size: 36px;
+  font-size: var(--admin-text-4xl);
   line-height: 1.14;
   max-width: 760px;
 }
 
 h2 {
-  font-size: 24px;
+  font-size: var(--admin-text-2xl);
 }
 
 .apiBadge {
@@ -567,7 +627,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--primary);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 800;
   padding: 12px 14px;
 }
@@ -674,7 +734,7 @@ h2 {
   border-radius: 8px;
   color: var(--text);
   display: inline-flex;
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 850;
   min-height: 38px;
   padding: 9px 14px;
@@ -696,7 +756,7 @@ h2 {
 
 .metricGrid {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 22px;
 }
@@ -710,8 +770,8 @@ h2 {
 }
 
 .metric {
-  min-height: 132px;
-  padding: 22px;
+  min-height: 120px;
+  padding: var(--admin-space-2xl);
 }
 
 .metric [data-slot="card-content"] {
@@ -721,14 +781,14 @@ h2 {
 .metric span {
   color: var(--muted);
   display: block;
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
 }
 
 .metric strong {
   display: block;
-  font-size: 36px;
-  margin-top: 20px;
+  font-size: var(--admin-text-4xl);
+  margin-top: var(--admin-space-lg);
 }
 
 .metricCardContent {
@@ -738,13 +798,18 @@ h2 {
   text-align: left !important;
 }
 
+[data-slot="card"]:has(> .metricCardContent) {
+  min-height: 120px;
+}
+
 .metricCardContent strong {
   align-self: flex-start !important;
+  margin-top: var(--admin-space-lg);
   text-align: left !important;
 }
 
 .metric .metricText {
-  font-size: 22px;
+  font-size: var(--admin-text-section);
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -762,33 +827,33 @@ h2 {
 }
 
 .panel {
-  padding: 24px;
+  padding: var(--admin-space-2xl);
 }
 
 .panelHeader {
-  gap: 18px;
-  margin-bottom: 18px;
+  gap: var(--admin-space-lg);
+  margin-bottom: var(--admin-space-lg);
 }
 
 .panelSummary {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   margin: 10px 0 0;
   max-width: 720px;
 }
 
 .panelHeader > span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
 }
 
 .adminPageHeader {
   align-items: end;
   display: flex;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   justify-content: space-between;
-  margin-bottom: 22px;
+  margin-bottom: var(--admin-space-2xl);
   min-width: 0;
 }
 
@@ -805,7 +870,7 @@ h2 {
 .adminPageHeader h2,
 .adminPageHeader h3,
 .adminPageHeaderTitle {
-  font-size: 28px;
+  font-size: var(--admin-text-heading);
   line-height: 1.2;
   max-width: 760px;
 }
@@ -820,7 +885,7 @@ h2 {
 
 .reportControlPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   margin-bottom: 22px;
 }
 
@@ -893,7 +958,7 @@ h2 {
   align-content: start;
   display: grid;
   flex: 1;
-  gap: 20px;
+  gap: var(--admin-space-xl);
   min-height: 0;
   overflow-y: auto;
   padding: 72px 26px 22px;
@@ -901,7 +966,7 @@ h2 {
 
 .filterDrawerFields {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .filterDrawerFields label {
@@ -1017,13 +1082,13 @@ h2 {
   gap: 10px;
   justify-items: center;
   min-height: 160px;
-  padding: 28px;
+  padding: var(--admin-space-3xl);
   text-align: center;
 }
 
 .adminEmptyState strong {
   color: var(--text);
-  font-size: 18px;
+  font-size: var(--admin-text-lg);
 }
 
 .adminEmptyState p,
@@ -1091,10 +1156,10 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
   min-height: 68px;
-  padding: 18px;
+  padding: var(--admin-space-lg);
 }
 
 .queueTable {
@@ -1106,7 +1171,7 @@ h2 {
 .queueRow {
   background: var(--surface-muted);
   display: grid;
-  gap: 16px;
+  gap: var(--admin-space-md);
   grid-template-columns: 1fr 140px 140px;
   padding: 16px 18px;
 }
@@ -1142,7 +1207,7 @@ h2 {
 }
 
 .stateScreen {
-  padding: 24px;
+  padding: var(--admin-space-2xl);
   place-items: center;
 }
 
@@ -1210,14 +1275,14 @@ h2 {
 
 .loginIntro h1 {
   color: #f7fcfb;
-  font-size: 52px;
+  font-size: var(--admin-text-display);
   line-height: 1.06;
   max-width: 420px;
 }
 
 .loginIntroCopy {
   color: #cfe3df;
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   line-height: 1.55;
   margin: 18px 0 0;
 }
@@ -1241,7 +1306,7 @@ h2 {
 
 .loginPanel {
   display: grid;
-  gap: 28px;
+  gap: var(--admin-space-3xl);
   max-width: 440px;
   width: min(100%, 440px);
 }
@@ -1266,7 +1331,7 @@ h2 {
 
 .adminGuidePage {
   display: grid;
-  gap: 20px;
+  gap: var(--admin-space-xl);
 }
 
 .adminGuideLead {
@@ -1274,21 +1339,21 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--border);
   display: grid;
-  gap: 20px;
+  gap: var(--admin-space-xl);
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-  padding: 20px;
+  padding: var(--admin-space-xl);
 }
 
 .adminGuideLead strong {
   color: var(--text);
   display: block;
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   line-height: 1.35;
 }
 
 .adminGuideLead p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.55;
   margin: 6px 0 0;
   max-width: 720px;
@@ -1328,14 +1393,14 @@ h2 {
 .adminGuideLayout {
   align-items: start;
   display: grid;
-  gap: 22px;
+  gap: var(--admin-space-2xl);
   grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
 }
 
 .adminGuideToc {
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: 14px;
+  padding: var(--admin-space-sm);
   position: sticky;
   top: 18px;
 }
@@ -1373,7 +1438,7 @@ h2 {
 
 .adminGuideContent {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   min-width: 0;
 }
 
@@ -1417,15 +1482,15 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--border);
   display: grid;
-  gap: 20px;
-  padding: 24px;
+  gap: var(--admin-space-xl);
+  padding: var(--admin-space-2xl);
   scroll-margin-top: 18px;
 }
 
 .adminGuideSectionHeading {
   align-items: flex-start;
   display: flex;
-  gap: 14px;
+  gap: var(--admin-space-sm);
 }
 
 .adminGuideSectionIcon {
@@ -1448,20 +1513,20 @@ h2 {
 }
 
 .adminGuideSectionHeading h2 {
-  font-size: 22px;
+  font-size: var(--admin-text-section);
   line-height: 1.25;
   margin: 2px 0 0;
 }
 
 .adminGuideSectionHeading p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.5;
   margin: 6px 0 0;
 }
 
 .adminGuideSection h3 {
-  font-size: 15px;
+  font-size: var(--admin-text-label);
   line-height: 1.3;
   margin: 0 0 10px;
 }
@@ -1508,7 +1573,7 @@ h2 {
 
 .adminGuideCallout p {
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.5;
   margin: 4px 0 0;
 }
@@ -1579,7 +1644,7 @@ h2 {
 .adminGuideSteps li {
   color: var(--text);
   counter-increment: guide-steps;
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.5;
   padding-left: 34px;
   position: relative;
@@ -1613,7 +1678,7 @@ h2 {
   align-items: start;
   border-bottom: 1px solid var(--border);
   display: grid;
-  gap: 16px;
+  gap: var(--admin-space-md);
   grid-template-columns: minmax(150px, 0.32fr) minmax(0, 1fr);
   padding: 12px 0;
 }
@@ -1626,7 +1691,7 @@ h2 {
 
 .adminGuideFields dd {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.5;
   margin: 0;
 }
@@ -1642,13 +1707,13 @@ h2 {
 
 .adminGuideAdvice {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .adminGuideAdviceColumn {
   border: 1px solid var(--border);
-  padding: 14px;
+  padding: var(--admin-space-sm);
 }
 
 .adminGuideAdviceColumn[data-tone="do"] {
@@ -1703,7 +1768,7 @@ h2 {
 
 .adminGuideEmpty p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   margin: 0;
 }
 
@@ -1754,7 +1819,7 @@ h2 {
 
   .adminGuideLead,
   .adminGuideSection {
-    padding: 16px;
+    padding: var(--admin-space-md);
   }
 
   .adminGuideQuickStart,
@@ -1768,7 +1833,7 @@ h2 {
   }
 
   .adminGuideSectionHeading h2 {
-    font-size: 20px;
+    font-size: var(--admin-text-xl);
   }
 }
 
@@ -1793,7 +1858,7 @@ h2 {
 
 .formStack {
   display: grid;
-  gap: 16px;
+  gap: var(--admin-space-md);
 }
 
 .formStack label {
@@ -1809,7 +1874,7 @@ h2 {
   border: 1px solid #fecdd3;
   border-radius: 8px;
   color: #9f1239;
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
   margin: 0;
   padding: 10px 12px;
@@ -1820,7 +1885,7 @@ h2 {
   border: 1px solid #afe0da;
   border-radius: 8px;
   color: #0f6f68;
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
   margin: 0 0 16px;
   padding: 10px 12px;
@@ -1831,7 +1896,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   font-weight: 750;
   padding: 14px 16px;
 }
@@ -1843,13 +1908,13 @@ h2 {
 
 .splitGrid {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.3fr);
 }
 
 .threeColumnGrid {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -1920,7 +1985,7 @@ h2 {
 
 .formGrid {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1946,7 +2011,7 @@ h2 {
 
 .productFeedbackAnswerDialogForm {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .productFeedbackAnswerDialogForm [data-slot="dialog-header"] {
@@ -2094,7 +2159,7 @@ h2 {
   display: grid;
   font-weight: 750;
   min-height: 220px;
-  padding: 20px;
+  padding: var(--admin-space-xl);
   text-align: center;
 }
 
@@ -2119,11 +2184,11 @@ h2 {
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 
 .compactForm h3 {
-  font-size: 18px;
+  font-size: var(--admin-text-lg);
   margin: 0;
 }
 
@@ -2157,7 +2222,7 @@ h2 {
 .inventoryTableScroll .adminTableViewport {
   max-height: 420px;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scrollbar-gutter: auto;
 }
 
@@ -2286,7 +2351,7 @@ h2 {
 .brandDataTable th,
 .brandDataTable td {
   border-bottom: 1px solid var(--border);
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
   text-align: left;
   vertical-align: middle;
 }
@@ -2382,9 +2447,9 @@ h2 {
 .resourceTableHeader,
 .resourceTableRow {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   min-width: min(720px, 100%);
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
 }
 
 .resourceTableHeader {
@@ -2431,21 +2496,21 @@ h2 {
 .productManagementGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(520px, 1.05fr) minmax(460px, 0.95fr);
 }
 
 .warehouseManagementGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(320px, 0.85fr) minmax(460px, 1.15fr);
 }
 
 .settingsManagementGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(520px, 1.1fr) minmax(420px, 0.9fr);
 }
 
@@ -2460,7 +2525,7 @@ h2 {
 .orderOverviewPanel,
 .returnsRefundsOverviewPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   margin-top: 0;
 }
 
@@ -2582,7 +2647,7 @@ h2 {
 .quoteRequestHubGrid,
 .returnsRefundsHubGrid {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: 18px;
 }
@@ -2599,7 +2664,7 @@ h2 {
   display: grid;
   gap: 12px;
   min-height: 180px;
-  padding: 22px;
+  padding: var(--admin-space-2xl);
   text-decoration: none;
   transition:
     border-color 160ms ease,
@@ -2634,7 +2699,7 @@ h2 {
 .quoteRequestHubCard strong,
 .returnsRefundsHubCard strong {
   color: var(--text);
-  font-size: 28px;
+  font-size: var(--admin-text-heading);
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
@@ -2645,14 +2710,14 @@ h2 {
 .quoteRequestHubCard p,
 .returnsRefundsHubCard p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--admin-text-sm);
   line-height: 1.55;
   margin: 0;
 }
 
 .reportTablePanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .reportTablePanel .settingsSectionHeader {
@@ -2692,7 +2757,7 @@ h2 {
 .deliveryChargeWorkspaceGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(640px, 1.15fr) minmax(380px, 0.85fr);
 }
 
@@ -2703,7 +2768,7 @@ h2 {
 .deliveryChargeRulesPanel,
 .deliveryChargeFormPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .deliveryChargeRulesPanel .settingsSectionHeader,
@@ -2763,7 +2828,7 @@ h2 {
 .deliveryWorkspaceGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(640px, 1.15fr) minmax(380px, 0.85fr);
   min-width: 0;
 }
@@ -2783,7 +2848,7 @@ h2 {
 .quoteRequestDetailGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
   margin-top: 18px;
   min-width: 0;
@@ -2810,7 +2875,7 @@ h2 {
 .orderListPanel,
 .returnsRefundsRequestsPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .couponListPanel .settingsSectionHeader,
@@ -2942,7 +3007,7 @@ h2 {
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  padding: 14px;
+  padding: var(--admin-space-sm);
 }
 
 .quoteRequestDetailCards span {
@@ -2963,7 +3028,7 @@ h2 {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  padding: 14px;
+  padding: var(--admin-space-sm);
 }
 
 .quoteRequestMessageBox strong {
@@ -2988,18 +3053,18 @@ h2 {
 }
 
 .settingsMetricGrid [data-slot="card-content"] {
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 
 .settingsMetricGrid strong {
-  font-size: 28px;
+  font-size: var(--admin-text-heading);
   margin-top: 12px;
 }
 
 .settingsWorkspaceGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(620px, 1fr) minmax(360px, 420px);
   min-width: 0;
 }
@@ -3011,7 +3076,7 @@ h2 {
 
 .settingsUsersPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .settingsSectionHeader {
@@ -3020,7 +3085,7 @@ h2 {
 }
 
 .settingsSectionHeader h2 {
-  font-size: 22px;
+  font-size: var(--admin-text-section);
   line-height: 1.2;
 }
 
@@ -3032,7 +3097,7 @@ h2 {
   grid-template-columns:
     minmax(220px, 1.2fr) minmax(170px, 0.8fr) minmax(170px, 0.8fr)
     auto;
-  padding: 14px;
+  padding: var(--admin-space-sm);
 }
 
 .settingsFilters .productFilterActions {
@@ -3086,7 +3151,7 @@ h2 {
 
 .settingsReferenceGrid {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   min-width: 0;
 }
 
@@ -3105,7 +3170,7 @@ h2 {
 .deliveryFilters,
 .reportFilters {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
@@ -3264,7 +3329,7 @@ h2 {
   min-height: 240px;
   outline: none;
   overflow-wrap: anywhere;
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 
 .richTextPlaceholder {
@@ -3285,22 +3350,22 @@ h2 {
 }
 
 .richTextHeading1 {
-  font-size: 28px;
+  font-size: var(--admin-text-heading);
   line-height: 1.25;
 }
 
 .richTextHeading2 {
-  font-size: 22px;
+  font-size: var(--admin-text-section);
   line-height: 1.3;
 }
 
 .richTextHeading3 {
-  font-size: 18px;
+  font-size: var(--admin-text-lg);
   line-height: 1.35;
 }
 
 .richTextHeading4 {
-  font-size: 16px;
+  font-size: var(--admin-text-base);
   line-height: 1.4;
 }
 
@@ -3415,7 +3480,7 @@ h2 {
   display: grid;
   gap: 6px;
   min-height: 76px;
-  padding: 14px;
+  padding: var(--admin-space-sm);
 }
 
 .detailItem[data-wide="true"] {
@@ -3431,7 +3496,7 @@ h2 {
 
 .detailItem strong {
   color: var(--text);
-  font-size: 15px;
+  font-size: var(--admin-text-label);
   overflow-wrap: anywhere;
 }
 
@@ -3458,7 +3523,7 @@ h2 {
   margin: 0 !important;
   max-height: 420px;
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   padding: 0 !important;
   scrollbar-gutter: auto;
 }
@@ -3532,13 +3597,13 @@ h2 {
 .productTableHeader,
 .productTableRow {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns:
     minmax(220px, 1.35fr) minmax(130px, 0.8fr) minmax(150px, 1fr)
     minmax(140px, 0.9fr) minmax(110px, 0.75fr) minmax(120px, 0.8fr)
     minmax(150px, 1fr) minmax(300px, 1.6fr);
   min-width: 1320px;
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
 }
 
 .productTableHeader {
@@ -3709,7 +3774,7 @@ h2 {
 .categoryChildModalRow {
   align-items: center;
   display: flex;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   justify-content: space-between;
 }
 
@@ -3736,13 +3801,13 @@ h2 {
 }
 
 .productForm {
-  gap: 22px;
+  gap: var(--admin-space-2xl);
 }
 
 .formSection {
   border-top: 1px solid var(--border);
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   padding-top: 18px;
 }
 
@@ -3752,7 +3817,7 @@ h2 {
 }
 
 .formSection h3 {
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   margin: 0;
 }
 
@@ -4071,7 +4136,7 @@ h2 {
 
 .roleGrid {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -4081,7 +4146,7 @@ h2 {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 
 .roleCardHeader {
@@ -4110,10 +4175,10 @@ h2 {
 .dataTableHeader,
 .dataTableRow {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns: repeat(5, minmax(120px, 1fr));
   min-width: 700px;
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
 }
 
 .dataTable,
@@ -4154,9 +4219,9 @@ h2 {
 .orderItemsTableHeader,
 .orderItemsTableRow {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   min-width: 1120px;
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
 }
 
 .ordersTableHeader,
@@ -4214,7 +4279,7 @@ h2 {
 .orderDetailGrid {
   align-items: stretch;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-auto-rows: minmax(0, 1fr);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -4239,14 +4304,14 @@ h2 {
 .orderActionsGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .orderTimeline {
   border-left: 2px solid var(--border);
   display: grid;
-  gap: 16px;
+  gap: var(--admin-space-md);
   list-style: none;
   margin: 0;
   padding: 0 0 0 18px;
@@ -4258,7 +4323,7 @@ h2 {
   border-radius: 8px;
   display: grid;
   gap: 6px;
-  padding: 14px;
+  padding: var(--admin-space-sm);
   position: relative;
 }
 
@@ -4286,13 +4351,13 @@ h2 {
 .deliveryManagementGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(520px, 1.1fr) minmax(360px, 0.9fr);
 }
 
 .deliveryDetailPanel {
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
 }
 
 .deliveryPartnerTable,
@@ -4307,8 +4372,8 @@ h2 {
 .deliveryAssignmentTableHeader,
 .deliveryAssignmentTableRow {
   display: grid;
-  gap: 14px;
-  padding: 13px 16px;
+  gap: var(--admin-space-sm);
+  padding: 11px var(--admin-space-md);
 }
 
 .deliveryPartnerTableHeader,
@@ -4383,7 +4448,7 @@ h2 {
 }
 
 .documentList h3 {
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   margin: 0;
 }
 
@@ -4443,7 +4508,7 @@ h2 {
 
 .stateScreen h1 {
   color: var(--text);
-  font-size: 28px;
+  font-size: var(--admin-text-heading);
 }
 
 .reportMetricGrid {
@@ -4509,7 +4574,7 @@ h2 {
   display: grid;
   gap: 8px;
   min-height: 122px;
-  padding: 18px;
+  padding: var(--admin-space-lg);
   text-decoration: none;
   transition:
     border-color 160ms ease,
@@ -4532,7 +4597,7 @@ h2 {
 
 .dashboardKpi strong {
   color: var(--text);
-  font-size: 26px;
+  font-size: var(--admin-text-heading);
   line-height: 1.08;
   overflow-wrap: anywhere;
 }
@@ -4555,7 +4620,7 @@ h2 {
 .dashboardChartGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: minmax(0, 1fr);
   margin-top: 18px;
 }
@@ -4566,7 +4631,7 @@ h2 {
 
 .dashboardChartPanel {
   display: grid;
-  gap: 16px;
+  gap: var(--admin-space-md);
   margin-top: 0;
   min-height: 400px;
 }
@@ -4578,7 +4643,7 @@ h2 {
 .dashboardChartHeader {
   align-items: start;
   display: flex;
-  gap: 16px;
+  gap: var(--admin-space-md);
   justify-content: space-between;
 }
 
@@ -4590,7 +4655,7 @@ h2 {
 
 .dashboardChartHeader strong {
   color: var(--text);
-  font-size: 17px;
+  font-size: var(--admin-text-md);
   line-height: 1.25;
 }
 
@@ -4638,14 +4703,14 @@ h2 {
 .reportChartsGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .deliveryChartsGrid {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--admin-space-lg);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 18px;
 }
@@ -4661,7 +4726,7 @@ h2 {
 
 .barList {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
 }
 
 .barRow {
@@ -4782,12 +4847,12 @@ h2 {
 .warehouseStockHeader,
 .warehouseStockRow {
   display: grid;
-  gap: 14px;
+  gap: var(--admin-space-sm);
   grid-template-columns:
     minmax(240px, 1.3fr) minmax(130px, 0.7fr) minmax(130px, 0.7fr)
     minmax(120px, 0.65fr) minmax(180px, 1fr);
   min-width: 860px;
-  padding: 13px 16px;
+  padding: 11px var(--admin-space-md);
 }
 
 .warehouseStockHeader {
@@ -4949,7 +5014,7 @@ h2 {
   .workspace,
   .sidebar,
   .mobileNavBar {
-    padding: 20px;
+    padding: var(--admin-space-xl);
   }
 
   .sidebar nav {
@@ -4962,7 +5027,7 @@ h2 {
   }
 
   h1 {
-    font-size: 30px;
+    font-size: var(--admin-text-3xl);
   }
 
   .metricGrid,

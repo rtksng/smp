@@ -3,11 +3,11 @@
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: grid;
-  gap: 20px;
+  gap: var(--admin-space-xl);
   grid-template-columns: minmax(236px, 1fr) minmax(220px, 440px) minmax(236px, 1fr);
   margin-left: var(--admin-sidebar-width);
-  min-height: 82px;
-  padding: 16px 24px;
+  min-height: var(--admin-topbar-height);
+  padding: var(--admin-space-sm) var(--admin-space-2xl);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -235,7 +235,7 @@
   font-size: 12px;
   line-height: 1.6;
   margin: 0;
-  padding: 16px;
+  padding: var(--admin-space-md);
 }
 .searchWarning {
   align-items: center;
@@ -268,7 +268,7 @@
   animation: spin 1s linear infinite;
 }
 .workspace {
-  min-height: calc(100vh - 82px);
+  min-height: calc(100vh - var(--admin-topbar-height));
 }
 .profile:focus-visible,
 .clearSearch:focus-visible {

@@ -1,5 +1,10 @@
 "use client";
 
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -11,7 +16,7 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useId, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ConfirmationDialog,
   type ConfirmationState
@@ -161,7 +166,11 @@ function CouponsContent({ view }: { view: CouponView }) {
     () => couponsQuery.data?.items ?? [],
     [couponsQuery.data?.items]
   );
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), coupons);
   const pagination = couponsQuery.data?.pagination;
+  useEffect(() => {
+    if (pagination && page > Math.max(pagination.totalPages, 1)) setPage(Math.max(pagination.totalPages, 1));
+  }, [page, pagination]);
   const activeVisibleCount = coupons.filter((coupon) => coupon.isActive).length;
   const inactiveVisibleCount = coupons.length - activeVisibleCount;
   const limitedVisibleCount = coupons.filter(
@@ -335,6 +344,10 @@ function CouponsContent({ view }: { view: CouponView }) {
             />
 
             {couponsQuery.isLoading ? <LoadingState label="Loading coupons..." /> : null}
+            <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCoupon>(api, "coupons")} total={pagination?.total ?? 0}
+              disabled={couponsQuery.isFetching || couponsQuery.isError || isSaving || isDeleting}
+              loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminCoupon>>("/admin/coupons", { query: buildCouponQuery(appliedFilters, next, limit) }))}
+              getLabel={(coupon) => coupon.code} onComplete={refreshCoupons} />
             {!couponsQuery.isLoading && !couponsQuery.isError && coupons.length === 0 ? (
               <EmptyState
                 body="No coupons match the current filters."
@@ -343,14 +356,15 @@ function CouponsContent({ view }: { view: CouponView }) {
             ) : null}
             {coupons.length > 0 ? (
               <CouponsTable
+                bulk={bulk}
                 coupons={coupons}
-                isDeleting={isDeleting}
+                isDeleting={isDeleting || bulk.isBusy}
                 onDelete={confirmDelete}
               />
             ) : null}
             {pagination ? (
               <PaginationControls
-                onChange={setPage}
+                onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
                 page={pagination.page}
                 totalPages={Math.max(pagination.totalPages, 1)}
               />
@@ -562,10 +576,12 @@ export function CouponForm({
 }
 
 function CouponsTable({
+  bulk,
   coupons,
   isDeleting,
   onDelete
 }: {
+  bulk: BulkSelection<AdminCoupon>;
   coupons: AdminCoupon[];
   isDeleting: boolean;
   onDelete: (coupon: AdminCoupon) => void;
@@ -575,6 +591,7 @@ function CouponsTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
             <TableHead>Coupon</TableHead>
             <TableHead>Discount</TableHead>
             <TableHead>Rules</TableHead>
@@ -587,6 +604,7 @@ function CouponsTable({
         <TableBody>
           {coupons.map((coupon) => (
             <TableRow key={coupon.id}>
+              <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={coupon} label={coupon.code} /></TableCell>
               <TableCell>
                 <strong>{coupon.code}</strong>
                 <em>{formatSupportLabel(coupon.type)}</em>

@@ -1,6 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import { loadBulkRows } from "@/lib/bulk-actions";
+import { orderBulkActions } from "@/lib/bulk-module-actions";
+import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
 import { Eye, RefreshCw, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -71,6 +75,8 @@ export function OrdersLandingPage() {
 
 function OrdersContent() {
   const { api, hasPermission } = useAdminSession();
+  const queryClient = useQueryClient();
+  const [cancelReason, setCancelReason] = useState("");
   const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -112,6 +118,12 @@ function OrdersContent() {
   });
 
   const orders = ordersQuery.data?.items ?? [];
+  const bulk = useBulkSelection(JSON.stringify(appliedFilters), orders);
+  const bulkActions = orderBulkActions(api, {
+    update: hasPermission(ADMIN_PERMISSION.OrdersUpdate),
+    cancel: hasPermission(ADMIN_PERMISSION.OrdersCancel)
+  }, cancelReason).map((action) => ({ ...action, fields: action.id === "cancel"
+    ? <label>Cancellation reason<Input maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label> : undefined }));
   const warehouses: Pick<WarehouseListResponse["items"][number], "id" | "name" | "code">[] = canReadWarehouses
     ? [...(warehousesQuery.data?.items ?? [])]
     : [...new Map(orders.flatMap((order) => order.warehouse ? [[order.warehouse.id, order.warehouse] as const] : [])).values()];
@@ -228,17 +240,25 @@ function OrdersContent() {
         ) : null}
 
         {ordersQuery.isLoading ? <LoadingState label="Loading orders..." /> : null}
+        <BulkActions key={bulk.scope} selection={bulk} actions={bulkActions} total={pagination?.total ?? 0}
+          disabled={ordersQuery.isFetching || ordersQuery.isError}
+          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedResponse<AdminOrder>>("/admin/orders", { query: buildOrderQuery(appliedFilters, next, limit) }))}
+          getLabel={(order) => order.orderNumber}
+          onComplete={() => Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["admin", "orders"] }),
+            queryClient.invalidateQueries({ queryKey: ["admin", "delivery"] })
+          ])} />
         {ordersQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
           </p>
         ) : null}
         {!ordersQuery.isLoading && !ordersQuery.isError ? (
-          <OrdersTable orders={orders} />
+        <OrdersTable orders={orders} bulk={bulk} />
         ) : null}
         {pagination ? (
           <PaginationControls
-            onChange={setPage}
+            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
             page={pagination.page}
             totalPages={Math.max(pagination.totalPages, 1)}
           />
@@ -375,7 +395,7 @@ function OrderFilterFields({
   );
 }
 
-function OrdersTable({ orders }: { orders: AdminOrder[] }) {
+function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelection<AdminOrder> }) {
   if (orders.length === 0) {
     return (
       <EmptyState
@@ -390,6 +410,7 @@ function OrdersTable({ orders }: { orders: AdminOrder[] }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
             <TableHead>Order</TableHead>
             <TableHead>Customer</TableHead>
             <TableHead>Status</TableHead>
@@ -403,6 +424,7 @@ function OrdersTable({ orders }: { orders: AdminOrder[] }) {
         <TableBody>
       {orders.map((order) => (
         <TableRow key={order.id}>
+          <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={order} label={order.orderNumber} /></TableCell>
           <TableCell>
             <strong>{order.orderNumber}</strong>
             <em>{order.id}</em>
