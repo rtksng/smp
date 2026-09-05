@@ -7,12 +7,13 @@ import {
   PackageCheck,
   RefreshCw,
   RotateCw,
-  Search,
+  SlidersHorizontal,
   X
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
@@ -66,42 +67,6 @@ import {
 
 const PAGE_SIZE = 20;
 
-type ReturnsRefundsView = "overview" | "requests";
-
-const returnsRefundsSections: Array<{
-  description: string;
-  href: string;
-  id: ReturnsRefundsView;
-  title: string;
-}> = [
-  {
-    description: "Return and refund metrics with quick links into the queue.",
-    href: "/returns-refunds",
-    id: "overview",
-    title: "Overview"
-  },
-  {
-    description: "Filter return requests and process refund or stock actions.",
-    href: "/returns-refunds/requests",
-    id: "requests",
-    title: "Requests"
-  }
-];
-
-const returnsRefundsCopy: Record<
-  ReturnsRefundsView,
-  { summary: string; title: string }
-> = {
-  overview: {
-    summary: "Review return and refund workload before opening the focused request queue.",
-    title: "Returns & refunds"
-  },
-  requests: {
-    summary: "Review customer return requests with payment, refund, warehouse, and customer context.",
-    title: "Return request queue"
-  }
-};
-
 export function ReturnsRefundsRoute({ children }: { children: ReactNode }) {
   return (
     <AdminShell>
@@ -112,19 +77,16 @@ export function ReturnsRefundsRoute({ children }: { children: ReactNode }) {
   );
 }
 
-export function ReturnsRefundsLandingPage() {
-  return <ReturnsRefundsContent view="overview" />;
-}
-
 export function ReturnRequestQueuePage() {
-  return <ReturnsRefundsContent view="requests" />;
+  return <ReturnsRefundsContent />;
 }
 
-function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
+function ReturnsRefundsContent() {
   const { api, hasPermission } = useAdminSession();
   const queryClient = useQueryClient();
   const canUpdateOrders = hasPermission(ADMIN_PERMISSION.OrdersUpdate);
   const canUpdateInventory = hasPermission(ADMIN_PERMISSION.InventoryUpdate);
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
   const [draftFilters, setDraftFilters] = useState<ReturnRequestFilters>(
     createEmptyReturnRequestFilters()
   );
@@ -139,6 +101,7 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
     Record<string, ReturnDispositionFormValues>
   >({});
   const [message, setMessage] = useState<string | null>(null);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const returnQuery = useMemo(
     () => buildReturnRequestQuery(appliedFilters, page, PAGE_SIZE),
@@ -153,6 +116,7 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
     queryKey: ["admin", "returns-refunds", returnQuery]
   });
   const warehousesQuery = useQuery({
+    enabled: canReadWarehouses,
     queryFn: () =>
       api.request<WarehouseListResponse>("/admin/warehouses", {
         query: {
@@ -190,7 +154,30 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
   });
 
   const returnRequests = returnsQuery.data?.items ?? [];
-  const warehouses = warehousesQuery.data?.items ?? [];
+  const warehouses: Pick<
+    WarehouseListResponse["items"][number],
+    "code" | "id" | "name"
+  >[] = canReadWarehouses
+    ? [...(warehousesQuery.data?.items ?? [])]
+    : [
+        ...new Map(
+          returnRequests.flatMap((order) =>
+            order.warehouse
+              ? [[order.warehouse.id, order.warehouse] as const]
+              : []
+          )
+        ).values()
+      ];
+  if (
+    appliedFilters.warehouseId &&
+    !warehouses.some((warehouse) => warehouse.id === appliedFilters.warehouseId)
+  ) {
+    warehouses.push({
+      code: "",
+      id: appliedFilters.warehouseId,
+      name: "Selected warehouse"
+    });
+  }
   const pagination = returnsQuery.data?.pagination;
   const latestRefunds = returnRequests
     .map((order) => getLatestRefund(order))
@@ -221,6 +208,7 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
     event.preventDefault();
     setPage(1);
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
@@ -375,23 +363,20 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
     await refreshAfterDisposition();
   }
 
-  const pageCopy = returnsRefundsCopy[view];
-
   return (
     <>
       <section className="panel returnsRefundsOverviewPanel">
-        <ReturnsRefundsSectionNav active={view} />
         <PageHeader
           actions={
             <div className="actionRow">
-              {view === "overview" ? (
-                <Button asChild className="iconTextButton">
-                  <Link href="/returns-refunds/requests">
-                    <Search aria-hidden size={16} />
-                    <span>Open requests</span>
-                  </Link>
-                </Button>
-              ) : null}
+              <Button
+                className="iconTextButton"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                type="button"
+              >
+                <SlidersHorizontal aria-hidden size={16} />
+                <span>Add filter</span>
+              </Button>
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshReturnRequests()}
@@ -405,8 +390,8 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
           }
           className="returnsRefundsPageHeader"
           eyebrow="Returns & refunds"
-          summary={pageCopy.summary}
-          title={pageCopy.title}
+          summary="Review customer return requests with payment, refund, warehouse, and customer context."
+          title="Return request queue"
         />
 
         {message ? <p className="formSuccess">{message}</p> : null}
@@ -425,159 +410,80 @@ function ReturnsRefundsContent({ view }: { view: ReturnsRefundsView }) {
         </div>
       </section>
 
-      {view === "overview" ? (
-        <ReturnsRefundsHub
-          activeVisibleCount={activeVisibleCount}
-          completedVisibleCount={completedVisibleCount}
-          failedVisibleCount={failedVisibleCount}
-          totalRequests={pagination?.total ?? 0}
-          visibleRequests={returnRequests.length}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        isSubmitting={returnsQuery.isFetching}
+        onApply={applyFilters}
+        onOpenChange={setIsFilterDrawerOpen}
+        onReset={resetFilters}
+        summary="Filter by refund status, customer mobile, order number, or warehouse."
+        title="Return request filters"
+      >
+        <ReturnRequestFilterFields
+          filters={draftFilters}
+          isWarehouseLoading={warehousesQuery.isLoading}
+          onChange={setDraftFilters}
+          warehouses={warehouses}
         />
-      ) : null}
+      </FilterDrawer>
 
-      {view === "requests" ? (
-        <section className="panel returnsRefundsRequestsPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow="Return table"
-            level={2}
-            summary="Filter return requests, then approve, reject, process/refetch refunds, or record stock disposition."
-            title="Refund workflow"
+      <section className="panel returnsRefundsRequestsPanel mt-3">
+        <PageHeader
+          className="settingsSectionHeader"
+          eyebrow="Return table"
+          level={2}
+          summary="Filter return requests, then approve, reject, process/refetch refunds, or record stock disposition."
+          title="Refund workflow"
+        />
+        {returnsQuery.isLoading ? <LoadingState label="Loading return requests..." /> : null}
+        {!returnsQuery.isLoading && !returnsQuery.isError ? (
+          <ReturnRequestsTable
+            actionNotes={actionNotes}
+            canUpdateInventory={canUpdateInventory}
+            canUpdateOrders={canUpdateOrders}
+            dispositionErrors={dispositionErrors}
+            dispositionForms={dispositionForms}
+            isActionPending={isActionPending}
+            isDispositionPending={isDispositionPending}
+            onApprove={(order) => void approveReturn(order)}
+            onDispositionChange={updateDispositionForm}
+            onDispositionSubmit={(order, values) =>
+              void recordStockDisposition(order, values)
+            }
+            onNoteChange={updateActionNote}
+            onProcess={(order) => void processReturnRefund(order)}
+            onReject={(order) => void rejectReturn(order)}
+            orders={returnRequests}
           />
-          <ReturnRequestFilterForm
-            filters={draftFilters}
-            isWarehouseLoading={warehousesQuery.isLoading}
-            onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={applyFilters}
-            warehouses={warehouses}
+        ) : null}
+        {pagination ? (
+          <PaginationControls
+            onChange={setPage}
+            page={pagination.page}
+            totalPages={Math.max(pagination.totalPages, 1)}
           />
-          {returnsQuery.isLoading ? <LoadingState label="Loading return requests..." /> : null}
-          {!returnsQuery.isLoading && !returnsQuery.isError ? (
-            <ReturnRequestsTable
-              actionNotes={actionNotes}
-              canUpdateInventory={canUpdateInventory}
-              canUpdateOrders={canUpdateOrders}
-              dispositionErrors={dispositionErrors}
-              dispositionForms={dispositionForms}
-              isActionPending={isActionPending}
-              isDispositionPending={isDispositionPending}
-              onApprove={(order) => void approveReturn(order)}
-              onDispositionChange={updateDispositionForm}
-              onDispositionSubmit={(order, values) =>
-                void recordStockDisposition(order, values)
-              }
-              onNoteChange={updateActionNote}
-              onProcess={(order) => void processReturnRefund(order)}
-              onReject={(order) => void rejectReturn(order)}
-              orders={returnRequests}
-            />
-          ) : null}
-          {pagination ? (
-            <PaginationControls
-              onChange={setPage}
-              page={pagination.page}
-              totalPages={Math.max(pagination.totalPages, 1)}
-            />
-          ) : null}
-        </section>
-      ) : null}
+        ) : null}
+      </section>
     </>
   );
 }
 
-function ReturnsRefundsSectionNav({ active }: { active: ReturnsRefundsView }) {
-  return (
-    <nav className="returnsRefundsSectionNav" aria-label="Returns and refunds sections">
-      {returnsRefundsSections.map((section) => (
-        <Link
-          aria-current={active === section.id ? "page" : undefined}
-          href={section.href}
-          key={section.id}
-        >
-          {section.title}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function ReturnsRefundsHub({
-  activeVisibleCount,
-  completedVisibleCount,
-  failedVisibleCount,
-  totalRequests,
-  visibleRequests
-}: {
-  activeVisibleCount: number;
-  completedVisibleCount: number;
-  failedVisibleCount: number;
-  totalRequests: number;
-  visibleRequests: number;
-}) {
-  const cards = [
-    {
-      description: "Open the refund workflow table for return actions.",
-      href: "/returns-refunds/requests",
-      metric: totalRequests,
-      title: "Return requests"
-    },
-    {
-      description: "Review return requests in the current visible result set.",
-      href: "/returns-refunds/requests",
-      metric: visibleRequests,
-      title: "Visible requests"
-    },
-    {
-      description: "Process pending or in-progress refund work.",
-      href: "/returns-refunds/requests",
-      metric: activeVisibleCount,
-      title: "Active visible"
-    },
-    {
-      description: "Audit completed refund outcomes.",
-      href: "/returns-refunds/requests",
-      metric: completedVisibleCount,
-      title: "Completed visible"
-    },
-    {
-      description: "Investigate refund failures that need attention.",
-      href: "/returns-refunds/requests",
-      metric: failedVisibleCount,
-      title: "Failed visible"
-    }
-  ];
-
-  return (
-    <section className="returnsRefundsHubGrid">
-      {cards.map((card) => (
-        <Link className="returnsRefundsHubCard" href={card.href} key={card.title}>
-          <span>{card.title}</span>
-          <strong>{card.metric}</strong>
-          <p>{card.description}</p>
-        </Link>
-      ))}
-    </section>
-  );
-}
-
-function ReturnRequestFilterForm({
+function ReturnRequestFilterFields({
   filters,
   isWarehouseLoading,
   onChange,
-  onReset,
-  onSubmit,
   warehouses
 }: {
   filters: ReturnRequestFilters;
   isWarehouseLoading: boolean;
   onChange: (filters: ReturnRequestFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  warehouses: WarehouseListResponse["items"];
+  warehouses: Pick<
+    WarehouseListResponse["items"][number],
+    "code" | "id" | "name"
+  >[];
 }) {
   return (
-    <form className="productFilters returnsRefundsFilters" onSubmit={onSubmit}>
+    <div className="filterDrawerFields">
       <Select
         aria-label="Refund status"
         onValueChange={(value) =>
@@ -588,7 +494,7 @@ function ReturnRequestFilterForm({
         }
         value={filters.status}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any refund status" />
         </SelectTrigger>
         <SelectContent>
@@ -603,6 +509,7 @@ function ReturnRequestFilterForm({
       <label>
         Customer mobile
         <Input
+          className="filterDrawerControl"
           inputMode="tel"
           onChange={(event) =>
             onChange({ ...filters, customerMobile: event.target.value })
@@ -614,6 +521,7 @@ function ReturnRequestFilterForm({
       <label>
         Order number
         <Input
+          className="filterDrawerControl"
           onChange={(event) =>
             onChange({ ...filters, orderNumber: event.target.value.toUpperCase() })
           }
@@ -627,28 +535,20 @@ function ReturnRequestFilterForm({
         onValueChange={(value) => onChange({ ...filters, warehouseId: value })}
         value={filters.warehouseId}
       >
-        <SelectTrigger>
+        <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="All visible warehouses" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">All visible warehouses</SelectItem>
           {warehouses.map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>
-              {warehouse.name} ({warehouse.code})
+              {warehouse.name}
+              {warehouse.code ? ` (${warehouse.code})` : ""}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 

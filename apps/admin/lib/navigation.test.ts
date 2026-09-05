@@ -47,13 +47,15 @@ describe("admin navigation", () => {
   });
 
   it("shows order sections to order readers", () => {
-    const labels = getVisibleNavigationItems([ADMIN_PERMISSION.OrdersRead]).map(
-      (item) => item.label
-    );
+    const visibleItems = getVisibleNavigationItems([ADMIN_PERMISSION.OrdersRead]);
+    const labels = visibleItems.map((item) => item.label);
 
     expect(labels).toContain("Orders");
     expect(labels).toContain("Returns & Refunds");
     expect(labels).not.toContain("Customers");
+    expect(
+      visibleItems.find((item) => item.label === "Returns & Refunds")?.href
+    ).toBe("/returns-refunds/requests");
   });
 
   it("shows delivery, quote requests, coupons, and settings only with their own permissions", () => {

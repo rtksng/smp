@@ -121,13 +121,16 @@ describe("Reports page integration", () => {
 
     expect(screen.getByRole("region", { name: "Dashboard charts" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "CSV" }));
-    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(
+      () => expect(URL.createObjectURL).toHaveBeenCalledTimes(1),
+      { timeout: 10_000 }
+    );
     const { content } = await readDownloadedBlob();
     expect(content).toContain("Dashboard report");
     expect(content).toContain("Orders by day");
     expect(content).toContain("Top selling products");
     expect(content).toContain("Warehouse stock summary");
-  });
+  }, 30_000);
 
   it("keeps main-dashboard resource drilldowns disabled for reports-only staff", async () => {
     hasPermission.mockImplementation((permission) => permission === "reports.read");

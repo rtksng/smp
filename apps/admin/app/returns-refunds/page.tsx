@@ -1,12 +1,5 @@
-import {
-  ReturnsRefundsLandingPage,
-  ReturnsRefundsRoute
-} from "./_components/returns-refunds-sections";
+import { redirect } from "next/navigation";
 
 export default function ReturnsRefundsPage() {
-  return (
-    <ReturnsRefundsRoute>
-      <ReturnsRefundsLandingPage />
-    </ReturnsRefundsRoute>
-  );
+  redirect("/returns-refunds/requests");
 }

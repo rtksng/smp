@@ -346,7 +346,7 @@ const guideSections: GuideSection[] = [
     flow: ["Request received", "Check order and item", "Approve or reject", "Choose stock decision", "Process refund"],
     icon: <HandCoins aria-hidden size={20} />,
     id: "returns-refunds",
-    links: [{ href: "/returns-refunds", label: "Open returns and refunds" }],
+    links: [{ href: "/returns-refunds/requests", label: "Open returns and refunds" }],
     steps: [
       "Open Returns & Refunds and filter to find the request.",
       "Open the order if you need to verify the item, delivery, payment, or history.",

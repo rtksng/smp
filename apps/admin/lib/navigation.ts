@@ -96,7 +96,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
   },
   {
     category: "Fulfilment",
-    href: "/returns-refunds",
+    href: "/returns-refunds/requests",
     label: "Returns & Refunds",
     permissions: [ADMIN_PERMISSION.OrdersRead]
   },
