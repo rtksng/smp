@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
@@ -6,7 +6,8 @@ import {
   IsString,
   Max,
   MaxLength,
-  Min
+  Min,
+  MinLength
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -51,21 +52,27 @@ export class CreateProductReviewDto {
   title?: string | null;
 
   @ApiProperty({ example: "Arrived in good condition and matched the SKU." })
+  @Transform(trimText)
   @IsString()
+  @MinLength(5)
   @MaxLength(1200)
   comment!: string;
 }
 
 export class CreateProductQuestionDto {
   @ApiProperty({ example: "Is this available in a sterile pack of 20?" })
+  @Transform(trimText)
   @IsString()
+  @MinLength(5)
   @MaxLength(800)
   question!: string;
 }
 
 export class AnswerProductQuestionDto {
   @ApiProperty({ example: "Yes, select the box variant before checkout." })
+  @Transform(trimText)
   @IsString()
+  @MinLength(1)
   @MaxLength(1200)
   answer!: string;
 }
@@ -275,4 +282,8 @@ export class AdminProductFeedbackListResponseDto {
 
   @ApiProperty({ type: AdminProductFeedbackPaginationDto })
   pagination!: AdminProductFeedbackPaginationDto;
+}
+
+function trimText({ value }: { value: unknown }) {
+  return typeof value === "string" ? value.trim() : value;
 }

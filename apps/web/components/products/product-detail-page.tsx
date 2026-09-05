@@ -83,9 +83,12 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
   const [failedImageIds, setFailedImageIds] = useState<Set<string>>(() => new Set());
   const [actionMessage, setActionMessage] = useState<string | undefined>();
   const [wishlistToast, setWishlistToast] = useState<string | undefined>();
+  const [feedbackMessage, setFeedbackMessage] = useState<string | undefined>();
   const [reviewComment, setReviewComment] = useState("");
+  const [reviewError, setReviewError] = useState<string | undefined>();
   const [reviewRating, setReviewRating] = useState(5);
   const [question, setQuestion] = useState("");
+  const [questionError, setQuestionError] = useState<string | undefined>();
   const wishlistToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -159,8 +162,9 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     onSuccess: (feedback) => {
       queryClient.setQueryData(["product-feedback", product?.slug], feedback);
       setReviewComment("");
+      setReviewError(undefined);
       setReviewRating(5);
-      setActionMessage("Review submitted.");
+      setFeedbackMessage("Review submitted for moderation.");
     }
   });
   const questionMutation = useMutation({
@@ -169,7 +173,8 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
     onSuccess: (feedback) => {
       queryClient.setQueryData(["product-feedback", product?.slug], feedback);
       setQuestion("");
-      setActionMessage("Question submitted.");
+      setQuestionError(undefined);
+      setFeedbackMessage("Question submitted for an answer.");
     }
   });
   const savings = product ? getProductSavings(product) : null;
@@ -292,13 +297,26 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
       return;
     }
 
+    const comment = reviewComment.trim();
+
+    setFeedbackMessage(undefined);
+    if (comment.length < 5) {
+      setReviewError("Enter at least 5 characters for your review.");
+      return;
+    }
+    if (comment.length > 1200) {
+      setReviewError("Keep your review to 1,200 characters or fewer.");
+      return;
+    }
+
+    setReviewError(undefined);
     try {
       await reviewMutation.mutateAsync({
-        comment: reviewComment,
+        comment,
         rating: reviewRating
       });
     } catch (error) {
-      setActionMessage(
+      setReviewError(
         getFriendlyApiErrorMessage(error, "Unable to submit review.")
       );
     }
@@ -310,10 +328,23 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
       return;
     }
 
+    const trimmedQuestion = question.trim();
+
+    setFeedbackMessage(undefined);
+    if (trimmedQuestion.length < 5) {
+      setQuestionError("Enter at least 5 characters for your question.");
+      return;
+    }
+    if (trimmedQuestion.length > 800) {
+      setQuestionError("Keep your question to 800 characters or fewer.");
+      return;
+    }
+
+    setQuestionError(undefined);
     try {
-      await questionMutation.mutateAsync({ question });
+      await questionMutation.mutateAsync({ question: trimmedQuestion });
     } catch (error) {
-      setActionMessage(
+      setQuestionError(
         getFriendlyApiErrorMessage(error, "Unable to submit question.")
       );
     }
@@ -660,13 +691,22 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
                 <ProductDocuments product={product} />
                 <ProductFeedbackSection
                   feedback={feedbackQuery.data}
+                  feedbackMessage={feedbackMessage}
                   question={question}
+                  questionError={questionError}
                   questionPending={questionMutation.isPending}
                   reviewComment={reviewComment}
+                  reviewError={reviewError}
                   reviewPending={reviewMutation.isPending}
                   reviewRating={reviewRating}
-                  setQuestion={setQuestion}
-                  setReviewComment={setReviewComment}
+                  setQuestion={(value) => {
+                    setQuestion(value);
+                    setQuestionError(undefined);
+                  }}
+                  setReviewComment={(value) => {
+                    setReviewComment(value);
+                    setReviewError(undefined);
+                  }}
                   setReviewRating={setReviewRating}
                   onQuestionSubmit={handleQuestionSubmit}
                   onReviewSubmit={handleReviewSubmit}
@@ -944,9 +984,12 @@ function ProductDocuments({ product }: { product: Product }) {
 
 function ProductFeedbackSection({
   feedback,
+  feedbackMessage,
   question,
+  questionError,
   questionPending,
   reviewComment,
+  reviewError,
   reviewPending,
   reviewRating,
   setQuestion,
@@ -956,9 +999,12 @@ function ProductFeedbackSection({
   onReviewSubmit
 }: {
   feedback?: ProductFeedback;
+  feedbackMessage?: string;
   question: string;
+  questionError?: string;
   questionPending: boolean;
   reviewComment: string;
+  reviewError?: string;
   reviewPending: boolean;
   reviewRating: number;
   setQuestion: (value: string) => void;
@@ -983,6 +1029,15 @@ function ProductFeedbackSection({
         size="compact"
         title="Reviews and Q&A"
       />
+
+      {feedbackMessage ? (
+        <p
+          className="mt-4 rounded-lg bg-[#e5f5f3] px-4 py-3 text-sm font-semibold text-[#0f6f68]"
+          role="status"
+        >
+          {feedbackMessage}
+        </p>
+      ) : null}
 
       <div className="mt-4 grid gap-2 rounded-lg border border-[#d7efeb] bg-[#f8fbfa] p-3 text-xs font-semibold text-[#55716e] sm:grid-cols-3 sm:p-4">
         <div>
@@ -1054,7 +1109,7 @@ function ProductFeedbackSection({
                     {review.comment}
                   </p>
                   <p className="mt-3 text-xs font-semibold text-[#0f6f68]">
-                    {review.customerName} · Verified customer
+                    {review.customerName} · Customer
                   </p>
                 </article>
               ))
@@ -1092,6 +1147,11 @@ function ProductFeedbackSection({
               placeholder="Share purchase feedback"
               value={reviewComment}
             />
+            {reviewError ? (
+              <p className="text-sm font-semibold text-[#7a271a]" role="alert">
+                {reviewError}
+              </p>
+            ) : null}
             <Button
               disabled={reviewPending}
               onClick={onReviewSubmit}
@@ -1164,6 +1224,11 @@ function ProductFeedbackSection({
               placeholder="Ask about compatibility, pack size, or delivery"
               value={question}
             />
+            {questionError ? (
+              <p className="text-sm font-semibold text-[#7a271a]" role="alert">
+                {questionError}
+              </p>
+            ) : null}
             <Button
               disabled={questionPending}
               onClick={onQuestionSubmit}

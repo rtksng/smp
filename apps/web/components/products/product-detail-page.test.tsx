@@ -289,32 +289,8 @@ describe("ProductDetailPage", () => {
       questions: [],
       reviews: []
     });
-    feedbackMocks.createProductQuestion.mockResolvedValue({
-      questions: [
-        {
-          answer: null,
-          createdAt: "2026-06-15T10:00:00.000Z",
-          customerName: "Asha Rao",
-          id: "question-1",
-          question: "Is this sterile?",
-          status: "PENDING"
-        }
-      ],
-      reviews: []
-    });
-    feedbackMocks.createProductReview.mockResolvedValue({
-      questions: [],
-      reviews: [
-        {
-          comment: "Matched the SKU.",
-          createdAt: "2026-06-15T10:00:00.000Z",
-          customerName: "Asha Rao",
-          id: "review-1",
-          rating: 5,
-          title: null
-        }
-      ]
-    });
+    feedbackMocks.createProductQuestion.mockResolvedValue({ questions: [], reviews: [] });
+    feedbackMocks.createProductReview.mockResolvedValue({ questions: [], reviews: [] });
     vi.mocked(getRelatedProducts).mockClear();
     vi.mocked(getSimilarProducts).mockClear();
     useCustomerAuthStore.setState({
@@ -398,13 +374,64 @@ describe("ProductDetailPage", () => {
 
     expect(await screen.findByText("Reliable order")).toBeInTheDocument();
     expect(screen.getByText("5.0/5")).toBeInTheDocument();
-    expect(screen.getByText("Asha Rao · Verified customer")).toBeInTheDocument();
+    expect(screen.getByText("Asha Rao · Customer")).toBeInTheDocument();
     expect(screen.getByText("Product question")).toBeInTheDocument();
     expect(
       screen.getByText("Answer:", { exact: false }).parentElement
     ).toHaveTextContent("Awaiting answer from the team.");
     expect(screen.getByText("Write a review")).toBeInTheDocument();
     expect(screen.getByText("Ask a question")).toBeInTheDocument();
+  });
+
+  it("shows friendly inline feedback validation and submits trimmed values", async () => {
+    renderWithQueryClient(
+      <ProductDetailPage initialProduct={product} slug={product.slug} />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask question" }));
+
+    expect(
+      screen.getByText("Enter at least 5 characters for your review.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Enter at least 5 characters for your question.")
+    ).toBeInTheDocument();
+    expect(feedbackMocks.createProductReview).not.toHaveBeenCalled();
+    expect(feedbackMocks.createProductQuestion).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Review comment" }), {
+      target: { value: "  Works well in theatre.  " }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit review" }));
+
+    await waitFor(() =>
+      expect(feedbackMocks.createProductReview).toHaveBeenCalledWith(
+        product.slug,
+        {
+          comment: "Works well in theatre.",
+          rating: 5
+        }
+      )
+    );
+    expect(
+      await screen.findByText("Review submitted for moderation.")
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Product question" }), {
+      target: { value: "  Is assembly included?  " }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask question" }));
+
+    await waitFor(() =>
+      expect(feedbackMocks.createProductQuestion).toHaveBeenCalledWith(
+        product.slug,
+        { question: "Is assembly included?" }
+      )
+    );
+    expect(
+      await screen.findByText("Question submitted for an answer.")
+    ).toBeInTheDocument();
   });
 
   it("uses a tighter mobile product detail typography and spacing hierarchy", () => {

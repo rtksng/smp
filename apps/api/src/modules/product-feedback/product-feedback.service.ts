@@ -127,7 +127,7 @@ export class ProductFeedbackService {
   ) {
     const product = await this.findPublicProduct(slug);
     const customer = await this.findCustomer(customerId);
-    const created = await this.prisma.notificationLog.create({
+    await this.prisma.notificationLog.create({
       data: {
         channel: PRODUCT_FEEDBACK_CHANNEL,
         payload: toJsonValue({
@@ -144,12 +144,7 @@ export class ProductFeedbackService {
         userId: customerId
       }
     });
-    const feedback = await this.listFeedback(slug);
-
-    return {
-      ...feedback,
-      reviews: [serializeReview(created), ...feedback.reviews]
-    };
+    return this.listFeedback(slug);
   }
 
   async createQuestion(
@@ -159,7 +154,7 @@ export class ProductFeedbackService {
   ) {
     const product = await this.findPublicProduct(slug);
     const customer = await this.findCustomer(customerId);
-    const created = await this.prisma.notificationLog.create({
+    await this.prisma.notificationLog.create({
       data: {
         channel: PRODUCT_FEEDBACK_CHANNEL,
         payload: toJsonValue({
@@ -175,12 +170,7 @@ export class ProductFeedbackService {
         userId: customerId
       }
     });
-    const feedback = await this.listFeedback(slug);
-
-    return {
-      ...feedback,
-      questions: [serializeQuestion(created), ...feedback.questions]
-    };
+    return this.listFeedback(slug);
   }
 
   async answerQuestion(id: string, input: AnswerProductQuestionDto) {

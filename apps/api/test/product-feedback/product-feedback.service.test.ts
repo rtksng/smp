@@ -2,7 +2,14 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NotFoundException } from "@nestjs/common";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 import type { PrismaService } from "../../src/database/prisma.service";
+import {
+  AnswerProductQuestionDto,
+  CreateProductQuestionDto,
+  CreateProductReviewDto
+} from "../../src/modules/product-feedback/dto/product-feedback.dto";
 import { ProductFeedbackService } from "../../src/modules/product-feedback/product-feedback.service";
 
 const now = new Date("2026-06-15T10:00:00.000Z");
@@ -136,19 +143,24 @@ test("product feedback captures reviews, questions, and admin answers", async ()
     title: " Reliable "
   });
 
-  assert.equal(reviewed.reviews.length, 1);
-  assert.equal(reviewed.reviews[0]?.comment, "Consistent grip and easy to sterilize.");
-  assert.equal(reviewed.reviews[0]?.customerName, "Asha Rao");
-  assert.equal(reviewed.reviews[0]?.rating, 5);
-  assert.equal(reviewed.reviews[0]?.title, "Reliable");
+  assert.equal(reviewed.reviews.length, 0);
+  const reviewPayload = (
+    prisma.calls.createLog[0] as { data: { payload: Record<string, unknown> } }
+  ).data.payload;
+  assert.equal(reviewPayload.comment, "Consistent grip and easy to sterilize.");
+  assert.equal(reviewPayload.customerName, "Asha Rao");
+  assert.equal(reviewPayload.rating, 5);
+  assert.equal(reviewPayload.title, "Reliable");
 
   const asked = await service.createQuestion("customer-1", "surgical-forceps", {
     question: "  Is this autoclavable?  "
   });
 
-  assert.equal(asked.questions.length, 1);
-  assert.equal(asked.questions[0]?.question, "Is this autoclavable?");
-  assert.equal(asked.questions[0]?.status, "PENDING");
+  assert.equal(asked.questions.length, 0);
+  const questionPayload = (
+    prisma.calls.createLog[1] as { data: { payload: Record<string, unknown> } }
+  ).data.payload;
+  assert.equal(questionPayload.question, "Is this autoclavable?");
 
   const answered = await service.answerQuestion("feedback-2", {
     answer: "  Yes, it supports standard autoclave cycles.  "
@@ -228,8 +240,8 @@ test("public feedback only exposes approved reviews and answered questions", asy
     question: "Does this include a sterile pouch?"
   });
 
-  assert.equal(submittedReview.reviews.length, 1);
-  assert.equal(submittedQuestion.questions.length, 1);
+  assert.equal(submittedReview.reviews.length, 0);
+  assert.equal(submittedQuestion.questions.length, 0);
 
   const publicBeforeModeration = await service.listFeedback("surgical-forceps");
 
@@ -299,6 +311,31 @@ test("product feedback rejects missing products or inactive customers", async ()
       }),
     NotFoundException
   );
+});
+
+test("product feedback DTOs trim text and reject blank or undersized submissions", async () => {
+  const validReview = plainToInstance(CreateProductReviewDto, {
+    comment: "  Useful product.  ",
+    rating: 5
+  });
+  assert.deepEqual(await validate(validReview), []);
+  assert.equal(validReview.comment, "Useful product.");
+
+  for (const comment of ["", "    ", "four"]) {
+    assert.ok(
+      (await validate(plainToInstance(CreateProductReviewDto, { comment, rating: 5 }))).length > 0
+    );
+  }
+  for (const question of ["", "     ", "four"]) {
+    assert.ok(
+      (await validate(plainToInstance(CreateProductQuestionDto, { question }))).length > 0
+    );
+  }
+  for (const answer of ["", "     "]) {
+    assert.ok(
+      (await validate(plainToInstance(AnswerProductQuestionDto, { answer }))).length > 0
+    );
+  }
 });
 
 function filterLogs<
