@@ -1,6 +1,5 @@
 import type { QueryParams } from "./admin-api";
 
-export type BooleanFilter = "" | "false" | "true";
 export type CustomerStatus = "ACTIVE" | "BLOCKED" | "INACTIVE";
 
 export const CUSTOMER_STATUSES: CustomerStatus[] = [
@@ -10,8 +9,8 @@ export const CUSTOMER_STATUSES: CustomerStatus[] = [
 ];
 
 export type CustomerFilters = {
-  isActive: BooleanFilter;
   search: string;
+  status: "" | CustomerStatus;
 };
 
 export type AdminCustomer = {
@@ -81,8 +80,8 @@ export type PaginatedCustomerResponse = {
 
 export function createEmptyCustomerFilters(): CustomerFilters {
   return {
-    isActive: "",
-    search: ""
+    search: "",
+    status: ""
   };
 }
 
@@ -92,10 +91,10 @@ export function buildCustomerQuery(
   limit = 20
 ): QueryParams {
   return {
-    isActive: toOptionalBoolean(filters.isActive),
     limit,
     page,
-    search: filters.search.trim() || undefined
+    search: filters.search.trim() || undefined,
+    status: filters.status || undefined
   };
 }
 
@@ -147,14 +146,6 @@ export function formatCustomerDate(value: Date | string) {
     month: "short",
     year: "numeric"
   }).format(new Date(value));
-}
-
-function toOptionalBoolean(value: BooleanFilter) {
-  if (value === "") {
-    return undefined;
-  }
-
-  return value === "true";
 }
 
 function trimmedOrUndefined(value: string) {

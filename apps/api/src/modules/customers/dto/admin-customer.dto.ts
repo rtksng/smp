@@ -37,6 +37,15 @@ export class AdminCustomerListQueryDto {
   @IsBoolean()
   isActive?: boolean;
 
+  @ApiPropertyOptional({
+    description: "Filter by the customer's explicit account status.",
+    enum: CustomerStatus,
+    example: CustomerStatus.ACTIVE
+  })
+  @IsOptional()
+  @IsEnum(CustomerStatus)
+  status?: CustomerStatus;
+
   @ApiPropertyOptional({ default: 20, maximum: 100, minimum: 1 })
   @Type(() => Number)
   @IsOptional()

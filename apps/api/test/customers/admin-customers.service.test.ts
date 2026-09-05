@@ -8,6 +8,7 @@ import { AdminCustomerListQueryDto } from "../../src/modules/customers/dto/admin
 import { REQUIRED_PERMISSIONS_KEY } from "../../src/modules/auth/decorators/require-permission.decorator";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import type { PrismaService } from "../../src/database/prisma.service";
+import { CustomerStatus } from "../../src/generated/prisma/client";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
 
@@ -89,10 +90,10 @@ test("listCustomers searches active non-deleted customers and serializes counts"
   const service = new AdminCustomersService(prisma);
 
   const result = await service.listCustomers({
-    isActive: true,
     limit: 10,
     page: 2,
-    search: "asha"
+    search: "asha",
+    status: CustomerStatus.ACTIVE
   });
 
   assert.deepEqual(result, {
@@ -162,7 +163,7 @@ test("listCustomers searches active non-deleted customers and serializes counts"
         }
       ],
       deletedAt: null,
-      isActive: true
+      status: "ACTIVE"
     }
   });
 });
@@ -204,6 +205,21 @@ test("customer status filters preserve false through the API query transform", (
     assert.equal(query.isActive, expected);
     assert.equal(validateSync(query).length, 0);
   }
+});
+
+test("customer status filters use the explicit account status", async () => {
+  const prisma = createPrismaMock([customer()]);
+  const service = new AdminCustomersService(prisma);
+
+  await service.listCustomers({ status: CustomerStatus.BLOCKED });
+
+  assert.deepEqual(
+    (prisma.calls.userFindMany[0] as { where: unknown }).where,
+    {
+      deletedAt: null,
+      status: "BLOCKED"
+    }
+  );
 });
 
 test("getCustomer returns profile, addresses, recent orders, and support notes", async () => {

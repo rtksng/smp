@@ -33,8 +33,10 @@ import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import {
   buildCustomerQuery,
+  CUSTOMER_STATUSES,
   createEmptyCustomerFilters,
   formatCustomerDate,
+  formatCustomerStatus,
   getCustomerStatusTone,
   resolveCustomerStatus,
   type AdminCustomer,
@@ -208,18 +210,21 @@ function CustomerFilterFields({
         onValueChange={(value) =>
           onChange({
             ...filters,
-            isActive: value as CustomerFilters["isActive"]
+            status: value as CustomerFilters["status"]
           })
         }
-        value={filters.isActive}
+        value={filters.status}
       >
         <SelectTrigger className="filterDrawerControl">
           <SelectValue placeholder="Any status" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="">Any</SelectItem>
-          <SelectItem value="true">Active</SelectItem>
-          <SelectItem value="false">Inactive</SelectItem>
+          {CUSTOMER_STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {formatCustomerStatus(status)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

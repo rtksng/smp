@@ -16,24 +16,24 @@ describe("customer management helpers", () => {
   it("builds backend query params for customer filters and pagination", () => {
     const filters: CustomerFilters = {
       ...createEmptyCustomerFilters(),
-      isActive: "true",
-      search: "asha"
+      search: "asha",
+      status: "ACTIVE"
     };
 
     expect(buildCustomerQuery(filters, 3, 25)).toEqual({
-      isActive: true,
       limit: 25,
       page: 3,
-      search: "asha"
+      search: "asha",
+      status: "ACTIVE"
     });
   });
 
   it("omits empty customer filters", () => {
     expect(buildCustomerQuery(createEmptyCustomerFilters())).toEqual({
-      isActive: undefined,
       limit: 20,
       page: 1,
-      search: undefined
+      search: undefined,
+      status: undefined
     });
   });
 

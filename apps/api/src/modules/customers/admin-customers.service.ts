@@ -229,7 +229,9 @@ export class AdminCustomersService {
     };
     const search = query.search?.trim();
 
-    if (query.isActive !== undefined) {
+    if (query.status !== undefined) {
+      where.status = query.status;
+    } else if (query.isActive !== undefined) {
       where.isActive = query.isActive;
     }
 
