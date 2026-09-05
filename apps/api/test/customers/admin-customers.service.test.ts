@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { plainToInstance } from "class-transformer";
+import { validateSync } from "class-validator";
 import { AdminCustomersService } from "../../src/modules/customers/admin-customers.service";
 import { AdminCustomersController } from "../../src/modules/customers/admin-customers.controller";
+import { AdminCustomerListQueryDto } from "../../src/modules/customers/dto/admin-customer.dto";
 import { REQUIRED_PERMISSIONS_KEY } from "../../src/modules/auth/decorators/require-permission.decorator";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -146,18 +149,61 @@ test("listCustomers searches active non-deleted customers and serializes counts"
     skip: 10,
     take: 10,
     where: {
-      OR: [
-        { firstName: { contains: "asha", mode: "insensitive" } },
-        { lastName: { contains: "asha", mode: "insensitive" } },
-        { mobileNumber: { contains: "asha", mode: "insensitive" } },
-        { email: { contains: "asha", mode: "insensitive" } },
-        { businessName: { contains: "asha", mode: "insensitive" } },
-        { gstNumber: { contains: "asha", mode: "insensitive" } }
+      AND: [
+        {
+          OR: [
+            { firstName: { contains: "asha", mode: "insensitive" } },
+            { lastName: { contains: "asha", mode: "insensitive" } },
+            { mobileNumber: { contains: "asha", mode: "insensitive" } },
+            { email: { contains: "asha", mode: "insensitive" } },
+            { businessName: { contains: "asha", mode: "insensitive" } },
+            { gstNumber: { contains: "asha", mode: "insensitive" } }
+          ]
+        }
       ],
       deletedAt: null,
       isActive: true
     }
   });
+});
+
+test("listCustomers matches every word of a full-name search across customer fields", async () => {
+  const prisma = createPrismaMock([customer()]);
+  const service = new AdminCustomersService(prisma);
+
+  await service.listCustomers({ search: "  Asha   Rao  " });
+
+  assert.deepEqual(
+    (prisma.calls.userFindMany[0] as { where: { AND: unknown[] } }).where.AND,
+    ["Asha", "Rao"].map((term) => ({
+      OR: [
+        { firstName: { contains: term, mode: "insensitive" } },
+        { lastName: { contains: term, mode: "insensitive" } },
+        { mobileNumber: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+        { businessName: { contains: term, mode: "insensitive" } },
+        { gstNumber: { contains: term, mode: "insensitive" } }
+      ]
+    }))
+  );
+});
+
+test("customer status filters preserve false through the API query transform", () => {
+  for (const [input, expected] of [
+    ["true", true],
+    ["false", false],
+    ["1", true],
+    ["0", false]
+  ] as const) {
+    const query = plainToInstance(
+      AdminCustomerListQueryDto,
+      { isActive: input },
+      { enableImplicitConversion: true }
+    );
+
+    assert.equal(query.isActive, expected);
+    assert.equal(validateSync(query).length, 0);
+  }
 });
 
 test("getCustomer returns profile, addresses, recent orders, and support notes", async () => {

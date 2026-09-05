@@ -234,14 +234,16 @@ export class AdminCustomersService {
     }
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } },
-        { mobileNumber: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-        { businessName: { contains: search, mode: "insensitive" } },
-        { gstNumber: { contains: search, mode: "insensitive" } }
-      ];
+      where.AND = search.split(/\s+/).map((term) => ({
+        OR: [
+          { firstName: { contains: term, mode: "insensitive" } },
+          { lastName: { contains: term, mode: "insensitive" } },
+          { mobileNumber: { contains: term, mode: "insensitive" } },
+          { email: { contains: term, mode: "insensitive" } },
+          { businessName: { contains: term, mode: "insensitive" } },
+          { gstNumber: { contains: term, mode: "insensitive" } }
+        ]
+      }));
     }
 
     return where;

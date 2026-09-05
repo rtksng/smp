@@ -127,7 +127,7 @@ function CustomerDetailContent() {
   function requestStatusUpdate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!customer) {
+    if (!customer || nextStatus === customerStatus) {
       return;
     }
 
@@ -287,7 +287,7 @@ function CustomerDetailContent() {
                   </label>
                   <Button
                     className="iconTextButton"
-                    disabled={isMutating}
+                    disabled={isMutating || nextStatus === customerStatus}
                     type="submit"
                   >
                     <CheckCircle2 aria-hidden size={16} />
