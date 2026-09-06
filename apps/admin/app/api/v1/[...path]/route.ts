@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 const apiUrlSchema = z.string().url();
 const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
+const IMAGE_UPLOAD_TIMEOUT_MS = 60_000;
 
 type AdminApiProxyContext = {
   params: Promise<{
@@ -36,13 +37,18 @@ async function proxyAdminApi(
       ? undefined
       : await request.arrayBuffer();
 
-    const upstreamResponse = await fetchAdminApiProxy(upstreamUrl, {
+    const proxyInit = {
       body,
       cache: "no-store",
       headers: buildAdminApiProxyHeaders(request.headers),
       method: request.method,
       redirect: "manual"
-    });
+    } satisfies RequestInit;
+    const isImageUpload =
+      request.method === "POST" && path[0] === "uploads" && path[1] === "image";
+    const upstreamResponse = isImageUpload
+      ? await fetchAdminApiProxy(upstreamUrl, proxyInit, IMAGE_UPLOAD_TIMEOUT_MS)
+      : await fetchAdminApiProxy(upstreamUrl, proxyInit);
 
     return buildAdminApiProxyResponse(upstreamResponse);
   } catch (error) {
