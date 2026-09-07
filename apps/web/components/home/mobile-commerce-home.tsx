@@ -314,28 +314,32 @@ function MobileCategoryCard({
 
   return (
     <Link
-      className="grid min-h-28 w-[6.4rem] shrink-0 content-center justify-items-center gap-2 rounded-xl border border-[#c4e4e0] bg-white px-2 py-3 text-center shadow-sm shadow-[#0f6f68]/5"
+      className="flex min-h-28 w-[6.4rem] shrink-0 flex-col overflow-hidden rounded-xl border border-[#c4e4e0] bg-white text-center shadow-sm shadow-[#0f6f68]/5"
       href={category.href}
     >
-      {category.imageUrl ? (
-        <Image
-          alt={getCategoryImageAlt(category.label)}
-          className="h-12 w-12 rounded-lg object-cover"
-          height={120}
-          src={category.imageUrl}
-          unoptimized={category.imageUrl.startsWith("http://localhost")}
-          width={120}
-        />
-      ) : (
-        <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#e5f5f3] text-[#0f6f68]">
-          <Icon aria-hidden="true" className="h-6 w-6" />
-        </span>
-      )}
-      <span className="line-clamp-2 text-xs font-semibold leading-4 text-[#123f3c]">
-        {category.label}
+      <span className="relative block h-16 w-full shrink-0 bg-[#e5f5f3]">
+        {category.imageUrl ? (
+          <Image
+            alt={getCategoryImageAlt(category.label)}
+            className="object-cover"
+            fill
+            sizes="104px"
+            src={category.imageUrl}
+            unoptimized={category.imageUrl.startsWith("http://localhost")}
+          />
+        ) : (
+          <span className="grid h-full place-items-center text-[#0f6f68]">
+            <Icon aria-hidden="true" className="h-6 w-6" />
+          </span>
+        )}
       </span>
-      <span className={mobileCategoryActionClassName}>
-        Open catalog
+      <span className="grid flex-1 content-start justify-items-center gap-2 px-2 py-3">
+        <span className="line-clamp-2 min-h-8 text-xs font-semibold leading-4 text-[#123f3c]">
+          {category.label}
+        </span>
+        <span className={mobileCategoryActionClassName}>
+          Open catalog
+        </span>
       </span>
     </Link>
   );
@@ -438,7 +442,7 @@ function MobileProductCard({ product }: { product: Product }) {
         {image ? (
           <Image
             alt={getProductImageAlt(product.name, image.altText)}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
             fill
             src={image.url}
             unoptimized

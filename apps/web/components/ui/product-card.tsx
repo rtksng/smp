@@ -108,12 +108,7 @@ export function ProductCard({
         {image && !imageFailed ? (
           <Image
             alt={getProductImageAlt(product.name, image.altText)}
-            className={[
-              "h-full w-full transition duration-300 group-hover:scale-[1.03]",
-              compact && !recommendationCard
-                ? "object-contain  sm:object-cover sm:p-0"
-                : "object-cover"
-            ].join(" ")}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
             fill
             onError={() => setImageFailed(true)}
             sizes={
