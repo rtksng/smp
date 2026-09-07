@@ -107,12 +107,11 @@ describe("customer catalog schemas", () => {
     ).toBe("Acme Surgical");
   });
 
-  it("rewrites uploaded asset URLs to the Railway storage origin", () => {
+  it("uses the same-origin upload proxy for production catalog and cart images", () => {
     vi.stubEnv("NODE_ENV", "production");
     process.env.NEXT_PUBLIC_API_URL =
       "https://smp-production-bfda.up.railway.app/api/v1";
-    const railwayStorageBaseUrl =
-      "https://pxseurailproxy-production-1f3a.up.railway.app";
+    const uploadProxyBaseUrl = "/uploads";
     const staleProductImageUrl =
       "https://smp-production-bfda.up.railway.app/uploads/catalog/products/images/forceps.png";
     const staleCategoryImageUrl =
@@ -172,7 +171,7 @@ describe("customer catalog schemas", () => {
         updatedAt: "2026-05-25T10:00:00.000Z",
         variants: []
       }).images[0]?.url
-    ).toBe(`${railwayStorageBaseUrl}/catalog/products/images/forceps.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/products/images/forceps.png`);
 
     expect(
       categorySchema.parse({
@@ -186,7 +185,7 @@ describe("customer catalog schemas", () => {
         slug: "operating-room",
         sortOrder: 1
       }).imageUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/categories/images/or.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/categories/images/or.png`);
 
     expect(
       brandSchema.parse({
@@ -197,7 +196,7 @@ describe("customer catalog schemas", () => {
         name: "Acme Surgical",
         slug: "acme-surgical"
       }).logoUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/brands/logos/acme.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/brands/logos/acme.png`);
 
     expect(
       cartSchema.parse({
@@ -248,7 +247,7 @@ describe("customer catalog schemas", () => {
         },
         updatedAt: "2026-05-25T10:00:00.000Z"
       }).items[0]?.imageUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/products/images/forceps.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/products/images/forceps.png`);
 
     expect(
       categorySchema.parse({
@@ -262,7 +261,7 @@ describe("customer catalog schemas", () => {
         slug: "operating-room",
         sortOrder: 1
       }).imageUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/categories/images/or.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/categories/images/or.png`);
 
     expect(
       productSchema.parse({
@@ -300,7 +299,7 @@ describe("customer catalog schemas", () => {
         updatedAt: "2026-05-25T10:00:00.000Z",
         variants: []
       }).images[0]?.url
-    ).toBe(`${railwayStorageBaseUrl}/catalog/products/images/forceps.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/products/images/forceps.png`);
 
     expect(
       categorySchema.parse({
@@ -314,7 +313,7 @@ describe("customer catalog schemas", () => {
         slug: "operating-room",
         sortOrder: 1
       }).imageUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/categories/images/or.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/categories/images/or.png`);
 
     expect(
       categorySchema.parse({
@@ -328,6 +327,6 @@ describe("customer catalog schemas", () => {
         slug: "operating-room",
         sortOrder: 1
       }).imageUrl
-    ).toBe(`${railwayStorageBaseUrl}/catalog/categories/images/or.png`);
+    ).toBe(`${uploadProxyBaseUrl}/catalog/categories/images/or.png`);
   });
 });

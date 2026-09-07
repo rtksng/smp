@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
-  buildCustomerApiProxyHeaders,
   buildCustomerApiProxyResponse,
   fetchCustomerApiProxy
 } from "../../../lib/api/proxy";
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest, { params }: UploadProxyContext) 
   try {
     let upstreamResponse = await fetchCustomerApiProxy(upstreamUrl, {
       cache: "no-store",
-      headers: buildCustomerApiProxyHeaders(request.headers),
+      // Public catalog media must not forward customer cookies or authorization.
       method: "GET",
       redirect: "manual"
     });
@@ -49,15 +48,27 @@ export async function GET(request: NextRequest, { params }: UploadProxyContext) 
       upstreamResponse.status < 400 &&
       redirectLocation
     ) {
-      upstreamResponse = await fetch(new URL(redirectLocation, upstreamUrl), {
-        cache: "no-store",
-        redirect: "follow"
-      });
+      upstreamResponse = await fetchCustomerApiProxy(
+        new URL(redirectLocation, upstreamUrl),
+        { cache: "no-store", redirect: "follow" }
+      );
     }
 
-    return buildCustomerApiProxyResponse(upstreamResponse);
+    const response = await buildCustomerApiProxyResponse(upstreamResponse);
+    response.headers.delete("set-cookie");
+    const isImage = response.headers.get("content-type")?.startsWith("image/");
+    response.headers.set(
+      "cache-control",
+      response.ok && isImage
+        ? "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+        : "no-store"
+    );
+    return response;
   } catch {
-    return new Response("Unable to load the requested image.", { status: 502 });
+    return new Response("Unable to load the requested image.", {
+      headers: { "cache-control": "no-store" },
+      status: 502
+    });
   }
 }
 

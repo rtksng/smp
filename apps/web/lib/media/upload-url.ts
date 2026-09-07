@@ -1,5 +1,3 @@
-const DEFAULT_RAILWAY_STORAGE_BASE_URL =
-  "https://pxseurailproxy-production-1f3a.up.railway.app";
 const MANAGED_UPLOAD_HOST_SUFFIXES = [".up.railway.app"];
 const STALE_UPLOAD_HOSTS = new Set([
   "localhost",
@@ -7,15 +5,10 @@ const STALE_UPLOAD_HOSTS = new Set([
 ]);
 
 export function resolveCustomerUploadUrl(value: string) {
-  const storageBaseUrl = getConfiguredStorageBaseUrl();
   const legacyUploadPath = getLegacyUploadPath(value);
 
   if (legacyUploadPath) {
-    if (shouldUseLocalUploadProxy()) {
-      return `/uploads/${legacyUploadPath}`;
-    }
-
-    return resolveStorageUrl(storageBaseUrl, legacyUploadPath) ?? value;
+    return `/uploads/${legacyUploadPath}`;
   }
 
   try {
@@ -29,80 +22,23 @@ export function resolveCustomerUploadUrl(value: string) {
       return value;
     }
 
-    if (shouldUseLocalUploadProxy()) {
-      const proxyPath = parsedUrl.pathname.startsWith("/catalog/")
-        ? `/uploads${parsedUrl.pathname}`
-        : parsedUrl.pathname;
+    // Keep Railway's signed storage redirects on the server in every environment.
+    const proxyPath = parsedUrl.pathname.startsWith("/catalog/")
+      ? `/uploads${parsedUrl.pathname}`
+      : parsedUrl.pathname;
 
-      return `${proxyPath}${parsedUrl.search}${parsedUrl.hash}`;
-    }
-
-    const storageUrl = resolveStorageUrl(storageBaseUrl, parsedUrl.pathname);
-
-    return storageUrl
-      ? `${storageUrl}${parsedUrl.search}${parsedUrl.hash}`
-      : value;
+    return `${proxyPath}${parsedUrl.search}${parsedUrl.hash}`;
   } catch {
     if (value.startsWith("/uploads/") || value.startsWith("/catalog/")) {
-      if (shouldUseLocalUploadProxy()) {
-        return value.startsWith("/catalog/") ? `/uploads${value}` : value;
-      }
-
-      return resolveStorageUrl(storageBaseUrl, value) ?? value;
+      return value.startsWith("/catalog/") ? `/uploads${value}` : value;
     }
 
     return value;
   }
 }
 
-function shouldUseLocalUploadProxy() {
-  return process.env.NODE_ENV !== "production";
-}
-
 export function resolveNullableCustomerUploadUrl(value: string | null) {
   return value ? resolveCustomerUploadUrl(value) : value;
-}
-
-function getConfiguredStorageBaseUrl() {
-  const storageBaseUrl =
-    process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL ??
-    process.env.STORAGE_PUBLIC_BASE_URL;
-
-  if (storageBaseUrl) {
-    return storageBaseUrl;
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (!apiUrl) {
-    return null;
-  }
-
-  try {
-    const apiOrigin = new URL(apiUrl).origin;
-
-    return new URL(apiOrigin).hostname.endsWith(".up.railway.app")
-      ? DEFAULT_RAILWAY_STORAGE_BASE_URL
-      : `${apiOrigin}/uploads`;
-  } catch {
-    return null;
-  }
-}
-
-function resolveStorageUrl(storageBaseUrl: string | null, uploadPath: string) {
-  if (!storageBaseUrl) {
-    return null;
-  }
-
-  const relativePath = uploadPath
-    .replace(/^\/+/, "")
-    .replace(/^uploads\/?/i, "");
-
-  try {
-    return new URL(relativePath, `${storageBaseUrl.replace(/\/+$/, "")}/`).toString();
-  } catch {
-    return null;
-  }
 }
 
 function isManagedUploadPath(pathname: string) {
