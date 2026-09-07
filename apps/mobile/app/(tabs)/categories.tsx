@@ -1,19 +1,13 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  FlatList,
-  Pressable,
-  Text,
-  View,
-  useWindowDimensions
-} from "react-native";
-import { ErrorState, LoadingState } from "@/components/ui/state-view";
+import { FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/state-view";
+import { StoreFooter } from "@/components/store-footer";
 import { getCategories } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
 import { queryKeys } from "@/lib/query";
-import { cardStyle, colors, fonts } from "@/lib/theme";
+import { colors, fonts } from "@/lib/theme";
 
 export default function CategoriesScreen() {
   const { width } = useWindowDimensions();
@@ -41,16 +35,10 @@ export default function CategoriesScreen() {
           style={{
             color: colors.ink,
             fontFamily: fonts.headingBold,
-            fontSize: 22
+            fontSize: 20
           }}
         >
           Browse categories
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13 }}
-        >
-          Explore the same verified medical catalog by department.
         </Text>
       </View>
       {query.isLoading ? (
@@ -70,13 +58,29 @@ export default function CategoriesScreen() {
         <FlatList
           contentContainerStyle={{
             alignSelf: "center",
-            gap: 12,
+            gap: 8,
             maxWidth: 980,
-            padding: 16,
+            paddingHorizontal: 16,
+            paddingTop: 16,
             width: "100%"
           }}
           contentInsetAdjustmentBehavior="automatic"
-          data={query.data.filter((category) => category.isActive)}
+          data={query.data
+            .filter((category) => category.isActive)
+            .sort((left, right) => left.sortOrder - right.sortOrder)}
+          refreshing={query.isRefetching}
+          onRefresh={() => void query.refetch()}
+          ListEmptyComponent={
+            <EmptyState
+              title="No categories found"
+              description="Active catalog categories will appear here."
+            />
+          }
+          ListFooterComponent={
+            <View style={{ marginHorizontal: -16, marginTop: 32 }}>
+              <StoreFooter />
+            </View>
+          }
           columnWrapperStyle={columns > 1 ? { gap: 12 } : undefined}
           key={columns}
           keyExtractor={(item) => item.id}
@@ -90,69 +94,37 @@ export default function CategoriesScreen() {
               }}
             >
               <Pressable
+                accessibilityRole="link"
                 style={{
-                  ...cardStyle,
                   alignItems: "center",
+                  backgroundColor: "#F7FCFB",
+                  borderColor: colors.border,
+                  borderRadius: 12,
+                  borderWidth: 1,
                   flex: 1,
                   flexDirection: "row",
-                  gap: 14,
-                  padding: 14
+                  gap: 12,
+                  minHeight: 56,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12
                 }}
               >
-                {item.imageUrl ? (
-                  <Image
-                    accessibilityLabel={item.name}
-                    contentFit="cover"
-                    source={{ uri: item.imageUrl }}
-                    style={{ borderRadius: 10, height: 58, width: 58 }}
-                  />
-                ) : (
-                  <View
-                    style={{
-                      alignItems: "center",
-                      backgroundColor: colors.primarySoft,
-                      borderRadius: 10,
-                      height: 58,
-                      justifyContent: "center",
-                      width: 58
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      color={colors.primaryDark}
-                      name="medical-bag"
-                      size={28}
-                    />
-                  </View>
-                )}
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text
-                    selectable
-                    style={{
-                      color: colors.text,
-                      fontFamily: fonts.heading,
-                      fontSize: 16
-                    }}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text
-                    numberOfLines={2}
-                    selectable
-                    style={{
-                      color: colors.muted,
-                      fontFamily: fonts.body,
-                      fontSize: 12,
-                      lineHeight: 18
-                    }}
-                  >
-                    {item.description ??
-                      `${item.children.length} subcategories available`}
-                  </Text>
-                </View>
+                <Text
+                  numberOfLines={1}
+                  selectable
+                  style={{
+                    color: colors.text,
+                    flex: 1,
+                    fontFamily: fonts.bodySemiBold,
+                    fontSize: 14
+                  }}
+                >
+                  {item.name}
+                </Text>
                 <MaterialCommunityIcons
                   color={colors.primaryDark}
                   name="chevron-right"
-                  size={22}
+                  size={16}
                 />
               </Pressable>
             </Link>

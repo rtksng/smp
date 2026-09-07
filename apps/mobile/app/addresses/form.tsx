@@ -61,7 +61,7 @@ export default function AddressFormScreen() {
     () => addressesQuery.data?.find((address) => address.id === id),
     [addressesQuery.data, id]
   );
-  const [form, setForm] = useState<AddressInput>(emptyForm);
+  const [form, setForm] = useState<AddressInput>(() => ({ ...emptyForm, phone: session?.customer.mobileNumber ?? emptyForm.phone }));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -86,6 +86,13 @@ export default function AddressFormScreen() {
       });
     }
   }, [existingAddress]);
+
+  useEffect(() => {
+    const mobileNumber = session?.customer.mobileNumber;
+    if (!id && mobileNumber) {
+      setForm((current) => current.phone === emptyForm.phone ? { ...current, phone: mobileNumber } : current);
+    }
+  }, [id, session?.customer.mobileNumber]);
 
   const mutation = useMutation({
     mutationFn: (input: AddressInput) =>

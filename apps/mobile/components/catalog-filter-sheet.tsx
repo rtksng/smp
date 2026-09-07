@@ -49,6 +49,7 @@ export function CatalogFilterSheet({
   brands,
   categories,
   filters,
+  lockedBrand,
   onApply,
   onClose,
   visible
@@ -56,6 +57,7 @@ export function CatalogFilterSheet({
   brands: Brand[];
   categories: Category[];
   filters: CatalogFilters;
+  lockedBrand?: string;
   onApply: (filters: CatalogFilters) => void;
   onClose: () => void;
   visible: boolean;
@@ -148,7 +150,7 @@ export function CatalogFilterSheet({
             <Pressable
               accessibilityLabel="Clear filters"
               accessibilityRole="button"
-              onPress={() => setDraft(defaultCatalogFilters)}
+              onPress={() => setDraft({ ...defaultCatalogFilters, brand: lockedBrand })}
               style={({ pressed }) => ({
                 alignItems: "center",
                 borderColor: colors.border,
@@ -229,7 +231,7 @@ export function CatalogFilterSheet({
               }
               options={[
                 { label: "All subcategories", value: "" },
-                ...subcategories.map((subcategory) => ({
+                ...subcategories.filter((subcategory) => subcategory.isActive).map((subcategory) => ({
                   label: subcategory.name,
                   value: subcategory.slug
                 }))
@@ -237,7 +239,14 @@ export function CatalogFilterSheet({
               value={draft.subcategory ?? ""}
             />
 
-            <ChoiceField
+            {lockedBrand ? (
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Brand</Text>
+                <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>
+                  {brands.find((brand) => brand.slug === lockedBrand)?.name ?? lockedBrand}
+                </Text>
+              </View>
+            ) : <ChoiceField
               label="Brand"
               onChange={(brand) => patch({ brand: brand || undefined })}
               options={[
@@ -248,7 +257,7 @@ export function CatalogFilterSheet({
                 }))
               ]}
               value={draft.brand ?? ""}
-            />
+            />}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 1 }}>
@@ -343,7 +352,7 @@ export function CatalogFilterSheet({
           >
             <Button
               accessibilityLabel="Apply filters"
-              onPress={() => onApply(normalizePrices(draft))}
+              onPress={() => onApply(normalizePrices({ ...draft, brand: lockedBrand ?? draft.brand }))}
             >
               Apply Filters
             </Button>

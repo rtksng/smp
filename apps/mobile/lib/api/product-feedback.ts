@@ -25,16 +25,19 @@ export const productFeedbackSchema = z.object({
   )
 });
 
-const createReviewInputSchema = z.object({
+export const createReviewInputSchema = z.object({
   comment: z.string().trim().min(5).max(1200),
-  rating: z.number().int().min(1).max(5)
+  rating: z.number().int().min(1).max(5),
+  title: z.string().trim().max(120).nullable().optional()
 });
 
-const createQuestionInputSchema = z.object({
+export const createQuestionInputSchema = z.object({
   question: z.string().trim().min(5).max(800)
 });
 
 export type ProductFeedback = z.infer<typeof productFeedbackSchema>;
+export type CreateReviewInput = z.infer<typeof createReviewInputSchema>;
+export type CreateQuestionInput = z.infer<typeof createQuestionInputSchema>;
 
 export function getProductFeedback(slug: string) {
   return requestApi(

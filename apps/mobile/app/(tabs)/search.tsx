@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +17,9 @@ import {
   type CatalogFilters
 } from "@/components/catalog-filter-sheet";
 import { ProductCard } from "@/components/product-card";
+import { StoreFooter } from "@/components/store-footer";
+import { Button } from "@/components/ui/button";
+import type { Product } from "@/lib/api/schemas";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/state-view";
 import { getBrands, getCategories, getProducts } from "@/lib/api/catalog";
 import { getErrorMessage } from "@/lib/errors";
@@ -36,21 +39,24 @@ export function ProductListingScreen({
     brand?: string;
     category?: string;
     q?: string;
+    subcategory?: string;
   }>();
   const activeBrand = brandOverride ?? params.brand;
   const [filters, setFilters] = useState<CatalogFilters>({
     ...defaultCatalogFilters,
     brand: activeBrand,
     category: params.category,
-    search: params.q ?? ""
+    search: params.q ?? "",
+    subcategory: params.subcategory
   });
+  const [page, setPage] = useState(1);
+  const listRef = useRef<FlatList<Product>>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { width } = useWindowDimensions();
   const columns = width >= 900 ? 4 : width >= 620 ? 3 : 2;
-  const productWidth =
-    (Math.min(width, 1100) - 32 - 12 * (columns - 1)) / columns;
+  const productWidth = (Math.min(width, 1100) - 32 - 12 * (columns - 1)) / columns;
   const query = {
-    brand: filters.brand,
+    brand: brandOverride ?? filters.brand,
     category: filters.category,
     disposable: filters.disposable || undefined,
     expirySensitive: filters.expirySensitive || undefined,
@@ -61,7 +67,8 @@ export function ProductListingScreen({
         : filters.stock === "out_of_stock"
           ? false
           : undefined,
-    limit: 40,
+    limit: 12,
+    page,
     maxPrice: readPrice(filters.maxPrice),
     medicalSpecialty: filters.medicalSpecialty.trim() || undefined,
     minPrice: readPrice(filters.minPrice),
@@ -84,14 +91,26 @@ export function ProductListingScreen({
   });
 
   useEffect(() => {
+    setPage(1);
     setFilters((current) => ({
       ...current,
       brand: activeBrand,
       category: params.category,
       search: params.q ?? "",
-      subcategory: undefined
+      subcategory: params.subcategory
     }));
-  }, [activeBrand, params.category, params.q]);
+  }, [activeBrand, params.category, params.q, params.subcategory]);
+
+  function applyFilters(nextFilters: CatalogFilters) {
+    setFilters({ ...nextFilters, brand: brandOverride ?? nextFilters.brand });
+    setPage(1);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }
+
+  function changePage(nextPage: number) {
+    setPage(nextPage);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }
 
   const mainCategories = useMemo(
     () =>
@@ -100,6 +119,27 @@ export function ProductListingScreen({
         .sort((left, right) => left.sortOrder - right.sortOrder),
     [categoriesQuery.data]
   );
+  const activeFilterLabels = [
+    filters.search.trim() ? `Search: ${filters.search.trim()}` : null,
+    filters.category ? `Category: ${filters.category}` : null,
+    filters.subcategory ? `Subcategory: ${filters.subcategory}` : null,
+    !brandOverride && filters.brand ? `Brand: ${filters.brand}` : null,
+    filters.minPrice ? `Min Rs ${filters.minPrice}` : null,
+    filters.maxPrice ? `Max Rs ${filters.maxPrice}` : null,
+    filters.stock === "in_stock"
+      ? "In stock"
+      : filters.stock === "out_of_stock"
+        ? "Out of stock"
+        : null,
+    filters.availability ? "Available only" : null,
+    filters.sterile ? "Sterile" : null,
+    filters.disposable ? "Disposable" : null,
+    filters.expirySensitive ? "Expiry sensitive" : null,
+    filters.medicalSpecialty ? `Specialty: ${filters.medicalSpecialty}` : null,
+    filters.sort !== "latest"
+      ? `Sort: ${filters.sort === "name_az" ? "Name A-Z" : filters.sort === "price_low_to_high" ? "Price low to high" : "Price high to low"}`
+      : null
+  ].filter((label): label is string => Boolean(label));
 
   return (
     <View style={{ backgroundColor: colors.background, flex: 1 }}>
@@ -141,20 +181,16 @@ export function ProductListingScreen({
                     accessibilityState={{ selected }}
                     key={category.id}
                     onPress={() =>
-                      setFilters((current) => ({
-                        ...current,
+                      applyFilters({
+                        ...filters,
                         category: category.slug,
                         subcategory: undefined
-                      }))
+                      })
                     }
                     style={({ pressed }) => ({
                       alignItems: "center",
-                      backgroundColor: selected
-                        ? colors.primaryDark
-                        : colors.surface,
-                      borderColor: selected
-                        ? colors.primaryDark
-                        : colors.border,
+                      backgroundColor: selected ? colors.primaryDark : colors.surface,
+                      borderColor: selected ? colors.primaryDark : colors.border,
                       borderRadius: 999,
                       borderWidth: 1,
                       justifyContent: "center",
@@ -182,6 +218,67 @@ export function ProductListingScreen({
         </View>
       </View>
 
+      {activeFilterLabels.length > 0 ? (
+        <View
+          style={{
+            alignItems: "center",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 6,
+            paddingHorizontal: 16,
+            paddingTop: 10
+          }}
+        >
+          <Text
+            style={{
+              color: colors.primaryDark,
+              fontFamily: fonts.bodySemiBold,
+              fontSize: 10,
+              textTransform: "uppercase"
+            }}
+          >
+            Active filters
+          </Text>
+          {activeFilterLabels.map((label) => (
+            <Text
+              key={label}
+              style={{
+                backgroundColor: "#F8FBFA",
+                borderColor: colors.border,
+                borderRadius: 999,
+                borderWidth: 1,
+                color: colors.text,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 10,
+                paddingHorizontal: 8,
+                paddingVertical: 4
+              }}
+            >
+              {label}
+            </Text>
+          ))}
+          <Pressable
+            accessibilityLabel="Clear active filters"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() =>
+              applyFilters({ ...defaultCatalogFilters, brand: brandOverride })
+            }
+            style={{ minHeight: 32, justifyContent: "center" }}
+          >
+            <Text
+              style={{
+                color: colors.primaryDark,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 10
+              }}
+            >
+              Clear
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {productsQuery.isLoading ? (
         <View style={{ padding: 16 }}>
           <LoadingState label="Finding products" />
@@ -190,10 +287,7 @@ export function ProductListingScreen({
       {productsQuery.isError ? (
         <View style={{ padding: 16 }}>
           <ErrorState
-            message={getErrorMessage(
-              productsQuery.error,
-              "Unable to load products."
-            )}
+            message={getErrorMessage(productsQuery.error, "Unable to load products.")}
             onRetry={() => void productsQuery.refetch()}
             title="Unable to load products"
           />
@@ -209,11 +303,13 @@ export function ProductListingScreen({
       ) : null}
       {productsQuery.data?.items.length ? (
         <FlatList
+          ref={listRef}
           contentContainerStyle={{
             alignSelf: "center",
             gap: 12,
             maxWidth: 1100,
-            padding: 16,
+            paddingHorizontal: 16,
+            paddingTop: 16,
             width: "100%"
           }}
           contentInsetAdjustmentBehavior="automatic"
@@ -222,10 +318,60 @@ export function ProductListingScreen({
           }
           keyboardShouldPersistTaps="handled"
           data={productsQuery.data.items}
+          refreshing={productsQuery.isRefetching}
+          onRefresh={() => void productsQuery.refetch()}
           key={columns}
           keyExtractor={(item) => item.id}
           numColumns={columns}
           columnWrapperStyle={{ alignItems: "flex-start", gap: 12 }}
+          ListFooterComponent={
+            <View>
+              {productsQuery.data.pagination.totalPages > 1 ? (
+                <View
+                  style={{
+                    alignItems: "center",
+                    flexDirection: "row",
+                    gap: 8,
+                    justifyContent: "space-between",
+                    paddingVertical: 12
+                  }}
+                >
+                  <Button
+                    disabled={page <= 1 || productsQuery.isFetching}
+                    onPress={() => changePage(page - 1)}
+                    variant="outline"
+                    style={{ paddingHorizontal: 14 }}
+                  >
+                    Previous
+                  </Button>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.muted,
+                      fontFamily: fonts.bodySemiBold,
+                      fontSize: 12
+                    }}
+                  >
+                    Page {page} of {productsQuery.data.pagination.totalPages}
+                  </Text>
+                  <Button
+                    disabled={
+                      !productsQuery.data.pagination.hasNextPage ||
+                      productsQuery.isFetching
+                    }
+                    onPress={() => changePage(page + 1)}
+                    variant="outline"
+                    style={{ paddingHorizontal: 14 }}
+                  >
+                    Next
+                  </Button>
+                </View>
+              ) : null}
+              <View style={{ marginHorizontal: -16, marginTop: 32 }}>
+                <StoreFooter />
+              </View>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={{ width: productWidth }}>
               <ProductCard compact product={item} />
@@ -233,14 +379,21 @@ export function ProductListingScreen({
           )}
         />
       ) : null}
+      {!productsQuery.isLoading && !productsQuery.data?.items.length ? (
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{ paddingTop: 32 }}
+        >
+          <StoreFooter />
+        </ScrollView>
+      ) : null}
       <CatalogFilterSheet
         brands={brandsQuery.data?.filter((brand) => brand.isActive) ?? []}
-        categories={
-          categoriesQuery.data?.filter((category) => category.isActive) ?? []
-        }
+        categories={categoriesQuery.data?.filter((category) => category.isActive) ?? []}
         filters={filters}
+        lockedBrand={brandOverride}
         onApply={(nextFilters) => {
-          setFilters(nextFilters);
+          applyFilters(nextFilters);
           setFiltersOpen(false);
         }}
         onClose={() => setFiltersOpen(false)}

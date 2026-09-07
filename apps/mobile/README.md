@@ -10,13 +10,22 @@ orders.
 Copy `.env.example` to `.env` and set:
 
 ```dotenv
-EXPO_PUBLIC_API_URL=http://10.0.2.2:4000/api/v1
+EXPO_PUBLIC_API_URL=https://smp-production-bfda.up.railway.app/api/v1
 ```
 
 Use `10.0.2.2` for an Android emulator, `localhost` for iOS Simulator, or the
 development machine's LAN IP for a physical device. Production builds must use
 the public HTTPS API URL. iOS development builds include a local-network usage
 description and permit local-network HTTP only for development API access.
+
+The visual reference is the current mobile viewport of `apps/web`: its home
+rails, full-width category and product images, catalog filters and pagination,
+account sections, footer, and shopping actions. Native routes map web product
+listings and category filters to `/search`, with the same customer API data.
+
+Invoices use an authenticated PDF request and the native share sheet. Product
+and category images retain their absolute Railway storage URLs on native;
+the website's relative `/uploads` proxy is specific to the web app.
 
 ## Run and validate
 

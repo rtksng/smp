@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pressable, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { AccountPageHeader } from "@/components/account-layout";
+import { AccountPageHeader, AccountSection, AccountSectionHeader } from "@/components/account-layout";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
@@ -47,9 +47,11 @@ export default function WishlistScreen() {
       {products.length === 0 ? (
         <EmptyState action={<Button href="/search">Browse products</Button>} description="Products saved from the catalog will appear here." title="Your wishlist is empty" />
       ) : (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+        <AccountSection>
+          <AccountSectionHeader description={`${products.length} saved product${products.length === 1 ? "" : "s"}.`} title="Saved products" />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -6 }}>
           {products.map((product) => (
-            <View key={product.id} style={{ gap: 8, width: "48%" }}>
+            <View key={product.id} style={{ gap: 12, paddingHorizontal: 6, paddingBottom: 12, width: "50%" }}>
               <ProductCard compact product={product} />
               <Pressable
                 accessibilityLabel={`Remove ${product.name} from wishlist`}
@@ -64,7 +66,7 @@ export default function WishlistScreen() {
                   flexDirection: "row",
                   gap: 7,
                   justifyContent: "center",
-                  minHeight: 38,
+                  minHeight: 44,
                   opacity: pressed ? 0.72 : 1
                 })}
               >
@@ -73,7 +75,8 @@ export default function WishlistScreen() {
               </Pressable>
             </View>
           ))}
-        </View>
+          </View>
+        </AccountSection>
       )}
     </Screen>
   );

@@ -36,13 +36,13 @@ export function AccountPageHeader({
             flexDirection: "row",
             flexShrink: 0,
             gap: 6,
-            minHeight: 32,
+            minHeight: 44,
             opacity: pressed ? 0.75 : 1,
             paddingHorizontal: 12
           })}
         >
           <Feather color={colors.text} name="arrow-left" size={14} />
-          <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Back</Text>
+          <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Back to account</Text>
         </Pressable>
       </View>
       <Text selectable style={{ color: colors.text, fontFamily: fonts.heading, fontSize: 24, lineHeight: 31 }}>
@@ -75,7 +75,7 @@ export function AccountInfoGrid({ items }: { items: Array<{ label: string; value
           <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12, textTransform: "uppercase" }}>
             {item.label}
           </Text>
-          <Text numberOfLines={2} selectable style={{ color: colors.text, flexShrink: 1, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>
+          <Text selectable style={{ color: colors.text, flexShrink: 1, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>
             {item.value}
           </Text>
         </View>

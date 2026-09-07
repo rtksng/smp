@@ -34,3 +34,16 @@ export function canRequestReturn(status: OrderStatus, refunds: Refund[]): boolea
     !refunds.some((refund) => activeRefundStatuses.has(refund.status))
   );
 }
+
+export function canRetryOnlinePayment(order: {
+  status: OrderStatus;
+  paymentMethod: string | null;
+  paymentStatus: string;
+}): boolean {
+  return order.status === "CREATED" && order.paymentMethod === "ONLINE" &&
+    ["FAILED", "PENDING"].includes(order.paymentStatus);
+}
+
+export function getOrderRefreshInterval(status: OrderStatus): number | false {
+  return ["DELIVERED", "CANCELLED", "RETURNED"].includes(status) ? false : 15_000;
+}

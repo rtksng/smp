@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Alert, Text, View } from "react-native";
-import { AccountPageHeader } from "@/components/account-layout";
+import { AccountInfoGrid, AccountPageHeader, AccountSection, AccountSectionHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
 import {
@@ -72,10 +72,18 @@ export default function AddressesScreen() {
     );
   }
 
+  const addresses = query.data ?? [];
+  const defaultAddress = addresses.find((address) => address.isDefault);
+
   return (
     <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
       <AccountPageHeader description="Manage delivery and billing addresses for faster checkout." title="Addresses" />
-      <Button href="/addresses/form">Add new address</Button>
+      <AccountInfoGrid items={[
+        { label: "Saved addresses", value: String(addresses.length) },
+        { label: "Default", value: defaultAddress?.fullName ?? "Not selected" },
+        { label: "City", value: defaultAddress?.city ?? "-" },
+        { label: "Phone", value: defaultAddress?.phone ?? "-" }
+      ]} />
       {query.data?.length === 0 ? (
         <EmptyState
           action={<Button href="/addresses/form">Add delivery address</Button>}
@@ -83,7 +91,11 @@ export default function AddressesScreen() {
           title="No saved addresses"
         />
       ) : null}
-      {query.data?.map((address) => (
+      {addresses.length ? (
+      <AccountSection>
+        <AccountSectionHeader description="Address changes are available immediately during checkout." title="Saved addresses" />
+        <Button href="/addresses/form">Add address</Button>
+      {addresses.map((address) => (
         <AddressCard
           address={address}
           isDeleting={
@@ -117,6 +129,8 @@ export default function AddressesScreen() {
           onSetDefault={() => setDefaultMutation.mutate(address.id)}
         />
       ))}
+      </AccountSection>
+      ) : null}
       {deleteMutation.error || setDefaultMutation.error ? (
         <Text
           accessibilityRole="alert"
@@ -155,7 +169,7 @@ function AddressCard({
   onSetDefault: () => void;
 }) {
   return (
-    <View style={{ ...cardStyle, borderRadius: 8, gap: 13, padding: 16 }}>
+    <View style={{ ...cardStyle, backgroundColor: colors.background, borderRadius: 8, gap: 13, padding: 16 }}>
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View
           style={{

@@ -1,27 +1,17 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  FlatList,
-  Linking,
-  Pressable,
-  Text,
-  TextInput,
-  View
-} from "react-native";
+import { FlatList, Linking, Pressable, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { StoreFooter } from "@/components/store-footer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/state-view";
 import { addCartItem, buyNow } from "@/lib/api/cart";
-import {
-  getProduct,
-  getRelatedProducts,
-  getSimilarProducts
-} from "@/lib/api/catalog";
+import { getProduct, getRelatedProducts, getSimilarProducts } from "@/lib/api/catalog";
 import {
   createProductQuestion,
   createProductReview,
@@ -29,11 +19,7 @@ import {
   type ProductFeedback
 } from "@/lib/api/product-feedback";
 import type { Product } from "@/lib/api/schemas";
-import {
-  addWishlistItem,
-  getWishlist,
-  removeWishlistItem
-} from "@/lib/api/wishlist";
+import { addWishlistItem, getWishlist, removeWishlistItem } from "@/lib/api/wishlist";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getErrorMessage } from "@/lib/errors";
 import { formatCatalogRupees, formatDate } from "@/lib/format";
@@ -47,12 +33,26 @@ export default function ProductDetailScreen() {
   const queryClient = useQueryClient();
   const [quantity, setQuantity] = useState(1);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
+  useEffect(() => {
+    setQuantity(1);
+    setSelectedImageId(null);
+    setFailedImageUrls([]);
+    setMessage(null);
+    setFeedbackMessage(null);
+    setFeedbackError(null);
+    setQuestion("");
+    setReviewComment("");
+    setReviewRating(5);
+    setSummaryExpanded(false);
+  }, [slug]);
   const productQuery = useQuery({
     enabled: Boolean(slug),
     queryFn: () => getProduct(slug),
@@ -111,9 +111,7 @@ export default function ProductDetailScreen() {
         throw new Error("Product is unavailable.");
       }
 
-      return remove
-        ? removeWishlistItem(product.id)
-        : addWishlistItem(product.id);
+      return remove ? removeWishlistItem(product.id) : addWishlistItem(product.id);
     },
     onSuccess: (wishlist, remove) => {
       queryClient.setQueryData(queryKeys.wishlist, wishlist);
@@ -123,7 +121,7 @@ export default function ProductDetailScreen() {
   const reviewMutation = useMutation({
     mutationFn: () =>
       createProductReview(product?.slug ?? slug, {
-        comment: reviewComment,
+        comment: reviewComment.trim(),
         rating: reviewRating
       }),
     onSuccess: (feedback) => {
@@ -132,23 +130,27 @@ export default function ProductDetailScreen() {
         feedback
       );
       setReviewComment("");
-      setFeedbackMessage("Review submitted.");
+      setReviewRating(5);
+      setFeedbackMessage("Review submitted for moderation.");
     }
   });
   const questionMutation = useMutation({
     mutationFn: () =>
-      createProductQuestion(product?.slug ?? slug, { question }),
+      createProductQuestion(product?.slug ?? slug, { question: question.trim() }),
     onSuccess: (feedback) => {
       queryClient.setQueryData(
         queryKeys.productFeedback(product?.slug ?? slug),
         feedback
       );
       setQuestion("");
-      setFeedbackMessage("Question submitted.");
+      setFeedbackMessage("Question submitted for an answer.");
     }
   });
 
   function handleCartAction(buyNowFlow: boolean) {
+    if (!product?.inStock || cartMutation.isPending) {
+      return;
+    }
     if (!session) {
       router.push({
         pathname: "/login",
@@ -158,10 +160,14 @@ export default function ProductDetailScreen() {
     }
 
     setMessage(null);
+    if (!wishlistMutation.isPending) wishlistMutation.reset();
     cartMutation.mutate(buyNowFlow);
   }
 
   function handleWishlist() {
+    if (wishlistMutation.isPending) {
+      return;
+    }
     if (!session) {
       router.push({
         pathname: "/login",
@@ -171,6 +177,7 @@ export default function ProductDetailScreen() {
     }
 
     setMessage(null);
+    if (!cartMutation.isPending) cartMutation.reset();
     wishlistMutation.mutate(isWishlisted);
   }
 
@@ -184,9 +191,30 @@ export default function ProductDetailScreen() {
     }
 
     setFeedbackMessage(null);
+    setFeedbackError(null);
     if (kind === "review") {
+      if (reviewMutation.isPending) return;
+      const comment = reviewComment.trim();
+      if (comment.length < 5 || comment.length > 1200) {
+        setFeedbackError(
+          comment.length < 5
+            ? "Enter at least 5 characters for your review."
+            : "Keep your review to 1,200 characters or fewer."
+        );
+        return;
+      }
       reviewMutation.mutate();
     } else {
+      if (questionMutation.isPending) return;
+      const trimmedQuestion = question.trim();
+      if (trimmedQuestion.length < 5 || trimmedQuestion.length > 800) {
+        setFeedbackError(
+          trimmedQuestion.length < 5
+            ? "Enter at least 5 characters for your question."
+            : "Keep your question to 800 characters or fewer."
+        );
+        return;
+      }
       questionMutation.mutate();
     }
   }
@@ -256,14 +284,63 @@ export default function ProductDetailScreen() {
               width: 40
             })}
           >
-            <MaterialCommunityIcons color={colors.primaryDark} name="arrow-left" size={18} />
+            <MaterialCommunityIcons
+              color={colors.primaryDark}
+              name="arrow-left"
+              size={18}
+            />
           </Pressable>
-          <View accessibilityLabel="Product breadcrumbs" style={{ alignItems: "center", flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
-            <Pressable onPress={() => router.push("/search")}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Products</Text></Pressable>
+          <View
+            accessibilityLabel="Product breadcrumbs"
+            style={{
+              alignItems: "center",
+              flex: 1,
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 6,
+              minHeight: 32
+            }}
+          >
+            <Pressable onPress={() => router.push("/search")}>
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: 12
+                }}
+              >
+                Products
+              </Text>
+            </Pressable>
             <MaterialCommunityIcons color="#9CAFAC" name="chevron-right" size={16} />
-            <Pressable onPress={() => router.push({ pathname: "/search", params: { category: product.category.slug } })}><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.category.name}</Text></Pressable>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/search",
+                  params: { category: product.category.slug }
+                })
+              }
+            >
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: 12
+                }}
+              >
+                {product.category.name}
+              </Text>
+            </Pressable>
             <MaterialCommunityIcons color="#9CAFAC" name="chevron-right" size={16} />
-            <Text style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{product.name}</Text>
+            <Text
+              style={{
+                color: colors.text,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              {product.name}
+            </Text>
           </View>
         </View>
         <View
@@ -278,22 +355,40 @@ export default function ProductDetailScreen() {
             width: "100%"
           }}
         >
-          {selectedImage ? (
+          {selectedImage && !failedImageUrls.includes(selectedImage.url) ? (
             <View style={{ alignSelf: "stretch", flex: 1, margin: 16 }}>
               <Image
                 accessibilityLabel={selectedImage.altText ?? product.name}
                 contentFit="contain"
+                onError={() =>
+                  setFailedImageUrls((current) =>
+                    current.includes(selectedImage.url)
+                      ? current
+                      : [...current, selectedImage.url]
+                  )
+                }
                 source={{ uri: selectedImage.url }}
                 style={{ height: "100%", width: "100%" }}
                 transition={180}
               />
             </View>
           ) : (
-            <MaterialCommunityIcons
-              color={colors.primaryDark}
-              name="medical-bag"
-              size={72}
-            />
+            <View style={{ alignItems: "center", gap: 8, padding: 16 }}>
+              <MaterialCommunityIcons
+                color={colors.primaryDark}
+                name="medical-bag"
+                size={72}
+              />
+              <Text
+                style={{
+                  color: colors.primaryDark,
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: 12
+                }}
+              >
+                Product image unavailable
+              </Text>
+            </View>
           )}
           <Pressable
             accessibilityLabel={
@@ -337,9 +432,7 @@ export default function ProductDetailScreen() {
                 style={{
                   backgroundColor: colors.surface,
                   borderColor:
-                    item.id === selectedImage?.id
-                      ? colors.primaryDark
-                      : colors.border,
+                    item.id === selectedImage?.id ? colors.primaryDark : colors.border,
                   borderRadius: 8,
                   borderWidth: item.id === selectedImage?.id ? 2 : 1,
                   height: 80,
@@ -347,7 +440,14 @@ export default function ProductDetailScreen() {
                   width: 80
                 }}
               >
-                <View style={{ flex: 1, padding: 8 }}><Image accessibilityLabel={item.altText ?? product.name} contentFit="contain" source={{ uri: item.url }} style={{ height: "100%", width: "100%" }} /></View>
+                <View style={{ flex: 1, padding: 8 }}>
+                  <Image
+                    accessibilityLabel={item.altText ?? product.name}
+                    contentFit="contain"
+                    source={{ uri: item.url }}
+                    style={{ height: "100%", width: "100%" }}
+                  />
+                </View>
               </Pressable>
             )}
             showsHorizontalScrollIndicator={false}
@@ -380,10 +480,10 @@ export default function ProductDetailScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
             <Tag label={`SKU ${product.sku}`} />
             <Tag label={product.category.name} primary />
-            {product.subcategory ? <Tag label={product.subcategory.name} primary /> : null}
-            <Tag
-              label={product.inStock ? "In stock" : "Product out of stock"}
-            />
+            {product.subcategory ? (
+              <Tag label={product.subcategory.name} primary />
+            ) : null}
+            <Tag label={product.inStock ? "In stock" : "Product out of stock"} />
           </View>
           <Text
             selectable
@@ -589,10 +689,7 @@ export default function ProductDetailScreen() {
               icon="cash-multiple"
               label="COD and online payment at checkout"
             />
-            <PurchaseNote
-              icon="sale"
-              label="Bulk price support for quantity orders"
-            />
+            <PurchaseNote icon="sale" label="Bulk price support for quantity orders" />
           </View>
           {!product.inStock ? (
             <Text
@@ -609,37 +706,45 @@ export default function ProductDetailScreen() {
               This product is currently out of stock.
             </Text>
           ) : null}
-          {message || cartMutation.error ? (
+          {message || cartMutation.error || wishlistMutation.error ? (
             <Text
               accessibilityRole="alert"
               selectable
               style={{
-                backgroundColor: cartMutation.error
-                  ? colors.dangerBackground
-                  : colors.primarySoft,
+                backgroundColor:
+                  cartMutation.error || wishlistMutation.error
+                    ? colors.dangerBackground
+                    : colors.primarySoft,
                 borderRadius: 10,
-                color: cartMutation.error ? colors.danger : colors.primaryDark,
+                color:
+                  cartMutation.error || wishlistMutation.error
+                    ? colors.danger
+                    : colors.primaryDark,
                 fontFamily: fonts.bodySemiBold,
                 padding: 12
               }}
             >
               {cartMutation.error
                 ? getErrorMessage(cartMutation.error, "Unable to update cart.")
-                : message}
+                : wishlistMutation.error
+                  ? getErrorMessage(
+                      wishlistMutation.error,
+                      "Unable to update wishlist."
+                    )
+                  : message}
             </Text>
           ) : null}
         </View>
 
         <MedicalDetails product={product} />
 
-        {product.variants.length > 0 ? (
-          <ProductVariants product={product} />
-        ) : null}
+        {product.variants.length > 0 ? <ProductVariants product={product} /> : null}
 
         <ProductDocuments documents={visibleDocuments} />
 
         <ProductFeedbackSection
           error={
+            (feedbackError ? new Error(feedbackError) : null) ??
             reviewMutation.error ??
             questionMutation.error ??
             feedbackQuery.error
@@ -647,10 +752,18 @@ export default function ProductDetailScreen() {
           feedback={feedbackQuery.data}
           loading={feedbackQuery.isLoading}
           message={feedbackMessage}
-          onQuestionChange={setQuestion}
+          onQuestionChange={(value) => {
+            setQuestion(value);
+            setFeedbackError(null);
+            if (!questionMutation.isPending) questionMutation.reset();
+          }}
           onQuestionSubmit={() => handleFeedbackSubmit("question")}
           onRatingChange={setReviewRating}
-          onReviewChange={setReviewComment}
+          onReviewChange={(value) => {
+            setReviewComment(value);
+            setFeedbackError(null);
+            if (!reviewMutation.isPending) reviewMutation.reset();
+          }}
           onReviewSubmit={() => handleFeedbackSubmit("review")}
           question={question}
           questionPending={questionMutation.isPending}
@@ -672,6 +785,9 @@ export default function ProductDetailScreen() {
           products={similarProducts}
           title="Similar category products"
         />
+        <View style={{ marginHorizontal: -16, marginTop: 28 }}>
+          <StoreFooter />
+        </View>
       </KeyboardAwareScrollView>
 
       <View
@@ -699,7 +815,7 @@ export default function ProductDetailScreen() {
         >
           <View style={{ flex: 1 }}>
             <Button
-              disabled={!product.inStock}
+              disabled={!product.inStock || cartMutation.isPending}
               loading={cartMutation.isPending && cartMutation.variables === false}
               onPress={() => handleCartAction(false)}
               variant="outline"
@@ -709,7 +825,7 @@ export default function ProductDetailScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Button
-              disabled={!product.inStock}
+              disabled={!product.inStock || cartMutation.isPending}
               loading={cartMutation.isPending && cartMutation.variables === true}
               onPress={() => handleCartAction(true)}
             >
@@ -731,11 +847,7 @@ function PurchaseNote({
 }) {
   return (
     <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
-      <MaterialCommunityIcons
-        color={colors.primaryDark}
-        name={icon}
-        size={17}
-      />
+      <MaterialCommunityIcons color={colors.primaryDark} name={icon} size={17} />
       <Text
         selectable
         style={{
@@ -758,10 +870,7 @@ function MedicalDetails({ product }: { product: Product }) {
     ["Material", product.material ?? "Not specified"],
     ["Pack size", product.packSize ?? "Not specified"],
     ["Unit", product.unit],
-    [
-      "Medical specialty",
-      product.medicalSpecialty ?? "General medical use"
-    ],
+    ["Medical specialty", product.medicalSpecialty ?? "General medical use"],
     ["Expiry sensitive", product.expirySensitive ? "Yes" : "No"]
   ];
 
@@ -913,11 +1022,7 @@ function ProductVariants({ product }: { product: Product }) {
   );
 }
 
-function ProductDocuments({
-  documents
-}: {
-  documents: Product["documents"];
-}) {
+function ProductDocuments({ documents }: { documents: Product["documents"] }) {
   return (
     <View style={{ ...cardStyle, gap: 14, padding: 16 }}>
       <SectionTitle
@@ -1074,8 +1179,22 @@ function ProductFeedbackSection({
         eyebrow="Customer feedback"
         title="Reviews and Q&A"
       />
-      <View style={{ backgroundColor: colors.surfaceMuted, borderColor: "#D7EFEB", borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12 }}>
-        <FeedbackMetric label="Average rating" value={averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"} />
+      <View
+        style={{
+          backgroundColor: colors.surfaceMuted,
+          borderColor: "#D7EFEB",
+          borderRadius: 8,
+          borderWidth: 1,
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+          padding: 12
+        }}
+      >
+        <FeedbackMetric
+          label="Average rating"
+          value={averageRating ? `${averageRating.toFixed(1)}/5` : "No rating yet"}
+        />
         <FeedbackMetric label="Reviews" value={String(reviews.length)} />
         <FeedbackMetric label="Questions" value={String(questions.length)} />
       </View>
@@ -1115,14 +1234,43 @@ function ProductFeedbackSection({
 
       <FeedbackGroup count={`${reviews.length} posted`} title="Reviews">
         {reviews.length > 0 ? (
-          reviews.slice(0, 4).map((review) => <ReviewFeedbackCard key={review.id} review={review} />)
+          reviews
+            .slice(0, 4)
+            .map((review) => <ReviewFeedbackCard key={review.id} review={review} />)
         ) : (
           <FeedbackEmpty label="No reviews yet." />
         )}
-        <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+        <View
+          style={{
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+            borderRadius: 8,
+            borderWidth: 1,
+            gap: 10,
+            padding: 16
+          }}
+        >
           <View style={{ gap: 4 }}>
-            <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Write a review</Text>
-            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Share what helped with purchase or clinical use.</Text>
+            <Text
+              selectable
+              style={{
+                color: colors.text,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 14
+              }}
+            >
+              Write a review
+            </Text>
+            <Text
+              selectable
+              style={{
+                color: colors.muted,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              Share what helped with purchase or clinical use.
+            </Text>
           </View>
           <View
             accessibilityLabel={`Review rating ${reviewRating} out of 5`}
@@ -1150,11 +1298,7 @@ function ProductFeedbackSection({
             placeholder="Share purchase feedback"
             value={reviewComment}
           />
-          <Button
-            disabled={reviewComment.trim().length < 5}
-            loading={reviewPending}
-            onPress={onReviewSubmit}
-          >
+          <Button loading={reviewPending} onPress={onReviewSubmit}>
             Submit review
           </Button>
         </View>
@@ -1162,14 +1306,43 @@ function ProductFeedbackSection({
 
       <FeedbackGroup count={`${questions.length} asked`} title="Questions">
         {questions.length > 0 ? (
-          questions.slice(0, 4).map((entry) => <QuestionFeedbackCard entry={entry} key={entry.id} />)
+          questions
+            .slice(0, 4)
+            .map((entry) => <QuestionFeedbackCard entry={entry} key={entry.id} />)
         ) : (
           <FeedbackEmpty label="No questions yet." />
         )}
-        <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+        <View
+          style={{
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+            borderRadius: 8,
+            borderWidth: 1,
+            gap: 10,
+            padding: 16
+          }}
+        >
           <View style={{ gap: 4 }}>
-            <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Ask a question</Text>
-            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>Ask about fit, pack size, compatibility, or delivery.</Text>
+            <Text
+              selectable
+              style={{
+                color: colors.text,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 14
+              }}
+            >
+              Ask a question
+            </Text>
+            <Text
+              selectable
+              style={{
+                color: colors.muted,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              Ask about fit, pack size, compatibility, or delivery.
+            </Text>
           </View>
           <FeedbackInput
             accessibilityLabel="Product question"
@@ -1178,7 +1351,6 @@ function ProductFeedbackSection({
             value={question}
           />
           <Button
-            disabled={question.trim().length < 5}
             loading={questionPending}
             onPress={onQuestionSubmit}
             variant="outline"
@@ -1202,9 +1374,33 @@ function FeedbackGroup({
 }) {
   return (
     <View style={{ gap: 10 }}>
-      <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-        <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{title}</Text>
-        <Text selectable style={{ backgroundColor: colors.primarySoft, borderRadius: 999, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 10, paddingVertical: 5 }}>{count}</Text>
+      <View
+        style={{
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between"
+        }}
+      >
+        <Text
+          selectable
+          style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}
+        >
+          {title}
+        </Text>
+        <Text
+          selectable
+          style={{
+            backgroundColor: colors.primarySoft,
+            borderRadius: 999,
+            color: colors.primaryDark,
+            fontFamily: fonts.bodySemiBold,
+            fontSize: 11,
+            paddingHorizontal: 10,
+            paddingVertical: 5
+          }}
+        >
+          {count}
+        </Text>
       </View>
       {children}
     </View>
@@ -1214,49 +1410,237 @@ function FeedbackGroup({
 function FeedbackMetric({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flexBasis: "30%", flexGrow: 1, gap: 4 }}>
-      <Text selectable style={{ color: "#687F7C", fontFamily: fonts.bodySemiBold, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
-      <Text selectable style={{ color: colors.ink, fontFamily: fonts.body, fontSize: 18 }}>{value}</Text>
+      <Text
+        selectable
+        style={{
+          color: "#687F7C",
+          fontFamily: fonts.bodySemiBold,
+          fontSize: 10,
+          letterSpacing: 1.2,
+          textTransform: "uppercase"
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        selectable
+        style={{ color: colors.ink, fontFamily: fonts.body, fontSize: 18 }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
-function ReviewFeedbackCard({ review }: { review: ProductFeedback["reviews"][number] }) {
+function ReviewFeedbackCard({
+  review
+}: {
+  review: ProductFeedback["reviews"][number];
+}) {
   return (
-    <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+    <View
+      style={{
+        backgroundColor: colors.surfaceMuted,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        gap: 10,
+        padding: 16
+      }}
+    >
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 12 }}>
-        <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 18, height: 36, justifyContent: "center", width: 36 }}><Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 13, textTransform: "uppercase" }}>{customerInitials(review.customerName)}</Text></View>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: colors.primarySoft,
+            borderRadius: 18,
+            height: 36,
+            justifyContent: "center",
+            width: 36
+          }}
+        >
+          <Text
+            style={{
+              color: colors.primaryDark,
+              fontFamily: fonts.bodySemiBold,
+              fontSize: 13,
+              textTransform: "uppercase"
+            }}
+          >
+            {customerInitials(review.customerName)}
+          </Text>
+        </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <Text accessibilityLabel={`${review.rating} out of 5 stars`} style={{ color: "#F59E0B", fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{"★".repeat(review.rating)}<Text style={{ color: "#D4E2DF" }}>{"★".repeat(5 - review.rating)}</Text></Text>
-            <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(review.createdAt)}</Text>
+          <View
+            style={{
+              alignItems: "center",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 8
+            }}
+          >
+            <Text
+              accessibilityLabel={`${review.rating} out of 5 stars`}
+              style={{ color: "#F59E0B", fontFamily: fonts.bodySemiBold, fontSize: 14 }}
+            >
+              {"★".repeat(review.rating)}
+              <Text style={{ color: "#D4E2DF" }}>{"★".repeat(5 - review.rating)}</Text>
+            </Text>
+            <Text
+              style={{
+                color: colors.muted,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              {formatDate(review.createdAt)}
+            </Text>
           </View>
-          <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{review.title ?? "Customer review"}</Text>
+          <Text
+            style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14 }}
+          >
+            {review.title ?? "Customer review"}
+          </Text>
         </View>
       </View>
-      <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 24 }}>{review.comment}</Text>
-      <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{review.customerName} · Verified customer</Text>
+      <Text
+        style={{
+          color: colors.muted,
+          fontFamily: fonts.body,
+          fontSize: 14,
+          lineHeight: 24
+        }}
+      >
+        {review.comment}
+      </Text>
+      <Text
+        style={{
+          color: colors.primaryDark,
+          fontFamily: fonts.bodySemiBold,
+          fontSize: 12
+        }}
+      >
+        {review.customerName} · Verified customer
+      </Text>
     </View>
   );
 }
 
-function QuestionFeedbackCard({ entry }: { entry: ProductFeedback["questions"][number] }) {
+function QuestionFeedbackCard({
+  entry
+}: {
+  entry: ProductFeedback["questions"][number];
+}) {
   return (
-    <View style={{ backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 10, padding: 16 }}>
+    <View
+      style={{
+        backgroundColor: colors.surfaceMuted,
+        borderColor: colors.border,
+        borderRadius: 8,
+        borderWidth: 1,
+        gap: 10,
+        padding: 16
+      }}
+    >
       <View style={{ alignItems: "flex-start", flexDirection: "row", gap: 12 }}>
-        <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 18, height: 36, justifyContent: "center", width: 36 }}><Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Q</Text></View>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: colors.surface,
+            borderRadius: 18,
+            height: 36,
+            justifyContent: "center",
+            width: 36
+          }}
+        >
+          <Text
+            style={{
+              color: colors.primaryDark,
+              fontFamily: fonts.bodySemiBold,
+              fontSize: 14
+            }}
+          >
+            Q
+          </Text>
+        </View>
         <View style={{ flex: 1, gap: 8 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Text style={{ backgroundColor: colors.surface, borderRadius: 999, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 8, paddingVertical: 3 }}>Product question</Text><Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(entry.createdAt)}</Text></View>
-          <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold, fontSize: 14, lineHeight: 24 }}>{entry.question}</Text>
+          <View
+            style={{
+              alignItems: "center",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: 8
+            }}
+          >
+            <Text
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: 999,
+                color: colors.primaryDark,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 11,
+                paddingHorizontal: 8,
+                paddingVertical: 3
+              }}
+            >
+              Product question
+            </Text>
+            <Text
+              style={{
+                color: colors.muted,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 12
+              }}
+            >
+              {formatDate(entry.createdAt)}
+            </Text>
+          </View>
+          <Text
+            style={{
+              color: colors.ink,
+              fontFamily: fonts.bodySemiBold,
+              fontSize: 14,
+              lineHeight: 24
+            }}
+          >
+            {entry.question}
+          </Text>
         </View>
       </View>
-      <Text style={{ backgroundColor: colors.surface, borderRadius: 8, color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 24, padding: 10 }}><Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold }}>Answer: </Text>{entry.answer ?? "Awaiting answer from the team."}</Text>
-      <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{entry.customerName}</Text>
+      <Text
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 8,
+          color: colors.muted,
+          fontFamily: fonts.body,
+          fontSize: 14,
+          lineHeight: 24,
+          padding: 10
+        }}
+      >
+        <Text style={{ color: colors.ink, fontFamily: fonts.bodySemiBold }}>
+          Answer:{" "}
+        </Text>
+        {entry.answer ?? "Awaiting answer from the team."}
+      </Text>
+      <Text
+        style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}
+      >
+        {entry.customerName}
+      </Text>
     </View>
   );
 }
 
 function customerInitials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "C";
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "C"
+  );
 }
 
 function FeedbackEmpty({ label }: { label: string }) {
@@ -1356,7 +1740,7 @@ function RecommendationSection({
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={{ width: 146 }}>
-              <ProductCard compact product={item} />
+              <ProductCard compact product={item} variant="recommendation" />
             </View>
           )}
           showsHorizontalScrollIndicator={false}

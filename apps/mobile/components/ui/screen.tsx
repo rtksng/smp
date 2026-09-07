@@ -1,11 +1,8 @@
 import type { PropsWithChildren } from "react";
-import {
-  View,
-  useWindowDimensions,
-  type ScrollViewProps
-} from "react-native";
+import { View, useWindowDimensions, type ScrollViewProps } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { colors } from "@/lib/theme";
+import { StoreFooter } from "@/components/store-footer";
 
 type ScreenProps = PropsWithChildren<
   ScrollViewProps & {
@@ -39,7 +36,7 @@ export function Screen({
           flexGrow: 1,
           gap,
           maxWidth: 980,
-          paddingBottom: 40,
+          paddingBottom: 0,
           paddingHorizontal: horizontalPadding,
           paddingTop: 16,
           width: "100%"
@@ -56,6 +53,9 @@ export function Screen({
       {...scrollProps}
     >
       {children}
+      <View style={{ marginHorizontal: -horizontalPadding, marginTop: 32 }}>
+        <StoreFooter />
+      </View>
     </KeyboardAwareScrollView>
   );
 }

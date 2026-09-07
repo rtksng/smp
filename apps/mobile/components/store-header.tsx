@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Link, router } from "expo-router";
+import { Link, router, useGlobalSearchParams, usePathname } from "expo-router";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,18 @@ import { queryKeys } from "@/lib/query";
 
 export function StoreHeader() {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const searchParams = useGlobalSearchParams();
+  const returnParams = Object.entries(searchParams)
+    .filter(
+      ([key, value]) => key !== "id" && key !== "slug" && typeof value === "string"
+    )
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`
+    )
+    .join("&");
+  const returnTo = pathname + (returnParams ? `?${returnParams}` : "");
   const [search, setSearch] = useState("");
   const { session } = useAuth();
   const cartQuery = useQuery({
@@ -79,33 +91,37 @@ export function StoreHeader() {
             </Text>
           </Pressable>
         </Link>
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: colors.background,
-            borderRadius: 999,
-            flexDirection: "row",
-            gap: 4,
-            minHeight: 32,
-            paddingHorizontal: 10
-          }}
-        >
-          <MaterialCommunityIcons
-            color={colors.primaryDark}
-            name="map-marker-outline"
-            size={14}
-          />
-          <Text
-            selectable
+        <Link asChild href="/search">
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Delivery at checkout"
             style={{
-              color: colors.text,
-              fontFamily: fonts.bodySemiBold,
-              fontSize: 10
+              alignItems: "center",
+              backgroundColor: colors.background,
+              borderRadius: 999,
+              flexDirection: "row",
+              gap: 4,
+              minHeight: 32,
+              paddingHorizontal: 10
             }}
           >
-            Delivery at checkout
-          </Text>
-        </View>
+            <MaterialCommunityIcons
+              color={colors.primaryDark}
+              name="map-marker-outline"
+              size={14}
+            />
+            <Text
+              selectable
+              style={{
+                color: colors.text,
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 10
+              }}
+            >
+              Delivery at checkout
+            </Text>
+          </Pressable>
+        </Link>
       </View>
 
       <View style={{ alignItems: "center", flexDirection: "row", gap: 8 }}>
@@ -123,7 +139,7 @@ export function StoreHeader() {
           }}
         >
           <TextInput
-            accessibilityLabel="Search products or SKU"
+            accessibilityLabel="Search products, SKU, or brand"
             autoCapitalize="none"
             autoCorrect={false}
             clearButtonMode="while-editing"
@@ -138,7 +154,7 @@ export function StoreHeader() {
               color: colors.text,
               flex: 1,
               fontFamily: fonts.bodySemiBold,
-              fontSize: 13
+              fontSize: 14
             }}
             value={search}
           />
@@ -153,39 +169,40 @@ export function StoreHeader() {
             <MaterialCommunityIcons color={colors.text} name="magnify" size={20} />
           </Pressable>
         </View>
-        <Link asChild href={session ? "/account" : "/login?returnTo=/account"}>
+        <Link
+          asChild
+          href={session ? "/account" : { pathname: "/login", params: { returnTo } }}
+        >
           <Pressable
             accessibilityLabel={session ? "Open account" : "Login or signup"}
+            hitSlop={6}
             style={{
               alignItems: "center",
               height: 44,
               justifyContent: "center",
-              width: 44
+              width: 32
             }}
           >
             <MaterialCommunityIcons
               color={colors.ink}
               name="account-outline"
-              size={22}
+              size={20}
             />
           </Pressable>
         </Link>
-        <Link asChild href={session ? "/cart" : "/login?returnTo=/cart"}>
+        <Link asChild href="/cart">
           <Pressable
             accessibilityLabel="Open cart"
+            hitSlop={6}
             style={{
               alignItems: "center",
               height: 44,
               justifyContent: "center",
               position: "relative",
-              width: 44
+              width: 32
             }}
           >
-            <MaterialCommunityIcons
-              color={colors.ink}
-              name="cart-outline"
-              size={22}
-            />
+            <MaterialCommunityIcons color={colors.ink} name="cart-outline" size={20} />
             {cartCount > 0 ? (
               <View
                 style={{

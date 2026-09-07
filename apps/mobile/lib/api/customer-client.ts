@@ -1,5 +1,5 @@
 import type { ApiAuthInterceptor, RequestOptions } from "./client";
-import { requestApi } from "./client";
+import { requestApi, requestApiResponse } from "./client";
 import type { z } from "zod";
 
 let authInterceptor: ApiAuthInterceptor | null = null;
@@ -18,6 +18,20 @@ export function requestCustomerApi<T>(
   }
 
   return requestApi(path, schema, {
+    ...options,
+    auth: authInterceptor
+  });
+}
+
+export function requestCustomerApiResponse(
+  path: string,
+  options: RequestOptions = {}
+) {
+  if (!authInterceptor) {
+    throw new Error("Customer authentication is not ready.");
+  }
+
+  return requestApiResponse(path, {
     ...options,
     auth: authInterceptor
   });

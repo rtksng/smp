@@ -33,7 +33,12 @@ export function CatalogNavSheets({
     queryKey: queryKeys.categories
   });
   const categories =
-    categoriesQuery.data?.filter((category) => category.isActive) ?? [];
+    categoriesQuery.data
+      ?.filter((category) => category.isActive)
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.name.localeCompare(right.name)
+      ) ?? [];
 
   return (
     <Modal
@@ -144,11 +149,7 @@ export function CatalogNavSheets({
                   >
                     {item.name}
                   </Text>
-                  <Feather
-                    color={colors.text}
-                    name="chevron-right"
-                    size={16}
-                  />
+                  <Feather color={colors.text} name="chevron-right" size={16} />
                 </Pressable>
               )}
               showsVerticalScrollIndicator={false}
@@ -316,13 +317,7 @@ function SearchSheetContent({
   );
 }
 
-function SheetHeader({
-  label,
-  onClose
-}: {
-  label: string;
-  onClose: () => void;
-}) {
+function SheetHeader({ label, onClose }: { label: string; onClose: () => void }) {
   return (
     <View
       style={{

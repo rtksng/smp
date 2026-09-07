@@ -64,6 +64,32 @@ export async function requestApi<T>(
   schema: z.ZodType<T>,
   options: RequestOptions = {}
 ): Promise<T> {
+  const response = await requestApiResponse(path, options);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const payload = await parsePayload(response);
+  const data = isSuccessEnvelope(payload) ? payload.data : payload;
+  const parsed = schema.safeParse(data);
+
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  throw new ApiError(
+    "Customer API response did not match the expected contract.",
+    500,
+    "SCHEMA_ERROR",
+    parsed.error
+  );
+}
+
+export async function requestApiResponse(
+  path: string,
+  options: RequestOptions = {}
+): Promise<Response> {
   const {
     auth,
     baseUrl,
@@ -118,41 +144,24 @@ export async function requestApi<T>(
       const refreshedAccessToken = await auth.refreshAccessToken();
 
       if (refreshedAccessToken) {
-        return requestApi(path, schema, {
+        return requestApiResponse(path, {
           ...options,
           skipAuthRefresh: true,
           tokenOverride: refreshedAccessToken
         });
       }
     } catch {
-      await auth.clearSession();
+      // Clear once below when refreshing an expired session fails.
     }
 
     await auth.clearSession();
   }
 
-  if (response.status === 204) {
-    return undefined as T;
+  if (response.ok) {
+    return response;
   }
 
   const payload = await parsePayload(response);
-
-  if (response.ok) {
-    const data = isSuccessEnvelope(payload) ? payload.data : payload;
-    const parsed = schema.safeParse(data);
-
-    if (parsed.success) {
-      return parsed.data;
-    }
-
-    throw new ApiError(
-      "Customer API response did not match the expected contract.",
-      500,
-      "SCHEMA_ERROR",
-      parsed.error
-    );
-  }
-
   const messages = readErrorMessages(payload);
   const code =
     response.status === 400 && messages.length > 1

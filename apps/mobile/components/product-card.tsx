@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, usePathname } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { addCartItem } from "@/lib/api/cart";
 import type { Product } from "@/lib/api/schemas";
@@ -13,15 +14,19 @@ import { cardStyle, colors, fonts } from "@/lib/theme";
 
 export function ProductCard({
   compact = false,
-  product
+  product,
+  variant = "listing"
 }: {
   compact?: boolean;
   product: Product;
+  variant?: "listing" | "rail" | "recommendation";
 }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const image = product.images.find((item) => item.isPrimary) ?? product.images[0];
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const [addedToCart, setAddedToCart] = useState(false);
   const savingsPercent =
     product.mrp > product.sellingPrice
       ? Math.round(((product.mrp - product.sellingPrice) / product.mrp) * 100)
@@ -36,6 +41,7 @@ export function ProductCard({
       );
     },
     onSuccess: (cart) => {
+      setAddedToCart(true);
       queryClient.setQueryData(queryKeys.cart(), cart);
       void queryClient.invalidateQueries({ queryKey: ["customer", "cart"] });
     }
@@ -61,7 +67,7 @@ export function ProductCard({
     <View
       style={{
         ...cardStyle,
-        minHeight: compact ? 229 : undefined,
+        minHeight: compact && variant !== "recommendation" ? 229 : undefined,
         overflow: "hidden",
         width: "100%"
       }}
@@ -86,27 +92,34 @@ export function ProductCard({
             backgroundColor: colors.background,
             borderBottomColor: colors.border,
             borderBottomWidth: 1,
-            height: compact ? 96 : undefined,
+            height: variant === "recommendation" ? 112 : compact ? 96 : undefined,
             aspectRatio: compact ? undefined : 1.25,
             justifyContent: "center"
           }}
         >
-          {image ? (
+          {image && image.url !== failedImageUrl ? (
             <Image
               accessibilityLabel={image.altText ?? product.name}
-              contentFit="contain"
+              contentFit="cover"
+              onError={() => setFailedImageUrl(image.url)}
               source={{ uri: image.url }}
               style={{ height: "100%", width: "100%" }}
               transition={180}
             />
           ) : (
-            <MaterialCommunityIcons
-              color={colors.primaryDark}
-              name="medical-bag"
-              size={42}
-            />
+            <View style={{ alignItems: "center", gap: 4, padding: 8 }}>
+              <MaterialCommunityIcons color={colors.primaryDark} name="medical-bag" size={compact ? 32 : 42} />
+              <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11, textAlign: "center" }}>Product image unavailable</Text>
+            </View>
           )}
-          {compact ? (
+          {variant === "rail" ? (
+            <View
+              pointerEvents="none"
+              style={{ backgroundColor: colors.surface, borderColor: colors.primaryDark, borderRadius: 8, borderWidth: 1, bottom: 8, paddingHorizontal: 12, paddingVertical: 4, position: "absolute", right: 8 }}
+            >
+              <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>View</Text>
+            </View>
+          ) : compact && variant !== "recommendation" ? (
             <Pressable
               accessibilityLabel={`Add ${product.name} to cart`}
               accessibilityRole="button"
@@ -128,7 +141,7 @@ export function ProductCard({
                 borderWidth: 1,
                 bottom: 8,
                 justifyContent: "center",
-                minHeight: 24,
+                minHeight: 32,
                 opacity:
                   !product.inStock || cartMutation.isPending
                     ? 0.6
@@ -168,7 +181,7 @@ export function ProductCard({
           }}
         >
           <Text
-            numberOfLines={1}
+            numberOfLines={variant === "rail" ? undefined : 1}
             selectable
             style={{
               color: colors.muted,
@@ -184,8 +197,8 @@ export function ProductCard({
             style={{
               color: colors.text,
               fontFamily: fonts.heading,
-              fontSize: 12,
-              lineHeight: 18,
+              fontSize: variant === "recommendation" ? 14 : 12,
+              lineHeight: variant === "recommendation" ? 20 : 18,
               minHeight: 36
             }}
           >
@@ -199,7 +212,7 @@ export function ProductCard({
             style={{
               color: colors.ink,
               fontFamily: fonts.headingBold,
-              fontSize: 16,
+              fontSize: variant === "recommendation" ? 18 : 16,
               fontVariant: ["tabular-nums"]
             }}
           >
@@ -218,14 +231,29 @@ export function ProductCard({
             }}
           >
             <Text style={{ textDecorationLine: "line-through" }}>
-              MRP {formatCatalogRupees(product.mrp)}
+              {variant === "rail" ? "" : "MRP "}{formatCatalogRupees(product.mrp)}
             </Text>
             {savingsPercent ? (
               <Text style={{ color: "#17A89D" }}> {savingsPercent}% OFF</Text>
             ) : null}
           </Text>
+          {addedToCart ? (
+            <Text accessibilityLiveRegion="polite" style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>Added to cart.</Text>
+          ) : null}
         </View>
       </Pressable>
+      {variant === "recommendation" ? (
+        <Pressable
+          accessibilityLabel={`Add ${product.name} to cart`}
+          accessibilityRole="button"
+          accessibilityState={{ busy: cartMutation.isPending, disabled: !product.inStock || cartMutation.isPending }}
+          disabled={!product.inStock || cartMutation.isPending}
+          onPress={handleAddToCart}
+          style={({ pressed }) => ({ alignItems: "center", borderColor: colors.primaryDark, borderRadius: 999, borderWidth: 1, justifyContent: "center", margin: 12, marginTop: 0, minHeight: 40, opacity: !product.inStock || cartMutation.isPending ? 0.6 : pressed ? 0.78 : 1 })}
+        >
+          <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{cartMutation.isPending ? "Adding..." : product.inStock ? "Add" : "Out of stock"}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

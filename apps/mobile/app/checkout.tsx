@@ -555,6 +555,7 @@ function CheckoutMetric({ label, value }: { label: string; value: string }) {
 const checkoutAddressTypes: AddressType[] = ["CLINIC", "HOSPITAL", "WORK", "HOME", "OTHER"];
 
 function CheckoutAddressForm({ address, onCancel, onSaved }: { address: Address | null; onCancel: () => void; onSaved: (address: Address) => void }) {
+  const { session } = useAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<AddressInput>({
     addressLine1: address?.addressLine1 ?? "",
@@ -562,7 +563,7 @@ function CheckoutAddressForm({ address, onCancel, onSaved }: { address: Address 
     city: address?.city ?? "",
     fullName: address?.fullName ?? "",
     landmark: address?.landmark ?? null,
-    phone: address?.phone ?? "+91",
+    phone: address?.phone ?? session?.customer.mobileNumber ?? "+91",
     pincode: address?.pincode ?? "",
     state: address?.state ?? "",
     type: address?.type ?? "CLINIC"

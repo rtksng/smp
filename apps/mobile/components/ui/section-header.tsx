@@ -24,11 +24,12 @@ export function SectionHeader({
         numberOfLines={2}
         selectable
         style={{
-          color: colors.ink,
+          color: colors.text,
           flex: 1,
           flexShrink: 1,
-          fontFamily: fonts.headingBold,
-          fontSize: 18
+          fontFamily: fonts.heading,
+          fontSize: 18,
+          lineHeight: 24
         }}
       >
         {title}

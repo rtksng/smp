@@ -3,7 +3,7 @@ import type { PropsWithChildren } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Text, TextInput, View } from "react-native";
 import { AccountInfoGrid, AccountPageHeader } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
@@ -19,7 +19,8 @@ import {
   verifyRazorpayPayment
 } from "@/lib/api/payments";
 import { useAuth } from "@/lib/auth/auth-context";
-import { canCancelOrder, canRequestReturn } from "@/lib/commerce/orders";
+import { canCancelOrder, canRequestReturn, canRetryOnlinePayment, getOrderRefreshInterval } from "@/lib/commerce/orders";
+import { canDownloadOrderInvoice, shareOrderInvoice } from "@/lib/api/invoices";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDate, formatRupees, formatStatus } from "@/lib/format";
 import {
@@ -43,8 +44,15 @@ export default function OrderDetailScreen() {
   const orderQuery = useQuery({
     enabled: Boolean(session && id),
     queryFn: () => getOrder(id),
-    queryKey: queryKeys.order(id)
+    queryKey: queryKeys.order(id),
+    refetchInterval: (query) => query.state.data ? getOrderRefreshInterval(query.state.data.status) : false
   });
+  const invoiceMutation = useMutation({
+    mutationFn: async () => {
+      if (orderQuery.data) await shareOrderInvoice(orderQuery.data);
+    }
+  });
+  const proofMutation = useMutation({ mutationFn: (url: string) => Linking.openURL(url) });
 
   useEffect(() => {
     if (isReady && !session) {
@@ -146,7 +154,7 @@ export default function OrderDetailScreen() {
     );
   }
 
-  if (orderQuery.isLoading) {
+  if (!isReady || (session && orderQuery.isLoading)) {
     return (
       <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
         <AccountPageHeader description="Review order items, delivery address, payment details, timeline, and invoice." title="Order detail" />
@@ -154,6 +162,8 @@ export default function OrderDetailScreen() {
       </Screen>
     );
   }
+
+  if (!session) return null;
 
   if (orderQuery.isError || !orderQuery.data) {
     return (
@@ -171,9 +181,12 @@ export default function OrderDetailScreen() {
   const order = orderQuery.data;
   const canCancel = canCancelOrder(order.status);
   const canReturn = canRequestReturn(order.status, order.refunds);
-  const canRetryPayment =
-    order.paymentMethod === "ONLINE" &&
-    !["PAID", "REFUNDED", "PARTIALLY_REFUNDED"].includes(order.paymentStatus);
+  const canRetryPayment = canRetryOnlinePayment(order);
+  const isActionPending = actionMutation.isPending || paymentMutation.isPending;
+  const latestRefund = order.refunds[0];
+  const statusEntries = order.statusHistory.length ? order.statusHistory : [
+    { id: `${order.id}-current`, status: order.status, createdAt: order.createdAt, note: null }
+  ];
 
   return (
     <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
@@ -185,18 +198,18 @@ export default function OrderDetailScreen() {
         { label: "Total", value: formatRupees(order.totals.grandTotal) }
       ]} />
 
-      {actionMessage || actionMutation.error || paymentMutation.error ? (
+      {actionMessage || actionMutation.error || paymentMutation.error || proofMutation.error ? (
         <Text
           accessibilityRole="alert"
           selectable
           style={{
             backgroundColor:
-              actionMutation.error || paymentMutation.error
+              actionMutation.error || paymentMutation.error || proofMutation.error
                 ? colors.dangerBackground
                 : colors.primarySoft,
             borderRadius: 10,
             color:
-              actionMutation.error || paymentMutation.error
+              actionMutation.error || paymentMutation.error || proofMutation.error
                 ? colors.danger
                 : colors.primaryDark,
             fontFamily: fonts.bodySemiBold,
@@ -204,9 +217,9 @@ export default function OrderDetailScreen() {
             padding: 12
           }}
         >
-          {actionMutation.error || paymentMutation.error
+          {actionMutation.error || paymentMutation.error || proofMutation.error
             ? getErrorMessage(
-                actionMutation.error ?? paymentMutation.error,
+                actionMutation.error ?? paymentMutation.error ?? proofMutation.error,
                 "Unable to complete the action."
               )
             : actionMessage}
@@ -238,8 +251,9 @@ export default function OrderDetailScreen() {
                 fontSize: 11
               }}
             >
-              SKU {item.sku} · Qty {item.quantity}
+              SKU {item.sku} | Qty {item.quantity} | GST {item.taxRate}%
             </Text>
+            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatRupees(item.unitPrice)} each</Text>
             <Text
               selectable
               style={{
@@ -293,7 +307,7 @@ export default function OrderDetailScreen() {
       </OrderSection>
 
       <OrderSection icon="timeline-clock-outline" title="Order timeline">
-        {order.statusHistory.map((entry) => (
+        {statusEntries.map((entry) => (
           <View key={entry.id} style={{ flexDirection: "row", gap: 10 }}>
             <View
               style={{
@@ -359,12 +373,39 @@ export default function OrderDetailScreen() {
                 {delivery.deliveryPartnerName ?? "Delivery partner will be assigned"}
                 {delivery.vehicleNumber ? ` · ${delivery.vehicleNumber}` : ""}
               </Text>
+              {delivery.failureReason ? <Text accessibilityRole="alert" selectable style={{ color: colors.danger, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>{delivery.failureReason}</Text> : null}
+              {delivery.proofOfDeliveryUrl && /^https?:\/\//i.test(delivery.proofOfDeliveryUrl) ? (
+                <Button loading={proofMutation.isPending} onPress={() => proofMutation.mutate(delivery.proofOfDeliveryUrl!)} variant="outline">View proof of delivery</Button>
+              ) : null}
+              <View style={{ borderTopColor: colors.border, borderTopWidth: 1, gap: 12, marginTop: 8, paddingTop: 12 }}>
+                {delivery.statusHistory.map((entry) => (
+                  <View key={entry.id} style={{ gap: 4 }}>
+                    <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatStatus(entry.status)}</Text>
+                    <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{formatDate(entry.createdAt)}{entry.latitude !== null && entry.longitude !== null ? ` | ${entry.latitude.toFixed(4)}, ${entry.longitude.toFixed(4)}` : ""}</Text>
+                    {entry.note ? <Text selectable style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20 }}>{entry.note}</Text> : null}
+                  </View>
+                ))}
+              </View>
             </View>
           ))}
         </OrderSection>
       ) : null}
 
       <OrderSection icon="receipt-text-outline" title="Payment summary">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <Text selectable style={{ color: colors.text, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Payment: {formatStatus(order.paymentStatus)}</Text>
+          <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>Method: {order.paymentMethod ? formatStatus(order.paymentMethod) : "Not selected"}</Text>
+        </View>
+        {latestRefund ? (
+          <View style={{ backgroundColor: colors.background, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: 8, padding: 12 }}>
+            <OrderInfoRow label="Return/refund" value={formatStatus(latestRefund.status)} />
+            <OrderInfoRow label="Refund amount" value={formatRupees(latestRefund.amount)} />
+            <OrderInfoRow label="Requested" value={formatDate(latestRefund.createdAt)} />
+            {latestRefund.processedAt ? <OrderInfoRow label="Processed" value={formatDate(latestRefund.processedAt)} /> : null}
+            {latestRefund.providerRefundId ? <OrderInfoRow label="Provider reference" value={latestRefund.providerRefundId} /> : null}
+            {latestRefund.reason ? <OrderInfoRow label="Reason" value={latestRefund.reason} /> : null}
+          </View>
+        ) : null}
         <SummaryRow label="Subtotal" value={order.totals.subtotal} />
         <SummaryRow label="Tax" value={order.totals.tax} />
         <SummaryRow label="Delivery" value={order.totals.deliveryCharge} />
@@ -380,8 +421,16 @@ export default function OrderDetailScreen() {
         </View>
       </OrderSection>
 
+      <OrderSection icon="file-document-outline" title="Order actions">
+      {canDownloadOrderInvoice(order) ? (
+        <Button loading={invoiceMutation.isPending} onPress={() => invoiceMutation.mutate()} variant="outline">Download PDF invoice</Button>
+      ) : (
+        <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 13, lineHeight: 20 }}>Invoice is available after the order is confirmed and payment requirements are met.</Text>
+      )}
+      {invoiceMutation.error ? <Text accessibilityRole="alert" selectable style={{ color: colors.danger, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>{getErrorMessage(invoiceMutation.error, "Unable to download invoice.")}</Text> : null}
       {canRetryPayment ? (
         <Button
+          disabled={isActionPending}
           loading={paymentMutation.isPending}
           onPress={() => paymentMutation.mutate()}
         >
@@ -389,6 +438,7 @@ export default function OrderDetailScreen() {
         </Button>
       ) : null}
       <Button
+        disabled={isActionPending}
         loading={
           actionMutation.isPending && actionMutation.variables === "reorder"
         }
@@ -397,6 +447,8 @@ export default function OrderDetailScreen() {
       >
         Reorder these items
       </Button>
+      <Button href="/orders" variant="outline">Back to orders</Button>
+      </OrderSection>
       {canCancel || canReturn ? (
         <View style={{ ...cardStyle, borderRadius: 8, gap: 11, padding: 16 }}>
           <Text
@@ -406,6 +458,7 @@ export default function OrderDetailScreen() {
             {canCancel ? "Cancel order" : "Request a return"}
           </Text>
           <TextInput
+            editable={!isActionPending}
             accessibilityLabel={
               canCancel ? "Cancellation reason" : "Return reason"
             }
@@ -431,6 +484,7 @@ export default function OrderDetailScreen() {
             value={reason}
           />
           <Button
+            disabled={isActionPending}
             loading={
               actionMutation.isPending &&
               actionMutation.variables === (canCancel ? "cancel" : "return")
@@ -445,6 +499,15 @@ export default function OrderDetailScreen() {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+function OrderInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12, justifyContent: "space-between" }}>
+      <Text selectable style={{ color: colors.muted, flex: 1, fontFamily: fonts.bodySemiBold, fontSize: 13 }}>{label}</Text>
+      <Text selectable style={{ color: colors.text, flex: 1, fontFamily: fonts.bodySemiBold, fontSize: 13, textAlign: "right" }}>{value}</Text>
+    </View>
   );
 }
 

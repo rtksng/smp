@@ -63,15 +63,25 @@ export default function LoginScreen() {
     if (submittingRef.current) {
       return;
     }
+    if (!canRequestOtp) {
+      setError("Enter a valid 10-digit Indian mobile number.");
+      return;
+    }
+    if (step === "otp" && cooldown > 0) {
+      return;
+    }
 
     submittingRef.current = true;
     setSubmitting(true);
     setError(null);
+    setDevOtp(null);
 
     try {
       const result = await requestOtp(mobileNumber);
+      setMobileNumber(result.mobileNumber);
       setDevOtp(result.devOtp ?? null);
       setCooldown(result.resendAfterSeconds);
+      setOtp("");
       setStep("otp");
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to send OTP."));
@@ -135,7 +145,7 @@ export default function LoginScreen() {
           <Text
             selectable
             style={{
-              color: colors.gold,
+              color: colors.primaryDark,
               fontFamily: fonts.bodySemiBold,
               fontSize: 11,
               textTransform: "uppercase"
@@ -252,6 +262,7 @@ export default function LoginScreen() {
             </Button>
             <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" }}>
               <LoginTextAction
+                disabled={isSubmitting}
                 icon="arrow-left"
                 label="Change number"
                 onPress={() => {
@@ -291,7 +302,7 @@ export default function LoginScreen() {
 
 function LoginTextAction({ disabled = false, icon, label, onPress }: { disabled?: boolean; icon: "arrow-left" | "refresh"; label: string; onPress: () => void }) {
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => ({ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 40, opacity: disabled ? 0.5 : pressed ? 0.72 : 1 })}>
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => ({ alignItems: "center", flexDirection: "row", gap: 8, minHeight: 44, opacity: disabled ? 0.5 : pressed ? 0.72 : 1 })}>
       <MaterialCommunityIcons color={disabled ? "#849C98" : colors.primaryDark} name={icon} size={16} />
       <Text style={{ color: disabled ? "#849C98" : colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 14 }}>{label}</Text>
     </Pressable>

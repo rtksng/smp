@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Text, View } from "react-native";
-import { AccountPageHeader } from "@/components/account-layout";
+import { AccountInfoGrid, AccountPageHeader, AccountSection, AccountSectionHeader, AccountStatusBadge } from "@/components/account-layout";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
 import {
@@ -57,24 +57,25 @@ export default function OrdersScreen() {
     );
   }
 
-  if (!query.data?.items.length) {
-    return (
-      <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
-        <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
-        <EmptyState
-          action={<Button href="/search">Browse products</Button>}
-          description="Placed orders and delivery progress will appear here."
-          title="No orders yet"
-        />
-      </Screen>
-    );
-  }
+  const orders = query.data?.items ?? [];
+  const latestOrder = orders[0];
 
   return (
     <Screen contentContainerStyle={{ gap: 20, paddingTop: 24 }}>
       <AccountPageHeader description="Track order status, payment status, totals, and invoices." title="Orders" />
-      {query.data.items.map((order) => (
-        <View key={order.id} style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 16 }}>
+      <AccountInfoGrid items={[
+        { label: "Total orders", value: String(query.data?.pagination.total ?? 0) },
+        { label: "Latest", value: latestOrder ? formatDate(latestOrder.placedAt ?? latestOrder.createdAt) : "-" },
+        { label: "Latest status", value: latestOrder ? formatStatus(latestOrder.status) : "-" },
+        { label: "Latest total", value: latestOrder ? formatRupees(latestOrder.totals.grandTotal) : "-" }
+      ]} />
+      {orders.length === 0 ? (
+        <EmptyState action={<Button href="/search">Shop products</Button>} description="Your customer orders will appear here after checkout." title="No orders yet" />
+      ) : (
+      <AccountSection>
+        <AccountSectionHeader description="Review each order, status, payment state, and invoice availability." title="Order history" />
+      {orders.map((order) => (
+        <View key={order.id} style={{ ...cardStyle, backgroundColor: colors.background, borderRadius: 8, gap: 12, padding: 16 }}>
           <View
             style={{
               alignItems: "flex-start",
@@ -104,7 +105,7 @@ export default function OrdersScreen() {
                   fontSize: 11
                 }}
               >
-                {formatDate(order.createdAt)} · {order.items.length} items
+                {formatDate(order.placedAt ?? order.createdAt)}
               </Text>
             </View>
             <Text
@@ -124,50 +125,19 @@ export default function OrdersScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-            <StatusBadge label={formatStatus(order.status)} />
-            <StatusBadge
-              label={`${formatStatus(order.paymentStatus)} · ${
-                order.paymentMethod ?? "Payment"
-              }`}
-              payment
-            />
+            <AccountStatusBadge label={formatStatus(order.status)} success={order.status === "DELIVERED"} />
+            <AccountStatusBadge label={formatStatus(order.paymentStatus)} />
           </View>
           <Button
             href={{ pathname: "/orders/[id]", params: { id: order.id } }}
             variant="outline"
           >
-            View order
+            View details
           </Button>
         </View>
       ))}
+      </AccountSection>
+      )}
     </Screen>
-  );
-}
-
-function StatusBadge({
-  label,
-  payment = false
-}: {
-  label: string;
-  payment?: boolean;
-}) {
-  return (
-    <Text
-      selectable
-      adjustsFontSizeToFit
-      minimumFontScale={0.82}
-      numberOfLines={1}
-      style={{
-        backgroundColor: payment ? "#EEF6F5" : colors.primarySoft,
-        borderRadius: 999,
-        color: payment ? colors.text : colors.primaryDark,
-        fontFamily: fonts.bodySemiBold,
-        fontSize: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 6
-      }}
-    >
-      {label}
-    </Text>
   );
 }

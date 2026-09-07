@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { Screen } from "@/components/ui/screen";
@@ -99,6 +99,7 @@ export default function CartScreen() {
     <Screen>
       {cart.items.map((item) => (
         <CartItemCard
+          isMutating={isMutating}
           isRemoving={removeMutation.isPending && removeMutation.variables === item.id}
           isUpdating={
             updateMutation.isPending && updateMutation.variables?.itemId === item.id
@@ -169,22 +170,28 @@ export default function CartScreen() {
 }
 
 function CartItemCard({
+  isMutating,
   isRemoving,
   isUpdating,
   item,
   onRemove,
   onUpdate
 }: {
+  isMutating: boolean;
   isRemoving: boolean;
   isUpdating: boolean;
   item: CartItem;
   onRemove: () => void;
   onUpdate: (quantity: number) => void;
 }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   return (
     <View style={{ ...cardStyle, borderRadius: 8, gap: 12, padding: 12 }}>
       <View style={{ flexDirection: "row", gap: 12 }}>
-        <View
+        <Pressable
+          accessibilityLabel={`View ${item.name}`}
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: "/products/[slug]", params: { slug: item.slug } })}
           style={{
             alignItems: "center",
             backgroundColor: colors.surfaceMuted,
@@ -197,10 +204,11 @@ function CartItemCard({
             width: 96
           }}
         >
-          {item.imageUrl ? (
+          {item.imageUrl && item.imageUrl !== failedImageUrl ? (
             <Image
               accessibilityLabel={item.name}
               contentFit="cover"
+              onError={() => setFailedImageUrl(item.imageUrl)}
               source={{ uri: item.imageUrl }}
               style={{ height: "100%", width: "100%" }}
             />
@@ -211,13 +219,18 @@ function CartItemCard({
               size={34}
             />
           )}
-        </View>
+        </Pressable>
         <View style={{ flex: 1, gap: 5 }}>
           <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            <Text selectable style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.brand.name}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/brands/[slug]", params: { slug: item.brand.slug } })}>
+              <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{item.brand.name}</Text>
+            </Pressable>
             <Text selectable style={{ color: "#9CAFAC", fontFamily: fonts.bodySemiBold, fontSize: 11 }}>/</Text>
-            <Text selectable style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 11 }}>{item.category.name}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/search", params: { category: item.category.slug } })}>
+              <Text style={{ color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12 }}>{item.category.name}</Text>
+            </Pressable>
           </View>
+          <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/products/[slug]", params: { slug: item.slug } })}>
           <Text
             numberOfLines={2}
             selectable
@@ -230,12 +243,19 @@ function CartItemCard({
           >
             {item.name}
           </Text>
+          </Pressable>
           <Text selectable style={{ alignSelf: "flex-start", backgroundColor: colors.surfaceMuted, borderRadius: 8, color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 11, paddingHorizontal: 8, paddingVertical: 4 }}>SKU {item.sku}</Text>
+          {item.variantName ? <Text selectable style={{ alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderRadius: 8, color: colors.primaryDark, fontFamily: fonts.bodySemiBold, fontSize: 12, paddingHorizontal: 8, paddingVertical: 4 }}>{item.variantName}</Text> : null}
+          {item.subcategory ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/search", params: { category: item.category.slug, subcategory: item.subcategory!.slug } })}>
+              <Text style={{ alignSelf: "flex-start", backgroundColor: colors.surfaceMuted, borderRadius: 8, color: colors.muted, fontFamily: fonts.bodySemiBold, fontSize: 12, paddingHorizontal: 8, paddingVertical: 4 }}>{item.subcategory.name}</Text>
+            </Pressable>
+          ) : null}
         </View>
         <Pressable
           accessibilityLabel={`Remove ${item.name}`}
           accessibilityRole="button"
-          disabled={isRemoving}
+          disabled={isMutating}
           hitSlop={6}
           onPress={onRemove}
           style={{
@@ -256,7 +276,7 @@ function CartItemCard({
           />
         </Pressable>
       </View>
-      {!item.isAvailable ? (
+      {!item.isAvailable || item.quantity > item.availableQuantity ? (
         <Text
           accessibilityRole="alert"
           selectable
@@ -269,7 +289,9 @@ function CartItemCard({
             padding: 10
           }}
         >
-          This item is unavailable. Remove it before checkout.
+          {!item.isAvailable || item.availableQuantity <= 0
+            ? "This item is unavailable. Remove it before checkout."
+            : `Only ${item.availableQuantity} currently available. Reduce the quantity to continue.`}
         </Text>
       ) : null}
       <View
@@ -302,7 +324,7 @@ function CartItemCard({
           <Pressable
             accessibilityLabel={`Decrease ${item.name} quantity`}
             accessibilityRole="button"
-            disabled={isUpdating || item.quantity <= 1}
+            disabled={isMutating || item.quantity <= 1}
             onPress={() => onUpdate(item.quantity - 1)}
             style={{
               alignItems: "center",
@@ -329,7 +351,7 @@ function CartItemCard({
             accessibilityLabel={`Increase ${item.name} quantity`}
             accessibilityRole="button"
             disabled={
-              isUpdating || item.quantity >= Math.min(item.availableQuantity, 999)
+              isMutating || !item.isAvailable || item.quantity >= Math.min(item.availableQuantity, 999)
             }
             onPress={() => onUpdate(item.quantity + 1)}
             style={{
@@ -344,9 +366,9 @@ function CartItemCard({
         </View>
       </View>
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <CartMetric label="Unit" value={formatRupees(item.unitPrice)} />
-        <CartMetric label="Tax" value={formatRupees(item.tax)} />
-        <CartMetric label="Total" value={formatRupees(item.total)} />
+        <CartMetric label="Price" value={formatRupees(item.unitPrice)} />
+        <CartMetric label="GST" value={formatRupees(item.tax)} />
+        <CartMetric label="Subtotal" value={formatRupees(item.subtotal)} />
       </View>
     </View>
   );

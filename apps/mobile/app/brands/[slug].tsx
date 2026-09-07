@@ -12,7 +12,7 @@ import { colors } from "@/lib/theme";
 export default function BrandProductsScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const brandsQuery = useQuery({ queryFn: getBrands, queryKey: queryKeys.brands });
-  const brand = brandsQuery.data?.find((item) => item.slug === slug);
+  const brand = brandsQuery.data?.find((item) => item.slug === slug && item.isActive);
 
   if (brandsQuery.isLoading) {
     return <StateContainer><LoadingState label="Loading brand products" /></StateContainer>;
