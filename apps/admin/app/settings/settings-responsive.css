@@ -171,11 +171,6 @@
   gap: 6px;
 }
 
-.settingsModule .settingsAdminUsersTableActions button {
-  min-height: 34px;
-  padding-inline: 9px;
-}
-
 .settingsModule .settingsAdminUserForm,
 .settingsModule .settingsAdminUserFormGrid {
   gap: 11px;
@@ -223,10 +218,10 @@
   .settingsModule .settingsAdminUsersTable td:last-child {
     background: var(--surface);
     box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    min-width: 176px;
+    min-width: 94px !important;
     position: sticky;
     right: 0;
-    width: 176px;
+    width: 94px !important;
     z-index: 2;
   }
 
@@ -387,17 +382,6 @@
     max-height: min(440px, calc(100dvh - 130px));
   }
 
-  .settingsModule .settingsAdminUsersTable th:last-child,
-  .settingsModule .settingsAdminUsersTable td:last-child {
-    min-width: 164px;
-    width: 164px;
-  }
-
-  .settingsModule .settingsAdminUsersTableActions button {
-    font-size: 12px;
-    padding-inline: 7px;
-  }
-
   .settingsModule .settingsRolesTable th:first-child,
   .settingsModule .settingsRolesTable td:first-child {
     min-width: 150px;
@@ -406,10 +390,5 @@
 
   .settingsModule .rolePermissionTable .compactFlagList b {
     font-size: 11px;
-  }
-
-  .settingsModule .paginationControls {
-    gap: 8px;
-    margin-top: 0;
   }
 }

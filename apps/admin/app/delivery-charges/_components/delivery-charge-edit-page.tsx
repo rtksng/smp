@@ -1,8 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -80,16 +78,10 @@ export function DeliveryChargeEditPage({ ruleId }: { ruleId: string }) {
       <section className="panel deliveryChargeOverviewPanel">
         <DeliveryChargeSectionNav active="rules" />
         <PageHeader
-          actions={
-            <Button asChild className="iconTextButton" variant="outline">
-              <Link href="/delivery-charges/rules">
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back to rules</span>
-              </Link>
-            </Button>
-          }
+          backHref="/delivery-charges/rules"
+          backLabel="Back to rules"
           className="deliveryChargePageHeader deliveryChargeEditPageHeader"
-          eyebrow="Delivery charges"
+          eyebrow="Edit delivery charge"
           title="Edit delivery charge rule"
         />
       </section>

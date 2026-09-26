@@ -577,6 +577,8 @@ function DeliveryContent({
             <SharedPaginationControls
               onChange={setPartnerPage}
               page={partnersQuery.data.pagination.page}
+              pageSize={partnersQuery.data.pagination.limit}
+              totalItems={partnersQuery.data.pagination.total}
               totalPages={Math.max(partnersQuery.data.pagination.totalPages, 1)}
             />
           ) : null}
@@ -622,6 +624,8 @@ function DeliveryContent({
             <SharedPaginationControls
               onChange={setAssignmentPage}
               page={assignmentsQuery.data.pagination.page}
+              pageSize={assignmentsQuery.data.pagination.limit}
+              totalItems={assignmentsQuery.data.pagination.total}
               totalPages={Math.max(assignmentsQuery.data.pagination.totalPages, 1)}
             />
           ) : null}

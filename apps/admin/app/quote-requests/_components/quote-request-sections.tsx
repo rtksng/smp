@@ -253,6 +253,8 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
             <PaginationControls
               onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
               page={pagination.page}
+              pageSize={pagination.limit}
+              totalItems={pagination.total}
               totalPages={Math.max(pagination.totalPages, 1)}
             />
           ) : null}

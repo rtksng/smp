@@ -6,8 +6,6 @@ import { loadBulkRows } from "@/lib/bulk-actions";
 import { orderBulkActions } from "@/lib/bulk-module-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
 import {
-  ChevronLeft,
-  ChevronRight,
   Eye,
   RefreshCw,
   SlidersHorizontal
@@ -21,6 +19,7 @@ import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -277,11 +276,14 @@ function OrdersContent() {
         {!ordersQuery.isLoading && !ordersQuery.isError ? (
         <OrdersTable orders={orders} bulk={bulk} />
         ) : null}
-        {pagination && pagination.totalPages > 1 ? (
-          <NumberedOrderPagination
+        {pagination ? (
+          <PaginationControls
+            ariaLabel="Orders pagination"
             isPending={ordersQuery.isFetching}
             onChange={changePage}
             page={pagination.page}
+            pageSize={pagination.limit}
+            totalItems={pagination.total}
             totalPages={pagination.totalPages}
           />
         ) : null}
@@ -485,103 +487,6 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
       </div>
     </div>
   );
-}
-
-function NumberedOrderPagination({
-  isPending,
-  onChange,
-  page,
-  totalPages
-}: {
-  isPending: boolean;
-  onChange: (page: number) => void;
-  page: number;
-  totalPages: number;
-}) {
-  return (
-    <nav
-      aria-busy={isPending}
-      aria-label="Orders pagination"
-      className="ordersNumberedPagination"
-    >
-      <Button
-        aria-label="Previous page"
-        className="ordersPaginationButton"
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <ChevronLeft aria-hidden size={16} />
-      </Button>
-
-      {getPaginationItems(page, totalPages).map((item) =>
-        typeof item === "number" ? (
-          <Button
-            aria-current={item === page ? "page" : undefined}
-            aria-label={`Go to page ${item}`}
-            className="ordersPaginationButton"
-            key={item}
-            onClick={() => onChange(item)}
-            size="sm"
-            type="button"
-            variant={item === page ? "default" : "outline"}
-          >
-            {item}
-          </Button>
-        ) : (
-          <span aria-hidden className="ordersPaginationEllipsis" key={item}>
-            …
-          </span>
-        )
-      )}
-
-      <Button
-        aria-label="Next page"
-        className="ordersPaginationButton"
-        disabled={page >= totalPages}
-        onClick={() => onChange(page + 1)}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <ChevronRight aria-hidden size={16} />
-      </Button>
-    </nav>
-  );
-}
-
-function getPaginationItems(page: number, totalPages: number) {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-
-  if (page <= 4) {
-    return [1, 2, 3, 4, 5, "end-ellipsis", totalPages] as const;
-  }
-
-  if (page >= totalPages - 3) {
-    return [
-      1,
-      "start-ellipsis",
-      totalPages - 4,
-      totalPages - 3,
-      totalPages - 2,
-      totalPages - 1,
-      totalPages
-    ] as const;
-  }
-
-  return [
-    1,
-    "start-ellipsis",
-    page - 1,
-    page,
-    page + 1,
-    "end-ellipsis",
-    totalPages
-  ] as const;
 }
 
 function getErrorMessage(error: unknown) {

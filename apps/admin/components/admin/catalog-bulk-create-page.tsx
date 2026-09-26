@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   CheckCircle2,
   CircleAlert,
   LoaderCircle,
@@ -268,14 +267,7 @@ export function CatalogBulkCreatePage({
   return (
     <Card className="panel catalogBulkCreatePage">
       <PageHeader
-        actions={
-          <Button asChild className="iconTextButton" variant="outline">
-            <Link href={backHref}>
-              <ArrowLeft aria-hidden size={16} />
-              <span>Back to list</span>
-            </Link>
-          </Button>
-        }
+        backHref={backHref}
         className="catalogBulkCreateHeader catalogFormHeader"
         eyebrow={kind === "brand" ? "Brands" : "Categories"}
         level={2}

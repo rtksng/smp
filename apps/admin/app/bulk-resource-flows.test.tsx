@@ -174,7 +174,9 @@ describe("bulk workflows for the additional admin modules", () => {
     mount(<CategoryManagementPage view="list" />);
     const rootName = await screen.findByText("QA category 1");
     const rootRow = rootName.closest("tr")!;
-    fireEvent.click(within(rootRow).getByRole("button", { name: "Edit" }));
+    fireEvent.click(
+      within(rootRow).getByRole("button", { name: "Edit child categories of QA category 1" })
+    );
     await screen.findByText("QA child 1");
     selectPage();
     choose("deactivate");

@@ -274,6 +274,20 @@ export function formatDeliveryDateTime(value: string | null) {
   });
 }
 
+/** Date and time on separate lines keeps the table's Updated column narrow. */
+export function formatDeliveryDateParts(value: string | null) {
+  if (!value) {
+    return { date: "-", time: "" };
+  }
+
+  const date = new Date(value);
+
+  return {
+    date: date.toLocaleDateString("en-IN", { dateStyle: "medium" }),
+    time: date.toLocaleTimeString("en-IN", { timeStyle: "short" })
+  };
+}
+
 function trimmedOrUndefined(value: string) {
   const trimmed = value.trim();
 

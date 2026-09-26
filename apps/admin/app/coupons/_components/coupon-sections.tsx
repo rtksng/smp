@@ -381,6 +381,8 @@ function CouponsContent({ view }: { view: CouponView }) {
               <PaginationControls
                 onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
                 page={pagination.page}
+                pageSize={pagination.limit}
+                totalItems={pagination.total}
                 totalPages={Math.max(pagination.totalPages, 1)}
               />
             ) : null}
@@ -651,29 +653,29 @@ function CouponsTable({
                 <div className="tableActions">
                   <Button
                     asChild
-                    className="iconTextButton"
-                    size="sm"
+                    className="tableIconButton"
+                    size="icon"
                     variant="outline"
                   >
                     <Link
                       aria-label={`Edit ${coupon.code}`}
                       href={`/coupons/${encodeURIComponent(coupon.id)}/edit`}
+                      title="Edit"
                     >
                       <Pencil aria-hidden size={16} />
-                      <span>Edit</span>
                     </Link>
                   </Button>
                   <Button
                     aria-label={`Archive ${coupon.code}`}
-                    className="iconTextButton"
+                    className="tableIconButton"
                     disabled={isDeleting}
                     onClick={() => onDelete(coupon)}
-                    size="sm"
+                    size="icon"
+                    title="Archive"
                     type="button"
                     variant="destructive"
                   >
                     <Trash2 aria-hidden size={16} />
-                    <span>Archive</span>
                   </Button>
                 </div>
               </TableCell>

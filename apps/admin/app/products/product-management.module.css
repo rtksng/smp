@@ -191,7 +191,7 @@
     display: contents;
   }
 
-  .productFormPanel[data-product-view="create"] :global(.adminPageHeader .eyebrow) {
+  .productFormPanel[data-product-view="create"] :global(.adminPageHeaderEyebrowRow) {
     grid-column: 1 / -1;
     grid-row: 1;
   }

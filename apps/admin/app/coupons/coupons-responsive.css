@@ -224,14 +224,14 @@
 }
 
 .couponModule .couponTable th:last-child {
-  width: 200px;
+  width: 96px;
 }
 
 .couponModule .couponTable th:last-child,
 .couponModule .couponTable td:last-child {
-  max-width: 200px !important;
-  min-width: 200px !important;
-  width: 200px !important;
+  max-width: 96px !important;
+  min-width: 96px !important;
+  width: 96px !important;
 }
 
 .couponModule .couponTable td strong,
@@ -304,11 +304,11 @@
   .couponModule .couponTable td:last-child {
     background: var(--surface);
     box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    max-width: 200px !important;
-    min-width: 200px !important;
+    max-width: 96px !important;
+    min-width: 96px !important;
     position: sticky;
     right: 0;
-    width: 200px !important;
+    width: 96px !important;
     z-index: 2;
   }
 
@@ -495,31 +495,6 @@
 
   .couponModule .couponTable [data-slot="table"] {
     min-width: 790px !important;
-  }
-
-  .couponModule .couponTable th:last-child {
-    max-width: 116px !important;
-    min-width: 116px !important;
-    width: 116px !important;
-  }
-
-  .couponModule .couponTable td:last-child {
-    max-width: 116px !important;
-    min-width: 116px !important;
-    width: 116px !important;
-  }
-
-  .couponModule .couponTable .tableActions {
-    display: grid;
-    gap: 5px;
-    grid-template-columns: 1fr;
-  }
-
-  .couponModule .couponTable .tableActions > * {
-    justify-content: center;
-    min-height: 32px;
-    padding-inline: 6px;
-    width: 100%;
   }
 
   .couponModule .couponFormPanel .couponFormGrid {

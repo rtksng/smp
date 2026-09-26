@@ -6,11 +6,11 @@ import {
   BulkRowCheckbox
 } from "@/components/admin/bulk-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { useClientPagination } from "@/lib/use-client-pagination";
 import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   ImageUp,
   ListPlus,
@@ -35,6 +35,7 @@ import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -248,7 +249,8 @@ function CategoriesContent({
       ),
     [categories, editingCategory]
   );
-  const bulk = useBulkSelection(search, filteredRootCategories);
+  const categoryPages = useClientPagination(filteredRootCategories, search);
+  const bulk = useBulkSelection(search, categoryPages.pageItems);
   const canCreate = hasPermission(ADMIN_PERMISSION.ProductsCreate);
   const canUpdate = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
   const canDelete = hasPermission(ADMIN_PERMISSION.ProductsDelete);
@@ -396,16 +398,9 @@ function CategoriesContent({
       <>
         <Card className="panel catalogFormPanel">
           <PageHeader
+            backHref={CATEGORY_LIST_PATH}
             className="catalogFormHeader"
             level={2}
-            actions={
-              <Button asChild className="iconTextButton" variant="outline">
-                <Link href={CATEGORY_LIST_PATH}>
-                  <ArrowLeft aria-hidden size={16} />
-                  <span>Back to list</span>
-                </Link>
-              </Button>
-            }
             eyebrow={isEditView ? "Edit category" : "New category"}
             summary={
               isEditView
@@ -595,10 +590,20 @@ function CategoriesContent({
             bulk={bulk}
             canDelete={canDelete}
             canUpdate={canUpdate}
-            categories={filteredRootCategories}
+            categories={categoryPages.pageItems}
             isMutating={isMutating || bulk.isBusy}
             onDelete={requestDelete}
             onManageChildren={(category) => setChildCategoryModal(category)}
+          />
+        ) : null}
+        {!categoriesQuery.isLoading && !categoriesQuery.isError ? (
+          <PaginationControls
+            ariaLabel="Categories pagination"
+            onChange={(next) => { if (!bulk.isBusy) categoryPages.setPage(next); }}
+            page={categoryPages.page}
+            pageSize={categoryPages.pageSize}
+            totalItems={categoryPages.totalItems}
+            totalPages={categoryPages.totalPages}
           />
         ) : null}
       </Card>
@@ -664,9 +669,9 @@ function CategoryTable({
             ) : null}
             <TableHead>Category</TableHead>
             <TableHead>Slug</TableHead>
-            <TableHead>Child categories</TableHead>
             <TableHead>Sort</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Child categories</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -696,6 +701,10 @@ function CategoryTable({
                   ) : null}
                 </TableCell>
                 <TableCell>{category.slug}</TableCell>
+                <TableCell>{category.sortOrder}</TableCell>
+                <TableCell>
+                  <StatusBadge status={category.isActive ? "active" : "inactive"} />
+                </TableCell>
                 <TableCell>
                   <ChildCategorySummary
                     category={category}
@@ -703,46 +712,47 @@ function CategoryTable({
                     onManageChildren={() => onManageChildren(category)}
                   />
                 </TableCell>
-                <TableCell>{category.sortOrder}</TableCell>
-                <TableCell>
-                  <StatusBadge status={category.isActive ? "active" : "inactive"} />
-                </TableCell>
                 <TableCell>
                   <span className="tableActions">
                     {canUpdate ? (
                       <Button
                         asChild
-                        className="iconTextButton"
-                        size="sm"
+                        className="tableIconButton"
+                        size="icon"
                         variant="outline"
                       >
-                        <Link href={buildCategoryEditPath(category.id)}>
+                        <Link
+                          aria-label={`Edit ${category.name}`}
+                          href={buildCategoryEditPath(category.id)}
+                          title="Edit"
+                        >
                           <Pencil aria-hidden size={16} />
-                          <span>Edit</span>
                         </Link>
                       </Button>
                     ) : (
                       <Button
-                        className="iconTextButton"
+                        aria-label={`Edit ${category.name}`}
+                        className="tableIconButton"
                         disabled
-                        size="sm"
+                        size="icon"
+                        title="Edit"
                         type="button"
                         variant="outline"
                       >
                         <Pencil aria-hidden size={16} />
-                        <span>Edit</span>
                       </Button>
                     )}
                     <Button
-                      className="iconTextButton"
+                      aria-label={`Delete ${category.name}`}
+                      className="tableIconButton"
                       disabled={!canDelete || isMutating}
                       onClick={() => onDelete(category)}
-                      size="sm"
+                      size="icon"
+                      title="Delete"
                       type="button"
                       variant="destructive"
                     >
                       <Trash2 aria-hidden size={16} />
-                      <span>Delete</span>
                     </Button>
                   </span>
                 </TableCell>
@@ -768,15 +778,16 @@ function ChildCategorySummary({
     <span className="categoryChildSummary">
       <strong>{formatChildCategoryCount(category.children.length)}</strong>
       <Button
-        className="iconTextButton"
+        aria-label={`Edit child categories of ${category.name}`}
+        className="tableIconButton"
         disabled={!canUpdate || category.children.length === 0}
         onClick={onManageChildren}
-        size="sm"
+        size="icon"
+        title="Edit child categories"
         type="button"
         variant="outline"
       >
         <Pencil aria-hidden size={16} />
-        <span>Edit</span>
       </Button>
     </span>
   );
@@ -813,40 +824,37 @@ function ChildCategoryModal({
       }}
     >
       <DialogContent className="categoryChildDialog">
-        <DialogHeader>
+        <DialogHeader className="categoryChildDialogHeader">
           <p className="eyebrow">Child categories</p>
           <DialogTitle>{rootCategory.name}</DialogTitle>
           <DialogDescription className="panelSummary">
-            Manage child categories for this root category.
+            {formatChildCategoryCount(rootCategory.children.length)} under this root
+            category.
           </DialogDescription>
         </DialogHeader>
 
-        {canUpdate ? (
-          <div className="catalogBulkActions catalogChildBulkActions">
-            <BulkActions
-              key={bulk.scope}
-              selection={bulk}
-              actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
-              total={rootCategory.children.length}
-              disabled={isMutating}
-              loadAll={async () => rootCategory.children}
-              getLabel={(category) => category.name}
-              onComplete={onComplete}
+        <div className="categoryChildDialogBody">
+          {canUpdate ? (
+            <div className="catalogBulkActions catalogChildBulkActions">
+              <BulkActions
+                key={bulk.scope}
+                selection={bulk}
+                actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
+                total={rootCategory.children.length}
+                disabled={isMutating}
+                loadAll={async () => rootCategory.children}
+                getLabel={(category) => category.name}
+                onComplete={onComplete}
+              />
+            </div>
+          ) : null}
+          {rootCategory.children.length === 0 ? (
+            <EmptyState
+              body="No child categories available."
+              title="No child categories"
             />
-          </div>
-        ) : null}
-        {rootCategory.children.length === 0 ? (
-          <EmptyState
-            body="No child categories available."
-            title="No child categories"
-          />
-        ) : (
-          <>
-            <p className="catalogTableHint" id="child-categories-table-hint">
-              Swipe horizontally to see every child category action.
-            </p>
+          ) : (
             <Table
-              aria-describedby="child-categories-table-hint"
               aria-label={`Child categories for ${rootCategory.name}`}
               className="brandDataTable categoryChildDataTable"
               containerClassName="catalogTableViewport categoryChildTableViewport"
@@ -858,10 +866,10 @@ function ChildCategoryModal({
                       <BulkPageCheckbox selection={bulk} />
                     </TableHead>
                   ) : null}
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="categoryChildNameCell">Name</TableHead>
+                  <TableHead className="categoryChildSlugCell">Slug</TableHead>
+                  <TableHead className="categoryChildStatusCell">Status</TableHead>
+                  <TableHead className="categoryChildActionsCell">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -876,51 +884,58 @@ function ChildCategoryModal({
                         />
                       </TableCell>
                     ) : null}
-                    <TableCell>
+                    <TableCell className="categoryChildNameCell">
                       <strong>{subcategory.name}</strong>
                     </TableCell>
-                    <TableCell>{subcategory.slug}</TableCell>
-                    <TableCell>
+                    <TableCell className="categoryChildSlugCell">
+                      {subcategory.slug}
+                    </TableCell>
+                    <TableCell className="categoryChildStatusCell">
                       <StatusBadge
                         status={subcategory.isActive ? "active" : "inactive"}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="categoryChildActionsCell">
                       <span className="tableActions categoryChildModalActions">
                         {canUpdate ? (
                           <Button
                             asChild
-                            className="iconTextButton"
-                            size="sm"
+                            className="tableIconButton"
+                            size="icon"
                             variant="outline"
                           >
-                            <Link href={buildCategoryEditPath(subcategory.id)}>
+                            <Link
+                              aria-label={`Edit ${subcategory.name}`}
+                              href={buildCategoryEditPath(subcategory.id)}
+                              title="Edit"
+                            >
                               <Pencil aria-hidden size={16} />
-                              <span>Edit</span>
                             </Link>
                           </Button>
                         ) : (
                           <Button
-                            className="iconTextButton"
+                            aria-label={`Edit ${subcategory.name}`}
+                            className="tableIconButton"
                             disabled
-                            size="sm"
+                            size="icon"
+                            title="Edit"
                             type="button"
                             variant="outline"
                           >
                             <Pencil aria-hidden size={16} />
-                            <span>Edit</span>
                           </Button>
                         )}
                         <Button
-                          className="iconTextButton"
+                          aria-label={`Delete ${subcategory.name}`}
+                          className="tableIconButton"
                           disabled={!canDelete || isMutating}
                           onClick={() => onDelete(subcategory)}
-                          size="sm"
+                          size="icon"
+                          title="Delete"
                           type="button"
                           variant="destructive"
                         >
                           <Trash2 aria-hidden size={16} />
-                          <span>Delete</span>
                         </Button>
                       </span>
                     </TableCell>
@@ -928,8 +943,8 @@ function ChildCategoryModal({
                 ))}
               </TableBody>
             </Table>
-          </>
-        )}
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

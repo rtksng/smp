@@ -461,6 +461,8 @@ function ReturnsRefundsContent() {
           <PaginationControls
             onChange={setPage}
             page={pagination.page}
+            pageSize={pagination.limit}
+            totalItems={pagination.total}
             totalPages={Math.max(pagination.totalPages, 1)}
           />
         ) : null}

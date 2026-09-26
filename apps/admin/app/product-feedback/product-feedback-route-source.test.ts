@@ -56,6 +56,12 @@ describe("product feedback route split", () => {
     expect(responsiveStyles).toContain(
       ".productFeedbackTableViewport tr > :last-child"
     );
+    expect(responsiveStyles).not.toMatch(
+      /\.productFeedbackTableViewport\s+tr\s*>\s*:last-child\s*{[^}]*position:\s*sticky/
+    );
+    expect(responsiveStyles).toMatch(
+      /\.productFeedbackSectionNav\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/
+    );
     expect(responsiveStyles).toContain(
       ".productFeedbackBulkActions .bulkActionForm > button"
     );

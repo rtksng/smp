@@ -373,6 +373,8 @@ export function SettingsAdminUsersPage() {
             <PaginationControls
               onChange={setPage}
               page={pagination.page}
+              pageSize={pagination.limit}
+              totalItems={pagination.total}
               totalPages={Math.max(pagination.totalPages, 1)}
             />
           ) : null}
@@ -627,26 +629,28 @@ function AdminUsersTable({
               <TableCell>
                 <div className="tableActions settingsAdminUsersTableActions">
                   <Button
-                    className="iconTextButton"
+                    aria-label={`Edit ${getAdminUserName(user)}`}
+                    className="tableIconButton"
                     onClick={() => onEdit(user)}
-                    size="sm"
+                    size="icon"
+                    title="Edit"
                     type="button"
                     variant="outline"
                   >
                     <Pencil aria-hidden size={16} />
-                    <span>Edit</span>
                   </Button>
                   {user.role.code !== ADMIN_ROLE.SuperAdmin ? (
                     <Button
-                      className="iconTextButton"
+                      aria-label={`Delete ${getAdminUserName(user)}`}
+                      className="tableIconButton"
                       disabled={isDeleting || user.id === currentAdminId}
                       onClick={() => onDelete(user)}
-                      size="sm"
+                      size="icon"
+                      title="Delete"
                       type="button"
                       variant="destructive"
                     >
                       <Trash2 aria-hidden size={16} />
-                      <span>Delete</span>
                     </Button>
                   ) : null}
                 </div>

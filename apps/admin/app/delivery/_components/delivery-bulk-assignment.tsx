@@ -165,6 +165,8 @@ export function DeliveryBulkAssignment({
       </div>
       <PaginationControls
         page={currentPage}
+        pageSize={20}
+        totalItems={filtered.length}
         totalPages={Math.max(1, Math.ceil(filtered.length / 20))}
         onChange={(next) => {
           if (!bulk.isBusy) setPage(next);

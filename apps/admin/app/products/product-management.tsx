@@ -29,7 +29,6 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
-  ArrowLeft,
   Bold,
   CheckCircle2,
   FileUp,
@@ -499,14 +498,7 @@ function ProductManagementContent({
           data-product-view={isEditView ? "edit" : "create"}
         >
           <PageHeader
-            actions={
-              <Button asChild className="iconTextButton" variant="outline">
-                <Link href={PRODUCT_LIST_PATH}>
-                  <ArrowLeft aria-hidden size={16} />
-                  <span>Back to list</span>
-                </Link>
-              </Button>
-            }
+            backHref={PRODUCT_LIST_PATH}
             eyebrow={isEditView ? "Edit product" : "New product"}
             summary={
               isEditView
@@ -722,6 +714,7 @@ function ProductManagementContent({
             page={pagination.page}
             pageSize={pageSize}
             pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
+            totalItems={pagination.total}
             totalPages={pagination.totalPages}
           />
         ) : null}

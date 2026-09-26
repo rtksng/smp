@@ -6,11 +6,11 @@ import {
   BulkRowCheckbox
 } from "@/components/admin/bulk-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import { useClientPagination } from "@/lib/use-client-pagination";
 import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   ImageUp,
   ListPlus,
@@ -35,6 +35,7 @@ import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
+import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -209,7 +210,8 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
         brand.slug.toLowerCase().includes(searchText)
     );
   }, [brands, search]);
-  const bulk = useBulkSelection(search, filteredBrands);
+  const brandPages = useClientPagination(filteredBrands, search);
+  const bulk = useBulkSelection(search, brandPages.pageItems);
   const canCreate = hasPermission(ADMIN_PERMISSION.ProductsCreate);
   const canUpdate = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
   const canDelete = hasPermission(ADMIN_PERMISSION.ProductsDelete);
@@ -351,16 +353,9 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
       <>
         <Card className="panel catalogFormPanel">
           <PageHeader
+            backHref={BRAND_LIST_PATH}
             className="catalogFormHeader"
             level={2}
-            actions={
-              <Button asChild className="iconTextButton" variant="outline">
-                <Link href={BRAND_LIST_PATH}>
-                  <ArrowLeft aria-hidden size={16} />
-                  <span>Back to list</span>
-                </Link>
-              </Button>
-            }
             eyebrow={isEditView ? "Edit brand" : "New brand"}
             summary={
               isEditView
@@ -532,14 +527,24 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
           </div>
         ) : null}
         {!brandsQuery.isLoading && !brandsQuery.isError ? (
-          <BrandTable
-            bulk={bulk}
-            brands={filteredBrands}
-            canDelete={canDelete}
-            canUpdate={canUpdate}
-            isMutating={isMutating || bulk.isBusy}
-            onDelete={requestDelete}
-          />
+          <>
+            <BrandTable
+              bulk={bulk}
+              brands={brandPages.pageItems}
+              canDelete={canDelete}
+              canUpdate={canUpdate}
+              isMutating={isMutating || bulk.isBusy}
+              onDelete={requestDelete}
+            />
+            <PaginationControls
+              ariaLabel="Brands pagination"
+              onChange={(next) => { if (!bulk.isBusy) brandPages.setPage(next); }}
+              page={brandPages.page}
+              pageSize={brandPages.pageSize}
+              totalItems={brandPages.totalItems}
+              totalPages={brandPages.totalPages}
+            />
+          </>
         ) : null}
       </Card>
 
@@ -634,37 +639,42 @@ function BrandTable({
                     {canUpdate ? (
                       <Button
                         asChild
-                        className="iconTextButton"
-                        size="sm"
+                        className="tableIconButton"
+                        size="icon"
                         variant="outline"
                       >
-                        <Link href={buildBrandEditPath(brand.id)}>
+                        <Link
+                          aria-label={`Edit ${brand.name}`}
+                          href={buildBrandEditPath(brand.id)}
+                          title="Edit"
+                        >
                           <Pencil aria-hidden size={16} />
-                          <span>Edit</span>
                         </Link>
                       </Button>
                     ) : (
                       <Button
-                        className="iconTextButton"
+                        aria-label={`Edit ${brand.name}`}
+                        className="tableIconButton"
                         disabled
-                        size="sm"
+                        size="icon"
+                        title="Edit"
                         type="button"
                         variant="outline"
                       >
                         <Pencil aria-hidden size={16} />
-                        <span>Edit</span>
                       </Button>
                     )}
                     <Button
-                      className="iconTextButton"
+                      aria-label={`Delete ${brand.name}`}
+                      className="tableIconButton"
                       disabled={!canDelete || isMutating}
                       onClick={() => onDelete(brand)}
-                      size="sm"
+                      size="icon"
+                      title="Delete"
                       type="button"
                       variant="destructive"
                     >
                       <Trash2 aria-hidden size={16} />
-                      <span>Delete</span>
                     </Button>
                   </span>
                 </TableCell>

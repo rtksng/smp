@@ -1,4 +1,5 @@
-.catalogBulkCreatePage {
+/* Two classes so the shared .panel padding can't win on stylesheet order; each section pads itself. */
+.panel.catalogBulkCreatePage {
   gap: 0;
   overflow: hidden;
   padding: 0;
@@ -10,7 +11,7 @@
   border-bottom: 1px solid var(--border);
   gap: 7px;
   margin-bottom: 0;
-  padding: 24px 24px 20px;
+  padding: 16px 20px;
 }
 
 .catalogBulkCreateForm {
@@ -26,7 +27,7 @@
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(260px, 1fr) auto auto;
-  padding: 16px 24px;
+  padding: 14px 20px;
 }
 
 .catalogBulkPasteField {
@@ -77,7 +78,7 @@
   font-size: 13px;
   font-weight: 750;
   margin: 0;
-  padding: 10px 24px;
+  padding: 10px 20px;
 }
 
 .catalogBulkSummary {
@@ -86,7 +87,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px 24px;
-  padding: 10px 24px;
+  padding: 10px 20px;
 }
 
 .catalogBulkSummary span {
@@ -108,10 +109,8 @@
   max-height: min(560px, calc(100dvh - 330px));
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 24px;
+  padding: 14px 20px;
   scroll-behavior: smooth;
-  scrollbar-gutter: stable;
 }
 
 .catalogBulkRow {
@@ -208,7 +207,7 @@
   border-top: 1px solid var(--border);
   display: flex;
   gap: 10px;
-  padding: 14px 24px;
+  padding: 12px 20px;
   position: relative;
   z-index: 2;
 }
@@ -263,30 +262,38 @@
   }
 
   .catalogBulkCreateHeader {
-    padding: 16px;
+    padding: 12px 14px;
   }
 
   .catalogBulkCreateToolbar {
     align-items: stretch;
-    grid-template-columns: minmax(0, 1fr) 86px;
-    padding: 14px 16px;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 14px;
   }
 
   .catalogBulkPasteField {
     grid-column: 1 / -1;
   }
 
+  .catalogBulkPasteField textarea {
+    min-height: 64px;
+  }
+
   .catalogBulkPasteButton {
     grid-column: 1;
+    margin-bottom: 0;
     width: 100%;
   }
 
   .catalogBulkCount {
+    align-items: center;
+    display: flex;
+    gap: 4px;
     grid-column: 2;
     min-height: 40px;
     min-width: 0;
-    padding: 6px 8px;
-    width: 100%;
+    padding: 0 12px;
   }
 
   .catalogBulkCount strong {
@@ -296,53 +303,84 @@
   .catalogBulkRows {
     max-height: none;
     overflow: visible;
-    padding: 12px 16px;
+    padding: 12px 14px;
   }
 
+  /* Number and remove button share a header line so every field gets the full card width. */
   .catalogBulkRow,
   .catalogBulkRow[data-kind="category"] {
-    align-items: start;
-    grid-template-columns: 30px minmax(0, 1fr) 34px;
-    padding: 10px;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  .catalogBulkRowNumber {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .catalogBulkRemoveButton {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
   }
 
   .catalogBulkNameField,
   .catalogBulkSlugField,
   .catalogBulkParentField,
-  .catalogBulkSortField,
   .catalogBulkActiveField {
-    grid-column: 2 / 3;
+    grid-column: 1 / -1;
   }
 
-  .catalogBulkSlugField {
-    grid-row: auto;
+  .catalogBulkRow[data-kind="category"] .catalogBulkSortField {
+    grid-column: 1;
   }
 
-  .catalogBulkRemoveButton {
-    grid-column: 3;
-    grid-row: 1;
+  .catalogBulkRow[data-kind="category"] .catalogBulkActiveField {
+    grid-column: 2;
   }
 
   .catalogBulkRowError,
   .catalogBulkRowResult {
-    grid-column: 2 / -1;
+    grid-column: 1 / -1;
   }
 
   .catalogBulkCreateFooter {
     align-items: stretch;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 12px 16px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 12px 14px;
+  }
+
+  .catalogBulkCreateFooter > * {
+    min-width: 0;
+  }
+
+  .catalogBulkCreateFooter > :first-child,
+  .catalogBulkFooterHint {
+    grid-column: 1 / -1;
   }
 
   .catalogBulkCreateFooter button {
     width: 100%;
   }
 
+  .catalogBulkCreateFooter button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .catalogBulkFooterHint {
-    grid-column: 1 / -1;
     margin: 0;
     max-width: none;
     text-align: center;
+  }
+}
+
+/* Below Tailwind's sm breakpoint the header title is hidden, so drop the gap it leaves under the eyebrow. */
+@media (max-width: 639.98px) {
+  .catalogBulkCreateHeader .adminPageHeaderEyebrowRow {
+    margin-bottom: 0;
   }
 }

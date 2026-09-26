@@ -689,10 +689,12 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 />
               )
             ) : null}
-            {inventoryPagination && inventoryPagination.totalPages > 1 ? (
+            {inventoryPagination ? (
               <PaginationControls
                 onChange={(next) => { if (!bulk.isBusy) setInventoryPage(next); }}
                 page={inventoryPagination.page}
+                pageSize={inventoryPagination.limit}
+                totalItems={inventoryPagination.total}
                 totalPages={inventoryPagination.totalPages}
               />
             ) : null}
@@ -726,10 +728,12 @@ function InventoryContent({ view }: { view: InventoryView }) {
                   warehouses={warehouses}
                 />
               ) : null}
-              {nearExpiryTotalPages > 1 ? (
+              {nearExpiryItems.length > 0 ? (
                 <PaginationControls
                   onChange={setNearExpiryPage}
                   page={nearExpiryPage}
+                  pageSize={INVENTORY_PAGE_SIZE}
+                  totalItems={nearExpiryItems.length}
                   totalPages={nearExpiryTotalPages}
                 />
               ) : null}
@@ -762,10 +766,12 @@ function InventoryContent({ view }: { view: InventoryView }) {
               warehouses={warehouses}
             />
           ) : null}
-          {movementPagination && movementPagination.totalPages > 1 ? (
+          {movementPagination ? (
             <PaginationControls
               onChange={setMovementsPage}
               page={movementPagination.page}
+              pageSize={movementPagination.limit}
+              totalItems={movementPagination.total}
               totalPages={movementPagination.totalPages}
             />
           ) : null}

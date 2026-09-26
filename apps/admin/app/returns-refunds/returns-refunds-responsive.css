@@ -209,14 +209,4 @@
   .returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) {
     width: 196px;
   }
-
-  .returnsRefundsModule .paginationControls {
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .returnsRefundsModule .paginationNavigation {
-    gap: 6px;
-    overflow-x: auto;
-  }
 }

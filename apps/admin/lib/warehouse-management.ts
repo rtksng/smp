@@ -5,6 +5,9 @@ export const WAREHOUSE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 export const WAREHOUSE_ANALYTICS_PATH = "/warehouses";
 export const WAREHOUSE_CREATE_PATH = "/warehouses/create";
 export const WAREHOUSE_LIST_PATH = "/warehouses/list";
+/** Table pages match the rest of the admin; analytics and pickers still read every warehouse. */
+export const WAREHOUSE_LIST_PAGE_SIZE = 20;
+const WAREHOUSE_LOOKUP_PAGE_SIZE = 100;
 
 export type WarehouseStatus = (typeof WAREHOUSE_STATUSES)[number];
 
@@ -214,9 +217,13 @@ export function buildWarehousePayload(
   };
 }
 
-export function buildWarehouseQuery(filters: WarehouseFilters, page = 1): QueryParams {
+export function buildWarehouseQuery(
+  filters: WarehouseFilters,
+  page = 1,
+  limit = WAREHOUSE_LOOKUP_PAGE_SIZE
+): QueryParams {
   return {
-    limit: 100,
+    limit,
     page,
     search: filters.search || undefined,
     state: filters.state || undefined,
@@ -229,10 +236,12 @@ export async function loadWarehouseResults(
   fetchPage: (query: QueryParams) => Promise<WarehouseListResponse>,
   filters: WarehouseFilters,
   page: number,
-  allPages: boolean
+  allPages: boolean,
+  pageSize = WAREHOUSE_LIST_PAGE_SIZE
 ): Promise<WarehouseListResponse> {
-  const first = await fetchPage(buildWarehouseQuery(filters, allPages ? 1 : page));
-  if (!allPages) return first;
+  if (!allPages) return fetchPage(buildWarehouseQuery(filters, page, pageSize));
+
+  const first = await fetchPage(buildWarehouseQuery(filters, 1));
 
   const items = [...first.items];
   let current = first;
