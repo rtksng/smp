@@ -78,6 +78,7 @@ import {
   type WarehouseStaffAssignment,
   type WarehouseStatus
 } from "../../../lib/warehouse-management";
+import "../warehouse-responsive.css";
 
 type WarehouseFieldErrors = Partial<Record<keyof WarehouseFormValues, string>>;
 export type WarehouseView = "analytics" | "create" | "list" | "staff";
@@ -497,13 +498,14 @@ function WarehousesContent({
   }
 
   return (
-    <>
+    <div className="warehouseModule" data-warehouse-view={view}>
       {view === "analytics" ? (
-        <Card className="panel">
+        <Card className="panel warehouseOverviewPanel">
           <PageHeader
+            className="warehousePageHeader"
             level={2}
             actions={
-              <div className="actionRow">
+              <div className="actionRow warehouseHeaderActions warehouseAnalyticsHeaderActions">
                 {warehouseFilterAction}
                 <Button
                   className="iconTextButton"
@@ -536,7 +538,7 @@ function WarehousesContent({
             </p>
           ) : null}
 
-          <div className="metricGrid resourceMetrics">
+          <div className="metricGrid resourceMetrics warehouseMetricGrid">
             <MetricCard label="Total warehouses" tone="primary" value={totalCount} />
             <MetricCard label="Visible after filter" value={analytics.visible} />
             <MetricCard label="Active" tone="primary" value={analytics.active} />
@@ -574,11 +576,12 @@ function WarehousesContent({
       ) : null}
 
       {view === "list" ? (
-        <Card className="panel">
+        <Card className="panel warehouseListPanel">
           <PageHeader
+            className="warehousePageHeader"
             level={2}
             actions={
-              <div className="actionRow">
+              <div className="actionRow warehouseHeaderActions warehouseListHeaderActions">
                 {warehouseFilterAction}
                 {canManage ? (
                   <Button asChild className="buttonLink iconTextButton">
@@ -643,11 +646,12 @@ function WarehousesContent({
             }
             permission={ADMIN_PERMISSION.WarehouseManage}
           >
-            <Card className="panel">
+            <Card className="panel warehouseCreatePanel">
               <PageHeader
+                className="warehousePageHeader warehouseCreateHeader"
                 level={2}
                 actions={
-                  <div className="actionRow">
+                  <div className="actionRow warehouseHeaderActions warehouseCreateHeaderActions">
                     <Button asChild className="buttonLink iconTextButton" variant="outline">
                       <Link href={warehouseBackPath}>
                         <ArrowLeft aria-hidden size={16} />
@@ -704,10 +708,15 @@ function WarehousesContent({
           }
           permission={ADMIN_PERMISSION.WarehouseStaffManage}
         >
-          <Card className="panel">
+          <Card className="panel warehouseStaffPanel">
             <PageHeader
+              className="warehousePageHeader warehouseStaffHeader"
               level={2}
-              actions={<div className="actionRow">{warehouseFilterAction}</div>}
+              actions={
+                <div className="actionRow warehouseHeaderActions warehouseStaffHeaderActions">
+                  {warehouseFilterAction}
+                </div>
+              }
               eyebrow="Warehouse staff"
               title={selectedWarehouse?.name ?? "Select a warehouse"}
             />
@@ -778,7 +787,7 @@ function WarehousesContent({
                   {staffError}
                 </p>
               ) : null}
-              <form className="inlineForm" onSubmit={handleAssignStaff}>
+              <form className="inlineForm warehouseStaffAssignForm" onSubmit={handleAssignStaff}>
                 <Input
                   aria-label="Admin user ID"
                   disabled={isMutating}
@@ -811,7 +820,7 @@ function WarehousesContent({
                 />
               ) : null}
               {(staffQuery.data?.length ?? 0) > 0 ? (
-                <div className="queueTable">
+                <div className="queueTable warehouseStaffTable">
                   {staffQuery.data?.map((assignment) => (
                     <div className="queueRow warehouseStaffRow" key={assignment.id}>
                       <div>
@@ -845,7 +854,7 @@ function WarehousesContent({
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -879,37 +888,41 @@ function WarehouseAnalytics({
     .sort((left, right) => right.total - left.total || left.state.localeCompare(right.state));
 
   return (
-    <Card className="panel mt-3">
+    <Card className="panel mt-3 warehouseCoveragePanel">
       <PageHeader
+        className="warehousePageHeader warehouseCoverageHeader"
         level={2}
         actions={<span>{analytics.states} states</span>}
         eyebrow="Coverage"
         title="Warehouse footprint by state"
       />
       {stateRows.length > 0 ? (
-        <div className="resourceTable warehouseAnalyticsTable">
-          <Table>
-            <TableHeader>
-              <TableRow className="warehouseAnalyticsTableRow">
-                <TableHead>State</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Inactive</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stateRows.map((row) => (
-                <TableRow className="warehouseAnalyticsTableRow" key={row.state}>
-                  <TableCell>
-                    <strong>{row.state}</strong>
-                  </TableCell>
-                  <TableCell>{row.total}</TableCell>
-                  <TableCell>{row.active}</TableCell>
-                  <TableCell>{row.inactive}</TableCell>
+        <div className="warehouseTableShell warehouseAnalyticsTableShell">
+          <p className="warehouseTableHint">Swipe sideways to view every coverage column.</p>
+          <div className="resourceTable warehouseAnalyticsTable">
+            <Table>
+              <TableHeader>
+                <TableRow className="warehouseAnalyticsTableRow">
+                  <TableHead>State</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead>Inactive</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {stateRows.map((row) => (
+                  <TableRow className="warehouseAnalyticsTableRow" key={row.state}>
+                    <TableCell>
+                      <strong>{row.state}</strong>
+                    </TableCell>
+                    <TableCell>{row.total}</TableCell>
+                    <TableCell>{row.active}</TableCell>
+                    <TableCell>{row.inactive}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       ) : (
         <EmptyState
@@ -941,41 +954,43 @@ function WarehouseTable({
   warehouses: AdminWarehouse[];
 }) {
   return (
-    <div className="resourceTable warehouseTable">
-      <Table>
-        <TableHeader>
-          <TableRow className="warehouseTableRow">
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {warehouses.map((warehouse) => (
-            <TableRow
-              className="warehouseTableRow"
-              data-active={selectedWarehouseId === warehouse.id}
-              key={warehouse.id}
-            >
-              <TableCell>
-                <strong>{warehouse.name}</strong>
-                <em>{warehouse.code}</em>
-              </TableCell>
-              <TableCell>
-                {warehouse.city}, {warehouse.state}
-                <em>{warehouse.pincode}</em>
-              </TableCell>
-              <TableCell>
-                {warehouse.contactPerson}
-                <em>{warehouse.contactNumber}</em>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={warehouse.status} />
-              </TableCell>
-              <TableCell>
-                <span className="tableActions">
+    <div className="warehouseTableShell warehouseListTableShell">
+      <p className="warehouseTableHint">Swipe sideways to view every warehouse option.</p>
+      <div className="resourceTable warehouseTable">
+        <Table>
+          <TableHeader>
+            <TableRow className="warehouseTableRow">
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {warehouses.map((warehouse) => (
+              <TableRow
+                className="warehouseTableRow"
+                data-active={selectedWarehouseId === warehouse.id}
+                key={warehouse.id}
+              >
+                <TableCell>
+                  <strong>{warehouse.name}</strong>
+                  <em>{warehouse.code}</em>
+                </TableCell>
+                <TableCell>
+                  {warehouse.city}, {warehouse.state}
+                  <em>{warehouse.pincode}</em>
+                </TableCell>
+                <TableCell>
+                  {warehouse.contactPerson}
+                  <em>{warehouse.contactNumber}</em>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={warehouse.status} />
+                </TableCell>
+                <TableCell>
+                  <span className="tableActions warehouseTableActions">
             <Button
               className="iconTextButton"
               disabled={!canManage || isMutating}
@@ -1016,12 +1031,13 @@ function WarehouseTable({
               onClick={() => onDelete(warehouse)} size="sm" type="button" variant="outline">
               <Trash2 aria-hidden size={16} /><span>Delete</span>
             </Button> : null}
-                </span>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1122,8 +1138,8 @@ function WarehouseForm({
   }
 
   return (
-    <form className="formStack" onSubmit={onSubmit}>
-      <div className="formGrid">
+    <form className="formStack warehouseForm" onSubmit={onSubmit}>
+      <div className="formGrid warehouseFormGrid">
         <TextField error={errors.name} label="Warehouse name" onChange={(value) => updateValue("name", value)} value={values.name} />
         <TextField error={errors.code} label="Warehouse code" onChange={(value) => updateValue("code", value.toUpperCase())} value={values.code} />
         <TextField error={errors.address} label="Address" onChange={(value) => updateValue("address", value)} value={values.address} />
@@ -1154,7 +1170,7 @@ function WarehouseForm({
           {errors.status ? <span className="fieldError">{errors.status}</span> : null}
         </Label>
       </div>
-      <div className="actionRow">
+      <div className="actionRow warehouseFormActions">
         <Button className="iconTextButton" disabled={isSaving} type="submit">
           <CheckCircle2 aria-hidden size={16} />
           <span>{isSaving ? "Saving..." : "Save warehouse"}</span>

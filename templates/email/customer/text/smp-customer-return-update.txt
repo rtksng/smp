@@ -1,0 +1,19 @@
+{{brand_name}}
+
+Return request {{status_label}}
+
+Hi {{customer_name}},
+
+{{status_message}}
+
+Order: {{order_number}}
+Return status: {{status_label}}
+{{#if customer_note}}
+{{customer_note}}
+{{/if}}
+
+View return details: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

@@ -1,0 +1,313 @@
+.warehouseModule,
+.warehouseModule > *,
+.warehouseTableShell,
+.warehouseTable,
+.warehouseAnalyticsTable,
+.warehouseForm,
+.warehouseFormGrid,
+.warehouseStaffPicker,
+.warehouseStaffAssignForm,
+.warehouseStaffTable {
+  min-width: 0;
+}
+
+.warehouseModule .warehouseOverviewPanel,
+.warehouseModule .warehouseListPanel,
+.warehouseModule .warehouseCreatePanel,
+.warehouseModule .warehouseStaffPanel,
+.warehouseModule .warehouseCoveragePanel {
+  padding: 18px;
+}
+
+.warehouseModule .warehousePageHeader {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.warehouseModule .warehouseHeaderActions {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.warehouseModule .warehouseHeaderActions > * {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.warehouseModule .warehouseMetricGrid {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.warehouseModule .warehouseMetricGrid > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.warehouseModule .warehouseMetricGrid .metricCardContent {
+  padding: 12px 14px;
+}
+
+.warehouseModule .warehouseMetricGrid .metricCardContent strong {
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.warehouseTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.warehouseTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.warehouseTableShell .warehouseTable,
+.warehouseTableShell .warehouseAnalyticsTable {
+  border: 0;
+  border-radius: 0;
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow: hidden;
+}
+
+.warehouseTableShell :is(.warehouseTable, .warehouseAnalyticsTable) .adminTableViewport {
+  max-height: min(560px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+.warehouseModule .warehouseTableActions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.warehouseModule .warehouseTableActions > button {
+  min-height: 32px;
+  padding-inline: 9px;
+}
+
+.warehouseModule .warehouseCoveragePanel {
+  margin-top: 12px;
+}
+
+.warehouseModule .warehouseCoverageHeader .adminPageActions {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.warehouseModule .warehouseForm {
+  gap: 12px;
+}
+
+.warehouseModule .warehouseFormGrid {
+  gap: 10px 12px;
+}
+
+.warehouseModule .warehouseFormGrid label {
+  gap: 6px;
+}
+
+.warehouseModule .warehouseFormActions {
+  justify-content: flex-end;
+}
+
+.warehouseModule .warehouseStaffPicker {
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.warehouseModule .warehouseStaffPicker p {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.warehouseModule .warehouseStaffAssignForm {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.warehouseModule .warehouseStaffAssignForm > button {
+  min-height: 36px;
+}
+
+.warehouseModule .warehouseStaffTable .warehouseStaffRow {
+  align-items: center;
+  gap: 10px 12px;
+  padding: 12px 14px;
+}
+
+.warehouseModule .warehouseStaffRow > span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.warehouseModule .warehouseStaffRow > button {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+@media (max-width: 980px) {
+  .warehouseModule .warehouseMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .warehouseTableHint {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .warehouseModule .warehouseOverviewPanel,
+  .warehouseModule .warehouseListPanel,
+  .warehouseModule .warehouseCreatePanel,
+  .warehouseModule .warehouseStaffPanel,
+  .warehouseModule .warehouseCoveragePanel {
+    padding: 12px;
+  }
+
+  .warehouseModule .warehousePageHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .warehouseModule .warehousePageHeader:not(.warehouseCreateHeader) .adminPageActions {
+    width: 100%;
+  }
+
+  .warehouseModule .warehouseHeaderActions {
+    display: grid;
+    flex-direction: row;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .warehouseModule .warehouseAnalyticsHeaderActions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .warehouseModule .warehouseListHeaderActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .warehouseModule .warehouseStaffHeaderActions {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouseModule .warehouseHeaderActions > * {
+    font-size: 11px;
+    gap: 4px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .warehouseModule .warehouseAnalyticsHeaderActions svg {
+    display: none;
+  }
+
+  .warehouseModule .warehouseCreateHeader {
+    align-items: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .warehouseModule .warehouseCreateHeader .adminPageActions {
+    justify-self: end;
+  }
+
+  .warehouseModule .warehouseCreateHeaderActions {
+    display: flex;
+    width: auto;
+  }
+
+  .warehouseModule .warehouseCreateHeaderActions > * {
+    min-height: 34px;
+    width: auto;
+  }
+
+  .warehouseModule .warehouseMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .warehouseModule .warehouseMetricGrid > [data-slot="card"] {
+    min-height: 80px;
+  }
+
+  .warehouseModule .warehouseMetricGrid .metricCardContent {
+    padding: 9px 10px;
+  }
+
+  .warehouseModule .warehouseMetricGrid .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .warehouseModule .warehouseMetricGrid .metricCardContent strong {
+    font-size: 19px;
+    line-height: 1.05;
+    margin-top: 5px;
+  }
+
+  .warehouseTableShell .warehouseTable,
+  .warehouseTableShell .warehouseTable .adminTableViewport,
+  .warehouseTableShell .warehouseAnalyticsTable,
+  .warehouseTableShell .warehouseAnalyticsTable .adminTableViewport {
+    max-height: min(440px, calc(100dvh - 130px));
+  }
+
+  .warehouseModule .warehouseFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouseModule .warehouseFormActions,
+  .warehouseModule .warehouseFormActions > button {
+    width: 100%;
+  }
+
+  .warehouseModule .warehouseStaffPicker {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouseModule .warehouseStaffPicker p {
+    margin: 0;
+  }
+
+  .warehouseModule .warehouseStaffAssignForm {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .warehouseModule .warehouseStaffAssignForm > button {
+    font-size: 12px;
+    min-width: 108px;
+    padding-inline: 8px;
+    width: auto;
+  }
+
+  .warehouseModule .warehouseStaffTable .warehouseStaffRow {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px;
+  }
+
+  .warehouseModule .warehouseStaffRow > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .warehouseModule .warehouseStaffRow > button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

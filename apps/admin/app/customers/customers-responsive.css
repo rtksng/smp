@@ -1,0 +1,379 @@
+.customersModule,
+.customersModule > *,
+.customersModule .customerTableShell,
+.customersModule .customerOrderTableShell,
+.customersModule .customerTable,
+.customersModule .customerOrdersTable,
+.customersModule .customerProfileGrid,
+.customersModule .customerSupportGrid {
+  min-width: 0;
+}
+
+.customersModule .customerOverviewPanel,
+.customersModule .customerListPanel,
+.customersModule .customerDetailHeroContent,
+.customersModule .customerDetailPanel {
+  padding: 18px;
+}
+
+.customersModule .customerPageHeader,
+.customersModule .customerDetailPageHeader {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.customersModule :is(.customerPageHeader, .customerDetailPageHeader) .adminPageActions {
+  margin-left: auto;
+  width: auto;
+}
+
+.customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) > * {
+  min-height: 38px;
+  min-width: 0;
+  padding-inline: 11px;
+}
+
+.customersModule .customerMetricGrid,
+.customersModule .customerDetailMetricGrid {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent {
+  padding: 12px 14px;
+}
+
+.customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent strong {
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.customerBulkActions .bulkActions {
+  margin: 8px 0;
+  padding: 10px 12px;
+}
+
+.customerBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.customerBulkActions .bulkSelectionSummary {
+  gap: 1px;
+}
+
+.customerBulkActions .bulkSelectionHint {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.customerBulkActions .bulkActionBar button,
+.customerBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.customerBulkActions .bulkActionForm {
+  align-items: start;
+  gap: 8px 10px;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.customerBulkActions .bulkActionForm > [data-slot="select-trigger"],
+.customerBulkActions .bulkActionForm > [data-slot="select"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.customerBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 128px;
+}
+
+.customerBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.customerBulkActions .bulkFields {
+  gap: 8px;
+}
+
+.customerTableShell,
+.customerOrderTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.customerTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.customerTableShell .customerTable,
+.customerOrderTableShell .customerOrdersTable {
+  border: 0;
+  border-radius: 0;
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow: hidden;
+}
+
+.customerTableShell .customerTable .adminTableViewport,
+.customerOrderTableShell .customerOrdersTable .adminTableViewport {
+  max-height: min(560px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+.customersModule :is(.customerTable, .customerOrdersTable) th,
+.customersModule :is(.customerTable, .customerOrdersTable) td {
+  padding-inline: 10px;
+  vertical-align: top;
+}
+
+.customersModule .customerProfileGrid,
+.customersModule .customerSupportGrid {
+  align-items: start;
+  grid-auto-rows: auto;
+}
+
+.customersModule :is(.customerProfileGrid, .customerSupportGrid) > .panel {
+  align-self: start;
+  height: auto;
+  min-height: 0;
+}
+
+.customersModule .customerAddressGrid {
+  gap: 10px;
+}
+
+.customersModule .detailItem {
+  min-height: 68px;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
+.customersModule :is(.customerStatusForm, .customerSupportForm) {
+  gap: 10px;
+}
+
+.customersModule :is(.customerStatusForm, .customerSupportForm) [data-slot="textarea"] {
+  min-height: 72px;
+}
+
+.customersModule .orderTimeline {
+  gap: 10px;
+}
+
+@media (max-width: 1440px) {
+  .customersModule .customerTableHint {
+    display: block;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child,
+  .customersModule :is(.customerTable, .customerOrdersTable) td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    position: sticky;
+    right: 0;
+    z-index: 2;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+
+  .customersModule .customerTable :is(th, td):last-child {
+    min-width: 116px;
+    width: 116px;
+  }
+
+  .customersModule .customerOrdersTable :is(th, td):last-child {
+    min-width: 92px;
+    width: 92px;
+  }
+}
+
+@media (max-width: 980px) {
+  .customersModule .customerMetricGrid,
+  .customersModule .customerDetailMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .customerTableShell .customerTable tr > .bulkCheckboxCell {
+    left: 0;
+    position: sticky;
+  }
+
+  .customerTableShell .customerTable th.bulkCheckboxCell {
+    background: #e4efed;
+    z-index: 4;
+  }
+
+  .customerTableShell .customerTable td.bulkCheckboxCell {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+
+  .customersModule .customerAddressGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .customersModule .customerOverviewPanel,
+  .customersModule .customerListPanel,
+  .customersModule .customerDetailHeroContent,
+  .customersModule .customerDetailPanel {
+    padding: 12px;
+  }
+
+  .customersModule .customerPageHeader,
+  .customersModule .customerDetailPageHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .customersModule :is(.customerPageHeader, .customerDetailPageHeader) .adminPageActions {
+    width: 100%;
+  }
+
+  .customersModule .customerHeaderActions,
+  .customersModule .customerDetailHeaderActions {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) > * {
+    font-size: 12px;
+    gap: 5px;
+    min-height: 36px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .customersModule .customerMetricGrid,
+  .customersModule .customerDetailMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) > [data-slot="card"] {
+    min-height: 80px;
+  }
+
+  .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent {
+    padding: 9px 10px;
+  }
+
+  .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent strong {
+    font-size: 19px;
+    line-height: 1.05;
+    margin-top: 5px;
+  }
+
+  .customerBulkActions .bulkActions {
+    margin: 6px 0;
+    padding: 8px;
+  }
+
+  .customerBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .customerBulkActions .bulkSelectionSummary {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+
+  .customerBulkActions .bulkActionBar button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 5px;
+    width: 100%;
+  }
+
+  .customerBulkActions .bulkActionForm {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .customerBulkActions .bulkActionForm > *,
+  .customerBulkActions .bulkActionForm > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .customersModule .customerProfileGrid,
+  .customersModule .customerSupportGrid,
+  .customersModule .detailGrid,
+  .customersModule .customerAddressGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .customersModule .customerProfileGrid,
+  .customersModule .customerSupportGrid {
+    gap: 10px;
+  }
+
+  .customersModule .detailItem {
+    min-height: 62px;
+    padding: 10px;
+  }
+
+  .customersModule :is(.customerStatusForm, .customerSupportForm) [data-slot="textarea"] {
+    min-height: 62px;
+  }
+
+  .customerTableShell .customerTable,
+  .customerTableShell .customerTable .adminTableViewport,
+  .customerOrderTableShell .customerOrdersTable,
+  .customerOrderTableShell .customerOrdersTable .adminTableViewport {
+    max-height: min(440px, calc(100dvh - 130px));
+  }
+
+  .customersModule .customerTable :is(th, td):last-child {
+    min-width: 108px;
+    width: 108px;
+  }
+
+  .customersModule .customerOrdersTable :is(th, td):last-child {
+    min-width: 86px;
+    width: 86px;
+  }
+}

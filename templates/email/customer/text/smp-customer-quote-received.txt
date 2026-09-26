@@ -1,0 +1,21 @@
+{{brand_name}}
+
+We received your quote request
+
+Hi {{customer_name}},
+
+Thank you for sharing your requirements. Our team will review your request and prepare a quotation.
+
+Request reference: {{quote_reference}}
+Submitted on: {{request_date}}
+
+Your requirements
+{{request_summary}}
+
+Sign in with the mobile number associated with your request to view updates in your account.
+
+View your quote requests: {{quotes_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

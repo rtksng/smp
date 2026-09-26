@@ -121,44 +121,47 @@ export function DeliveryBulkAssignment({
         getLabel={(order) => order.orderNumber}
         onComplete={onComplete}
       />
-      <div className="resourceTable">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="bulkCheckboxCell">
-                <BulkPageCheckbox selection={bulk} />
-              </TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Warehouse</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="bulkCheckboxCell">
-                  <BulkRowCheckbox
-                    selection={bulk}
-                    item={order}
-                    label={order.orderNumber}
-                  />
-                </TableCell>
-                <TableCell>{order.orderNumber}</TableCell>
-                <TableCell>{order.customer?.firstName ?? "-"}</TableCell>
-                <TableCell>
-                  <StatusBadge status={order.status} />
-                </TableCell>
-                <TableCell>{order.warehouse?.name ?? "Unassigned"}</TableCell>
-              </TableRow>
-            ))}
-            {!visible.length ? (
+      <div className="deliveryTableShell deliveryBulkTableShell">
+        <p className="deliveryTableHint">Swipe sideways to view every selected-order option.</p>
+        <div className="resourceTable deliveryBulkOrderTable">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5}>No ready orders match your search.</TableCell>
+                <TableHead className="bulkCheckboxCell">
+                  <BulkPageCheckbox selection={bulk} />
+                </TableHead>
+                <TableHead>Order</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Warehouse</TableHead>
               </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {visible.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="bulkCheckboxCell">
+                    <BulkRowCheckbox
+                      selection={bulk}
+                      item={order}
+                      label={order.orderNumber}
+                    />
+                  </TableCell>
+                  <TableCell>{order.orderNumber}</TableCell>
+                  <TableCell>{order.customer?.firstName ?? "-"}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={order.status} />
+                  </TableCell>
+                  <TableCell>{order.warehouse?.name ?? "Unassigned"}</TableCell>
+                </TableRow>
+              ))}
+              {!visible.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>No ready orders match your search.</TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       <PaginationControls
         page={currentPage}

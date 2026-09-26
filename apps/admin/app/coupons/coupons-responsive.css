@@ -1,0 +1,548 @@
+.couponModule,
+.couponModule > *,
+.couponModule .couponMetricGrid,
+.couponModule .couponWorkspaceGrid,
+.couponModule .couponForm,
+.couponModule .couponFormFieldset,
+.couponModule .couponFormGrid,
+.couponModule .couponTableShell,
+.couponModule .couponTable {
+  min-width: 0;
+}
+
+.couponModule .couponOverviewPanel,
+.couponModule .couponListPanel,
+.couponModule .couponFormPanel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.couponModule .couponSectionNav {
+  gap: 4px;
+  padding: 4px;
+}
+
+.couponModule .couponSectionNav a {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.couponModule .couponPageHeader,
+.couponModule .couponSectionHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.couponModule .couponPageHeader .adminPageActions {
+  margin-left: auto;
+  width: auto;
+}
+
+.couponModule .couponHeaderActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.couponModule .couponHeaderActions > * {
+  min-height: 38px;
+  padding-inline: 12px;
+  width: auto;
+}
+
+.couponModule .couponMetricGrid {
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+.couponModule .couponMetricGrid > [data-slot="card"] {
+  min-height: 94px !important;
+}
+
+.couponModule .couponMetricGrid .metricCardContent {
+  padding: 13px 14px !important;
+}
+
+.couponModule .couponMetricGrid .metricCardContent strong {
+  font-size: 26px;
+  margin-top: 9px !important;
+}
+
+.couponModule .couponListPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.couponModule .couponSectionHeader {
+  margin-bottom: 0;
+}
+
+.couponModule .couponFilters {
+  align-items: end;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) auto !important;
+}
+
+.couponModule .couponFilters > label {
+  min-width: 0;
+}
+
+.couponModule .couponFilters .productFilterActions {
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.couponModule .couponFilters .productFilterActions button {
+  min-height: 40px;
+  width: auto;
+}
+
+.couponModule .couponBulkActions .bulkActions {
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.couponModule .couponBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.couponModule .couponBulkActions .bulkSelectionSummary {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.couponModule .couponBulkActions .bulkSelectionHint {
+  line-height: 1.35;
+}
+
+.couponModule .couponBulkActions .bulkActionBar button,
+.couponModule .couponBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 6px;
+}
+
+.couponModule .couponBulkActions .bulkActionForm {
+  align-items: end;
+  gap: 8px 10px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.couponModule .couponBulkActions .bulkActionForm > [data-slot="select-trigger"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.couponModule .couponBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.couponModule .couponBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.couponModule .couponTableShell {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.couponModule .couponTableHint {
+  background: #effaf8;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 8px;
+  color: var(--muted);
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+}
+
+.couponModule .resourceTable.couponTable {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.couponModule .couponTable .adminTableViewport {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.couponModule .couponTable [data-slot="table"] {
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  width: 100%;
+}
+
+.couponModule .couponTable th,
+.couponModule .couponTable td {
+  padding-inline: 10px;
+}
+
+.couponModule .couponTable th:first-child {
+  width: 44px;
+}
+
+.couponModule .couponTable tr > .bulkCheckboxCell {
+  max-width: 44px !important;
+  min-width: 44px !important;
+  width: 44px !important;
+}
+
+.couponModule .couponTable th:nth-child(2) {
+  width: 126px;
+}
+
+.couponModule .couponTable th:nth-child(3) {
+  width: 94px;
+}
+
+.couponModule .couponTable th:nth-child(4) {
+  width: 150px;
+}
+
+.couponModule .couponTable th:nth-child(5) {
+  width: 188px;
+}
+
+.couponModule .couponTable th:nth-child(6) {
+  width: 100px;
+}
+
+.couponModule .couponTable th:nth-child(7) {
+  width: 96px;
+}
+
+.couponModule .couponTable th:last-child {
+  width: 200px;
+}
+
+.couponModule .couponTable th:last-child,
+.couponModule .couponTable td:last-child {
+  max-width: 200px !important;
+  min-width: 200px !important;
+  width: 200px !important;
+}
+
+.couponModule .couponTable td strong,
+.couponModule .couponTable td em {
+  overflow-wrap: anywhere;
+}
+
+.couponModule .couponTable .tableActions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.couponModule .couponFormOnlyPanel {
+  max-width: none;
+  width: 100%;
+}
+
+.couponModule .couponFormFieldset {
+  gap: 14px;
+}
+
+.couponModule .couponFormPanel .couponFormGrid {
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.couponModule .couponFormGrid > label,
+.couponModule .couponFormGrid [data-slot="select-trigger"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.couponModule .couponActiveField {
+  margin: 0;
+  padding: 11px 12px;
+}
+
+.couponModule .couponFormActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.couponModule .couponFormActions button {
+  min-height: 40px;
+  width: auto;
+}
+
+@media (max-width: 1100px) {
+  .couponModule .couponTableHint {
+    display: block;
+  }
+
+  .couponModule .couponTable [data-slot="table"] {
+    min-width: 980px !important;
+  }
+
+  .couponModule .couponTable tr > .bulkCheckboxCell {
+    background: var(--surface);
+    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    left: 0;
+    max-width: 44px !important;
+    min-width: 44px !important;
+    position: sticky;
+    width: 44px !important;
+    z-index: 3;
+  }
+
+  .couponModule .couponTable th:last-child,
+  .couponModule .couponTable td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    max-width: 200px !important;
+    min-width: 200px !important;
+    position: sticky;
+    right: 0;
+    width: 200px !important;
+    z-index: 2;
+  }
+
+  .couponModule .couponTable th:last-child {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+}
+
+@media (max-width: 980px) {
+  .couponModule .couponMetricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .couponModule .couponPageHeader {
+    flex-direction: row;
+  }
+
+  .couponModule .couponFormPanel .couponFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .couponModule .couponOverviewPanel,
+  .couponModule .couponListPanel,
+  .couponModule .couponFormPanel {
+    gap: 11px;
+    padding: 14px;
+  }
+
+  .couponModule .couponSectionNav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .couponModule .couponSectionNav a {
+    justify-content: center;
+    min-height: 34px;
+    padding-inline: 6px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .couponModule .couponPageHeader {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .couponModule .couponPageHeader .adminPageActions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .couponModule .couponHeaderActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .couponModule .couponHeaderActions > * {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .couponModule .couponEditPageHeader {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .couponModule .couponEditPageHeader .adminPageActions {
+    width: auto;
+  }
+
+  .couponModule .couponEditPageHeader .adminPageActions a {
+    padding-inline: 9px;
+    width: auto;
+  }
+
+  .couponModule .couponMetricGrid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .couponModule .couponMetricGrid > [data-slot="card"] {
+    min-height: 80px !important;
+  }
+
+  .couponModule .couponMetricGrid .metricCardContent {
+    justify-content: space-between;
+    padding: 10px 11px !important;
+  }
+
+  .couponModule .couponMetricGrid .metricCardContent span {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .couponModule .couponMetricGrid .metricCardContent strong {
+    font-size: 22px;
+    line-height: 1;
+    margin-top: 7px !important;
+  }
+
+  .couponModule .couponSectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .couponModule .couponFilters {
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+
+  .couponModule .couponFilters .productFilterActions {
+    display: grid;
+    gap: 5px;
+    grid-template-columns: repeat(2, auto);
+  }
+
+  .couponModule .couponFilters .productFilterActions button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: auto !important;
+  }
+
+  .couponModule .couponBulkActions .bulkActions {
+    padding: 8px;
+  }
+
+  .couponModule .couponBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .couponModule .couponBulkActions .bulkSelectionSummary {
+    align-items: baseline;
+    gap: 6px;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .couponModule .couponBulkActions .bulkSelectionHint {
+    font-size: 11px;
+  }
+
+  .couponModule .couponBulkActions .bulkActionBar button {
+    font-size: 12px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .couponModule .couponBulkActions .bulkActionForm {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .couponModule .couponBulkActions .bulkActionForm > [data-slot="select-trigger"] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .couponModule .couponBulkActions .bulkActionForm > button {
+    font-size: 12px;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    padding-inline: 8px;
+    width: auto !important;
+  }
+
+  .couponModule .couponBulkActions .bulkActionForm > :is(p, fieldset) {
+    grid-column: 1 / -1;
+  }
+
+  .couponModule .couponTableHint {
+    display: block;
+  }
+
+  .couponModule .couponTable [data-slot="table"] {
+    min-width: 790px !important;
+  }
+
+  .couponModule .couponTable th:last-child {
+    max-width: 116px !important;
+    min-width: 116px !important;
+    width: 116px !important;
+  }
+
+  .couponModule .couponTable td:last-child {
+    max-width: 116px !important;
+    min-width: 116px !important;
+    width: 116px !important;
+  }
+
+  .couponModule .couponTable .tableActions {
+    display: grid;
+    gap: 5px;
+    grid-template-columns: 1fr;
+  }
+
+  .couponModule .couponTable .tableActions > * {
+    justify-content: center;
+    min-height: 32px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .couponModule .couponFormPanel .couponFormGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .couponModule .couponActiveField {
+    padding: 10px;
+  }
+
+  .couponModule .couponFormActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .couponModule .couponFormActions button {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 8px;
+    width: 100%;
+  }
+
+  .couponModule[data-coupon-view="new"] .couponFormActions {
+    grid-template-columns: 1fr;
+  }
+}

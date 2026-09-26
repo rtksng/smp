@@ -1,11 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductForm } from "./product-management";
-import type {
-  AdminBrand,
-  AdminCategory,
-  AdminProduct
-} from "../../lib/product-form";
+import type { AdminBrand, AdminCategory, AdminProduct } from "../../lib/product-form";
 
 const { requestAdminApiMock } = vi.hoisted(() => ({
   requestAdminApiMock: vi.fn()
@@ -216,18 +212,22 @@ describe("ProductForm", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Subcategory")).toHaveTextContent(
-        "Operating Chair"
-      );
+      expect(screen.getByLabelText("Subcategory")).toHaveTextContent("Operating Chair");
     });
   }, 15000);
 
-  it("shows an uploaded image URL in the image URL field immediately", async () => {
+  it("uploads several images into a thumbnail gallery and manages the main image", async () => {
     requestAdminApiMock.mockResolvedValueOnce({
-      key: "catalog/products/images/test-product.webp",
+      key: "catalog/products/images/front.webp",
       mimeType: "image/webp",
       size: 1024,
-      url: "https://cdn.example.com/catalog/products/images/test-product.webp"
+      url: "https://cdn.example.com/catalog/products/images/front.webp"
+    });
+    requestAdminApiMock.mockResolvedValueOnce({
+      key: "catalog/products/images/side.webp",
+      mimeType: "image/webp",
+      size: 2048,
+      url: "https://cdn.example.com/catalog/products/images/side.webp"
     });
 
     render(
@@ -243,17 +243,67 @@ describe("ProductForm", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add image" }));
-    fireEvent.change(screen.getByLabelText("Upload"), {
+    const uploadInput = screen.getByLabelText("Upload product images");
+    expect(uploadInput).toHaveAttribute("multiple");
+
+    fireEvent.change(uploadInput, {
       target: {
-        files: [new File(["image"], "test-product.webp", { type: "image/webp" })]
+        files: [
+          new File(["front"], "front.webp", { type: "image/webp" }),
+          new File(["side"], "side.webp", { type: "image/webp" })
+        ]
       }
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Image URL")).toHaveValue(
-        "https://cdn.example.com/catalog/products/images/test-product.webp"
-      );
+      expect(screen.getByRole("img", { name: "front" })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "side" })).toBeInTheDocument();
     });
+
+    const frontCard = screen.getByRole("img", { name: "front" }).closest("article");
+    const sideCard = screen.getByRole("img", { name: "side" }).closest("article");
+
+    expect(frontCard).not.toBeNull();
+    expect(sideCard).not.toBeNull();
+    expect(within(frontCard!).getByText("Main image")).toBeInTheDocument();
+    expect(screen.getAllByText("Main image")).toHaveLength(1);
+    expect(screen.getByLabelText("Image URL 1")).toHaveValue(
+      "https://cdn.example.com/catalog/products/images/front.webp"
+    );
+    expect(screen.getByLabelText("Image URL 2")).toHaveValue(
+      "https://cdn.example.com/catalog/products/images/side.webp"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand front" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Large product image preview.")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "front" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Large product image preview.")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Set side as main image" }));
+
+    await waitFor(() => {
+      expect(within(sideCard!).getByText("Main image")).toBeInTheDocument();
+      expect(within(frontCard!).queryByText("Main image")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove side" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("img", { name: "side" })).not.toBeInTheDocument();
+      const remainingFrontCard = screen
+        .getByRole("img", { name: "front" })
+        .closest("article");
+      expect(remainingFrontCard).not.toBeNull();
+      expect(within(remainingFrontCard!).getByText("Main image")).toBeInTheDocument();
+    });
+    expect(requestAdminApiMock).toHaveBeenCalledTimes(2);
   }, 15000);
 });

@@ -55,6 +55,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import styles from "./reports-dashboard.module.css";
 import { useAdminSession } from "../../lib/admin-session";
 import {
   buildDashboardReportQuery,
@@ -84,6 +85,7 @@ import {
   type TopSellingProductPoint,
   type WarehouseStockSummaryPoint
 } from "../../lib/reports-management";
+import "../reports/reports-responsive.css";
 export type { ReportView } from "../../lib/reports-management";
 
 type ReportsDashboardProps = {
@@ -273,9 +275,13 @@ export function ReportsDashboard({
     }
   }
 
-  return (
+  const content = (
     <>
-      <section className="panel reportControlPanel">
+      <section
+        aria-label={isMainDashboard ? "Dashboard controls" : undefined}
+        className={`panel reportControlPanel${isMainDashboard ? ` ${styles.controlPanel}` : ""}`}
+        data-dashboard-layout={isMainDashboard ? "responsive" : undefined}
+      >
         {hideSectionNavigation ? null : <ReportSectionNav active={view} />}
         <PageHeader
           className="reportPageHeader"
@@ -378,6 +384,12 @@ export function ReportsDashboard({
       ) : null}
     </>
   );
+
+  return isMainDashboard ? content : (
+    <div className="reportsModule" data-report-view={view}>
+      {content}
+    </div>
+  );
 }
 
 function DashboardOverview({
@@ -455,7 +467,10 @@ function DashboardKpiStrip({
   ];
 
   return (
-    <section className="dashboardKpiGrid" aria-label="Dashboard key metrics">
+    <section
+      className={`dashboardKpiGrid ${styles.kpiGrid}`}
+      aria-label="Dashboard key metrics"
+    >
       {kpis.map((kpi) => (
         <ReportResourceLink
           className={`dashboardKpi dashboardKpi--${kpi.tone}`}
@@ -605,7 +620,7 @@ function TopProductsChart({
         </BarChart>
         )}
       </DashboardChartFrame>
-      <div className="dashboardChartDrilldowns">
+      <div className={`dashboardChartDrilldowns ${styles.chartDrilldowns}`}>
         {data.slice(0, 3).map((item) => (
           <ReportTableLink href={item.href} key={item.id}>
             {item.name}
@@ -775,7 +790,7 @@ function DashboardChartPanel({
 }) {
   return (
     <section className="panel dashboardChartPanel" data-wide={wide ? "true" : undefined}>
-      <div className="dashboardChartHeader">
+      <div className={`dashboardChartHeader ${styles.chartHeader}`}>
         <span>
           <strong>{title}</strong>
           <em>{summary}</em>
@@ -1089,7 +1104,16 @@ function ReportTablePanel({
         summary={summary}
         title={title}
       />
-      {isEmpty ? <div className="emptyPanel smallEmpty">{emptyState}</div> : children}
+      {isEmpty ? (
+        <div className="emptyPanel smallEmpty">{emptyState}</div>
+      ) : (
+        <div className="reportTableShell">
+          <p className="reportTableHint">
+            Swipe sideways to view every report detail and drilldown.
+          </p>
+          {children}
+        </div>
+      )}
     </section>
   );
 }

@@ -1,0 +1,19 @@
+{{brand_name}}
+
+Your question has been answered
+
+Hi {{customer_name}},
+
+We have answered your question about {{product_name}}.
+
+Your question
+{{question}}
+
+Our answer
+{{answer}}
+
+View product: {{product_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

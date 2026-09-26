@@ -93,6 +93,7 @@ import type {
   AdminWarehouse,
   WarehouseListResponse
 } from "../../lib/warehouse-management";
+import "./inventory-management.css";
 
 type StockInInputValues = ReturnType<typeof createEmptyStockInFormValues>;
 type AdjustInputValues = ReturnType<typeof createEmptyAdjustStockFormValues>;
@@ -465,9 +466,14 @@ function InventoryContent({ view }: { view: InventoryView }) {
   }
 
   return (
-    <>
-      <Card className="panel">
+    <div className="inventoryModule">
+      <Card className="panel inventoryHeroPanel">
         <PageHeader
+          className={
+            hasFilters
+              ? "inventoryPageHeader inventoryPageHeaderFiltered"
+              : "inventoryPageHeader inventoryPageHeaderSingleAction"
+          }
           level={2}
           actions={
             <>
@@ -506,7 +512,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
         ) : null}
 
         {isOverviewView ? (
-          <div className="metricGrid resourceMetrics">
+          <div className="metricGrid resourceMetrics inventoryMetricGrid">
             <MetricCard
               label={
                 inventoryRequest.type === "batch" ? "Matching batches" : "Stock rows"
@@ -579,8 +585,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
           }
           permission={ADMIN_PERMISSION.InventoryUpdate}
         >
-          <Card className="panel mt-3">
+          <Card className="panel mt-3 inventorySectionPanel inventoryActionsPanel">
             <PageHeader
+              className="inventorySectionHeader"
               level={2}
               eyebrow="Stock actions"
               title="Receive, adjust, and transfer stock"
@@ -595,7 +602,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
                 {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
               </p>
             ) : null}
-            <div className="threeColumnGrid">
+            <div className="threeColumnGrid inventoryActionGrid">
               <StockInForm
                 errors={stockInErrors}
                 isSaving={stockInMutation.isPending}
@@ -633,8 +640,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
 
       {view === "overview" ? (
         <>
-          <Card className="panel my-3">
+          <Card className="panel my-3 inventorySectionPanel inventoryTablePanel">
             <PageHeader
+              className="inventorySectionHeader"
               level={2}
               eyebrow="Stock table"
               title={
@@ -691,8 +699,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
           </Card>
 
           {!appliedFilters.nearExpiry ? (
-            <Card className="panel">
+            <Card className="panel inventorySectionPanel inventoryTablePanel">
               <PageHeader
+                className="inventorySectionHeader"
                 level={2}
                 eyebrow="Near expiry"
                 summary={`Expiry window: ${appliedFilters.nearExpiryDays} days.`}
@@ -730,8 +739,9 @@ function InventoryContent({ view }: { view: InventoryView }) {
       ) : null}
 
       {view === "movements" ? (
-        <Card className="panel mt-3">
+        <Card className="panel mt-3 inventorySectionPanel inventoryTablePanel">
           <PageHeader
+            className="inventorySectionHeader"
             level={2}
             eyebrow="Movement history"
             title="Stock movement audit trail"
@@ -770,7 +780,7 @@ function InventoryContent({ view }: { view: InventoryView }) {
           onConfirmComplete={() => setConfirmation(null)}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -1445,47 +1455,64 @@ function StockTable({
   }
 
   return (
-    <div className="brandTableScroll inventoryTableScroll">
-      <Table className="brandDataTable inventoryDataTable">
-        <TableHeader>
-          <TableRow>
-            {bulk ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
-            <TableHead>Product</TableHead>
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Available</TableHead>
-            <TableHead>Reserved</TableHead>
-            <TableHead>Threshold</TableHead>
-            <TableHead>Warnings</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {stocks.map((stock) => {
-            const key = stockKey(stock);
-            const low = lowStockKeys.has(key) || isLowStock(stock);
-            const nearExpiry = nearExpiryKeys.has(key);
+    <div className="inventoryTableShell">
+      <p className="inventoryTableHint">Swipe sideways to view every stock column.</p>
+      <div className="brandTableScroll inventoryTableScroll">
+        <Table className="brandDataTable inventoryDataTable inventoryDataTableWithBulk">
+          <TableHeader>
+            <TableRow>
+              {bulk ? (
+                <TableHead className="bulkCheckboxCell">
+                  <BulkPageCheckbox selection={bulk} />
+                </TableHead>
+              ) : null}
+              <TableHead>Product</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Available</TableHead>
+              <TableHead>Reserved</TableHead>
+              <TableHead>Threshold</TableHead>
+              <TableHead>Warnings</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {stocks.map((stock) => {
+              const key = stockKey(stock);
+              const low = lowStockKeys.has(key) || isLowStock(stock);
+              const nearExpiry = nearExpiryKeys.has(key);
 
-            return (
-              <TableRow key={stock.id}>
-                {bulk ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={stock} label={productLabel(products, stock.productId, stock.variantId) + " / " + warehouseLabel(warehouses, stock.warehouseId)} /></TableCell> : null}
-                <TableCell>
-                  <strong>
-                    {productLabel(products, stock.productId, stock.variantId)}
-                  </strong>
-                </TableCell>
-                <TableCell>{warehouseLabel(warehouses, stock.warehouseId)}</TableCell>
-                <TableCell>{stock.availableQuantity}</TableCell>
-                <TableCell>{stock.reservedQuantity}</TableCell>
-                <TableCell>{stock.lowStockThreshold}</TableCell>
-                <TableCell className="flagList">
-                  {low ? <b>Low stock</b> : null}
-                  {nearExpiry ? <b>Near expiry</b> : null}
-                  {!low && !nearExpiry ? <span>-</span> : null}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+              return (
+                <TableRow key={stock.id}>
+                  {bulk ? (
+                    <TableCell className="bulkCheckboxCell">
+                      <BulkRowCheckbox
+                        selection={bulk}
+                        item={stock}
+                        label={`${productLabel(products, stock.productId, stock.variantId)} / ${warehouseLabel(warehouses, stock.warehouseId)}`}
+                      />
+                    </TableCell>
+                  ) : null}
+                  <TableCell>
+                    <strong>
+                      {productLabel(products, stock.productId, stock.variantId)}
+                    </strong>
+                  </TableCell>
+                  <TableCell>
+                    {warehouseLabel(warehouses, stock.warehouseId)}
+                  </TableCell>
+                  <TableCell>{stock.availableQuantity}</TableCell>
+                  <TableCell>{stock.reservedQuantity}</TableCell>
+                  <TableCell>{stock.lowStockThreshold}</TableCell>
+                  <TableCell className="flagList">
+                    {low ? <b>Low stock</b> : null}
+                    {nearExpiry ? <b>Near expiry</b> : null}
+                    {!low && !nearExpiry ? <span>-</span> : null}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1513,44 +1540,63 @@ function BatchTable({
   }
 
   return (
-    <div className="brandTableScroll inventoryTableScroll">
-      <Table className="brandDataTable inventoryDataTable">
-        <TableHeader>
-          <TableRow>
-            {bulk ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
-            <TableHead>Batch</TableHead>
-            <TableHead>Product</TableHead>
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead>Expiry</TableHead>
-            <TableHead>Prices</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {batches.map((batch) => (
-            <TableRow key={batch.id}>
-              {bulk ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={batch} label={batch.batchNumber} /></TableCell> : null}
-              <TableCell>
-                <strong>{batch.batchNumber}</strong>
-              </TableCell>
-              <TableCell>
-                {productLabel(products, batch.productId, batch.variantId)}
-              </TableCell>
-              <TableCell>{warehouseLabel(warehouses, batch.warehouseId)}</TableCell>
-              <TableCell>{batch.quantity}</TableCell>
-              <TableCell className="flagList">
-                <span>{formatDate(batch.expiryDate)}</span>
-                {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? (
-                  <b>Near expiry</b>
-                ) : null}
-              </TableCell>
-              <TableCell>
-                {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
-              </TableCell>
+    <div className="inventoryTableShell">
+      <p className="inventoryTableHint">Swipe sideways to view every batch column.</p>
+      <div className="brandTableScroll inventoryTableScroll">
+        <Table
+          className={`brandDataTable inventoryDataTable${bulk ? " inventoryDataTableWithBulk" : ""}`}
+        >
+          <TableHeader>
+            <TableRow>
+              {bulk ? (
+                <TableHead className="bulkCheckboxCell">
+                  <BulkPageCheckbox selection={bulk} />
+                </TableHead>
+              ) : null}
+              <TableHead>Batch</TableHead>
+              <TableHead>Product</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Expiry</TableHead>
+              <TableHead>Prices</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {batches.map((batch) => (
+              <TableRow key={batch.id}>
+                {bulk ? (
+                  <TableCell className="bulkCheckboxCell">
+                    <BulkRowCheckbox
+                      selection={bulk}
+                      item={batch}
+                      label={batch.batchNumber}
+                    />
+                  </TableCell>
+                ) : null}
+                <TableCell>
+                  <strong>{batch.batchNumber}</strong>
+                </TableCell>
+                <TableCell>
+                  {productLabel(products, batch.productId, batch.variantId)}
+                </TableCell>
+                <TableCell>
+                  {warehouseLabel(warehouses, batch.warehouseId)}
+                </TableCell>
+                <TableCell>{batch.quantity}</TableCell>
+                <TableCell className="flagList">
+                  <span>{formatDate(batch.expiryDate)}</span>
+                  {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? (
+                    <b>Near expiry</b>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1574,35 +1620,40 @@ function MovementTable({
   }
 
   return (
-    <div className="brandTableScroll inventoryTableScroll">
-      <Table className="brandDataTable inventoryDataTable">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Time</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Product</TableHead>
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead>Reason / reference</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {movements.map((movement) => (
-            <TableRow key={movement.id}>
-              <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
-              <TableCell>{formatMovementType(movement.type)}</TableCell>
-              <TableCell>
-                {productLabel(products, movement.productId, movement.variantId)}
-              </TableCell>
-              <TableCell>{warehouseLabel(warehouses, movement.warehouseId)}</TableCell>
-              <TableCell>{movement.quantity}</TableCell>
-              <TableCell>
-                {movement.notes || formatMovementReference(movement) || "-"}
-              </TableCell>
+    <div className="inventoryTableShell">
+      <p className="inventoryTableHint">Swipe sideways to view every movement column.</p>
+      <div className="brandTableScroll inventoryTableScroll">
+        <Table className="brandDataTable inventoryDataTable inventoryMovementDataTable">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Time</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Product</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Reason / reference</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {movements.map((movement) => (
+              <TableRow key={movement.id}>
+                <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
+                <TableCell>{formatMovementType(movement.type)}</TableCell>
+                <TableCell>
+                  {productLabel(products, movement.productId, movement.variantId)}
+                </TableCell>
+                <TableCell>
+                  {warehouseLabel(warehouses, movement.warehouseId)}
+                </TableCell>
+                <TableCell>{movement.quantity}</TableCell>
+                <TableCell>
+                  {movement.notes || formatMovementReference(movement) || "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

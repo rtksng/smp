@@ -1,0 +1,19 @@
+[
+  {
+    "name": "Invoice available",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "invoice_number": "INV-2026-1042",
+      "invoice_date": "7 September 2026",
+      "total": "₹2,360.00"
+    }
+  }
+]

@@ -1,0 +1,274 @@
+.reportsModule,
+.reportsModule > *,
+.reportsModule .reportControlPanel,
+.reportsModule .reportMetricGrid,
+.reportsModule .reportTablePanel,
+.reportsModule .reportTableShell,
+.reportsModule .reportDataTable {
+  min-width: 0;
+}
+
+.reportsModule .reportControlPanel,
+.reportsModule .reportTablePanel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.reportsModule .reportControlPanel {
+  margin-bottom: 14px;
+}
+
+.reportsModule .reportSectionNav {
+  gap: 4px;
+  padding: 4px;
+}
+
+.reportsModule .reportSectionNav a {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.reportsModule .reportPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.reportsModule .reportPageHeader .adminPageActions {
+  margin-left: auto;
+  width: auto;
+}
+
+.reportsModule .reportExportActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.reportsModule .reportExportActions > button {
+  min-height: 38px;
+  min-width: 0;
+  padding-inline: 11px;
+  width: auto;
+}
+
+.reportsModule .reportMetricGrid {
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.reportsModule .reportMetric {
+  min-height: 94px;
+}
+
+.reportsModule .reportMetric [data-slot="card-content"] {
+  padding: 13px 14px;
+}
+
+.reportsModule .reportMetric .metricText {
+  font-size: 26px;
+  line-height: 1;
+  margin-top: 10px;
+}
+
+.reportsModule .reportTablePanel {
+  display: grid;
+  gap: 12px;
+}
+
+.reportsModule .reportTablePanel .settingsSectionHeader {
+  margin-bottom: 0;
+}
+
+.reportsModule .reportTableShell {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.reportsModule .reportTableHint {
+  background: #effaf8;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 8px;
+  color: var(--muted);
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+}
+
+.reportsModule .resourceTable.reportDataTable {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.reportsModule .reportDataTable .adminTableViewport {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.reportsModule .reportDataTable [data-slot="table"] {
+  table-layout: fixed !important;
+  width: 100%;
+}
+
+.reportsModule .reportDataTable th,
+.reportsModule .reportDataTable td {
+  padding-inline: 11px;
+}
+
+.reportsModule .reportDataTable th:last-child,
+.reportsModule .reportDataTable td:last-child {
+  max-width: 180px !important;
+  min-width: 180px !important;
+  width: 180px !important;
+}
+
+.reportsModule .reportDataTable .tableActions {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .reportsModule .reportTableHint {
+    display: block;
+  }
+
+  .reportsModule .reportDataTable [data-slot="table"] {
+    min-width: 780px !important;
+  }
+
+  .reportsModule[data-report-view="orders"] .reportDataTable [data-slot="table"],
+  .reportsModule[data-report-view="sales"] .reportDataTable [data-slot="table"] {
+    min-width: 620px !important;
+  }
+
+  .reportsModule[data-report-view="warehouses"] .reportDataTable [data-slot="table"] {
+    min-width: 880px !important;
+  }
+
+  .reportsModule .reportDataTable th:last-child,
+  .reportsModule .reportDataTable td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    position: sticky;
+    right: 0;
+    z-index: 2;
+  }
+
+  .reportsModule .reportDataTable th:last-child {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 980px) {
+  .reportsModule .reportPageHeader {
+    flex-direction: row;
+  }
+
+  .reportsModule .reportMetricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .reportsModule .reportControlPanel,
+  .reportsModule .reportTablePanel {
+    gap: 11px;
+    padding: 14px;
+  }
+
+  .reportsModule .reportControlPanel {
+    margin-bottom: 12px;
+  }
+
+  .reportsModule .reportSectionNav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .reportsModule .reportSectionNav a {
+    justify-content: center;
+    min-height: 34px;
+    padding-inline: 6px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .reportsModule .reportPageHeader {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reportsModule .reportPageHeader .adminPageActions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .reportsModule .reportExportActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .reportsModule .reportExportActions > button {
+    font-size: 12px;
+    justify-content: center;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .reportsModule .reportMetricGrid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .reportsModule .reportMetric {
+    min-height: 80px;
+  }
+
+  .reportsModule .reportMetric [data-slot="card-content"] {
+    padding: 10px 11px;
+  }
+
+  .reportsModule .reportMetricLabel {
+    font-size: 12px;
+    gap: 5px;
+    line-height: 1.2;
+  }
+
+  .reportsModule .reportMetric .metricText {
+    font-size: 22px;
+    margin-top: 7px;
+  }
+
+  .reportsModule .reportTableHint {
+    display: block;
+  }
+
+  .reportsModule .reportDataTable th:last-child,
+  .reportsModule .reportDataTable td:last-child {
+    max-width: 142px !important;
+    min-width: 142px !important;
+    width: 142px !important;
+  }
+
+  .reportsModule[data-report-view="inventory"] .reportDataTable th:last-child,
+  .reportsModule[data-report-view="inventory"] .reportDataTable td:last-child {
+    max-width: 158px !important;
+    min-width: 158px !important;
+    width: 158px !important;
+  }
+
+  .reportsModule .reportDataTable .tableActions {
+    gap: 7px;
+  }
+
+  .reportsModule .reportDataTable .reportTableLink {
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,18 @@
+{{brand_name}}
+
+Your account has been updated
+
+Hi {{customer_name}},
+
+{{status_message}}
+
+Account status: {{status_label}}
+{{#if customer_note}}
+{{customer_note}}
+{{/if}}
+
+Contact support: mailto:{{support_email}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

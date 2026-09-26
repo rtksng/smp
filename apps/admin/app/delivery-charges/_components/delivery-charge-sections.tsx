@@ -70,6 +70,7 @@ import {
 } from "../../../lib/delivery-charge-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
+import "../delivery-charges-responsive.css";
 
 const PAGE_SIZE = 20;
 
@@ -316,12 +317,12 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
 
   const pageCopy = deliveryChargeCopy[view];
   return (
-    <>
+    <div className="deliveryChargeModule" data-delivery-charge-view={view}>
       <section className="panel deliveryChargeOverviewPanel">
         <DeliveryChargeSectionNav active={view} />
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow deliveryChargeHeaderActions">
               {view === "new" ? (
                 <Button asChild className="iconTextButton" variant="outline">
                   <Link href="/delivery-charges/rules">
@@ -346,6 +347,17 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
                 <RefreshCw aria-hidden size={16} />
                 <span>Refresh</span>
               </Button>
+              {view === "rules" ? (
+                <Button
+                  className="iconTextButton"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  type="button"
+                  variant="outline"
+                >
+                  <SlidersHorizontal aria-hidden size={16} />
+                  <span>Add filter</span>
+                </Button>
+              ) : null}
             </div>
           }
           className="deliveryChargePageHeader"
@@ -410,16 +422,6 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
         <div className="deliveryChargeWorkspaceGrid deliveryChargeWorkspaceGrid--single">
           <section className="panel deliveryChargeRulesPanel mt-3 ">
             <PageHeader
-              actions={
-                <Button
-                  className="iconTextButton"
-                  onClick={() => setIsFilterDrawerOpen(true)}
-                  type="button"
-                >
-                  <SlidersHorizontal aria-hidden size={16} />
-                  <span>Add filter</span>
-                </Button>
-              }
               className="settingsSectionHeader"
               eyebrow="Rule list"
               level={2}
@@ -430,10 +432,33 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
             {rulesQuery.isLoading ? (
               <LoadingState label="Loading delivery charge rules..." />
             ) : null}
-            <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminDeliveryChargeRule>(api, "delivery-charge-rules")} total={pagination?.total ?? 0}
-              disabled={rulesQuery.isFetching || rulesQuery.isError || isSaving || isDeleting}
-              loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedDeliveryChargeResponse>("/admin/delivery-charge-rules", { query: buildDeliveryChargeQuery(appliedFilters, next, limit) }))}
-              getLabel={(rule) => rule.name} onComplete={refreshRules} />
+            <div className="deliveryChargeBulkActions">
+              <BulkActions
+                actions={activeResourceBulkActions<AdminDeliveryChargeRule>(
+                  api,
+                  "delivery-charge-rules"
+                )}
+                disabled={
+                  rulesQuery.isFetching ||
+                  rulesQuery.isError ||
+                  isSaving ||
+                  isDeleting
+                }
+                getLabel={(rule) => rule.name}
+                key={bulk.scope}
+                loadAll={() =>
+                  loadBulkRows((next, limit) =>
+                    api.request<PaginatedDeliveryChargeResponse>(
+                      "/admin/delivery-charge-rules",
+                      { query: buildDeliveryChargeQuery(appliedFilters, next, limit) }
+                    )
+                  )
+                }
+                onComplete={refreshRules}
+                selection={bulk}
+                total={pagination?.total ?? 0}
+              />
+            </div>
             {!rulesQuery.isLoading && !rulesQuery.isError && rules.length === 0 ? (
               <EmptyState
                 body="No delivery charge rules match the current filters."
@@ -467,7 +492,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -511,7 +536,7 @@ export function DeliveryChargeForm({
 }) {
   return (
     <form className="formStack productForm deliveryChargeForm" onSubmit={onSubmit}>
-      <div className="formGrid">
+      <div className="formGrid deliveryChargeFormGrid">
         <TextField
           error={errors.name}
           label="Rule name"
@@ -592,14 +617,14 @@ export function DeliveryChargeForm({
           value={values.priority}
         />
       </div>
-      <Label className="checkField rowCheck">
+      <Label className="checkField rowCheck deliveryChargeActiveField">
         <Checkbox
           checked={values.isActive}
           onCheckedChange={(checked) => onChange("isActive", checked === true)}
         />
         <span>Active for checkout</span>
       </Label>
-      <div className="actionRow">
+      <div className="actionRow deliveryChargeFormActions">
         <Button className="iconTextButton" disabled={isSaving} type="submit">
           {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
           <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create rule"}</span>
@@ -711,79 +736,103 @@ function DeliveryChargeRulesTable({
   rules: AdminDeliveryChargeRule[];
 }) {
   return (
-    <div className="resourceTable deliveryChargeRulesTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
-            <TableHead>Rule</TableHead>
-            <TableHead>Charge</TableHead>
-            <TableHead>Scope</TableHead>
-            <TableHead>Order range</TableHead>
-            <TableHead>Free threshold</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Updated</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rules.map((rule) => (
-            <TableRow key={rule.id}>
-              <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={rule} label={rule.name} /></TableCell>
-              <TableCell>
-                <strong>{rule.name}</strong>
-                <em>Priority {rule.priority}</em>
-              </TableCell>
-              <TableCell>
-                <span className="inline-flex items-center gap-2 font-semibold">
-                  <Truck aria-hidden size={14} />
-                  {formatCurrency(rule.charge)}
-                </span>
-              </TableCell>
-              <TableCell>
-                <strong>{formatDeliveryScope(rule)}</strong>
-                <em>{rule.warehouse?.name ?? "No warehouse restriction"}</em>
-              </TableCell>
-              <TableCell>{formatDeliveryRange(rule)}</TableCell>
-              <TableCell>{formatCurrency(rule.freeDeliveryThreshold)}</TableCell>
-              <TableCell>
-                <StatusBadge status={rule.isActive ? "ACTIVE" : "INACTIVE"} />
-              </TableCell>
-              <TableCell>{formatDeliveryDateTime(rule.updatedAt)}</TableCell>
-              <TableCell>
-                <div className="tableActions">
-                  <Button
-                    asChild
-                    className="iconTextButton"
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Link
-                      aria-label={`Edit ${rule.name}`}
-                      href={`/delivery-charges/${encodeURIComponent(rule.id)}/edit`}
-                    >
-                      <Pencil aria-hidden size={16} />
-                      <span>Edit</span>
-                    </Link>
-                  </Button>
-                  <Button
-                    aria-label={`Archive ${rule.name}`}
-                    className="iconTextButton"
-                    disabled={isSaving || isDeleting}
-                    onClick={() => onDelete(rule)}
-                    size="sm"
-                    type="button"
-                    variant="destructive"
-                  >
-                    <Trash2 aria-hidden size={16} />
-                    <span>Archive</span>
-                  </Button>
-                </div>
-              </TableCell>
+    <div className="deliveryChargeTableShell">
+      <p className="deliveryChargeTableHint">
+        Swipe sideways to view every delivery charge rule detail.
+      </p>
+      <div className="resourceTable deliveryChargeRulesTable">
+        <Table>
+          <colgroup>
+            <col className="deliveryChargeSelectColumn" />
+            <col className="deliveryChargeRuleColumn" />
+            <col className="deliveryChargeAmountColumn" />
+            <col className="deliveryChargeScopeColumn" />
+            <col className="deliveryChargeRangeColumn" />
+            <col className="deliveryChargeThresholdColumn" />
+            <col className="deliveryChargeStatusColumn" />
+            <col className="deliveryChargeUpdatedColumn" />
+            <col className="deliveryChargeActionsColumn" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="bulkCheckboxCell">
+                <BulkPageCheckbox selection={bulk} />
+              </TableHead>
+              <TableHead>Rule</TableHead>
+              <TableHead>Charge</TableHead>
+              <TableHead>Scope</TableHead>
+              <TableHead>Order range</TableHead>
+              <TableHead>Free threshold</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Updated</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rules.map((rule) => (
+              <TableRow key={rule.id}>
+                <TableCell className="bulkCheckboxCell">
+                  <BulkRowCheckbox
+                    item={rule}
+                    label={rule.name}
+                    selection={bulk}
+                  />
+                </TableCell>
+                <TableCell>
+                  <strong>{rule.name}</strong>
+                  <em>Priority {rule.priority}</em>
+                </TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center gap-2 font-semibold">
+                    <Truck aria-hidden size={14} />
+                    {formatCurrency(rule.charge)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <strong>{formatDeliveryScope(rule)}</strong>
+                  <em>{rule.warehouse?.name ?? "No warehouse restriction"}</em>
+                </TableCell>
+                <TableCell>{formatDeliveryRange(rule)}</TableCell>
+                <TableCell>{formatCurrency(rule.freeDeliveryThreshold)}</TableCell>
+                <TableCell>
+                  <StatusBadge status={rule.isActive ? "ACTIVE" : "INACTIVE"} />
+                </TableCell>
+                <TableCell>{formatDeliveryDateTime(rule.updatedAt)}</TableCell>
+                <TableCell>
+                  <div className="tableActions">
+                    <Button
+                      asChild
+                      className="iconTextButton"
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Link
+                        aria-label={`Edit ${rule.name}`}
+                        href={`/delivery-charges/${encodeURIComponent(rule.id)}/edit`}
+                      >
+                        <Pencil aria-hidden size={16} />
+                        <span>Edit</span>
+                      </Link>
+                    </Button>
+                    <Button
+                      aria-label={`Archive ${rule.name}`}
+                      className="iconTextButton"
+                      disabled={isSaving || isDeleting}
+                      onClick={() => onDelete(rule)}
+                      size="sm"
+                      type="button"
+                      variant="destructive"
+                    >
+                      <Trash2 aria-hidden size={16} />
+                      <span>Archive</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

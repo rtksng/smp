@@ -1,0 +1,307 @@
+.ordersModule,
+.ordersModule > *,
+.ordersTableShell,
+.ordersTable,
+.orderItemsTable,
+.orderDetailGrid,
+.orderActionsGrid {
+  min-width: 0;
+}
+
+.ordersModule .orderOverviewPanel,
+.ordersModule .orderListPanel,
+.ordersModule .orderDetailHeroContent,
+.ordersModule .panel {
+  padding: 18px;
+}
+
+.ordersModule .orderPageHeader,
+.ordersModule .orderDetailPageHeader {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ordersModule .orderMetricGrid,
+.ordersModule .orderDetailMetricGrid {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent {
+  padding: 12px 14px;
+}
+
+.ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent strong {
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.ordersBulkActions .bulkActions {
+  margin: 8px 0;
+  padding: 10px 12px;
+}
+
+.ordersBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.ordersBulkActions .bulkSelectionSummary {
+  gap: 1px;
+}
+
+.ordersBulkActions .bulkSelectionHint {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ordersBulkActions .bulkActionBar button,
+.ordersBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.ordersBulkActions .bulkActionForm {
+  align-items: start;
+  gap: 8px 10px;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.ordersBulkActions .bulkActionForm > [data-slot="select-trigger"],
+.ordersBulkActions .bulkActionForm > [data-slot="select"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.ordersBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 128px;
+}
+
+.ordersBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.ordersBulkActions .bulkFields {
+  gap: 8px;
+}
+
+.ordersTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ordersTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.ordersTableShell .ordersTable,
+.ordersTableShell .orderItemsTable {
+  border: 0;
+  border-radius: 0;
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow: hidden;
+}
+
+.ordersTableShell :is(.ordersTable, .orderItemsTable) .adminTableViewport {
+  max-height: min(560px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+.ordersModule .orderDetailGrid {
+  align-items: start;
+  grid-auto-rows: auto;
+}
+
+.ordersModule .orderDetailGrid > .panel {
+  align-self: start;
+  height: auto;
+  min-height: 0;
+}
+
+.ordersModule .orderActionsGrid > .compactForm {
+  align-self: start;
+  gap: 10px;
+  padding: 14px;
+}
+
+.ordersModule .orderTimeline {
+  gap: 10px;
+}
+
+.ordersModule .ordersNumberedPagination {
+  scrollbar-width: thin;
+}
+
+@media (max-width: 980px) {
+  .ordersModule .orderMetricGrid,
+  .ordersModule .orderDetailMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ordersTableHint {
+    display: block;
+  }
+
+  .ordersTableShell .ordersTable tr > .bulkCheckboxCell {
+    left: 0;
+    position: sticky;
+  }
+
+  .ordersTableShell .ordersTable th.bulkCheckboxCell {
+    background: #e4efed;
+    z-index: 4;
+  }
+
+  .ordersTableShell .ordersTable td.bulkCheckboxCell {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .ordersModule .orderOverviewPanel,
+  .ordersModule .orderListPanel,
+  .ordersModule .orderDetailHeroContent,
+  .ordersModule .panel {
+    padding: 12px;
+  }
+
+  .ordersModule .orderPageHeader,
+  .ordersModule .orderDetailPageHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ordersModule :is(.orderPageHeader, .orderDetailPageHeader) .adminPageActions {
+    width: 100%;
+  }
+
+  .ordersModule .ordersHeaderActions,
+  .ordersModule .orderDetailHeaderActions {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .ordersModule :is(.ordersHeaderActions, .orderDetailHeaderActions) > * {
+    font-size: 12px;
+    gap: 5px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .ordersModule .orderMetricGrid,
+  .ordersModule .orderDetailMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) > [data-slot="card"] {
+    min-height: 80px;
+  }
+
+  .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent {
+    padding: 9px 10px;
+  }
+
+  .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent strong {
+    font-size: 19px;
+    line-height: 1.05;
+    margin-top: 5px;
+  }
+
+  .ordersBulkActions .bulkActions {
+    margin: 6px 0;
+    padding: 8px;
+  }
+
+  .ordersBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ordersBulkActions .bulkSelectionSummary {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+
+  .ordersBulkActions .bulkActionBar button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 5px;
+    width: 100%;
+  }
+
+  .ordersBulkActions .bulkActionForm {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .ordersBulkActions .bulkActionForm > *,
+  .ordersBulkActions .bulkActionForm > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .ordersModule .ordersNumberedPagination {
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+
+  .ordersModule .ordersNumberedPagination .ordersPaginationButton {
+    flex-basis: 34px;
+    min-height: 34px;
+    min-width: 34px;
+  }
+
+  .ordersTableShell .ordersTable,
+  .ordersTableShell .orderItemsTable,
+  .ordersTableShell :is(.ordersTable, .orderItemsTable) .adminTableViewport {
+    max-height: min(450px, calc(100dvh - 130px));
+  }
+
+  .ordersModule .orderDetailGrid,
+  .ordersModule .orderActionsGrid,
+  .ordersModule .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ordersModule .orderActionsGrid {
+    gap: 10px;
+  }
+
+  .ordersModule .orderActionsGrid > .compactForm {
+    padding: 11px;
+  }
+}

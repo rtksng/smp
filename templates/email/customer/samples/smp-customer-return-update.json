@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Received",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "status_label": "received",
+      "status_message": "We received your return request. Our team will review it and send you an update."
+    }
+  },
+  {
+    "name": "Approved",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "status_label": "approved",
+      "status_message": "Your return request has been approved. Check your order for the latest return details.",
+      "customer_note": "If a refund is due, we will send a separate update about its progress."
+    }
+  },
+  {
+    "name": "Rejected",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "status_label": "rejected",
+      "status_message": "Your return request has not been approved. Please contact support if you need more information.",
+      "customer_note": "The submitted item does not meet the return conditions for this order."
+    }
+  }
+]

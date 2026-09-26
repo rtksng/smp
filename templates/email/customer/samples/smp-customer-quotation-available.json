@@ -1,0 +1,78 @@
+[
+  {
+    "name": "New quotation",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "order_date": "7 September 2026",
+      "total": "₹2,360.00",
+      "subtotal": "₹2,000.00",
+      "tax_total": "₹360.00",
+      "shipping_total": "₹0.00",
+      "discount_total": "₹0.00",
+      "delivery_address": "Aarav Sharma, Example Clinic, Sector 10, Chandigarh 160010",
+      "items": [
+        {
+          "name": "Nitrile examination gloves · Medium · Box of 100",
+          "quantity": 2,
+          "unit_price": "₹600.00",
+          "line_total": "₹1,200.00"
+        },
+        {
+          "name": "Sterile gauze swabs · Pack of 100",
+          "quantity": 2,
+          "unit_price": "₹400.00",
+          "line_total": "₹800.00"
+        }
+      ],
+      "quote_reference": "DEMO-QUOTE-1042",
+      "quotation_message": "We have prepared a quotation for your request. Please review the items and prices below.",
+      "valid_until": "14 September 2026"
+    }
+  },
+  {
+    "name": "Revised quotation",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "order_date": "7 September 2026",
+      "total": "₹2,360.00",
+      "subtotal": "₹2,000.00",
+      "tax_total": "₹360.00",
+      "shipping_total": "₹0.00",
+      "discount_total": "₹0.00",
+      "delivery_address": "Aarav Sharma, Example Clinic, Sector 10, Chandigarh 160010",
+      "items": [
+        {
+          "name": "Nitrile examination gloves · Medium · Box of 100",
+          "quantity": 2,
+          "unit_price": "₹600.00",
+          "line_total": "₹1,200.00"
+        },
+        {
+          "name": "Sterile gauze swabs · Pack of 100",
+          "quantity": 2,
+          "unit_price": "₹400.00",
+          "line_total": "₹800.00"
+        }
+      ],
+      "quote_reference": "DEMO-QUOTE-1042",
+      "quotation_message": "We have updated your quotation. Please review the latest details before accepting.",
+      "valid_until": "16 September 2026"
+    }
+  }
+]

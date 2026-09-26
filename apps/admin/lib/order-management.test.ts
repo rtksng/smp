@@ -13,8 +13,10 @@ import {
   createEmptyOrderFilters,
   createOrderFiltersFromSearchParams,
   createEmptyReturnRequestFilters,
+  getAssignedDeliveryPartnerName,
   getLatestRefund,
   getNextOrderStatuses,
+  type OrderDeliveryTracking,
   type OrderRefund
 } from "./order-management";
 
@@ -87,6 +89,29 @@ describe("order management helpers", () => {
     expect(canAssignDelivery("CONFIRMED")).toBe(true);
     expect(canAssignDelivery("PACKED")).toBe(true);
     expect(canAssignDelivery("CREATED")).toBe(false);
+  });
+
+  it("shows only the latest valid delivery assignment partner", () => {
+    const assigned = makeDeliveryTracking("ASSIGNED", " Asha Driver ");
+
+    expect(
+      getAssignedDeliveryPartnerName({ deliveryTracking: [assigned] })
+    ).toBe("Asha Driver");
+    expect(
+      getAssignedDeliveryPartnerName({
+        deliveryTracking: [
+          makeDeliveryTracking("CANCELLED", "Asha Driver"),
+          assigned
+        ]
+      })
+    ).toBeNull();
+    expect(
+      getAssignedDeliveryPartnerName({
+        deliveryTracking: [makeDeliveryTracking("FAILED", "Asha Driver")]
+      })
+    ).toBeNull();
+    expect(getAssignedDeliveryPartnerName({ deliveryTracking: [] })).toBeNull();
+    expect(getAssignedDeliveryPartnerName({})).toBeNull();
   });
 
   it("builds status and delivery action payloads without blank optional fields", () => {
@@ -189,3 +214,21 @@ describe("order management helpers", () => {
     expect(canProcessReturnRefund(failedReturn)).toBe(true);
   });
 });
+
+function makeDeliveryTracking(
+  status: OrderDeliveryTracking["status"],
+  deliveryPartnerName: string | null
+): OrderDeliveryTracking {
+  return {
+    assignedAt: "2026-09-01T10:00:00.000Z",
+    deliveredAt: null,
+    deliveryPartnerName,
+    failureReason: null,
+    id: "assignment-1",
+    pickedUpAt: null,
+    proofOfDeliveryUrl: null,
+    status,
+    statusHistory: [],
+    vehicleNumber: null
+  };
+}

@@ -98,7 +98,12 @@ describe("Reports page integration", () => {
     const metrics = await screen.findByRole("region", {
       name: "Dashboard key metrics"
     });
+    const controls = screen.getByRole("region", { name: "Dashboard controls" });
     expect(screen.queryByRole("navigation", { name: "Report sections" })).toBeNull();
+    expect(controls).toHaveAttribute("data-dashboard-layout", "responsive");
+    expect(
+      within(controls).getAllByRole("button").map((button) => button.textContent)
+    ).toEqual(["Add filter", "CSV", "PDF", "Refresh"]);
 
     const revenueHref = within(metrics)
       .getByRole("link", { name: /Pending order value/ })

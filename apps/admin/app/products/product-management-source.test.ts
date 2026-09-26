@@ -6,6 +6,10 @@ const productManagementPath = join(__dirname, "product-management.tsx");
 const productManagementSource = existsSync(productManagementPath)
   ? readFileSync(productManagementPath, "utf8")
   : "";
+const productManagementStyles = readFileSync(
+  join(__dirname, "product-management.module.css"),
+  "utf8"
+);
 const productsPageSource = readFileSync(join(__dirname, "page.tsx"), "utf8");
 const createPagePath = join(__dirname, "create/page.tsx");
 const editPagePath = join(__dirname, "[id]/edit/page.tsx");
@@ -68,6 +72,19 @@ describe("product management route flow", () => {
     expect(productManagementSource).not.toContain("function ConfirmationDialog(");
   });
 
+  it("provides a multi-image product gallery with main-image and removal controls", () => {
+    expect(productManagementSource).toContain("multiple: true");
+    expect(productManagementSource).toContain('"aria-label": "Upload product images"');
+    expect(productManagementSource).toContain('className="imageGalleryGrid"');
+    expect(productManagementSource).toContain("Set as main");
+    expect(productManagementSource).toContain("Main image");
+    expect(productManagementSource).toContain("onRemove(index)");
+    expect(productManagementSource).toContain("resolveAdminUploadUrl(image.url)");
+    expect(productManagementSource).toContain("<X aria-hidden size={14} />");
+    expect(productManagementSource).toContain("<Maximize2 aria-hidden size={14} />");
+    expect(productManagementSource).toContain('className="imageGalleryLargePreview"');
+  });
+
   it("opens product filters in the shared drawer without duplicating the filter form", () => {
     expect(productManagementSource).toContain(
       'import { FilterDrawer } from "@/components/admin/filter-drawer";'
@@ -81,7 +98,7 @@ describe("product management route flow", () => {
       'api.request<ProductListResponse>("/admin/products",'
     );
     expect(productManagementSource).toContain(
-      "query: buildProductQuery(appliedFilters, page)"
+      "() => buildProductQuery(appliedFilters)"
     );
     expect(productManagementSource).toContain("setAppliedFilters(draftFilters)");
     expect(productManagementSource).toContain("setIsFilterDrawerOpen(false)");
@@ -89,5 +106,49 @@ describe("product management route flow", () => {
       '<PageHeader level={2} eyebrow="Catalog filters" title="Find products" />'
     );
     expect(productManagementSource).not.toContain('<form className="productFilters"');
+  });
+
+  it("offers responsive product page sizes and keeps large tables virtualized", () => {
+    expect(productManagementSource).toContain(
+      'import styles from "./product-management.module.css"'
+    );
+    expect(productManagementSource).toContain('data-product-layout="responsive"');
+    expect(productManagementSource).toContain(
+      'data-product-view={isEditView ? "edit" : "create"}'
+    );
+    expect(productManagementSource).toContain('aria-label="Core product details"');
+    expect(productManagementSource).not.toContain("<h3>Core details</h3>");
+    expect(productManagementSource).toContain('aria-label="Product key metrics"');
+    expect(productManagementSource).toContain("styles.compactBulkActions");
+    expect(productManagementSource).toContain('containerClassName={styles.tableViewport}');
+    expect(productManagementSource).toContain(
+      "Swipe horizontally to view every product detail and action."
+    );
+    expect(productManagementSource).toContain("PRODUCT_PAGE_SIZE_OPTIONS");
+    expect(productManagementSource).toContain("loadProductPage");
+    expect(productManagementSource).toContain(
+      "placeholderData: (previousData) => previousData"
+    );
+    expect(productManagementSource).toContain("startPaginationTransition");
+    expect(productManagementSource).toContain("getProductVirtualWindow");
+    expect(productManagementSource).toContain("getProductPrefetchServerPages");
+    expect(productManagementSource).toContain("queryClient.fetchQuery");
+    expect(productManagementSource).toContain("staleTime: PRODUCT_PAGE_STALE_TIME");
+    expect(productManagementSource).toContain(
+      "currentWindow.start === nextWindow.start"
+    );
+    expect(productManagementStyles).toContain("flex-wrap: nowrap;");
+    expect(productManagementStyles).toContain(
+      "grid-template-columns: repeat(2, minmax(0, 1fr));"
+    );
+    expect(productManagementStyles).toContain(".compactBulkActions");
+    expect(productManagementStyles).toContain("min-height: 32px;");
+    expect(productManagementStyles).toContain("@media (min-width: 641px)");
+    expect(productManagementStyles).toContain(
+      "grid-template-columns: minmax(0, 1fr) auto;"
+    );
+    expect(productManagementStyles).toContain(
+      '.productFormPanel[data-product-view="create"]'
+    );
   });
 });

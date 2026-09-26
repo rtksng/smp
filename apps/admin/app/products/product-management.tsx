@@ -38,13 +38,15 @@ import {
   Link as LinkIcon,
   List,
   ListOrdered,
+  Maximize2,
   MoreVertical,
   Plus,
   RefreshCw,
   Search,
   SlidersHorizontal,
   Trash2,
-  Underline
+  Underline,
+  X
 } from "lucide-react";
 import {
   $createParagraphNode,
@@ -59,9 +61,18 @@ import {
   type LexicalEditor,
   type TextFormatType
 } from "lexical";
+import Image, { type ImageLoaderProps } from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition
+} from "react";
 import {
   Controller,
   useFieldArray,
@@ -85,6 +96,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import {
   Dropdown,
   DropdownItem,
@@ -113,7 +131,19 @@ import { AdminShell } from "../admin-shell";
 import { BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
 import { ProductBulkActions } from "@/components/admin/product-bulk-actions";
 import { loadBulkRows } from "@/lib/bulk-actions";
+import { resolveAdminUploadUrl } from "@/lib/upload-url";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import {
+  DEFAULT_PRODUCT_PAGE_SIZE,
+  getProductPrefetchServerPages,
+  getProductVirtualWindow,
+  isProductPageSize,
+  loadProductPage,
+  PRODUCT_PAGE_SIZE_OPTIONS,
+  PRODUCT_PAGE_STALE_TIME,
+  PRODUCT_SERVER_PAGE_SIZE,
+  type ProductPageSize
+} from "@/lib/product-pagination";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
@@ -139,6 +169,7 @@ import {
   type ProductPayload,
   type ProductStatus
 } from "../../lib/product-form";
+import styles from "./product-management.module.css";
 
 type BooleanFilter = "" | "false" | "true";
 type ProductView = "create" | "edit" | "list";
@@ -178,6 +209,7 @@ const FILTER_ALL_VALUE = "__all_filter_values__";
 const BOOLEAN_FILTER_ANY_VALUE = "__any_boolean_filter__";
 const FORM_SELECT_EMPTY_VALUE = "__empty_form_select__";
 const RICH_TEXT_FORMAT_VALUE = "__rich_text_format__";
+const MAX_PRODUCT_IMAGES = 20;
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   currency: "INR",
@@ -239,18 +271,64 @@ function ProductManagementContent({
   const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(emptyFilters);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ProductPageSize>(DEFAULT_PRODUCT_PAGE_SIZE);
+  const [isPaginationPending, startPaginationTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
-
-  const productsQuery = useQuery({
-    enabled: view === "list",
-    queryFn: () =>
-      api.request<ProductListResponse>("/admin/products", {
-        query: buildProductQuery(appliedFilters, page)
+  const appliedProductQuery = useMemo(
+    () => buildProductQuery(appliedFilters),
+    [appliedFilters]
+  );
+  const loadProductServerPage = useCallback(
+    (serverPage: number) =>
+      queryClient.fetchQuery<ProductListResponse>({
+        queryFn: ({ signal }) =>
+          api.request<ProductListResponse>("/admin/products", {
+            query: {
+              ...appliedProductQuery,
+              limit: PRODUCT_SERVER_PAGE_SIZE,
+              page: serverPage
+            },
+            signal
+          }),
+        queryKey: ["admin", "products", "server-page", appliedProductQuery, serverPage],
+        staleTime: PRODUCT_PAGE_STALE_TIME
       }),
-    queryKey: ["admin", "products", appliedFilters, page]
+    [api, appliedProductQuery, queryClient]
+  );
+
+  const productsQuery = useQuery<ProductListResponse>({
+    enabled: view === "list",
+    placeholderData: (previousData) => previousData,
+    queryFn: () =>
+      loadProductPage({
+        page,
+        pageSize,
+        query: appliedProductQuery,
+        request: (query) => loadProductServerPage(Number(query.page))
+      }),
+    queryKey: ["admin", "products", appliedFilters, page, pageSize],
+    staleTime: PRODUCT_PAGE_STALE_TIME
   });
+
+  useEffect(() => {
+    const total = productsQuery.data?.pagination.total;
+
+    if (view !== "list" || productsQuery.isPlaceholderData || total === undefined) {
+      return;
+    }
+
+    const serverPages = getProductPrefetchServerPages({ page, pageSize, total });
+    void Promise.allSettled(serverPages.map(loadProductServerPage));
+  }, [
+    loadProductServerPage,
+    page,
+    pageSize,
+    productsQuery.data?.pagination.total,
+    productsQuery.isPlaceholderData,
+    view
+  ]);
   const productQuery = useQuery({
     enabled: view === "edit" && Boolean(productId),
     queryFn: () =>
@@ -334,6 +412,25 @@ function ProductManagementContent({
     setPage(1);
   }
 
+  function handlePageChange(nextPage: number) {
+    if (bulk.isBusy) {
+      return;
+    }
+
+    startPaginationTransition(() => setPage(nextPage));
+  }
+
+  function handlePageSizeChange(nextPageSize: number) {
+    if (!isProductPageSize(nextPageSize)) {
+      return;
+    }
+
+    startPaginationTransition(() => {
+      setPage(1);
+      setPageSize(nextPageSize);
+    });
+  }
+
   async function handleSave(values: ProductFormValues) {
     setMessage(null);
     setUploadError(null);
@@ -396,7 +493,11 @@ function ProductManagementContent({
   if (isFormView) {
     return (
       <>
-        <Card className="panel">
+        <Card
+          className={`panel ${styles.productFormPanel}`}
+          data-product-layout="responsive"
+          data-product-view={isEditView ? "edit" : "create"}
+        >
           <PageHeader
             actions={
               <Button asChild className="iconTextButton" variant="outline">
@@ -467,7 +568,7 @@ function ProductManagementContent({
 
   return (
     <>
-      <Card className="panel">
+      <Card className={`panel ${styles.productOverview}`} data-product-layout="responsive">
         <PageHeader
           actions={
             <>
@@ -481,7 +582,7 @@ function ProductManagementContent({
               </Button>
               <Button
                 className="iconTextButton"
-                onClick={() => void productsQuery.refetch()}
+                onClick={() => void refreshProducts()}
                 type="button"
                 variant="outline"
               >
@@ -510,7 +611,11 @@ function ProductManagementContent({
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics">
+        <div
+          aria-label="Product key metrics"
+          className={`metricGrid resourceMetrics ${styles.kpiGrid}`}
+          role="region"
+        >
           <MetricCard
             label="Total products"
             tone="primary"
@@ -547,7 +652,7 @@ function ProductManagementContent({
         />
       </FilterDrawer>
 
-      <Card className="panel mt-3">
+      <Card className={`panel mt-3 ${styles.productTablePanel}`}>
         <PageHeader
           actions={
             pagination ? (
@@ -562,10 +667,31 @@ function ProductManagementContent({
         />
 
         {productsQuery.isLoading ? <LoadingState label="Loading products..." /> : null}
-        {canUpdate ? <ProductBulkActions key={bulk.scope} selection={bulk} brands={brands} categories={categoryTree}
-          total={pagination?.total ?? 0} disabled={productsQuery.isFetching || productsQuery.isError || deleteMutation.isPending || statusMutation.isPending}
-          loadAll={() => loadBulkRows((next, limit) => api.request<ProductListResponse>("/admin/products", { query: { ...buildProductQuery(appliedFilters, next), limit } }))}
-          onComplete={refreshProducts} /> : null}
+        {canUpdate ? (
+          <div className={styles.compactBulkActions}>
+            <ProductBulkActions
+              key={bulk.scope}
+              selection={bulk}
+              brands={brands}
+              categories={categoryTree}
+              total={pagination?.total ?? 0}
+              disabled={
+                productsQuery.isFetching ||
+                productsQuery.isError ||
+                deleteMutation.isPending ||
+                statusMutation.isPending
+              }
+              loadAll={() =>
+                loadBulkRows((next, limit) =>
+                  api.request<ProductListResponse>("/admin/products", {
+                    query: { ...buildProductQuery(appliedFilters), limit, page: next }
+                  })
+                )
+              }
+              onComplete={refreshProducts}
+            />
+          </div>
+        ) : null}
         {productsQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
@@ -576,7 +702,10 @@ function ProductManagementContent({
             bulk={bulk}
             canDelete={canDelete}
             canUpdate={canUpdate}
-            isMutating={bulk.isBusy || deleteMutation.isPending || statusMutation.isPending}
+            isMutating={
+              bulk.isBusy || deleteMutation.isPending || statusMutation.isPending
+            }
+            key={`${bulk.scope}:${page}:${pageSize}`}
             onActivate={(product) => void updateProductStatus(product, "ACTIVE")}
             onDeactivate={requestDeactivate}
             onDelete={requestDelete}
@@ -584,10 +713,15 @@ function ProductManagementContent({
           />
         ) : null}
 
-        {pagination && pagination.totalPages > 1 ? (
+        {pagination ? (
           <PaginationControls
-            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
+            isPending={isPaginationPending || productsQuery.isFetching}
+            itemLabel="Products per page"
+            onChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
             page={pagination.page}
+            pageSize={pageSize}
+            pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
             totalPages={pagination.totalPages}
           />
         ) : null}
@@ -788,9 +922,66 @@ function ProductTable({
   onDelete: (product: AdminProduct) => void;
   products: AdminProduct[];
 }) {
+  const [virtualWindow, setVirtualWindow] = useState(() =>
+    getProductVirtualWindow({ itemCount: products.length, scrollTop: 0 })
+  );
+  const scrollFrameRef = useRef<number | null>(null);
+  const nextScrollTopRef = useRef(0);
+  const visibleProducts = products.slice(virtualWindow.start, virtualWindow.end);
+  const columnCount = canUpdate ? 9 : 8;
+
+  useEffect(() => {
+    setVirtualWindow(
+      getProductVirtualWindow({ itemCount: products.length, scrollTop: 0 })
+    );
+  }, [products.length]);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    []
+  );
+
+  function handleTableScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (!virtualWindow.isVirtualized) {
+      return;
+    }
+
+    nextScrollTopRef.current = event.currentTarget.scrollTop;
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const nextWindow = getProductVirtualWindow({
+        itemCount: products.length,
+        scrollTop: nextScrollTopRef.current
+      });
+
+      setVirtualWindow((currentWindow) =>
+        currentWindow.start === nextWindow.start && currentWindow.end === nextWindow.end
+          ? currentWindow
+          : nextWindow
+      );
+    });
+  }
+
   return (
-    <div className="brandTableScroll">
-      <Table className="brandDataTable productDataTable">
+    <div className={`brandTableScroll ${styles.tableShell}`}>
+      <p className={styles.mobileTableHint} id="product-table-scroll-hint">
+        Swipe horizontally to view every product detail and action.
+      </p>
+      <Table
+        aria-describedby="product-table-scroll-hint"
+        aria-rowcount={products.length + 1}
+        className="brandDataTable productDataTable"
+        containerClassName={styles.tableViewport}
+        onContainerScroll={handleTableScroll}
+      >
         <colgroup>
           {canUpdate ? <col className="bulkCheckboxColumn" /> : null}
           <col className="productTableProductColumn" />
@@ -804,7 +995,11 @@ function ProductTable({
         </colgroup>
         <TableHeader>
           <TableRow>
-            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
+            {canUpdate ? (
+              <TableHead className="bulkCheckboxCell">
+                <BulkPageCheckbox selection={bulk} />
+              </TableHead>
+            ) : null}
             <TableHead>Product</TableHead>
             <TableHead>SKU</TableHead>
             <TableHead>Category</TableHead>
@@ -818,104 +1013,144 @@ function ProductTable({
         <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={canUpdate ? 9 : 8}>No products match the selected filters.</TableCell>
+              <TableCell colSpan={columnCount}>
+                No products match the selected filters.
+              </TableCell>
             </TableRow>
           ) : (
-            products.map((product) => (
-              <TableRow key={product.id}>
-                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={product} label={product.name} /></TableCell> : null}
-                <TableCell>
-                  <strong>{product.name}</strong>
-                  <span className="tableSubtext">
-                    {product.medicalSpecialty ?? "No specialty"}
-                  </span>
-                </TableCell>
-                <TableCell>{product.sku}</TableCell>
-                <TableCell>
-                  {product.category.name}
-                  {product.subcategory ? (
-                    <span className="tableSubtext">{product.subcategory.name}</span>
+            <>
+              {virtualWindow.topSpacerHeight > 0 ? (
+                <TableRow
+                  aria-hidden="true"
+                  className="productVirtualSpacer"
+                  style={{ height: virtualWindow.topSpacerHeight }}
+                >
+                  <TableCell colSpan={columnCount} />
+                </TableRow>
+              ) : null}
+              {visibleProducts.map((product, index) => (
+                <TableRow
+                  aria-rowindex={virtualWindow.start + index + 2}
+                  className={
+                    virtualWindow.isVirtualized ? "productVirtualizedRow" : undefined
+                  }
+                  key={product.id}
+                >
+                  {canUpdate ? (
+                    <TableCell className="bulkCheckboxCell">
+                      <BulkRowCheckbox
+                        selection={bulk}
+                        item={product}
+                        label={product.name}
+                      />
+                    </TableCell>
                   ) : null}
-                </TableCell>
-                <TableCell>{product.brand.name}</TableCell>
-                <TableCell>{currencyFormatter.format(product.sellingPrice)}</TableCell>
-                <TableCell>
-                  <StatusBadge status={product.status} />
-                </TableCell>
-                <TableCell>
-                  <span className="flagList">
-                    {product.sterile ? (
-                      <Badge variant="secondary">Sterile</Badge>
+                  <TableCell>
+                    <strong>{product.name}</strong>
+                    <span className="tableSubtext">
+                      {product.medicalSpecialty ?? "No specialty"}
+                    </span>
+                  </TableCell>
+                  <TableCell>{product.sku}</TableCell>
+                  <TableCell>
+                    {product.category.name}
+                    {product.subcategory ? (
+                      <span className="tableSubtext">{product.subcategory.name}</span>
                     ) : null}
-                    {product.disposable ? (
-                      <Badge variant="secondary">Disposable</Badge>
-                    ) : null}
-                    {product.expirySensitive ? (
-                      <Badge variant="secondary">Expiry</Badge>
-                    ) : null}
-                    {product.inStock ? <Badge variant="secondary">Stock</Badge> : null}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Dropdown>
-                    <DropdownTrigger>
-                      <Button
-                        aria-label={`Actions for ${product.name}`}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <MoreVertical aria-hidden size={16} />
-                      </Button>
-                    </DropdownTrigger>
-                    <DropdownMenu aria-label={`Actions for ${product.name}`}>
-                      {canUpdate ? (
-                        <DropdownItem
-                          key="edit"
-                          as={Link}
-                          href={buildProductEditPath(product.id)}
-                        >
-                          Edit
-                        </DropdownItem>
-                      ) : (
-                        <DropdownItem key="edit-disabled" isDisabled>
-                          Edit
-                        </DropdownItem>
-                      )}
-                      {canUpdate && product.status !== "ACTIVE" ? (
-                        <DropdownItem
-                          key="activate"
-                          isDisabled={isMutating}
-                          onPress={() => onActivate(product)}
-                        >
-                          Activate
-                        </DropdownItem>
+                  </TableCell>
+                  <TableCell>{product.brand.name}</TableCell>
+                  <TableCell>
+                    {currencyFormatter.format(product.sellingPrice)}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={product.status} />
+                  </TableCell>
+                  <TableCell>
+                    <span className="flagList">
+                      {product.sterile ? (
+                        <Badge variant="secondary">Sterile</Badge>
                       ) : null}
-                      {canUpdate && product.status === "ACTIVE" ? (
-                        <DropdownItem
-                          key="deactivate"
-                          isDisabled={isMutating}
-                          onPress={() => onDeactivate(product)}
-                        >
-                          Deactivate
-                        </DropdownItem>
+                      {product.disposable ? (
+                        <Badge variant="secondary">Disposable</Badge>
                       ) : null}
-                      {canDelete ? (
-                        <DropdownItem
-                          key="delete"
-                          className="text-danger"
-                          color="danger"
-                          isDisabled={isMutating}
-                          onPress={() => onDelete(product)}
-                        >
-                          Delete
-                        </DropdownItem>
+                      {product.expirySensitive ? (
+                        <Badge variant="secondary">Expiry</Badge>
                       ) : null}
-                    </DropdownMenu>
-                  </Dropdown>
-                </TableCell>
-              </TableRow>
-            ))
+                      {product.inStock ? (
+                        <Badge variant="secondary">Stock</Badge>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Dropdown>
+                      <DropdownTrigger>
+                        <Button
+                          aria-label={`Actions for ${product.name}`}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <MoreVertical aria-hidden size={16} />
+                        </Button>
+                      </DropdownTrigger>
+                      <DropdownMenu aria-label={`Actions for ${product.name}`}>
+                        {canUpdate ? (
+                          <DropdownItem
+                            key="edit"
+                            as={Link}
+                            href={buildProductEditPath(product.id)}
+                          >
+                            Edit
+                          </DropdownItem>
+                        ) : (
+                          <DropdownItem key="edit-disabled" isDisabled>
+                            Edit
+                          </DropdownItem>
+                        )}
+                        {canUpdate && product.status !== "ACTIVE" ? (
+                          <DropdownItem
+                            key="activate"
+                            isDisabled={isMutating}
+                            onPress={() => onActivate(product)}
+                          >
+                            Activate
+                          </DropdownItem>
+                        ) : null}
+                        {canUpdate && product.status === "ACTIVE" ? (
+                          <DropdownItem
+                            key="deactivate"
+                            isDisabled={isMutating}
+                            onPress={() => onDeactivate(product)}
+                          >
+                            Deactivate
+                          </DropdownItem>
+                        ) : null}
+                        {canDelete ? (
+                          <DropdownItem
+                            key="delete"
+                            className="text-danger"
+                            color="danger"
+                            isDisabled={isMutating}
+                            onPress={() => onDelete(product)}
+                          >
+                            Delete
+                          </DropdownItem>
+                        ) : null}
+                      </DropdownMenu>
+                    </Dropdown>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {virtualWindow.bottomSpacerHeight > 0 ? (
+                <TableRow
+                  aria-hidden="true"
+                  className="productVirtualSpacer"
+                  style={{ height: virtualWindow.bottomSpacerHeight }}
+                >
+                  <TableCell colSpan={columnCount} />
+                </TableRow>
+              ) : null}
+            </>
           )}
         </TableBody>
       </Table>
@@ -960,7 +1195,10 @@ export function ProductForm({
     name: "documents"
   });
   const { api } = useAdminSession();
-  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+  const [imageUploadProgress, setImageUploadProgress] = useState<{
+    completed: number;
+    total: number;
+  } | null>(null);
   const [uploadingDocumentIndex, setUploadingDocumentIndex] = useState<number | null>(
     null
   );
@@ -1003,10 +1241,7 @@ export function ProductForm({
   }, [editingProduct, form, nameValue, slugValue]);
 
   useEffect(() => {
-    if (
-      isLookupLoading ||
-      selectedCategoryId !== form.getValues("categoryId")
-    ) {
+    if (isLookupLoading || selectedCategoryId !== form.getValues("categoryId")) {
       return;
     }
 
@@ -1027,36 +1262,110 @@ export function ProductForm({
     await onSave(values);
   }
 
-  async function uploadImage(index: number, file: File | undefined) {
-    if (!file) {
+  async function uploadImages(files: File[]) {
+    if (files.length === 0) {
       return;
     }
 
-    setUploadingImageIndex(index);
+    const existingImages = form.getValues("images");
+    const availableSlots = Math.max(0, MAX_PRODUCT_IMAGES - existingImages.length);
+    const selectedFiles = files.slice(0, availableSlots);
+    const skippedCount = files.length - selectedFiles.length;
+
+    if (selectedFiles.length === 0) {
+      onUploadError(`A product can have up to ${MAX_PRODUCT_IMAGES} images.`);
+      return;
+    }
+
+    setImageUploadProgress({ completed: 0, total: selectedFiles.length });
     onUploadError(null);
+
     try {
-      const upload = await uploadFile(api.request, "/uploads/image", file, {
-        entityId: editingProduct?.id,
-        purpose: "product_image"
-      });
-      form.setValue(`images.${index}.url`, upload.url, {
-        shouldDirty: true,
-        shouldValidate: true
-      });
-      if (!form.getValues(`images.${index}.altText`)) {
-        form.setValue(
-          `images.${index}.altText`,
-          editingProduct?.name ?? fileNameWithoutExtension(file.name),
-          {
-            shouldDirty: true
+      const uploadResults = await Promise.allSettled(
+        selectedFiles.map(async (file) => {
+          try {
+            const upload = await uploadFile(api.request, "/uploads/image", file, {
+              entityId: editingProduct?.id,
+              purpose: "product_image"
+            });
+
+            return { file, upload };
+          } finally {
+            setImageUploadProgress((progress) =>
+              progress
+                ? {
+                    ...progress,
+                    completed: progress.completed + 1
+                  }
+                : null
+            );
           }
+        })
+      );
+      const successfulUploads = uploadResults.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+      const failedUploads = uploadResults.filter(
+        (result) => result.status === "rejected"
+      );
+
+      if (successfulUploads.length > 0) {
+        const hasPrimaryImage = existingImages.some(
+          (image) => image.url !== "" && image.isPrimary
+        );
+        imageFields.append(
+          successfulUploads.map(({ file, upload }, index) => ({
+            altText: fileNameWithoutExtension(file.name),
+            isPrimary: !hasPrimaryImage && index === 0,
+            sortOrder: String(existingImages.length + index),
+            url: upload.url
+          }))
         );
       }
-    } catch (error) {
-      onUploadError(getErrorMessage(error) ?? "Image upload failed.");
+
+      if (failedUploads.length > 0 || skippedCount > 0) {
+        const messages = [];
+
+        if (failedUploads.length > 0) {
+          messages.push(
+            `${failedUploads.length} of ${selectedFiles.length} selected images could not be uploaded.`
+          );
+        }
+        if (skippedCount > 0) {
+          messages.push(
+            `${skippedCount} image${skippedCount === 1 ? " was" : "s were"} skipped because a product can have up to ${MAX_PRODUCT_IMAGES} images.`
+          );
+        }
+
+        onUploadError(messages.join(" "));
+      }
     } finally {
-      setUploadingImageIndex(null);
+      setImageUploadProgress(null);
     }
+  }
+
+  function removeImage(index: number) {
+    const images = form.getValues("images");
+    const removedImageWasPrimary = images[index]?.isPrimary === true;
+    const remainingImages = images.filter((_image, imageIndex) => imageIndex !== index);
+
+    if (
+      removedImageWasPrimary &&
+      remainingImages.length > 0 &&
+      !remainingImages.some((image) => image.isPrimary)
+    ) {
+      const nextPrimaryIndex = remainingImages.findIndex((image) => image.url !== "");
+      const nextPrimaryImage = remainingImages[nextPrimaryIndex];
+
+      if (nextPrimaryIndex >= 0 && nextPrimaryImage) {
+        remainingImages[nextPrimaryIndex] = {
+          ...nextPrimaryImage,
+          isPrimary: true
+        };
+      }
+    }
+
+    imageFields.replace(remainingImages);
   }
 
   async function uploadDocument(index: number, file: File | undefined) {
@@ -1103,9 +1412,11 @@ export function ProductForm({
   }
 
   return (
-    <form className="formStack productForm" onSubmit={form.handleSubmit(submit)}>
-      <Card className="formSection border-0">
-        <h3>Core details</h3>
+    <form
+      className={`formStack productForm ${styles.productForm}`}
+      onSubmit={form.handleSubmit(submit)}
+    >
+      <Card aria-label="Core product details" className="formSection border-0">
         <div className="formGrid">
           <TextField
             error={errors.name?.message}
@@ -1348,9 +1659,9 @@ export function ProductForm({
         fields={imageFields.fields}
         form={form}
         onAdd={() => imageFields.append(createEmptyImageFormValue())}
-        onRemove={imageFields.remove}
-        onUpload={(index, file) => void uploadImage(index, file)}
-        uploadingIndex={uploadingImageIndex}
+        onRemove={removeImage}
+        onUpload={(files) => void uploadImages(files)}
+        uploadProgress={imageUploadProgress}
       />
 
       <VariantFields
@@ -1397,119 +1708,253 @@ function ImageFields({
   onAdd,
   onRemove,
   onUpload,
-  uploadingIndex
+  uploadProgress
 }: {
   errors: FieldErrors<ProductFormValues>;
   fields: Array<{ id: string }>;
   form: UseFormReturn<ProductFormValues>;
   onAdd: () => void;
   onRemove: (index: number) => void;
-  onUpload: (index: number, file: File | undefined) => void;
-  uploadingIndex: number | null;
+  onUpload: (files: File[]) => void;
+  uploadProgress: { completed: number; total: number } | null;
 }) {
+  const images = form.watch("images");
+  const isUploading = uploadProgress !== null;
+  const [expandedImage, setExpandedImage] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
+
+  function setMainImage(selectedIndex: number) {
+    images.forEach((_image, imageIndex) => {
+      form.setValue(`images.${imageIndex}.isPrimary`, imageIndex === selectedIndex, {
+        shouldDirty: true,
+        shouldValidate: true
+      });
+    });
+  }
+
   return (
-    <Card className="formSection border-0">
+    <Card className="formSection imageGallerySection border-0">
       <div className="sectionTitleRow">
-        <h3>Product images</h3>
+        <div className="imageGalleryHeading">
+          <h3>Product image gallery</h3>
+          <span className="helperText">
+            {fields.length} of {MAX_PRODUCT_IMAGES} images
+          </span>
+        </div>
         <Button
           className="iconTextButton"
+          disabled={isUploading || fields.length >= MAX_PRODUCT_IMAGES}
           onClick={onAdd}
           type="button"
           variant="outline"
         >
           <Plus aria-hidden size={16} />
-          <span>Add image</span>
+          <span>Add by URL</span>
         </Button>
       </div>
+
+      <div className="imageGalleryUploader">
+        <div className="imageGalleryUploadCopy">
+          <strong>Add product photos</strong>
+          <span>
+            Select several JPG, PNG, WebP, or AVIF images in one go. The first image
+            becomes the main image automatically.
+          </span>
+        </div>
+        <FileUploadButton
+          className="imageGalleryUploadButton"
+          inputProps={{
+            accept: "image/avif,image/jpeg,image/png,image/webp",
+            "aria-label": "Upload product images",
+            disabled: isUploading || fields.length >= MAX_PRODUCT_IMAGES,
+            multiple: true,
+            onChange: (event) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              onUpload(files);
+            }
+          }}
+        >
+          <ImageUp aria-hidden size={18} />
+          <span>
+            {uploadProgress
+              ? `Uploading ${uploadProgress.completed} of ${uploadProgress.total}`
+              : "Choose images"}
+          </span>
+        </FileUploadButton>
+      </div>
+
+      <p className="imageGalleryStatus helperText" role="status">
+        {isUploading
+          ? "Keep this page open while the selected images are uploaded."
+          : "Use Set as main to choose the image shown first across the catalog."}
+      </p>
+
       {typeof errors.images?.message === "string" ? (
         <p className="fieldError">{errors.images.message}</p>
       ) : null}
       {fields.length === 0 ? (
-        <div className="emptyPanel smallEmpty">No images added.</div>
-      ) : null}
-      {fields.map((field, index) => (
-        <div className="assetRow" key={field.id}>
-          <div className="inlineUploadField">
-            <Controller
-              control={form.control}
-              name={`images.${index}.url` as const}
-              render={({ field: imageUrlField }) => (
-                <Label>
-                  Image URL
-                  <Input
-                    name={imageUrlField.name}
-                    onBlur={imageUrlField.onBlur}
-                    onChange={imageUrlField.onChange}
-                    ref={imageUrlField.ref}
-                    value={imageUrlField.value}
-                  />
-                  {errors.images?.[index]?.url?.message ? (
-                    <span className="fieldError">
-                      {errors.images[index]?.url?.message}
-                    </span>
-                  ) : null}
-                </Label>
-              )}
-            />
-            <FileUploadButton
-              className="fileUploadButton inlineUploadButton"
-              inputProps={{
-                accept: "image/*",
-                disabled: uploadingIndex !== null,
-                onChange: (event) => onUpload(index, event.target.files?.[0])
-              }}
-            >
-              <ImageUp aria-hidden size={16} />
-              <span>{uploadingIndex === index ? "Uploading..." : "Upload"}</span>
-            </FileUploadButton>
-          </div>
-          <TextField
-            error={errors.images?.[index]?.altText?.message}
-            label="Alt text"
-            registration={form.register(`images.${index}.altText` as const)}
-          />
-          <TextField
-            error={errors.images?.[index]?.sortOrder?.message}
-            inputMode="numeric"
-            label="Sort order"
-            registration={form.register(`images.${index}.sortOrder` as const)}
-          />
-          <Label className="checkField rowCheck">
-            <Checkbox
-              checked={form.watch(`images.${index}.isPrimary` as const)}
-              onCheckedChange={(checked) => {
-                const isPrimary = checked === true;
-                form.setValue(`images.${index}.isPrimary`, isPrimary, {
-                  shouldDirty: true,
-                  shouldValidate: true
-                });
-
-                if (isPrimary) {
-                  form.getValues("images").forEach((_image, imageIndex) => {
-                    if (imageIndex !== index) {
-                      form.setValue(`images.${imageIndex}.isPrimary`, false, {
-                        shouldDirty: true,
-                        shouldValidate: true
-                      });
-                    }
-                  });
-                }
-              }}
-            />
-            <span>Primary</span>
-          </Label>
-          <Button
-            aria-label="Remove image"
-            className="rowActionControl rowIconButton rowFloatingDelete"
-            size="icon"
-            onClick={() => onRemove(index)}
-            type="button"
-            variant="outline"
-          >
-            <Trash2 aria-hidden size={16} />
-          </Button>
+        <div className="emptyPanel imageGalleryEmpty">
+          <ImageUp aria-hidden size={24} />
+          <strong>No product images yet</strong>
+          <span>Choose one or more images to build the product gallery.</span>
         </div>
-      ))}
+      ) : (
+        <div className="imageGalleryGrid">
+          {fields.map((field, index) => {
+            const image = images[index] ?? createEmptyImageFormValue();
+            const imageName = image.altText.trim() || `Product image ${index + 1}`;
+            const previewUrl = resolveAdminUploadUrl(image.url);
+
+            return (
+              <article
+                className={`imageGalleryCard${image.isPrimary ? " imageGalleryCardMain" : ""}`}
+                key={field.id}
+              >
+                <div className="imageGalleryPreview">
+                  {isPreviewableImageUrl(previewUrl) ? (
+                    <Image
+                      alt={imageName}
+                      fill
+                      loader={passthroughImageLoader}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1040px) 50vw, 25vw"
+                      src={previewUrl}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="imageGalleryPlaceholder">
+                      <ImageUp aria-hidden size={24} />
+                      <span>Add an image URL</span>
+                    </div>
+                  )}
+                  {image.isPrimary ? (
+                    <Badge className="imageGalleryMainBadge">Main image</Badge>
+                  ) : null}
+                  <div className="imageGalleryPreviewActions">
+                    {isPreviewableImageUrl(previewUrl) ? (
+                      <Button
+                        aria-label={`Expand ${imageName}`}
+                        className="imageGalleryExpandButton"
+                        size="icon"
+                        onClick={() =>
+                          setExpandedImage({ name: imageName, url: previewUrl })
+                        }
+                        title={`Expand ${imageName}`}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Maximize2 aria-hidden size={14} />
+                      </Button>
+                    ) : null}
+                    <Button
+                      aria-label={`Remove ${imageName}`}
+                      className="imageGalleryRemoveButton"
+                      size="icon"
+                      onClick={() => onRemove(index)}
+                      title={`Remove ${imageName}`}
+                      type="button"
+                      variant="outline"
+                    >
+                      <X aria-hidden size={14} />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="imageGalleryCardBody">
+                  <div className="imageGalleryCardTitle">
+                    <strong>{imageName}</strong>
+                    <span>
+                      {image.isPrimary ? "Catalog cover" : `Image ${index + 1}`}
+                    </span>
+                  </div>
+                  {!image.isPrimary ? (
+                    <Button
+                      aria-label={`Set ${imageName} as main image`}
+                      className="imageGalleryMainButton"
+                      disabled={!isPreviewableImageUrl(image.url)}
+                      onClick={() => setMainImage(index)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Set as main
+                    </Button>
+                  ) : null}
+                </div>
+
+                <details className="imageGalleryDetails">
+                  <summary>Image details</summary>
+                  <div className="imageGalleryDetailFields">
+                    <Controller
+                      control={form.control}
+                      name={`images.${index}.url` as const}
+                      render={({ field: imageUrlField }) => (
+                        <Label>
+                          Image URL
+                          <Input
+                            aria-label={`Image URL ${index + 1}`}
+                            name={imageUrlField.name}
+                            onBlur={imageUrlField.onBlur}
+                            onChange={imageUrlField.onChange}
+                            ref={imageUrlField.ref}
+                            value={imageUrlField.value}
+                          />
+                          {errors.images?.[index]?.url?.message ? (
+                            <span className="fieldError">
+                              {errors.images[index]?.url?.message}
+                            </span>
+                          ) : null}
+                        </Label>
+                      )}
+                    />
+                    <TextField
+                      error={errors.images?.[index]?.altText?.message}
+                      label="Alt text"
+                      registration={form.register(`images.${index}.altText` as const)}
+                    />
+                    <TextField
+                      error={errors.images?.[index]?.sortOrder?.message}
+                      inputMode="numeric"
+                      label="Sort order"
+                      registration={form.register(`images.${index}.sortOrder` as const)}
+                    />
+                  </div>
+                </details>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog
+        open={expandedImage !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExpandedImage(null);
+          }
+        }}
+      >
+        <DialogContent className="imageGalleryPreviewDialog">
+          <DialogHeader>
+            <DialogTitle>{expandedImage?.name ?? "Product image"}</DialogTitle>
+            <DialogDescription>Large product image preview.</DialogDescription>
+          </DialogHeader>
+          {expandedImage ? (
+            <div className="imageGalleryLargePreview">
+              <Image
+                alt={expandedImage.name}
+                fill
+                loader={passthroughImageLoader}
+                sizes="(max-width: 960px) 92vw, 880px"
+                src={expandedImage.url}
+                unoptimized
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -2066,15 +2511,13 @@ function BooleanSelect({
   );
 }
 
-function buildProductQuery(filters: ProductFilters, page: number) {
+function buildProductQuery(filters: ProductFilters) {
   return {
     brand: filters.brand || undefined,
     category: filters.category || undefined,
     disposable: toOptionalBoolean(filters.disposable),
     expirySensitive: toOptionalBoolean(filters.expirySensitive),
-    limit: 20,
     medicalSpecialty: filters.medicalSpecialty || undefined,
-    page,
     search: filters.search || undefined,
     status: filters.status || undefined,
     sterile: toOptionalBoolean(filters.sterile),
@@ -2117,6 +2560,23 @@ async function uploadFile(
     body,
     method: "POST"
   });
+}
+
+function passthroughImageLoader({ src }: ImageLoaderProps) {
+  return src;
+}
+
+function isPreviewableImageUrl(value: string) {
+  if (value.startsWith("/uploads/")) {
+    return true;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function fileNameWithoutExtension(fileName: string) {

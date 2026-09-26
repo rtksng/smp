@@ -1,0 +1,18 @@
+{{brand_name}}
+
+Your order has been cancelled
+
+Hi {{customer_name}},
+
+Order {{order_number}} has been cancelled.
+
+Order total: {{total}}
+{{#if cancellation_reason}}Reason: {{cancellation_reason}}
+{{/if}}
+{{refund_message}}
+
+View order: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

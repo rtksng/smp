@@ -1,0 +1,18 @@
+{{brand_name}}
+
+Your invoice is ready
+
+Hi {{customer_name}},
+
+Your invoice is available. Open your order and select Download invoice to save a copy.
+
+Invoice: {{invoice_number}}
+Order: {{order_number}}
+Invoice date: {{invoice_date}}
+Total: {{total}}
+
+View invoice in your account: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

@@ -1,0 +1,28 @@
+{{brand_name}}
+
+Your quotation is ready
+
+Hi {{customer_name}},
+
+{{quotation_message}}
+
+Request reference: {{quote_reference}}
+
+Items
+{{#each items}}- {{name}} | Qty {{quantity}} | {{unit_price}} each | {{line_total}}
+{{/each}}
+Subtotal: {{subtotal}}
+Tax: {{tax_total}}
+Delivery: {{shipping_total}}
+Quotation total: {{total}}
+{{#if valid_until}}Valid until: {{valid_until}}
+{{/if}}{{#if quotation_note}}
+{{quotation_note}}
+{{/if}}
+Sign in to review and accept or reject the quotation. Accepting a quotation does not complete payment.
+
+Review quotation: {{quotes_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

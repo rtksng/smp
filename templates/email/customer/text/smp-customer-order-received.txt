@@ -1,0 +1,29 @@
+{{brand_name}}
+
+We received your order
+
+Hi {{customer_name}},
+
+Thank you for placing an order.
+
+Order: {{order_number}}
+Placed on: {{order_date}}
+Payment: {{payment_label}}
+{{payment_message}}
+
+Items
+{{#each items}}- {{name}} | Qty {{quantity}} | {{unit_price}} each | {{line_total}}
+{{/each}}
+Subtotal: {{subtotal}}
+Discount: {{discount_total}}
+Tax: {{tax_total}}
+Delivery: {{shipping_total}}
+Total: {{total}}
+
+Deliver to: {{delivery_address}}
+
+View order: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

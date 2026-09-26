@@ -1,0 +1,21 @@
+{{brand_name}}
+
+Refund {{status_label}}
+
+Hi {{customer_name}},
+
+{{status_message}}
+
+Order: {{order_number}}
+Refund amount: {{refund_amount}}
+Refund status: {{status_label}}
+{{#if refund_reference}}Refund reference: {{refund_reference}}
+{{/if}}{{#if customer_note}}
+{{customer_note}}
+{{/if}}
+
+View refund details: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

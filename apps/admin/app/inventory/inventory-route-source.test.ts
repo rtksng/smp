@@ -5,10 +5,14 @@ import { describe, expect, it } from "vitest";
 const inventoryDir = __dirname;
 const overviewPageSource = readFileSync(join(inventoryDir, "page.tsx"), "utf8");
 const managementPath = join(inventoryDir, "inventory-management.tsx");
+const responsiveStylesPath = join(inventoryDir, "inventory-management.css");
 const actionsPagePath = join(inventoryDir, "actions/page.tsx");
 const movementsPagePath = join(inventoryDir, "movements/page.tsx");
 const managementSource = existsSync(managementPath)
   ? readFileSync(managementPath, "utf8")
+  : "";
+const responsiveStylesSource = existsSync(responsiveStylesPath)
+  ? readFileSync(responsiveStylesPath, "utf8")
   : "";
 const actionsPageSource = existsSync(actionsPagePath)
   ? readFileSync(actionsPagePath, "utf8")
@@ -52,5 +56,17 @@ describe("inventory route split", () => {
     expect(managementSource).toContain("MovementTable");
     expect(managementSource).toContain("PaginationControls");
     expect(managementSource).toContain("showMovementType={isMovementsView}");
+  });
+
+  it("keeps Inventory responsive without changing shared admin modules", () => {
+    expect(managementSource).toContain('import "./inventory-management.css"');
+    expect(managementSource).toContain('className="inventoryModule"');
+    expect(managementSource).toContain("inventoryMetricGrid");
+    expect(managementSource).toContain("inventoryTableHint");
+    expect(responsiveStylesSource).toContain("@media (max-width: 640px)");
+    expect(responsiveStylesSource).toContain(
+      "grid-template-columns: repeat(2, minmax(0, 1fr))"
+    );
+    expect(responsiveStylesSource).toContain(".inventoryBulkActions .bulkActionForm");
   });
 });

@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, UIEventHandler } from "react";
 import { table as heroTable } from "@heroui/theme";
 import { cn } from "@/lib/utils";
 
@@ -6,11 +6,13 @@ const tableSlots = heroTable({ radius: "sm", shadow: "none" });
 
 type TableProps = ComponentProps<"table"> & {
   containerClassName?: string;
+  onContainerScroll?: UIEventHandler<HTMLDivElement>;
 };
 
 export function Table({
   className,
   containerClassName,
+  onContainerScroll,
   ...props
 }: TableProps) {
   return (
@@ -21,9 +23,14 @@ export function Table({
         containerClassName
       )}
       data-slot="table-container"
+      onScroll={onContainerScroll}
     >
       <table
-        className={cn(tableSlots.table(), "w-full caption-bottom border-collapse text-sm", className)}
+        className={cn(
+          tableSlots.table(),
+          "w-full caption-bottom border-collapse text-sm",
+          className
+        )}
         data-slot="table"
         {...props}
       />

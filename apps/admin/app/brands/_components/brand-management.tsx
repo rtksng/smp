@@ -1,6 +1,10 @@
 "use client";
 
-import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import {
+  BulkActions,
+  BulkPageCheckbox,
+  BulkRowCheckbox
+} from "@/components/admin/bulk-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
 import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
 
@@ -9,6 +13,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ImageUp,
+  ListPlus,
   Pencil,
   Plus,
   RefreshCw,
@@ -19,7 +24,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
+import {
+  ConfirmationDialog,
+  type ConfirmationState
+} from "@/components/admin/confirmation-dialog";
+import { CatalogBulkCreatePage as CatalogBulkCreateWorkspace } from "@/components/admin/catalog-bulk-create-page";
+import "@/components/admin/catalog-management.css";
 import { EmptyState } from "@/components/admin/empty-state";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
@@ -43,7 +53,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminShell } from "../../admin-shell";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import type { CatalogBulkCreatePayload } from "../../../lib/catalog-bulk-create";
 import {
+  BRAND_BULK_CREATE_PATH,
   BRAND_CREATE_PATH,
   BRAND_LIST_PATH,
   brandFormSchema,
@@ -79,6 +91,57 @@ export function BrandManagementPage({
         <BrandsContent brandId={brandId} view={view} />
       </ProtectedRoute>
     </AdminShell>
+  );
+}
+
+export function BrandBulkCreatePage() {
+  return (
+    <AdminShell>
+      <ProtectedRoute permission={ADMIN_PERMISSION.ProductsCreate}>
+        <BrandBulkCreateContent />
+      </ProtectedRoute>
+    </AdminShell>
+  );
+}
+
+function BrandBulkCreateContent() {
+  const { api } = useAdminSession();
+  const brandsQuery = useQuery({
+    queryFn: () => api.request<AdminBrand[]>("/admin/brands"),
+    queryKey: ["admin", "brands", "managed"]
+  });
+
+  if (brandsQuery.isLoading) {
+    return (
+      <Card className="panel catalogFormPanel">
+        <LoadingState label="Loading brand options..." />
+      </Card>
+    );
+  }
+
+  if (brandsQuery.isError) {
+    return (
+      <Card className="panel catalogFormPanel">
+        <p className="formError" role="alert">
+          {getErrorMessage(brandsQuery.error) ?? "Unable to load brands."}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <CatalogBulkCreateWorkspace
+      backHref={BRAND_LIST_PATH}
+      existingSlugs={(brandsQuery.data ?? []).map((brand) => brand.slug)}
+      kind="brand"
+      onComplete={() => brandsQuery.refetch()}
+      onCreate={(payload: CatalogBulkCreatePayload) =>
+        api.request<AdminBrand>("/admin/brands", {
+          body: JSON.stringify(payload),
+          method: "POST"
+        })
+      }
+    />
   );
 }
 
@@ -286,8 +349,9 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
   if (isFormView) {
     return (
       <>
-        <Card className="panel">
+        <Card className="panel catalogFormPanel">
           <PageHeader
+            className="catalogFormHeader"
             level={2}
             actions={
               <Button asChild className="iconTextButton" variant="outline">
@@ -358,8 +422,9 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
 
   return (
     <>
-      <Card className="panel">
+      <Card className="panel catalogOverviewPanel">
         <PageHeader
+          className="catalogOverviewHeader"
           level={2}
           actions={
             <>
@@ -373,12 +438,22 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
                 <span>Refresh</span>
               </Button>
               {canCreate ? (
-                <Button asChild className="iconTextButton">
-                  <Link href={BRAND_CREATE_PATH}>
-                    <Plus aria-hidden size={16} />
-                    <span>New brand</span>
-                  </Link>
-                </Button>
+                <>
+                  <Button asChild className="iconTextButton" variant="outline">
+                    <Link href={BRAND_BULK_CREATE_PATH}>
+                      <ListPlus aria-hidden size={16} />
+                      <span className="catalogActionLabelFull">Bulk create brands</span>
+                      <span className="catalogActionLabelCompact">Bulk</span>
+                    </Link>
+                  </Button>
+                  <Button asChild className="iconTextButton">
+                    <Link href={BRAND_CREATE_PATH}>
+                      <Plus aria-hidden size={16} />
+                      <span className="catalogActionLabelFull">New brand</span>
+                      <span className="catalogActionLabelCompact">New</span>
+                    </Link>
+                  </Button>
+                </>
               ) : null}
             </>
           }
@@ -394,7 +469,7 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics">
+        <div className="metricGrid resourceMetrics catalogMetrics">
           <MetricCard label="Total brands" tone="primary" value={brands.length} />
           <MetricCard
             label="Active"
@@ -413,37 +488,49 @@ function BrandsContent({ brandId, view }: { brandId: string | null; view: BrandV
         </div>
       </Card>
 
-      <Card className="panel my-3">
-        <form className="productFilters" onSubmit={(event) => event.preventDefault()}>
-          <Label>
-            Search brands
-            <span className="searchInput">
-              <Search aria-hidden size={16} />
-              <Input
-                disabled={bulk.isBusy}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Acme Surgical"
-                value={search}
-              />
-            </span>
-          </Label>
-        </form>
-      </Card>
+      <Card className="panel my-3 catalogListPanel">
+        <PageHeader
+          actions={
+            <Label className="catalogListSearch">
+              <span className="sr-only">Search brands</span>
+              <span className="searchInput">
+                <Search aria-hidden size={16} />
+                <Input
+                  aria-label="Search brands"
+                  disabled={bulk.isBusy}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search brands"
+                  value={search}
+                />
+              </span>
+            </Label>
+          }
+          className="catalogListHeader"
+          level={2}
+          eyebrow="Brand list"
+          title="Managed brands"
+        />
 
-      <Card className="panel">
-        <PageHeader level={2} eyebrow="Brand list" title="Managed brands" />
-
-        {brandsQuery.isLoading ? (
-          <LoadingState label="Loading brands..." />
-        ) : null}
+        {brandsQuery.isLoading ? <LoadingState label="Loading brands..." /> : null}
         {brandsQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(brandsQuery.error) ?? "Unable to load brands."}
           </p>
         ) : null}
-        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminBrand>(api, "brands")}
-          total={filteredBrands.length} disabled={brandsQuery.isFetching || brandsQuery.isError || isMutating}
-          loadAll={async () => filteredBrands} getLabel={(brand) => brand.name} onComplete={refreshBrands} /> : null}
+        {canUpdate ? (
+          <div className="catalogBulkActions">
+            <BulkActions
+              key={bulk.scope}
+              selection={bulk}
+              actions={activeResourceBulkActions<AdminBrand>(api, "brands")}
+              total={filteredBrands.length}
+              disabled={brandsQuery.isFetching || brandsQuery.isError || isMutating}
+              loadAll={async () => filteredBrands}
+              getLabel={(brand) => brand.name}
+              onComplete={refreshBrands}
+            />
+          </div>
+        ) : null}
         {!brandsQuery.isLoading && !brandsQuery.isError ? (
           <BrandTable
             bulk={bulk}
@@ -483,10 +570,21 @@ function BrandTable({
 }) {
   return (
     <div className="brandTableScroll">
-      <Table className="brandDataTable">
+      <p className="catalogTableHint" id="brands-table-hint">
+        Swipe horizontally to see every brand field and action.
+      </p>
+      <Table
+        aria-describedby="brands-table-hint"
+        className="brandDataTable catalogDataTable"
+        containerClassName="catalogTableViewport"
+      >
         <TableHeader>
           <TableRow>
-            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
+            {canUpdate ? (
+              <TableHead className="bulkCheckboxCell">
+                <BulkPageCheckbox selection={bulk} />
+              </TableHead>
+            ) : null}
             <TableHead>Brand</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Brand image</TableHead>
@@ -497,12 +595,18 @@ function BrandTable({
         <TableBody>
           {brands.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={canUpdate ? 6 : 5}>No brands match the current search.</TableCell>
+              <TableCell colSpan={canUpdate ? 6 : 5}>
+                No brands match the current search.
+              </TableCell>
             </TableRow>
           ) : (
             brands.map((brand) => (
               <TableRow key={brand.id}>
-                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={brand} label={brand.name} /></TableCell> : null}
+                {canUpdate ? (
+                  <TableCell className="bulkCheckboxCell">
+                    <BulkRowCheckbox selection={bulk} item={brand} label={brand.name} />
+                  </TableCell>
+                ) : null}
                 <TableCell>
                   <strong>{brand.name}</strong>
                   {brand.description ? (
@@ -528,7 +632,12 @@ function BrandTable({
                 <TableCell>
                   <span className="tableActions">
                     {canUpdate ? (
-                      <Button asChild className="iconTextButton" size="sm" variant="outline">
+                      <Button
+                        asChild
+                        className="iconTextButton"
+                        size="sm"
+                        variant="outline"
+                      >
                         <Link href={buildBrandEditPath(brand.id)}>
                           <Pencil aria-hidden size={16} />
                           <span>Edit</span>

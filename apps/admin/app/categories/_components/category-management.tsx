@@ -1,6 +1,10 @@
 "use client";
 
-import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/admin/bulk-actions";
+import {
+  BulkActions,
+  BulkPageCheckbox,
+  BulkRowCheckbox
+} from "@/components/admin/bulk-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
 import { activeResourceBulkActions } from "@/lib/bulk-resource-actions";
 
@@ -9,6 +13,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   ImageUp,
+  ListPlus,
   Pencil,
   Plus,
   RefreshCw,
@@ -19,7 +24,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { ConfirmationDialog, type ConfirmationState } from "@/components/admin/confirmation-dialog";
+import {
+  ConfirmationDialog,
+  type ConfirmationState
+} from "@/components/admin/confirmation-dialog";
+import { CatalogBulkCreatePage as CatalogBulkCreateWorkspace } from "@/components/admin/catalog-bulk-create-page";
+import "@/components/admin/catalog-management.css";
 import { EmptyState } from "@/components/admin/empty-state";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
@@ -59,6 +69,7 @@ import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import {
   buildCategoryEditPath,
   buildCategoryPayload,
+  CATEGORY_BULK_CREATE_PATH,
   CATEGORY_CREATE_PATH,
   CATEGORY_LIST_PATH,
   categoryFormSchema,
@@ -74,6 +85,7 @@ import {
   type CategoryOption
 } from "../../../lib/catalog-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import type { CatalogBulkCreatePayload } from "../../../lib/catalog-bulk-create";
 
 type CategoryFieldErrors = Partial<Record<keyof CategoryFormValues, string>>;
 type CategoryView = "create" | "edit" | "list";
@@ -102,6 +114,65 @@ export function CategoryManagementPage({
   );
 }
 
+export function CategoryBulkCreatePage() {
+  return (
+    <AdminShell>
+      <ProtectedRoute permission={ADMIN_PERMISSION.ProductsCreate}>
+        <CategoryBulkCreateContent />
+      </ProtectedRoute>
+    </AdminShell>
+  );
+}
+
+function CategoryBulkCreateContent() {
+  const { api } = useAdminSession();
+  const categoriesQuery = useQuery({
+    queryFn: () => api.request<AdminCategory[]>("/admin/categories"),
+    queryKey: ["admin", "categories", "managed"]
+  });
+
+  if (categoriesQuery.isLoading) {
+    return (
+      <Card className="panel catalogFormPanel">
+        <LoadingState label="Loading category options..." />
+      </Card>
+    );
+  }
+
+  if (categoriesQuery.isError) {
+    return (
+      <Card className="panel catalogFormPanel">
+        <p className="formError" role="alert">
+          {getErrorMessage(categoriesQuery.error) ?? "Unable to load categories."}
+        </p>
+      </Card>
+    );
+  }
+
+  const categories = categoriesQuery.data ?? [];
+
+  return (
+    <CatalogBulkCreateWorkspace
+      backHref={CATEGORY_LIST_PATH}
+      existingSlugs={flattenCategoryOptions(categories).map(
+        (category) => category.slug
+      )}
+      kind="category"
+      onComplete={() => categoriesQuery.refetch()}
+      onCreate={(payload: CatalogBulkCreatePayload) =>
+        api.request<AdminCategory>("/admin/categories", {
+          body: JSON.stringify(payload),
+          method: "POST"
+        })
+      }
+      parentOptions={categories.map((category) => ({
+        id: category.id,
+        name: category.name
+      }))}
+    />
+  );
+}
+
 function CategoriesContent({
   categoryId,
   view
@@ -121,8 +192,9 @@ function CategoriesContent({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
-  const [childCategoryModal, setChildCategoryModal] =
-    useState<AdminCategory | null>(null);
+  const [childCategoryModal, setChildCategoryModal] = useState<AdminCategory | null>(
+    null
+  );
 
   const categoriesQuery = useQuery({
     queryFn: () => api.request<AdminCategory[]>("/admin/categories"),
@@ -322,8 +394,9 @@ function CategoriesContent({
   if (isFormView) {
     return (
       <>
-        <Card className="panel">
+        <Card className="panel catalogFormPanel">
           <PageHeader
+            className="catalogFormHeader"
             level={2}
             actions={
               <Button asChild className="iconTextButton" variant="outline">
@@ -401,8 +474,9 @@ function CategoriesContent({
 
   return (
     <>
-      <Card className="panel">
+      <Card className="panel catalogOverviewPanel">
         <PageHeader
+          className="catalogOverviewHeader"
           level={2}
           actions={
             <>
@@ -416,12 +490,24 @@ function CategoriesContent({
                 <span>Refresh</span>
               </Button>
               {canCreate ? (
-                <Button asChild className="iconTextButton">
-                  <Link href={CATEGORY_CREATE_PATH}>
-                    <Plus aria-hidden size={16} />
-                    <span>New category</span>
-                  </Link>
-                </Button>
+                <>
+                  <Button asChild className="iconTextButton" variant="outline">
+                    <Link href={CATEGORY_BULK_CREATE_PATH}>
+                      <ListPlus aria-hidden size={16} />
+                      <span className="catalogActionLabelFull">
+                        Bulk create categories
+                      </span>
+                      <span className="catalogActionLabelCompact">Bulk</span>
+                    </Link>
+                  </Button>
+                  <Button asChild className="iconTextButton">
+                    <Link href={CATEGORY_CREATE_PATH}>
+                      <Plus aria-hidden size={16} />
+                      <span className="catalogActionLabelFull">New category</span>
+                      <span className="catalogActionLabelCompact">New</span>
+                    </Link>
+                  </Button>
+                </>
               ) : null}
             </>
           }
@@ -437,7 +523,7 @@ function CategoriesContent({
           </p>
         ) : null}
 
-        <div className="metricGrid resourceMetrics">
+        <div className="metricGrid resourceMetrics catalogMetrics">
           <MetricCard
             label="Total categories"
             tone="primary"
@@ -457,25 +543,28 @@ function CategoriesContent({
         </div>
       </Card>
 
-      <Card className="panel my-3">
-        <form className="productFilters" onSubmit={(event) => event.preventDefault()}>
-          <Label>
-            Search categories
-            <span className="searchInput">
-              <Search aria-hidden size={16} />
-              <Input
-                disabled={bulk.isBusy}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Surgical instruments"
-                value={search}
-              />
-            </span>
-          </Label>
-        </form>
-      </Card>
-
-      <Card className="panel">
-        <PageHeader level={2} eyebrow="Category list" title="Managed categories" />
+      <Card className="panel my-3 catalogListPanel">
+        <PageHeader
+          actions={
+            <Label className="catalogListSearch">
+              <span className="sr-only">Search categories</span>
+              <span className="searchInput">
+                <Search aria-hidden size={16} />
+                <Input
+                  aria-label="Search categories"
+                  disabled={bulk.isBusy}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search categories"
+                  value={search}
+                />
+              </span>
+            </Label>
+          }
+          className="catalogListHeader"
+          level={2}
+          eyebrow="Category list"
+          title="Managed categories"
+        />
 
         {categoriesQuery.isLoading ? (
           <LoadingState label="Loading categories..." />
@@ -485,9 +574,22 @@ function CategoriesContent({
             {getErrorMessage(categoriesQuery.error) ?? "Unable to load categories."}
           </p>
         ) : null}
-        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
-          total={filteredRootCategories.length} disabled={categoriesQuery.isFetching || categoriesQuery.isError || isMutating}
-          loadAll={async () => filteredRootCategories} getLabel={(category) => category.name} onComplete={refreshCategories} /> : null}
+        {canUpdate ? (
+          <div className="catalogBulkActions">
+            <BulkActions
+              key={bulk.scope}
+              selection={bulk}
+              actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
+              total={filteredRootCategories.length}
+              disabled={
+                categoriesQuery.isFetching || categoriesQuery.isError || isMutating
+              }
+              loadAll={async () => filteredRootCategories}
+              getLabel={(category) => category.name}
+              onComplete={refreshCategories}
+            />
+          </div>
+        ) : null}
         {!categoriesQuery.isLoading && !categoriesQuery.isError ? (
           <CategoryTable
             bulk={bulk}
@@ -511,7 +613,9 @@ function CategoriesContent({
           setChildCategoryModal(null);
           requestDelete(category);
         }}
-        rootCategory={categories.find((category) => category.id === childCategoryModal?.id) ?? null}
+        rootCategory={
+          categories.find((category) => category.id === childCategoryModal?.id) ?? null
+        }
       />
 
       <ConfirmationDialog
@@ -543,10 +647,21 @@ function CategoryTable({
 }) {
   return (
     <div className="brandTableScroll">
-      <Table className="brandDataTable categoryDataTable">
+      <p className="catalogTableHint" id="categories-table-hint">
+        Swipe horizontally to see every category field and action.
+      </p>
+      <Table
+        aria-describedby="categories-table-hint"
+        className="brandDataTable categoryDataTable catalogDataTable"
+        containerClassName="catalogTableViewport"
+      >
         <TableHeader>
           <TableRow>
-            {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
+            {canUpdate ? (
+              <TableHead className="bulkCheckboxCell">
+                <BulkPageCheckbox selection={bulk} />
+              </TableHead>
+            ) : null}
             <TableHead>Category</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Child categories</TableHead>
@@ -558,12 +673,22 @@ function CategoryTable({
         <TableBody>
           {categories.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={canUpdate ? 7 : 6}>No categories match the current search.</TableCell>
+              <TableCell colSpan={canUpdate ? 7 : 6}>
+                No categories match the current search.
+              </TableCell>
             </TableRow>
           ) : (
             categories.map((category) => (
               <TableRow key={category.id}>
-                {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={category} label={category.name} /></TableCell> : null}
+                {canUpdate ? (
+                  <TableCell className="bulkCheckboxCell">
+                    <BulkRowCheckbox
+                      selection={bulk}
+                      item={category}
+                      label={category.name}
+                    />
+                  </TableCell>
+                ) : null}
                 <TableCell>
                   <strong>{category.name}</strong>
                   {category.description ? (
@@ -585,7 +710,12 @@ function CategoryTable({
                 <TableCell>
                   <span className="tableActions">
                     {canUpdate ? (
-                      <Button asChild className="iconTextButton" size="sm" variant="outline">
+                      <Button
+                        asChild
+                        className="iconTextButton"
+                        size="sm"
+                        variant="outline"
+                      >
                         <Link href={buildCategoryEditPath(category.id)}>
                           <Pencil aria-hidden size={16} />
                           <span>Edit</span>
@@ -676,7 +806,12 @@ function ChildCategoryModal({
   }
 
   return (
-    <Dialog open={Boolean(rootCategory)} onOpenChange={(open) => { if (!open && !bulk.isBusy) onClose(); }}>
+    <Dialog
+      open={Boolean(rootCategory)}
+      onOpenChange={(open) => {
+        if (!open && !bulk.isBusy) onClose();
+      }}
+    >
       <DialogContent className="categoryChildDialog">
         <DialogHeader>
           <p className="eyebrow">Child categories</p>
@@ -686,71 +821,114 @@ function ChildCategoryModal({
           </DialogDescription>
         </DialogHeader>
 
-        {canUpdate ? <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
-          total={rootCategory.children.length} disabled={isMutating} loadAll={async () => rootCategory.children}
-          getLabel={(category) => category.name} onComplete={onComplete} /> : null}
+        {canUpdate ? (
+          <div className="catalogBulkActions catalogChildBulkActions">
+            <BulkActions
+              key={bulk.scope}
+              selection={bulk}
+              actions={activeResourceBulkActions<AdminCategory>(api, "categories")}
+              total={rootCategory.children.length}
+              disabled={isMutating}
+              loadAll={async () => rootCategory.children}
+              getLabel={(category) => category.name}
+              onComplete={onComplete}
+            />
+          </div>
+        ) : null}
         {rootCategory.children.length === 0 ? (
-          <EmptyState body="No child categories available." title="No child categories" />
+          <EmptyState
+            body="No child categories available."
+            title="No child categories"
+          />
         ) : (
-          <Table aria-label={`Child categories for ${rootCategory.name}`}>
-            <TableHeader>
-              <TableRow>
-                {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rootCategory.children.map((subcategory) => (
-                <TableRow key={subcategory.id}>
-                  {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={subcategory} label={subcategory.name} /></TableCell> : null}
-                  <TableCell>
-                    <strong>{subcategory.name}</strong>
-                  </TableCell>
-                  <TableCell>{subcategory.slug}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={subcategory.isActive ? "active" : "inactive"} />
-                  </TableCell>
-                  <TableCell>
-                    <span className="tableActions categoryChildModalActions">
-                      {canUpdate ? (
-                        <Button asChild className="iconTextButton" size="sm" variant="outline">
-                          <Link href={buildCategoryEditPath(subcategory.id)}>
+          <>
+            <p className="catalogTableHint" id="child-categories-table-hint">
+              Swipe horizontally to see every child category action.
+            </p>
+            <Table
+              aria-describedby="child-categories-table-hint"
+              aria-label={`Child categories for ${rootCategory.name}`}
+              className="brandDataTable categoryChildDataTable"
+              containerClassName="catalogTableViewport categoryChildTableViewport"
+            >
+              <TableHeader>
+                <TableRow>
+                  {canUpdate ? (
+                    <TableHead className="bulkCheckboxCell">
+                      <BulkPageCheckbox selection={bulk} />
+                    </TableHead>
+                  ) : null}
+                  <TableHead>Name</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rootCategory.children.map((subcategory) => (
+                  <TableRow key={subcategory.id}>
+                    {canUpdate ? (
+                      <TableCell className="bulkCheckboxCell">
+                        <BulkRowCheckbox
+                          selection={bulk}
+                          item={subcategory}
+                          label={subcategory.name}
+                        />
+                      </TableCell>
+                    ) : null}
+                    <TableCell>
+                      <strong>{subcategory.name}</strong>
+                    </TableCell>
+                    <TableCell>{subcategory.slug}</TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        status={subcategory.isActive ? "active" : "inactive"}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <span className="tableActions categoryChildModalActions">
+                        {canUpdate ? (
+                          <Button
+                            asChild
+                            className="iconTextButton"
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Link href={buildCategoryEditPath(subcategory.id)}>
+                              <Pencil aria-hidden size={16} />
+                              <span>Edit</span>
+                            </Link>
+                          </Button>
+                        ) : (
+                          <Button
+                            className="iconTextButton"
+                            disabled
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
                             <Pencil aria-hidden size={16} />
                             <span>Edit</span>
-                          </Link>
-                        </Button>
-                      ) : (
+                          </Button>
+                        )}
                         <Button
                           className="iconTextButton"
-                          disabled
+                          disabled={!canDelete || isMutating}
+                          onClick={() => onDelete(subcategory)}
                           size="sm"
                           type="button"
-                          variant="outline"
+                          variant="destructive"
                         >
-                          <Pencil aria-hidden size={16} />
-                          <span>Edit</span>
+                          <Trash2 aria-hidden size={16} />
+                          <span>Delete</span>
                         </Button>
-                      )}
-                      <Button
-                        className="iconTextButton"
-                        disabled={!canDelete || isMutating}
-                        onClick={() => onDelete(subcategory)}
-                        size="sm"
-                        type="button"
-                        variant="destructive"
-                      >
-                        <Trash2 aria-hidden size={16} />
-                        <span>Delete</span>
-                      </Button>
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         )}
       </DialogContent>
     </Dialog>

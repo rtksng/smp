@@ -48,7 +48,7 @@ export function CouponEditPage({ couponId }: { couponId: string }) {
   });
 
   return (
-    <>
+    <div className="couponModule couponEditModule" data-coupon-view="edit">
       <section className="panel couponOverviewPanel">
         <CouponSectionNav active="coupons" />
         <PageHeader
@@ -60,12 +60,12 @@ export function CouponEditPage({ couponId }: { couponId: string }) {
               </Link>
             </Button>
           }
-          className="couponPageHeader"
+          className="couponPageHeader couponEditPageHeader"
           eyebrow="Coupons"
           title="Edit coupon"
         />
       </section>
-      <section className="panel couponFormPanel couponFormOnlyPanel mt-3">
+      <section className="panel couponFormPanel couponFormOnlyPanel couponEditFormPanel mt-3">
         {!couponQuery.isFetchedAfterMount ? <LoadingState label="Loading coupon..." /> : null}
         {couponQuery.isError ? (
           <>
@@ -80,7 +80,7 @@ export function CouponEditPage({ couponId }: { couponId: string }) {
           <CouponEditor key={couponId} coupon={couponQuery.data} />
         ) : null}
       </section>
-    </>
+    </div>
   );
 }
 

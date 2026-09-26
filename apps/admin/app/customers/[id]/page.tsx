@@ -63,6 +63,7 @@ import {
   formatDateTime,
   formatOrderLabel
 } from "../../../lib/order-management";
+import "../customers-responsive.css";
 
 export default function CustomerDetailPage() {
   return (
@@ -161,12 +162,12 @@ function CustomerDetailContent() {
   }
 
   return (
-    <>
-      <Card>
-        <CardContent className="p-6">
+    <div className="customersModule customerDetailModule">
+      <Card className="customerDetailHeroPanel">
+        <CardContent className="customerDetailHeroContent p-6">
           <PageHeader
             actions={
-              <div className="actionRow">
+              <div className="actionRow customerDetailHeaderActions">
                 <Button asChild className="iconTextButton" variant="outline">
                   <Link href="/customers">
                     <ArrowLeft aria-hidden size={16} />
@@ -185,6 +186,7 @@ function CustomerDetailContent() {
               </div>
             }
             eyebrow="Customer detail"
+            className="customerDetailPageHeader"
             summary="Profile, address, order, and support activity for this customer."
             title={customer?.name ?? "Loading customer"}
           />
@@ -205,7 +207,7 @@ function CustomerDetailContent() {
           ) : null}
 
           {customer ? (
-            <div className="metricGrid resourceMetrics">
+            <div className="metricGrid resourceMetrics customerDetailMetricGrid">
               <MetricCard
                 label="Status"
                 tone={customerStatus === "ACTIVE" ? "primary" : "warning"}
@@ -221,8 +223,8 @@ function CustomerDetailContent() {
 
       {customer ? (
         <>
-          <div className="orderDetailGrid my-3">
-            <section className="panel">
+          <div className="orderDetailGrid customerProfileGrid my-3">
+            <section className="panel customerDetailPanel">
               <div className="panelHeader">
                 <div>
                   <p className="eyebrow">Profile</p>
@@ -241,7 +243,7 @@ function CustomerDetailContent() {
               </div>
             </section>
 
-            <section className="panel">
+            <section className="panel customerDetailPanel">
               <div className="panelHeader">
                 <div>
                   <p className="eyebrow">Actions</p>
@@ -257,7 +259,7 @@ function CustomerDetailContent() {
                 }
                 permission={ADMIN_PERMISSION.UsersUpdate}
               >
-                <form className="formStack compactForm" onSubmit={requestStatusUpdate}>
+                <form className="formStack compactForm customerStatusForm" onSubmit={requestStatusUpdate}>
                   <label>
                     Status
                     <Select
@@ -298,7 +300,7 @@ function CustomerDetailContent() {
             </section>
           </div>
 
-          <section className="panel">
+          <section className="panel customerDetailPanel">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Addresses</p>
@@ -308,7 +310,7 @@ function CustomerDetailContent() {
             <AddressGrid addresses={customer.addresses} />
           </section>
 
-          <section className="panel my-3">
+          <section className="panel customerDetailPanel my-3">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Orders</p>
@@ -318,14 +320,14 @@ function CustomerDetailContent() {
             <CustomerOrdersTable orders={customer.orders} />
           </section>
 
-          <section className="panel">
+          <section className="panel customerDetailPanel">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Support</p>
                 <h2>Internal notes</h2>
               </div>
             </div>
-            <div className="orderDetailGrid">
+            <div className="orderDetailGrid customerSupportGrid">
               <PermissionGate
                 fallback={
                   <EmptyState
@@ -335,7 +337,7 @@ function CustomerDetailContent() {
                 }
                 permission={ADMIN_PERMISSION.UsersUpdate}
               >
-                <form className="formStack compactForm" onSubmit={addNote}>
+                <form className="formStack compactForm customerSupportForm" onSubmit={addNote}>
                   <label>
                     New note
                     <Textarea
@@ -367,7 +369,7 @@ function CustomerDetailContent() {
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -409,8 +411,12 @@ function CustomerOrdersTable({
   }
 
   return (
-    <div className="resourceTable ordersTable">
-      <Table>
+    <div className="customerOrderTableShell">
+      <p className="customerTableHint">
+        Swipe sideways to view every order option.
+      </p>
+      <div className="resourceTable ordersTable customerOrdersTable">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Order</TableHead>
@@ -444,7 +450,8 @@ function CustomerOrdersTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

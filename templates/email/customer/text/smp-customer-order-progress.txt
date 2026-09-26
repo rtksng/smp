@@ -1,0 +1,19 @@
+{{brand_name}}
+
+Your order is {{status_label}}
+
+Hi {{customer_name}},
+
+{{status_message}}
+
+Order: {{order_number}}
+Status: {{status_label}}
+{{#if delivery_update}}
+{{delivery_update}}
+{{/if}}
+
+Track your order: {{order_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

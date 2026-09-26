@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,9 +14,10 @@ import {
   ClipboardList,
   FolderTree,
   LayoutDashboard,
-  Menu,
   MessageSquareHeart,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   ReceiptText,
   Settings,
   ShoppingCart,
@@ -23,18 +25,11 @@ import {
   Truck,
   Users,
   Warehouse,
+  X,
   type LucideIcon
 } from "lucide-react";
-import { APP_NAMES } from "@surgical/config";
-import { AdminTopbar } from "@/components/admin/admin-topbar";
+import { AdminMobileAccount, AdminTopbar } from "@/components/admin/admin-topbar";
 import topbarStyles from "@/components/admin/admin-topbar.module.css";
-import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerBody,
-  DrawerContent,
-  DrawerHeader
-} from "@/components/ui/drawer";
 import { ProtectedRoute, useAdminSession } from "../lib/admin-session";
 import { getVisibleNavigationItems, type AdminNavigationItem } from "../lib/navigation";
 
@@ -59,67 +54,219 @@ const navIconMap: Record<string, LucideIcon> = {
 };
 const SIDEBAR_SCROLL_STORAGE_KEY = "surgical.admin.sidebarScrollTop";
 const MOBILE_SIDEBAR_SCROLL_STORAGE_KEY = "surgical.admin.mobileSidebarScrollTop";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "surgical.admin.sidebarCollapsed";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { admin } = useAdminSession();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const shellRef = useRef<HTMLElement>(null);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileNavCloseRef = useRef<HTMLButtonElement>(null);
+  const sidebarAnimationFrameRef = useRef<number | null>(null);
+  const sidebarMotionRef = useRef<Animation[]>([]);
   const visibleNavItems = getVisibleNavigationItems(admin?.permissions);
+
+  useEffect(() => {
+    try {
+      setIsSidebarCollapsed(
+        window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
+      );
+    } catch {
+      // Keep the expanded default when storage is unavailable.
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (sidebarAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(sidebarAnimationFrameRef.current);
+      }
+      sidebarMotionRef.current.forEach((animation) => animation.cancel());
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileNavOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const desktopQuery = window.matchMedia?.("(min-width: 981px)");
+    const mobileNavTrigger = mobileNavTriggerRef.current;
+
+    document.body.style.overflow = "hidden";
+    mobileNavCloseRef.current?.focus();
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    function closeOnDesktop(event: MediaQueryListEvent) {
+      if (event.matches) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    desktopQuery?.addEventListener("change", closeOnDesktop);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      desktopQuery?.removeEventListener("change", closeOnDesktop);
+      mobileNavTrigger?.focus();
+    };
+  }, [isMobileNavOpen]);
+
+  function toggleSidebar() {
+    const nextValue = !isSidebarCollapsed;
+    const shell = shellRef.current;
+    const motionTargets = shell
+      ? [
+          shell.querySelector<HTMLElement>(".workspace"),
+          shell.querySelector<HTMLElement>('[aria-label="Admin toolbar"]')
+        ].filter((target): target is HTMLElement => target !== null)
+      : [];
+    const startLefts = motionTargets.map(
+      (target) => target.getBoundingClientRect().left
+    );
+    const shouldAnimate =
+      motionTargets.length > 0 &&
+      motionTargets.every((target) => typeof target.animate === "function") &&
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (sidebarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(sidebarAnimationFrameRef.current);
+    }
+    sidebarMotionRef.current.forEach((animation) => animation.cancel());
+    sidebarMotionRef.current = [];
+
+    setIsSidebarCollapsed(nextValue);
+
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(nextValue));
+    } catch {
+      // The control still works for this visit when storage is unavailable.
+    }
+
+    if (!shouldAnimate) {
+      return;
+    }
+
+    sidebarAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      sidebarMotionRef.current = motionTargets.flatMap((target, index) => {
+        const offset = startLefts[index]! - target.getBoundingClientRect().left;
+
+        if (Math.abs(offset) < 1) {
+          return [];
+        }
+
+        return [
+          target.animate(
+            [
+              { transform: `translate3d(${offset}px, 0, 0)` },
+              { transform: "translate3d(0, 0, 0)" }
+            ],
+            {
+              duration: 300,
+              easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+            }
+          )
+        ];
+      });
+      sidebarAnimationFrameRef.current = null;
+    });
+  }
 
   return (
     <ProtectedRoute>
-      <main className="shell">
-        <div className="mobileNavBar">
-          <div className="brandBlock">
-            <span className="brandMark">SMEP</span>
-            <span className="brand">{APP_NAMES.admin}</span>
+      <main
+        className={`shell${isSidebarCollapsed ? " sidebarCollapsed" : ""}`}
+        ref={shellRef}
+      >
+        <aside
+          className={`sidebar${isSidebarCollapsed ? " sidebar--collapsed" : ""}`}
+          id="admin-sidebar"
+        >
+          <div className="sidebarHeader">
+            <SidebarBrand />
+            <button
+              aria-controls="admin-sidebar"
+              aria-expanded={!isSidebarCollapsed}
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="sidebarCollapseToggle"
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              type="button"
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen aria-hidden size={18} />
+              ) : (
+                <PanelLeftClose aria-hidden size={18} />
+              )}
+            </button>
           </div>
-          <Button
-            aria-label="Open navigation"
-            className="mobileNavToggle"
-            onClick={() => setIsMobileNavOpen(true)}
-            size="icon"
-            type="button"
-            variant="outline"
-          >
-            <Menu aria-hidden size={18} />
-          </Button>
-        </div>
-
-        <aside className="sidebar">
-          <SidebarBrand />
           <SidebarNavScroller
             restoreKey={pathname}
             storageKey={SIDEBAR_SCROLL_STORAGE_KEY}
           >
-            {renderNavigation(visibleNavItems, pathname)}
+            {renderNavigation(visibleNavItems, pathname, undefined, isSidebarCollapsed)}
           </SidebarNavScroller>
         </aside>
 
-        <Drawer
-          className="mobileNavDrawer"
-          isOpen={isMobileNavOpen}
-          onOpenChange={setIsMobileNavOpen}
-          placement="left"
+        <div
+          aria-hidden={!isMobileNavOpen}
+          className={`mobileNavOverlay${isMobileNavOpen ? " mobileNavOverlay--open" : ""}`}
         >
-          <DrawerContent>
-            <DrawerHeader>
+          <button
+            aria-label="Close navigation"
+            className="mobileNavBackdrop"
+            onClick={() => setIsMobileNavOpen(false)}
+            tabIndex={isMobileNavOpen ? 0 : -1}
+            type="button"
+          />
+          <aside
+            aria-label="Admin navigation menu"
+            aria-modal="true"
+            className="mobileNavDrawer"
+            id="mobile-admin-navigation"
+            role="dialog"
+          >
+            <div className="mobileNavDrawerHeader">
               <SidebarBrand />
-            </DrawerHeader>
-            <DrawerBody>
-              <SidebarNavScroller
-                restoreKey={pathname}
-                storageKey={MOBILE_SIDEBAR_SCROLL_STORAGE_KEY}
+              <button
+                aria-label="Close navigation"
+                className="mobileNavClose"
+                onClick={() => setIsMobileNavOpen(false)}
+                ref={mobileNavCloseRef}
+                tabIndex={isMobileNavOpen ? 0 : -1}
+                type="button"
               >
-                {renderNavigation(visibleNavItems, pathname, () =>
-                  setIsMobileNavOpen(false)
-                )}
-              </SidebarNavScroller>
-            </DrawerBody>
-          </DrawerContent>
-        </Drawer>
+                <X aria-hidden size={19} />
+              </button>
+            </div>
+            <SidebarNavScroller
+              restoreKey={pathname}
+              storageKey={MOBILE_SIDEBAR_SCROLL_STORAGE_KEY}
+            >
+              {renderNavigation(visibleNavItems, pathname, () =>
+                setIsMobileNavOpen(false)
+              )}
+            </SidebarNavScroller>
+            <AdminMobileAccount />
+          </aside>
+        </div>
 
-        <AdminTopbar />
+        <AdminTopbar
+          isMobileNavigationOpen={isMobileNavOpen}
+          mobileNavigationTriggerRef={mobileNavTriggerRef}
+          onOpenMobileNavigation={() => setIsMobileNavOpen(true)}
+        />
         <section className={`workspace ${topbarStyles.workspace}`}>{children}</section>
       </main>
     </ProtectedRoute>
@@ -175,9 +322,14 @@ function SidebarNavScroller({
 
 function SidebarBrand() {
   return (
-    <div className="brandBlock">
-      <span className="brandMark">SMEP</span>
-      <span className="brand">{APP_NAMES.admin}</span>
+    <div className="sidebarBrandLogo">
+      <Image
+        alt="Hospi Surgical Division"
+        height={46}
+        sizes="116px"
+        src="/brand/hospisurgical.png"
+        width={116}
+      />
     </div>
   );
 }
@@ -185,7 +337,8 @@ function SidebarBrand() {
 function renderNavigation(
   visibleNavItems: ReturnType<typeof getVisibleNavigationItems>,
   pathname: string,
-  onNavigate?: () => void
+  onNavigate?: () => void,
+  isCollapsed = false
 ) {
   const navigationSections = visibleNavItems.reduce<
     Array<{ label: AdminNavigationItem["category"]; items: AdminNavigationItem[] }>
@@ -215,6 +368,7 @@ function renderNavigation(
           <div className="sidebarNavSectionLinks">
             {section.items.map((item) => (
               <NavigationGroup
+                isCollapsed={isCollapsed}
                 item={item}
                 key={item.href}
                 onNavigate={onNavigate}
@@ -229,10 +383,12 @@ function renderNavigation(
 }
 
 function NavigationGroup({
+  isCollapsed,
   item,
   onNavigate,
   pathname
 }: {
+  isCollapsed: boolean;
   item: AdminNavigationItem;
   onNavigate?: () => void;
   pathname: string;
@@ -242,10 +398,12 @@ function NavigationGroup({
   return (
     <div className="sidebarNavGroup">
       <Link
+        aria-label={isCollapsed ? item.label : undefined}
         aria-current={pathname === item.href ? "page" : undefined}
         className="sidebarNavLink"
         href={item.href}
         onClick={onNavigate}
+        title={isCollapsed ? item.label : undefined}
       >
         <Icon aria-hidden size={17} />
         <span>{item.label}</span>

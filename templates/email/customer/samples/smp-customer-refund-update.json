@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Pending",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹2,360.00",
+      "status_label": "requested",
+      "status_message": "Your refund request has been recorded. It has not been completed yet."
+    }
+  },
+  {
+    "name": "Processing",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹2,360.00",
+      "status_label": "processing",
+      "status_message": "Your refund is being processed. We will update you when the payment provider confirms the result."
+    }
+  },
+  {
+    "name": "Completed",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹2,360.00",
+      "status_label": "completed",
+      "status_message": "The payment provider has confirmed that your refund is complete.",
+      "refund_reference": "DEMO-REFUND-1042",
+      "customer_note": "The time it takes to appear in your account depends on your bank or payment provider."
+    }
+  },
+  {
+    "name": "Partial refund completed",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹590.00",
+      "status_label": "completed",
+      "status_message": "The payment provider has confirmed a partial refund of ₹590.00 for this order.",
+      "refund_reference": "DEMO-PARTIAL-1042"
+    }
+  },
+  {
+    "name": "Failed",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹2,360.00",
+      "status_label": "failed",
+      "status_message": "The refund attempt was unsuccessful. Please contact support so we can help with the next step."
+    }
+  },
+  {
+    "name": "Cancelled",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "refund_amount": "₹2,360.00",
+      "status_label": "cancelled",
+      "status_message": "This refund request has been cancelled. Please contact support if you need more information."
+    }
+  }
+]

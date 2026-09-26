@@ -1,0 +1,13 @@
+{{brand_name}}
+
+Welcome to {{brand_name}}
+
+Hi {{customer_name}},
+
+Your customer account is ready. You can view your orders, manage delivery addresses, and request bulk quotations from your account.
+
+View your account: {{account_url}}
+
+Need help? Email {{support_email}}.
+
+This is an update about your account or activity with {{brand_name}}.

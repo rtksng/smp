@@ -68,6 +68,7 @@ import {
   type CouponType,
   type PaginatedAdminResponse
 } from "../../../lib/support-management";
+import "../coupons-responsive.css";
 
 const PAGE_SIZE = 20;
 
@@ -255,12 +256,12 @@ function CouponsContent({ view }: { view: CouponView }) {
   const pageCopy = couponCopy[view];
 
   return (
-    <>
+    <div className="couponModule" data-coupon-view={view}>
       <section className="panel couponOverviewPanel">
         <CouponSectionNav active={view} />
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow couponHeaderActions">
               {view === "new" ? (
                 <Button asChild className="iconTextButton" variant="outline">
                   <Link href="/coupons/list">
@@ -329,7 +330,7 @@ function CouponsContent({ view }: { view: CouponView }) {
         <div className="couponWorkspaceGrid couponWorkspaceGrid--single">
           <section className="panel couponListPanel mt-3">
             <PageHeader
-              className="settingsSectionHeader"
+              className="settingsSectionHeader couponSectionHeader"
               eyebrow="Coupon list"
               level={2}
               summary="Filter first, then edit or archive coupon records from the table."
@@ -344,10 +345,24 @@ function CouponsContent({ view }: { view: CouponView }) {
             />
 
             {couponsQuery.isLoading ? <LoadingState label="Loading coupons..." /> : null}
-            <BulkActions key={bulk.scope} selection={bulk} actions={activeResourceBulkActions<AdminCoupon>(api, "coupons")} total={pagination?.total ?? 0}
-              disabled={couponsQuery.isFetching || couponsQuery.isError || isSaving || isDeleting}
-              loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminCoupon>>("/admin/coupons", { query: buildCouponQuery(appliedFilters, next, limit) }))}
-              getLabel={(coupon) => coupon.code} onComplete={refreshCoupons} />
+            <div className="couponBulkActions">
+              <BulkActions
+                actions={activeResourceBulkActions<AdminCoupon>(api, "coupons")}
+                disabled={couponsQuery.isFetching || couponsQuery.isError || isSaving || isDeleting}
+                getLabel={(coupon) => coupon.code}
+                key={bulk.scope}
+                loadAll={() =>
+                  loadBulkRows((next, limit) =>
+                    api.request<PaginatedAdminResponse<AdminCoupon>>("/admin/coupons", {
+                      query: buildCouponQuery(appliedFilters, next, limit)
+                    })
+                  )
+                }
+                onComplete={refreshCoupons}
+                selection={bulk}
+                total={pagination?.total ?? 0}
+              />
+            </div>
             {!couponsQuery.isLoading && !couponsQuery.isError && coupons.length === 0 ? (
               <EmptyState
                 body="No coupons match the current filters."
@@ -380,7 +395,7 @@ function CouponsContent({ view }: { view: CouponView }) {
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -460,9 +475,12 @@ export function CouponForm({
   values: CouponFormValues;
 }) {
   return (
-    <form className="formStack productForm couponForm" noValidate onSubmit={onSubmit}>
-      <fieldset className="formStack m-0 min-w-0 border-0 p-0" disabled={isSaving}>
-      <div className="formGrid">
+    <form className="formStack productForm couponForm couponFormLayout" noValidate onSubmit={onSubmit}>
+      <fieldset
+        className="formStack couponFormFieldset m-0 min-w-0 border-0 p-0"
+        disabled={isSaving}
+      >
+      <div className="formGrid couponFormGrid">
         <TextField
           error={errors.code}
           label="Code"
@@ -545,14 +563,14 @@ export function CouponForm({
           value={values.expiresAt}
         />
       </div>
-      <Label className="checkField rowCheck">
+      <Label className="checkField rowCheck couponActiveField">
         <Checkbox
           checked={values.isActive}
           onCheckedChange={(checked) => onChange("isActive", checked === true)}
         />
         <span>Active for customer checkout</span>
       </Label>
-      <div className="actionRow">
+      <div className="actionRow couponFormActions">
         <Button className="iconTextButton" disabled={isSaving} type="submit">
           {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
           <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create coupon"}</span>
@@ -587,8 +605,12 @@ function CouponsTable({
   onDelete: (coupon: AdminCoupon) => void;
 }) {
   return (
-    <div className="resourceTable couponTable">
-      <Table>
+    <div className="couponTableShell">
+      <p className="couponTableHint">
+        Swipe sideways to view every coupon option.
+      </p>
+      <div className="resourceTable couponTable">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
@@ -658,7 +680,8 @@ function CouponsTable({
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

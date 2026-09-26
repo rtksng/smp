@@ -1,4 +1,5 @@
 import type { QueryParams } from "./admin-api";
+import type { DeliveryAssignmentStatus } from "./delivery-management";
 
 export const ORDER_STATUSES = [
   "CREATED",
@@ -154,10 +155,33 @@ export type OrderStatusHistory = {
   status: OrderStatus;
 };
 
+export type OrderDeliveryTrackingHistory = {
+  createdAt: string;
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+  note: string | null;
+  status: DeliveryAssignmentStatus;
+};
+
+export type OrderDeliveryTracking = {
+  assignedAt: string;
+  deliveredAt: string | null;
+  deliveryPartnerName: string | null;
+  failureReason: string | null;
+  id: string;
+  pickedUpAt: string | null;
+  proofOfDeliveryUrl: string | null;
+  status: DeliveryAssignmentStatus;
+  statusHistory: OrderDeliveryTrackingHistory[];
+  vehicleNumber: string | null;
+};
+
 export type AdminOrder = {
   billingAddress: OrderAddress | null;
   createdAt: string;
   customer: OrderCustomer;
+  deliveryTracking: OrderDeliveryTracking[];
   id: string;
   invoice: InvoiceSummary | null;
   items: OrderItem[];
@@ -214,6 +238,10 @@ const CANCELLABLE_STATUSES = new Set<OrderStatus>([
 ]);
 
 const DELIVERY_ASSIGNABLE_STATUSES = new Set<OrderStatus>(["CONFIRMED", "PACKED"]);
+const UNASSIGNED_DELIVERY_STATUSES = new Set<DeliveryAssignmentStatus>([
+  "FAILED",
+  "CANCELLED"
+]);
 const ACTIVE_RETURN_REFUND_STATUSES = new Set<RefundStatus>(["PENDING", "PROCESSING"]);
 const PROCESSABLE_RETURN_REFUND_STATUSES = new Set<RefundStatus>([
   "PENDING",
@@ -310,6 +338,23 @@ export function canCancelOrder(status: OrderStatus) {
 
 export function canAssignDelivery(status: OrderStatus) {
   return DELIVERY_ASSIGNABLE_STATUSES.has(status);
+}
+
+export function getAssignedDeliveryPartnerName(
+  order: { deliveryTracking?: AdminOrder["deliveryTracking"] }
+) {
+  const latestAssignment = order.deliveryTracking?.[0];
+
+  if (
+    !latestAssignment ||
+    UNASSIGNED_DELIVERY_STATUSES.has(latestAssignment.status)
+  ) {
+    return null;
+  }
+
+  const partnerName = latestAssignment.deliveryPartnerName?.trim();
+
+  return partnerName || null;
 }
 
 export function getLatestRefund(order: Pick<AdminOrder, "refunds">) {

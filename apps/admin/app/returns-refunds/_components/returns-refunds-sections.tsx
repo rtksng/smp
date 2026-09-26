@@ -64,6 +64,7 @@ import {
   type PaginatedResponse,
   type ReturnRequestFilters
 } from "../../../lib/order-management";
+import "../returns-refunds-responsive.css";
 
 const PAGE_SIZE = 20;
 
@@ -364,11 +365,11 @@ function ReturnsRefundsContent() {
   }
 
   return (
-    <>
+    <div className="returnsRefundsModule">
       <section className="panel returnsRefundsOverviewPanel">
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow returnsRefundsHeaderActions">
               <Button
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
@@ -464,7 +465,7 @@ function ReturnsRefundsContent() {
           />
         ) : null}
       </section>
-    </>
+    </div>
   );
 }
 
@@ -599,8 +600,12 @@ function ReturnRequestsTable({
   }
 
   return (
-    <div className="resourceTable returnsRefundsTable">
-      <Table>
+    <div className="returnsRefundsTableShell">
+      <p className="returnsRefundsTableHint">
+        Swipe sideways to view every return and refund option.
+      </p>
+      <div className="resourceTable returnsRefundsTable">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Order</TableHead>
@@ -682,7 +687,7 @@ function ReturnRequestsTable({
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="tableActions verticalActions">
+                  <div className="tableActions verticalActions returnsRefundsActionGroup">
                     <Button asChild className="iconTextButton" size="sm" variant="outline">
                       <Link href={`/orders/${order.id}`}>
                         <Eye aria-hidden size={16} />
@@ -739,7 +744,8 @@ function ReturnRequestsTable({
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -775,7 +781,7 @@ function ReturnDispositionInlineForm({
 
   return (
     <form
-      className="tableActions verticalActions"
+      className="tableActions verticalActions returnsRefundsDispositionForm"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(values);

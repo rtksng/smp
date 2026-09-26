@@ -11,6 +11,10 @@ const sectionsSource = readFileSync(
   join(productFeedbackDir, "_components/product-feedback-sections.tsx"),
   "utf8"
 );
+const responsiveStyles = readFileSync(
+  join(productFeedbackDir, "_components/product-feedback.css"),
+  "utf8"
+);
 
 describe("product feedback route split", () => {
   it("uses the product feedback landing page for reviews instead of overview", () => {
@@ -32,5 +36,31 @@ describe("product feedback route split", () => {
     expect(sectionsSource).toContain('id: "reviews"');
     expect(sectionsSource).toContain('id: "questions"');
     expect(sectionsSource).not.toContain('title: "Overview"');
+  });
+
+  it("keeps feedback controls reachable across responsive viewports", () => {
+    expect(sectionsSource).toContain('import "./product-feedback.css"');
+    expect(sectionsSource).toContain('className="productFeedbackBulkActions"');
+    expect(sectionsSource).toContain(
+      'containerClassName="productFeedbackTableViewport"'
+    );
+    expect(sectionsSource).toContain(
+      'className="productFeedbackTableHint"'
+    );
+    expect(sectionsSource.indexOf("<TableHead>Created</TableHead>")).toBeLessThan(
+      sectionsSource.indexOf("<TableHead>Moderation</TableHead>")
+    );
+    expect(responsiveStyles).toContain(
+      ".productFeedbackMetricGrid {\n    grid-template-columns: repeat(2, minmax(0, 1fr));"
+    );
+    expect(responsiveStyles).toContain(
+      ".productFeedbackTableViewport tr > :last-child"
+    );
+    expect(responsiveStyles).toContain(
+      ".productFeedbackBulkActions .bulkActionForm > button"
+    );
+    expect(responsiveStyles).toContain(
+      ".adminDialogPanel.productFeedbackAnswerDialog"
+    );
   });
 });

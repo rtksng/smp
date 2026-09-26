@@ -1,0 +1,13 @@
+{
+  "name": "smp-customer-email-templates",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test.mjs",
+    "preview": "node preview-server.mjs"
+  },
+  "devDependencies": {
+    "handlebars": "4.7.9"
+  }
+}

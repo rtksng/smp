@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Answer available",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "product_name": "Nitrile examination gloves",
+      "question": "How many gloves are included in one box?",
+      "answer": "This product is supplied in a box of 100 gloves. Please check the selected size before placing your order."
+    }
+  }
+]

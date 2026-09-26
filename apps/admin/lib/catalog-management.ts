@@ -27,8 +27,10 @@ export type CategoryOption = AdminCategory & {
 
 export const BRAND_LIST_PATH = "/brands";
 export const BRAND_CREATE_PATH = "/brands/create";
+export const BRAND_BULK_CREATE_PATH = "/brands/bulk-create";
 export const CATEGORY_LIST_PATH = "/categories";
 export const CATEGORY_CREATE_PATH = "/categories/create";
+export const CATEGORY_BULK_CREATE_PATH = "/categories/bulk-create";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const optionalUrl = (label: string) =>
@@ -178,10 +180,7 @@ export function getRootCategoryOptions(
     }));
 }
 
-export function filterRootCategories(
-  categories: AdminCategory[],
-  search: string
-) {
+export function filterRootCategories(categories: AdminCategory[], search: string) {
   const searchText = search.trim().toLowerCase();
 
   if (!searchText) {

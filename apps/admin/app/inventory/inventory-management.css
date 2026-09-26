@@ -1,0 +1,363 @@
+.inventoryModule,
+.inventoryHeroPanel,
+.inventorySectionPanel,
+.inventoryActionGrid,
+.inventoryActionFormCard,
+.inventoryTableShell,
+.inventoryTableScroll {
+  min-width: 0;
+}
+
+.inventoryPageHeader,
+.inventorySectionHeader {
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.inventoryPageHeader .adminPageActions {
+  flex: 0 0 auto;
+}
+
+.inventoryMetricGrid {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.inventoryMetricGrid > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.inventoryMetricGrid .metricCardContent {
+  padding: 12px 14px;
+}
+
+.inventoryMetricGrid .metricCardContent strong {
+  font-size: 24px;
+  margin-top: 8px;
+}
+
+.inventoryModule .inventorySubTabs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, max-content);
+  margin: 0;
+}
+
+.inventoryModule .inventorySubTab {
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 12px;
+}
+
+.inventorySectionPanel {
+  padding: 18px;
+}
+
+.inventoryActionGrid {
+  gap: 12px;
+}
+
+.inventoryActionFormCard {
+  align-self: start;
+  overflow: hidden;
+}
+
+.inventoryActionForm {
+  background: transparent;
+  border: 0;
+  gap: 12px;
+  padding: 14px;
+}
+
+.inventoryActionForm label {
+  gap: 5px;
+}
+
+.inventoryActionForm [data-slot="input"],
+.inventoryActionForm [data-slot="select"] {
+  min-height: 36px;
+}
+
+.inventoryActionForm [data-slot="textarea"] {
+  min-height: 72px;
+}
+
+.inventoryActionForm > button {
+  min-height: 36px;
+  width: 100%;
+}
+
+.inventoryBulkActions .bulkActions {
+  margin: 10px 0;
+  padding: 10px 12px;
+}
+
+.inventoryBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.inventoryBulkActions .bulkSelectionSummary {
+  gap: 1px;
+}
+
+.inventoryBulkActions .bulkSelectionHint {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.inventoryBulkActions .bulkActionBar button,
+.inventoryBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.inventoryBulkActions .bulkActionForm {
+  align-items: start;
+  gap: 8px 10px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.inventoryBulkActions .bulkActionForm > [data-slot="select-trigger"],
+.inventoryBulkActions .bulkActionForm > [data-slot="select"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.inventoryBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 128px;
+}
+
+.inventoryBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.inventoryBulkActions .bulkFields {
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inventoryBulkActions .bulkInventoryBatches {
+  grid-column: 1 / -1;
+  gap: 8px;
+  max-height: 240px;
+  padding: 10px;
+}
+
+.inventoryTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.inventoryTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.inventoryTableShell .inventoryTableScroll {
+  border: 0;
+  border-radius: 0;
+  max-height: min(520px, calc(100dvh - 180px));
+}
+
+.inventoryTableShell .inventoryTableScroll .adminTableViewport {
+  max-height: min(520px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+.inventoryTableShell .inventoryDataTable {
+  min-width: 920px;
+}
+
+.inventoryTableShell .inventoryMovementDataTable {
+  min-width: 1040px;
+}
+
+.inventoryTableShell .inventoryDataTableWithBulk .bulkCheckboxCell {
+  min-width: 48px;
+  width: 48px;
+}
+
+@media (max-width: 980px) {
+  .inventoryMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventoryTableHint {
+    display: block;
+  }
+
+  .inventoryTableShell .inventoryDataTableWithBulk tr > .bulkCheckboxCell {
+    left: 0;
+    position: sticky;
+  }
+
+  .inventoryTableShell .inventoryDataTableWithBulk th.bulkCheckboxCell {
+    background: #e4efed;
+    z-index: 4;
+  }
+
+  .inventoryTableShell .inventoryDataTableWithBulk td.bulkCheckboxCell {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .inventoryHeroPanel,
+  .inventorySectionPanel {
+    padding: 12px;
+  }
+
+  .inventoryPageHeader,
+  .inventorySectionHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .inventoryPageHeaderFiltered .adminPageActions {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .inventoryPageHeaderFiltered .adminPageActions > * {
+    font-size: 12px;
+    gap: 5px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .inventoryPageHeaderSingleAction .adminPageActions {
+    justify-content: flex-end;
+    width: auto;
+  }
+
+  .inventoryPageHeaderSingleAction .adminPageActions > * {
+    min-height: 36px;
+  }
+
+  .inventoryPageHeaderSingleAction {
+    align-items: end;
+    column-gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .inventoryModule .inventorySubTabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .inventoryModule .inventorySubTab {
+    font-size: 11px;
+    min-width: 0;
+    padding: 6px 3px;
+  }
+
+  .inventoryMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventoryMetricGrid > [data-slot="card"] {
+    min-height: 80px;
+  }
+
+  .inventoryMetricGrid .metricCardContent {
+    padding: 9px 10px;
+  }
+
+  .inventoryMetricGrid .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .inventoryMetricGrid .metricCardContent strong {
+    font-size: 21px;
+    line-height: 1;
+    margin-top: 5px;
+  }
+
+  .inventoryActionForm {
+    gap: 10px;
+    padding: 11px;
+  }
+
+  .inventoryActionForm h3 {
+    font-size: 15px;
+  }
+
+  .inventoryActionForm [data-slot="input"],
+  .inventoryActionForm [data-slot="select"] {
+    min-height: 34px;
+  }
+
+  .inventoryActionForm [data-slot="textarea"] {
+    min-height: 62px;
+  }
+
+  .inventoryBulkActions .bulkActions {
+    margin: 8px 0;
+    padding: 8px;
+  }
+
+  .inventoryBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventoryBulkActions .bulkSelectionSummary {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+
+  .inventoryBulkActions .bulkActionBar button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 5px;
+    width: 100%;
+  }
+
+  .inventoryBulkActions .bulkActionForm {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .inventoryBulkActions .bulkActionForm > *,
+  .inventoryBulkActions .bulkActionForm > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .inventoryBulkActions .bulkFields {
+    grid-template-columns: 1fr;
+  }
+
+  .inventoryBulkActions .bulkInventoryBatches {
+    grid-column: 1;
+  }
+
+  .inventoryTableShell .inventoryTableScroll,
+  .inventoryTableShell .inventoryTableScroll .adminTableViewport {
+    max-height: min(440px, calc(100dvh - 130px));
+  }
+}

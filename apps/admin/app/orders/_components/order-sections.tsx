@@ -5,7 +5,13 @@ import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/adm
 import { loadBulkRows } from "@/lib/bulk-actions";
 import { orderBulkActions } from "@/lib/bulk-module-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
-import { Eye, RefreshCw, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  RefreshCw,
+  SlidersHorizontal
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
@@ -15,7 +21,6 @@ import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
-import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,10 +52,12 @@ import {
   formatCurrency,
   formatDateTime,
   formatOrderLabel,
+  getAssignedDeliveryPartnerName,
   type AdminOrder,
   type OrderFilters,
   type PaginatedResponse
 } from "../../../lib/order-management";
+import "../orders-responsive.css";
 
 const ORDERS_PAGE_SIZE = 20;
 
@@ -168,13 +175,25 @@ function OrdersContent() {
     setAppliedFilters(emptyFilters);
   }
 
+  function changePage(nextPage: number) {
+    if (
+      bulk.isBusy ||
+      nextPage < 1 ||
+      nextPage > Math.max(pagination?.totalPages ?? 1, 1)
+    ) {
+      return;
+    }
+
+    setPage(nextPage);
+  }
+
   const paidVisibleCount = orders.filter((order) => order.paymentStatus === "PAID").length;
   return (
-    <>
+    <div className="ordersModule ordersListModule">
       <section className="panel orderOverviewPanel">
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow ordersHeaderActions">
               <Button
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
@@ -240,14 +259,16 @@ function OrdersContent() {
         ) : null}
 
         {ordersQuery.isLoading ? <LoadingState label="Loading orders..." /> : null}
-        <BulkActions key={bulk.scope} selection={bulk} actions={bulkActions} total={pagination?.total ?? 0}
-          disabled={ordersQuery.isFetching || ordersQuery.isError}
-          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedResponse<AdminOrder>>("/admin/orders", { query: buildOrderQuery(appliedFilters, next, limit) }))}
-          getLabel={(order) => order.orderNumber}
-          onComplete={() => Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["admin", "orders"] }),
-            queryClient.invalidateQueries({ queryKey: ["admin", "delivery"] })
-          ])} />
+        <div className="ordersBulkActions">
+          <BulkActions key={bulk.scope} selection={bulk} actions={bulkActions} total={pagination?.total ?? 0}
+            disabled={ordersQuery.isFetching || ordersQuery.isError}
+            loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedResponse<AdminOrder>>("/admin/orders", { query: buildOrderQuery(appliedFilters, next, limit) }))}
+            getLabel={(order) => order.orderNumber}
+            onComplete={() => Promise.all([
+              queryClient.invalidateQueries({ queryKey: ["admin", "orders"] }),
+              queryClient.invalidateQueries({ queryKey: ["admin", "delivery"] })
+            ])} />
+        </div>
         {ordersQuery.isError ? (
           <p className="formError" role="alert">
             {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
@@ -256,15 +277,16 @@ function OrdersContent() {
         {!ordersQuery.isLoading && !ordersQuery.isError ? (
         <OrdersTable orders={orders} bulk={bulk} />
         ) : null}
-        {pagination ? (
-          <PaginationControls
-            onChange={(next) => { if (!bulk.isBusy) setPage(next); }}
+        {pagination && pagination.totalPages > 1 ? (
+          <NumberedOrderPagination
+            isPending={ordersQuery.isFetching}
+            onChange={changePage}
             page={pagination.page}
-            totalPages={Math.max(pagination.totalPages, 1)}
+            totalPages={pagination.totalPages}
           />
         ) : null}
       </section>
-    </>
+    </div>
   );
 }
 
@@ -406,8 +428,10 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
   }
 
   return (
-    <div className="resourceTable ordersTable">
-      <Table>
+    <div className="ordersTableShell">
+      <p className="ordersTableHint">Swipe sideways to view every order column.</p>
+      <div className="resourceTable ordersTable">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
@@ -417,6 +441,7 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
             <TableHead>Payment</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Warehouse</TableHead>
+            <TableHead>Delivery partner</TableHead>
             <TableHead>Total</TableHead>
             <TableHead>Action</TableHead>
           </TableRow>
@@ -443,6 +468,7 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
           </TableCell>
           <TableCell>{formatDateTime(order.placedAt ?? order.createdAt)}</TableCell>
           <TableCell>{order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}</TableCell>
+          <TableCell>{getAssignedDeliveryPartnerName(order) ?? "Unassigned"}</TableCell>
           <TableCell>{formatCurrency(order.totals.grandTotal)}</TableCell>
           <TableCell>
             <Button asChild className="iconTextButton" size="sm" variant="outline">
@@ -455,9 +481,107 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
         </TableRow>
       ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
+}
+
+function NumberedOrderPagination({
+  isPending,
+  onChange,
+  page,
+  totalPages
+}: {
+  isPending: boolean;
+  onChange: (page: number) => void;
+  page: number;
+  totalPages: number;
+}) {
+  return (
+    <nav
+      aria-busy={isPending}
+      aria-label="Orders pagination"
+      className="ordersNumberedPagination"
+    >
+      <Button
+        aria-label="Previous page"
+        className="ordersPaginationButton"
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <ChevronLeft aria-hidden size={16} />
+      </Button>
+
+      {getPaginationItems(page, totalPages).map((item) =>
+        typeof item === "number" ? (
+          <Button
+            aria-current={item === page ? "page" : undefined}
+            aria-label={`Go to page ${item}`}
+            className="ordersPaginationButton"
+            key={item}
+            onClick={() => onChange(item)}
+            size="sm"
+            type="button"
+            variant={item === page ? "default" : "outline"}
+          >
+            {item}
+          </Button>
+        ) : (
+          <span aria-hidden className="ordersPaginationEllipsis" key={item}>
+            …
+          </span>
+        )
+      )}
+
+      <Button
+        aria-label="Next page"
+        className="ordersPaginationButton"
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <ChevronRight aria-hidden size={16} />
+      </Button>
+    </nav>
+  );
+}
+
+function getPaginationItems(page: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (page <= 4) {
+    return [1, 2, 3, 4, 5, "end-ellipsis", totalPages] as const;
+  }
+
+  if (page >= totalPages - 3) {
+    return [
+      1,
+      "start-ellipsis",
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages
+    ] as const;
+  }
+
+  return [
+    1,
+    "start-ellipsis",
+    page - 1,
+    page,
+    page + 1,
+    "end-ellipsis",
+    totalPages
+  ] as const;
 }
 
 function getErrorMessage(error: unknown) {

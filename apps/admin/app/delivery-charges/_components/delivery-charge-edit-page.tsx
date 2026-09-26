@@ -76,7 +76,7 @@ export function DeliveryChargeEditPage({ ruleId }: { ruleId: string }) {
   }, [ruleQuery.data?.warehouse, warehousesQuery.data?.items]);
 
   return (
-    <>
+    <div className="deliveryChargeModule deliveryChargeEditModule" data-delivery-charge-view="edit">
       <section className="panel deliveryChargeOverviewPanel">
         <DeliveryChargeSectionNav active="rules" />
         <PageHeader
@@ -88,7 +88,7 @@ export function DeliveryChargeEditPage({ ruleId }: { ruleId: string }) {
               </Link>
             </Button>
           }
-          className="deliveryChargePageHeader"
+          className="deliveryChargePageHeader deliveryChargeEditPageHeader"
           eyebrow="Delivery charges"
           title="Edit delivery charge rule"
         />
@@ -121,7 +121,7 @@ export function DeliveryChargeEditPage({ ruleId }: { ruleId: string }) {
           />
         ) : null}
       </section>
-    </>
+    </div>
   );
 }
 

@@ -131,6 +131,7 @@ function makeOrder(status: OrderStatus): AdminOrder {
       lastName: "Singh",
       mobileNumber: "+919000000000"
     },
+    deliveryTracking: [],
     id: "order-1",
     invoice: null,
     items: [],

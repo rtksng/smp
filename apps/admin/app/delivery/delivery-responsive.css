@@ -1,0 +1,486 @@
+.deliveryModule,
+.deliveryModule > *,
+.deliveryTableShell,
+.deliveryPartnerDataTable,
+.deliveryAssignmentDataTable,
+.deliveryBulkOrderTable,
+.deliveryDetailPanel,
+.deliveryAssignmentForm,
+.deliveryAssignmentFormGrid,
+.bulkDeliverySection {
+  min-width: 0;
+}
+
+.deliveryModule .deliveryOverviewPanel,
+.deliveryModule .deliveryPartnersPanel,
+.deliveryModule .deliveryAssignmentsPanel,
+.deliveryModule .deliveryAssignPanel,
+.deliveryModule .deliveryPartnerDetailPagePanel,
+.deliveryModule .deliveryChartPanel {
+  padding: 18px;
+}
+
+.deliveryModule .deliveryPageHeader,
+.deliveryModule .deliverySectionHeader {
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.deliveryModule .deliveryHeaderActions {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.deliveryModule .deliveryHeaderActions > * {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.deliveryModule .deliverySectionNav {
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow: visible;
+  padding: 5px;
+}
+
+.deliveryModule .deliverySectionNav a {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.deliveryModule .deliveryMetricGrid {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.deliveryModule .deliveryMetricGrid > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.deliveryModule .deliveryMetricGrid .metricCardContent {
+  padding: 12px 14px;
+}
+
+.deliveryModule .deliveryMetricGrid .metricCardContent strong {
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.deliveryModule .deliveryChartsGrid {
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.deliveryModule .deliveryChartPanel {
+  gap: 12px;
+  min-height: 0;
+}
+
+.deliveryModule .dashboardChartHeader em {
+  line-height: 1.35;
+}
+
+.deliveryModule .deliveryFilters {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.deliveryModule .deliveryFilters .productFilterActions {
+  align-items: stretch;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deliveryModule .deliveryFilters .productFilterActions button {
+  min-height: 36px;
+  min-width: 0;
+}
+
+.deliveryTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.deliveryTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) {
+  border: 0;
+  border-radius: 0;
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow: hidden;
+}
+
+.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+  max-height: min(560px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+.deliveryModule .deliveryPartnerTableActions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.deliveryModule .deliveryPartnerTableActions button {
+  min-height: 32px;
+  padding-inline: 9px;
+}
+
+.deliveryModule .deliveryAssignmentForm {
+  gap: 12px;
+}
+
+.deliveryModule .deliveryAssignmentFormGrid {
+  gap: 10px 12px;
+}
+
+.deliveryModule .deliveryAssignmentForm > button {
+  justify-self: end;
+  min-height: 36px;
+}
+
+.deliveryModule .deliveryDetailPanel {
+  gap: 12px;
+}
+
+.deliveryModule .deliveryDetailPanel .detailGrid {
+  gap: 10px;
+}
+
+.deliveryModule .deliveryDetailPanel .detailItem {
+  min-height: 68px;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
+.deliveryModule .documentList {
+  gap: 8px;
+}
+
+.deliveryModule .deliveryDocumentRow {
+  gap: 8px 10px;
+  padding: 10px 12px;
+}
+
+.deliveryModule .bulkDeliverySection {
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.deliveryModule .bulkDeliverySection > label {
+  gap: 5px;
+  max-width: none;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActions {
+  margin: 8px 0;
+  padding: 10px 12px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionBar {
+  gap: 8px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkSelectionSummary {
+  gap: 1px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkSelectionHint {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionBar button,
+.deliveryModule .bulkDeliverySection .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionForm {
+  align-items: start;
+  gap: 8px 10px;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionForm > [data-slot="select-trigger"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 128px;
+}
+
+.deliveryModule .bulkDeliverySection .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.deliveryModule .bulkDeliverySection .bulkFields {
+  gap: 8px;
+}
+
+.deliveryModule .deliveryBulkOrderTable [data-slot="table"] {
+  min-width: 720px;
+}
+
+@media (max-width: 980px) {
+  .deliveryModule .deliveryMetricGrid,
+  .deliveryModule .deliveryChartsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryChartPanel[data-wide="true"] {
+    grid-column: 1 / -1;
+  }
+
+  .deliveryTableHint {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .deliveryModule .deliveryOverviewPanel,
+  .deliveryModule .deliveryPartnersPanel,
+  .deliveryModule .deliveryAssignmentsPanel,
+  .deliveryModule .deliveryAssignPanel,
+  .deliveryModule .deliveryPartnerDetailPagePanel,
+  .deliveryModule .deliveryChartPanel {
+    padding: 12px;
+  }
+
+  .deliveryModule .deliveryPageHeader,
+  .deliveryModule .deliverySectionHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .deliveryModule .deliveryPageHeader .adminPageActions {
+    width: 100%;
+  }
+
+  .deliveryModule .deliveryHeaderActions {
+    display: grid;
+    flex-direction: row;
+    gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    width: 100%;
+  }
+
+  .deliveryModule .deliveryHeaderActions > * {
+    font-size: 12px;
+    gap: 5px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .deliveryModule .deliverySectionNav {
+    display: grid;
+    flex-direction: row;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    width: 100%;
+  }
+
+  .deliveryModule .deliverySectionNav a {
+    font-size: 10px;
+    min-width: 0;
+    padding: 6px 3px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .deliveryModule .deliveryMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryMetricGrid > [data-slot="card"] {
+    min-height: 80px;
+  }
+
+  .deliveryModule .deliveryMetricGrid .metricCardContent {
+    padding: 9px 10px;
+  }
+
+  .deliveryModule .deliveryMetricGrid .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .deliveryModule .deliveryMetricGrid .metricCardContent strong {
+    font-size: 19px;
+    line-height: 1.05;
+    margin-top: 5px;
+  }
+
+  .deliveryModule .deliveryChartsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .deliveryModule .deliveryChartPanel[data-wide="true"] {
+    grid-column: auto;
+  }
+
+  .deliveryModule .deliveryChartPanel .dashboardChartFrame {
+    height: 240px !important;
+    min-height: 240px;
+  }
+
+  .deliveryModule .deliveryFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryPartnerFilters {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryPartnerFilters .productFilterActions {
+    display: grid;
+    flex-direction: row;
+    grid-template-columns: repeat(2, minmax(54px, 1fr));
+  }
+
+  .deliveryModule .deliveryAssignmentFilters > :first-child,
+  .deliveryModule .deliveryAssignmentFilters > :nth-child(4),
+  .deliveryModule .deliveryAssignmentFilters > .productFilterActions {
+    grid-column: 1 / -1;
+  }
+
+  .deliveryModule .deliveryFilters .productFilterActions {
+    flex-direction: row;
+  }
+
+  .deliveryModule .deliveryFilters .productFilterActions button {
+    font-size: 12px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable),
+  .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+    max-height: min(440px, calc(100dvh - 130px));
+  }
+
+  .deliveryModule .deliveryPartnerDetailHeader {
+    align-items: start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryPartnerDetailHeader .adminPageActions {
+    justify-self: end;
+  }
+
+  .deliveryModule .deliveryPartnerDetailHeader .adminPageActions > * {
+    min-height: 34px;
+    width: auto;
+  }
+
+  .deliveryModule .deliveryAssignmentFormGrid,
+  .deliveryModule .deliveryDetailPanel .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .deliveryModule .deliveryAssignmentForm > button {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .deliveryModule .deliveryDetailPanel .detailItem {
+    min-height: 62px;
+    padding: 10px;
+  }
+
+  .deliveryModule .deliveryDocumentRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryDocumentRow > span:nth-child(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .deliveryModule .deliveryDocumentRow > a {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .deliveryModule .bulkDeliverySection {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkActions {
+    margin: 6px 0;
+    padding: 8px;
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkSelectionSummary {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkActionBar button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 5px;
+    width: 100%;
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkActionForm {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .deliveryModule .bulkDeliverySection .bulkActionForm > *,
+  .deliveryModule .bulkDeliverySection .bulkActionForm > button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .deliveryBulkTableShell .deliveryBulkOrderTable tr > .bulkCheckboxCell {
+    left: 0;
+    position: sticky;
+  }
+
+  .deliveryBulkTableShell .deliveryBulkOrderTable th.bulkCheckboxCell {
+    background: #e4efed;
+    z-index: 4;
+  }
+
+  .deliveryBulkTableShell .deliveryBulkOrderTable td.bulkCheckboxCell {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}

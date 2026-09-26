@@ -1,0 +1,551 @@
+.deliveryChargeModule,
+.deliveryChargeModule > *,
+.deliveryChargeModule .deliveryChargeMetricGrid,
+.deliveryChargeModule .deliveryChargeWorkspaceGrid,
+.deliveryChargeModule .deliveryChargeForm,
+.deliveryChargeModule .deliveryChargeFormGrid,
+.deliveryChargeModule .deliveryChargeTableShell,
+.deliveryChargeModule .deliveryChargeRulesTable {
+  min-width: 0;
+}
+
+.deliveryChargeModule .deliveryChargeOverviewPanel,
+.deliveryChargeModule .deliveryChargeRulesPanel,
+.deliveryChargeModule .deliveryChargeFormPanel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.deliveryChargeModule .deliveryChargeSectionNav {
+  gap: 4px;
+  padding: 4px;
+}
+
+.deliveryChargeModule .deliveryChargeSectionNav a {
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.deliveryChargeModule .deliveryChargePageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.deliveryChargeModule .deliveryChargePageHeader .adminPageActions {
+  margin-left: auto;
+  width: auto;
+}
+
+.deliveryChargeModule .deliveryChargeHeaderActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.deliveryChargeModule .deliveryChargeHeaderActions > * {
+  min-height: 38px;
+  padding-inline: 12px;
+  width: auto;
+}
+
+.deliveryChargeModule .deliveryChargeMetricGrid {
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+.deliveryChargeModule .deliveryChargeMetricGrid > [data-slot="card"] {
+  min-height: 94px !important;
+}
+
+.deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent {
+  padding: 13px 14px !important;
+}
+
+.deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent strong {
+  font-size: 26px;
+  margin-top: 9px !important;
+}
+
+.deliveryChargeModule .deliveryChargeRulesPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.deliveryChargeModule .deliveryChargeRulesPanel .settingsSectionHeader {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActions {
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkSelectionSummary {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkSelectionHint {
+  line-height: 1.35;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionBar button,
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 6px;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm {
+  align-items: end;
+  gap: 8px 10px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm > [data-slot="select-trigger"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.deliveryChargeModule .deliveryChargeTableShell {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.deliveryChargeModule .deliveryChargeTableHint {
+  background: #effaf8;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 8px;
+  color: var(--muted);
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+}
+
+.deliveryChargeModule .resourceTable.deliveryChargeRulesTable {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable .adminTableViewport {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable [data-slot="table"] {
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  width: 100%;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable th,
+.deliveryChargeModule .deliveryChargeRulesTable td {
+  padding-inline: 9px;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell {
+  max-width: 44px !important;
+  min-width: 44px !important;
+  width: 44px !important;
+}
+
+.deliveryChargeModule .deliveryChargeSelectColumn {
+  width: 44px;
+}
+
+.deliveryChargeModule .deliveryChargeRuleColumn {
+  width: 13% !important;
+}
+
+.deliveryChargeModule .deliveryChargeAmountColumn {
+  width: 8% !important;
+}
+
+.deliveryChargeModule .deliveryChargeScopeColumn {
+  width: 16% !important;
+}
+
+.deliveryChargeModule .deliveryChargeRangeColumn {
+  width: 12% !important;
+}
+
+.deliveryChargeModule .deliveryChargeThresholdColumn {
+  width: 10% !important;
+}
+
+.deliveryChargeModule .deliveryChargeStatusColumn {
+  width: 8% !important;
+}
+
+.deliveryChargeModule .deliveryChargeUpdatedColumn {
+  width: 11% !important;
+}
+
+.deliveryChargeModule .deliveryChargeActionsColumn {
+  width: 190px !important;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable th:last-child,
+.deliveryChargeModule .deliveryChargeRulesTable td:last-child {
+  max-width: 190px !important;
+  min-width: 190px !important;
+  width: 190px !important;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable td strong,
+.deliveryChargeModule .deliveryChargeRulesTable td em {
+  overflow-wrap: anywhere;
+}
+
+.deliveryChargeModule .deliveryChargeRulesTable .tableActions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.deliveryChargeModule .deliveryChargeFormOnlyPanel {
+  max-width: none;
+  width: 100%;
+}
+
+.deliveryChargeModule .deliveryChargeFormPanel .deliveryChargeFormGrid {
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.deliveryChargeModule .deliveryChargeFormGrid > label,
+.deliveryChargeModule .deliveryChargeFormGrid [data-slot="select-trigger"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.deliveryChargeModule .deliveryChargeActiveField {
+  margin: 0;
+  padding: 11px 12px;
+}
+
+.deliveryChargeModule .deliveryChargeFormActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.deliveryChargeModule .deliveryChargeFormActions button {
+  min-height: 40px;
+  width: auto;
+}
+
+@media (max-width: 1280px) {
+  .deliveryChargeModule .deliveryChargeTableHint {
+    display: block;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable [data-slot="table"] {
+    min-width: 1080px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeSelectColumn {
+    width: 44px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRuleColumn {
+    width: 135px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeAmountColumn {
+    width: 90px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeScopeColumn {
+    width: 160px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRangeColumn {
+    width: 125px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeThresholdColumn {
+    width: 110px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeStatusColumn {
+    width: 90px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeUpdatedColumn {
+    width: 138px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeActionsColumn {
+    width: 188px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell {
+    background: var(--surface);
+    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    left: 0;
+    position: sticky;
+    z-index: 3;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable th:last-child,
+  .deliveryChargeModule .deliveryChargeRulesTable td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    max-width: 188px !important;
+    min-width: 188px !important;
+    position: sticky;
+    right: 0;
+    width: 188px !important;
+    z-index: 2;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable th:last-child {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+}
+
+@media (max-width: 980px) {
+  .deliveryChargeModule .deliveryChargeMetricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeFormPanel .deliveryChargeFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .deliveryChargeModule .deliveryChargeOverviewPanel,
+  .deliveryChargeModule .deliveryChargeRulesPanel,
+  .deliveryChargeModule .deliveryChargeFormPanel {
+    gap: 11px;
+    padding: 14px;
+  }
+
+  .deliveryChargeModule .deliveryChargeSectionNav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeSectionNav a {
+    justify-content: center;
+    min-height: 34px;
+    padding-inline: 6px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargePageHeader {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deliveryChargeModule .deliveryChargePageHeader .adminPageActions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeHeaderActions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .deliveryChargeModule[data-delivery-charge-view="new"] .deliveryChargeHeaderActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryChargeModule .deliveryChargeHeaderActions > * {
+    font-size: 12px;
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 5px;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeEditPageHeader {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryChargeModule .deliveryChargeEditPageHeader .adminPageActions {
+    width: auto;
+  }
+
+  .deliveryChargeModule .deliveryChargeEditPageHeader .adminPageActions a {
+    padding-inline: 9px;
+    width: auto;
+  }
+
+  .deliveryChargeModule .deliveryChargeMetricGrid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeMetricGrid > [data-slot="card"] {
+    min-height: 80px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent {
+    justify-content: space-between;
+    padding: 10px 11px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent span {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent strong {
+    font-size: 22px;
+    line-height: 1;
+    margin-top: 7px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkActions {
+    padding: 8px;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkSelectionSummary {
+    align-items: baseline;
+    gap: 6px;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkSelectionHint {
+    font-size: 11px;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkActionBar button {
+    font-size: 12px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryChargeModule .deliveryChargeBulkActions .bulkActionForm > button {
+    font-size: 12px;
+    padding-inline: 8px;
+    width: auto !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable [data-slot="table"] {
+    min-width: 940px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeSelectColumn {
+    width: 44px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRuleColumn {
+    width: 125px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeAmountColumn {
+    width: 85px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeScopeColumn {
+    width: 155px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRangeColumn {
+    width: 115px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeThresholdColumn {
+    width: 105px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeStatusColumn {
+    width: 80px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeUpdatedColumn {
+    width: 115px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeActionsColumn {
+    width: 116px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable th:last-child,
+  .deliveryChargeModule .deliveryChargeRulesTable td:last-child {
+    max-width: 116px !important;
+    min-width: 116px !important;
+    width: 116px !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable .tableActions {
+    display: grid;
+    gap: 5px;
+    grid-template-columns: 1fr;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable .tableActions > * {
+    justify-content: center;
+    min-height: 32px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .deliveryChargeModule .deliveryChargeFormPanel .deliveryChargeFormGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeActiveField {
+    padding: 10px;
+  }
+
+  .deliveryChargeModule .deliveryChargeFormActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryChargeModule .deliveryChargeFormActions button {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 8px;
+    width: 100%;
+  }
+
+  .deliveryChargeModule[data-delivery-charge-view="new"] .deliveryChargeFormActions {
+    grid-template-columns: 1fr;
+  }
+}

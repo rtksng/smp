@@ -1,0 +1,423 @@
+{
+  "audience": "customer",
+  "count": 12,
+  "provider": "MSG91",
+  "sendingEnabled": false,
+  "templates": [
+    {
+      "key": "welcome",
+      "name": "Welcome",
+      "slug": "smp-customer-welcome",
+      "category": "Account",
+      "subject": "Welcome to {{brand_name}}",
+      "preheader": "Your account is ready.",
+      "trigger": "Once for a new customer after an email address becomes available; never on every OTP login.",
+      "source": "apps/api/src/modules/auth/customer/customer-auth.service.ts:43; apps/api/src/modules/customers/customer-profile.service.ts:284",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "account_url"
+      ],
+      "optionalVariables": [],
+      "itemFields": [],
+      "html": "html/smp-customer-welcome.html",
+      "text": "text/smp-customer-welcome.txt",
+      "samples": "samples/smp-customer-welcome.json",
+      "scenarios": [
+        "Account created"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "account-status",
+      "name": "Account status update",
+      "slug": "smp-customer-account-status",
+      "category": "Account",
+      "subject": "Your account: {{status_label}}",
+      "preheader": "An update to your customer account.",
+      "trigger": "After an admin changes customer status to ACTIVE, INACTIVE, or BLOCKED.",
+      "source": "apps/api/src/modules/customers/admin-customers.service.ts:161",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "status_label",
+        "status_message"
+      ],
+      "optionalVariables": [
+        "customer_note"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-account-status.html",
+      "text": "text/smp-customer-account-status.txt",
+      "samples": "samples/smp-customer-account-status.json",
+      "scenarios": [
+        "Active",
+        "Inactive",
+        "Blocked"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "order-received",
+      "name": "Order received",
+      "slug": "smp-customer-order-received",
+      "category": "Orders",
+      "subject": "We received order {{order_number}}",
+      "preheader": "Your order summary and payment details.",
+      "trigger": "After a new checkout or quotation order is committed; online payment may still be pending.",
+      "source": "apps/api/src/modules/orders/orders.service.ts:402; apps/api/src/modules/orders/orders.service.ts:527",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "order_date",
+        "payment_label",
+        "payment_message",
+        "items",
+        "subtotal",
+        "discount_total",
+        "tax_total",
+        "shipping_total",
+        "total",
+        "delivery_address"
+      ],
+      "optionalVariables": [],
+      "itemFields": [
+        "name",
+        "quantity",
+        "unit_price",
+        "line_total"
+      ],
+      "html": "html/smp-customer-order-received.html",
+      "text": "text/smp-customer-order-received.txt",
+      "samples": "samples/smp-customer-order-received.json",
+      "scenarios": [
+        "Cash on delivery",
+        "Online payment pending",
+        "Online payment received"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "order-progress",
+      "name": "Order progress",
+      "slug": "smp-customer-order-progress",
+      "category": "Orders",
+      "subject": "Order {{order_number}}: {{status_label}}",
+      "preheader": "{{status_message}}",
+      "trigger": "After a committed customer-visible order or delivery status transition.",
+      "source": "apps/api/src/modules/orders/orders.service.ts:792; apps/api/src/modules/delivery/delivery.service.ts:1354",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "status_label",
+        "status_message"
+      ],
+      "optionalVariables": [
+        "delivery_update"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-order-progress.html",
+      "text": "text/smp-customer-order-progress.txt",
+      "samples": "samples/smp-customer-order-progress.json",
+      "scenarios": [
+        "Confirmed",
+        "Packed",
+        "Assigned",
+        "Out for delivery",
+        "Delivered"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "order-cancelled",
+      "name": "Order cancelled",
+      "slug": "smp-customer-order-cancelled",
+      "category": "Orders",
+      "subject": "Order {{order_number}} has been cancelled",
+      "preheader": "Your cancellation and payment details.",
+      "trigger": "After customer or admin cancellation is committed. Report a refund only from its actual recorded status.",
+      "source": "apps/api/src/modules/orders/orders.service.ts:618; apps/api/src/modules/orders/orders.service.ts:949",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "total",
+        "refund_message"
+      ],
+      "optionalVariables": [
+        "cancellation_reason"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-order-cancelled.html",
+      "text": "text/smp-customer-order-cancelled.txt",
+      "samples": "samples/smp-customer-order-cancelled.json",
+      "scenarios": [
+        "Unpaid order",
+        "Paid order; refund pending"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "payment-result",
+      "name": "Payment result",
+      "slug": "smp-customer-payment-result",
+      "category": "Payments",
+      "subject": "Payment {{status_label}} for order {{order_number}}",
+      "preheader": "{{status_message}}",
+      "trigger": "After verified online payment or recorded COD collection changes payment status to PAID or FAILED.",
+      "source": "apps/api/src/modules/payments/payments.service.ts:174; apps/api/src/modules/payments/payments.service.ts:753; apps/api/src/modules/delivery/delivery.service.ts:1382",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "amount",
+        "status_label",
+        "status_message"
+      ],
+      "optionalVariables": [
+        "payment_reference",
+        "customer_note"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-payment-result.html",
+      "text": "text/smp-customer-payment-result.txt",
+      "samples": "samples/smp-customer-payment-result.json",
+      "scenarios": [
+        "Received",
+        "Failed"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "invoice-ready",
+      "name": "Invoice ready",
+      "slug": "smp-customer-invoice-ready",
+      "category": "Payments",
+      "subject": "Invoice {{invoice_number}} for order {{order_number}}",
+      "preheader": "Your invoice is available in your account.",
+      "trigger": "Only after an invoice record is available for an eligible order. Link to the authenticated order page, not the protected API endpoint.",
+      "source": "apps/api/src/modules/invoices/invoices.service.ts:167; apps/web/lib/api/orders.ts:canDownloadOrderInvoice",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "invoice_number",
+        "invoice_date",
+        "total"
+      ],
+      "optionalVariables": [],
+      "itemFields": [],
+      "html": "html/smp-customer-invoice-ready.html",
+      "text": "text/smp-customer-invoice-ready.txt",
+      "samples": "samples/smp-customer-invoice-ready.json",
+      "scenarios": [
+        "Invoice available"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "return-update",
+      "name": "Return request update",
+      "slug": "smp-customer-return-update",
+      "category": "Returns",
+      "subject": "Return {{status_label}} for order {{order_number}}",
+      "preheader": "{{status_message}}",
+      "trigger": "After return submission or admin approval/rejection is committed. Return approval and refund completion are separate events.",
+      "source": "apps/api/src/modules/orders/orders.service.ts:671; apps/api/src/modules/orders/orders.service.ts:874; apps/api/src/modules/orders/orders.service.ts:890",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "status_label",
+        "status_message"
+      ],
+      "optionalVariables": [
+        "customer_note"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-return-update.html",
+      "text": "text/smp-customer-return-update.txt",
+      "samples": "samples/smp-customer-return-update.json",
+      "scenarios": [
+        "Received",
+        "Approved",
+        "Rejected"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "refund-update",
+      "name": "Refund update",
+      "slug": "smp-customer-refund-update",
+      "category": "Returns",
+      "subject": "Refund {{status_label}} for order {{order_number}}",
+      "preheader": "{{status_message}}",
+      "trigger": "After a recorded refund transition, including provider-confirmed completion or failure. Handle partial amounts explicitly.",
+      "source": "apps/api/src/modules/payments/payments.service.ts:881; apps/api/src/modules/payments/payments.service.ts:1110",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "order_url",
+        "order_number",
+        "refund_amount",
+        "status_label",
+        "status_message"
+      ],
+      "optionalVariables": [
+        "refund_reference",
+        "customer_note"
+      ],
+      "itemFields": [],
+      "html": "html/smp-customer-refund-update.html",
+      "text": "text/smp-customer-refund-update.txt",
+      "samples": "samples/smp-customer-refund-update.json",
+      "scenarios": [
+        "Pending",
+        "Processing",
+        "Completed",
+        "Partial refund completed",
+        "Failed",
+        "Cancelled"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "quote-received",
+      "name": "Quote request received",
+      "slug": "smp-customer-quote-received",
+      "category": "Quotations",
+      "subject": "We received quote request {{quote_reference}}",
+      "preheader": "Your bulk quote request is with our team.",
+      "trigger": "After a bulk quote request is saved. Use the request's supplied email, including for guest enquiries.",
+      "source": "apps/api/src/modules/quote-requests/quote-requests.service.ts:91",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "quotes_url",
+        "quote_reference",
+        "request_date",
+        "request_summary"
+      ],
+      "optionalVariables": [],
+      "itemFields": [],
+      "html": "html/smp-customer-quote-received.html",
+      "text": "text/smp-customer-quote-received.txt",
+      "samples": "samples/smp-customer-quote-received.json",
+      "scenarios": [
+        "Request received"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "quotation-available",
+      "name": "Quotation available",
+      "slug": "smp-customer-quotation-available",
+      "category": "Quotations",
+      "subject": "Your quotation is ready: {{quote_reference}}",
+      "preheader": "Review the quotation details in your account.",
+      "trigger": "After the initial or revised quotation is saved as QUOTED; require an unexpired quotation before offering acceptance.",
+      "source": "apps/api/src/modules/quote-requests/quote-requests.service.ts:185",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "quotes_url",
+        "quote_reference",
+        "quotation_message",
+        "items",
+        "subtotal",
+        "tax_total",
+        "shipping_total",
+        "total"
+      ],
+      "optionalVariables": [
+        "valid_until",
+        "quotation_note"
+      ],
+      "itemFields": [
+        "name",
+        "quantity",
+        "unit_price",
+        "line_total"
+      ],
+      "html": "html/smp-customer-quotation-available.html",
+      "text": "text/smp-customer-quotation-available.txt",
+      "samples": "samples/smp-customer-quotation-available.json",
+      "scenarios": [
+        "New quotation",
+        "Revised quotation"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    },
+    {
+      "key": "question-answered",
+      "name": "Product question answered",
+      "slug": "smp-customer-question-answered",
+      "category": "Support",
+      "subject": "Your question about {{product_name}} has been answered",
+      "preheader": "An answer to your product question.",
+      "trigger": "After the customer's product question is answered and the answer is saved.",
+      "source": "apps/api/src/modules/product-feedback/product-feedback.service.ts:176",
+      "requiredVariables": [
+        "brand_name",
+        "customer_name",
+        "site_url",
+        "support_email",
+        "product_url",
+        "product_name",
+        "question",
+        "answer"
+      ],
+      "optionalVariables": [],
+      "itemFields": [],
+      "html": "html/smp-customer-question-answered.html",
+      "text": "text/smp-customer-question-answered.txt",
+      "samples": "samples/smp-customer-question-answered.json",
+      "scenarios": [
+        "Answer available"
+      ],
+      "msg91TemplateId": null,
+      "status": "LOCAL_DRAFT"
+    }
+  ]
+}

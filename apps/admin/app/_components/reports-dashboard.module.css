@@ -1,0 +1,65 @@
+.controlPanel,
+.controlPanel :global(.reportPageHeader),
+.controlPanel :global(.adminPageActions),
+.controlPanel :global(.reportExportActions) {
+  min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .controlPanel :global(.adminPageActions),
+  .controlPanel :global(.reportExportActions) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpiGrid :global(.dashboardKpi) {
+    gap: 6px;
+    min-height: 96px;
+    padding: 12px;
+  }
+
+  .kpiGrid :global(.dashboardKpi span) {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .kpiGrid :global(.dashboardKpi strong) {
+    font-size: clamp(20px, 7vw, 26px);
+  }
+
+  .kpiGrid :global(.dashboardKpi em) {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .controlPanel :global(.reportExportActions) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .controlPanel :global(.reportExportActions) > button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .chartHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chartHeader > :global(.reportTableLink),
+  .chartHeader > [aria-disabled="true"] {
+    align-self: flex-start;
+    max-width: 100%;
+  }
+
+  .chartDrilldowns {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

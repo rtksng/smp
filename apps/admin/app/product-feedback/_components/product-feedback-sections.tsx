@@ -68,6 +68,7 @@ import { BulkActions, BulkPageCheckbox, BulkRowCheckbox } from "@/components/adm
 import { loadBulkRows } from "@/lib/bulk-actions";
 import { feedbackBulkActions } from "@/lib/bulk-module-actions";
 import { useBulkSelection, type BulkSelection } from "@/lib/use-bulk-selection";
+import "./product-feedback.css";
 
 const PAGE_SIZE = 20;
 const PRODUCT_QUESTION_FILTER_STATUSES: ProductFeedbackStatus[] = [
@@ -413,11 +414,44 @@ function ProductFeedbackContent({ view, initialFilters }: {
         {feedbackListQuery.isLoading ? (
           <LoadingState label={`Loading product ${view}...`} />
         ) : null}
-        {canAnswer ? <BulkActions key={bulk.scope} selection={bulk} actions={bulkActions}
-          total={pagination?.total ?? 0} disabled={feedbackListQuery.isFetching || feedbackListQuery.isError || answerMutation.isPending || moderationMutation.isPending}
-          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminProductFeedback>>("/admin/product-feedback", { query: buildProductFeedbackQuery(appliedFilters, next, limit) }))}
-          getLabel={(item) => `${item.customerName}: ${item.title || item.question || item.comment || item.productName}`}
-          onComplete={refreshFeedback} /> : null}
+        {canAnswer ? (
+          <div className="productFeedbackBulkActions">
+            <BulkActions
+              key={bulk.scope}
+              selection={bulk}
+              actions={bulkActions}
+              total={pagination?.total ?? 0}
+              disabled={
+                feedbackListQuery.isFetching ||
+                feedbackListQuery.isError ||
+                answerMutation.isPending ||
+                moderationMutation.isPending
+              }
+              loadAll={() =>
+                loadBulkRows((next, limit) =>
+                  api.request<
+                    PaginatedAdminResponse<AdminProductFeedback>
+                  >("/admin/product-feedback", {
+                    query: buildProductFeedbackQuery(
+                      appliedFilters,
+                      next,
+                      limit
+                    )
+                  })
+                )
+              }
+              getLabel={(item) =>
+                `${item.customerName}: ${
+                  item.title ||
+                  item.question ||
+                  item.comment ||
+                  item.productName
+                }`
+              }
+              onComplete={refreshFeedback}
+            />
+          </div>
+        ) : null}
         {!feedbackListQuery.isLoading &&
           !feedbackListQuery.isError &&
           feedback.length === 0 ? (
@@ -545,7 +579,7 @@ function ProductFeedbackFilterForm({
           </SelectContent>
         </Select>
       </label>
-      <div className="productFilterActions">
+      <div className="productFilterActions productFeedbackFilterActions">
         <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
           <span>Apply</span>
@@ -592,7 +626,15 @@ function ProductFeedbackTable({
           : "resourceTable productFeedbackTable"
       }
     >
-      <Table>
+      <p className="productFeedbackTableHint" id="product-feedback-table-hint">
+        Swipe horizontally to see every feedback field and moderation action.
+      </p>
+      <Table
+        aria-describedby="product-feedback-table-hint"
+        aria-label={isQuestionView ? "Product questions" : "Product reviews"}
+        className="productFeedbackDataTable"
+        containerClassName="productFeedbackTableViewport"
+      >
         <TableHeader>
           <TableRow>
             {canAnswer ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
@@ -601,8 +643,8 @@ function ProductFeedbackTable({
             <TableHead>{isQuestionView ? "Question" : "Review"}</TableHead>
             {isQuestionView ? <TableHead>Answer</TableHead> : null}
             <TableHead>Status</TableHead>
-            <TableHead>Moderation</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead>Moderation</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -664,6 +706,7 @@ function ProductFeedbackTable({
                   <em>Moderated {formatSupportDateTime(item.moderatedAt)}</em>
                 ) : null}
               </TableCell>
+              <TableCell>{formatSupportDateTime(item.createdAt)}</TableCell>
               <TableCell>
                 {canAnswer ? (
                   <div className="feedbackModerationPanel">
@@ -678,7 +721,9 @@ function ProductFeedbackTable({
                           size="sm"
                           title={getModerationActionLabel(status)}
                           type="button"
-                          variant={status === "PUBLISHED" ? "default" : "outline"}
+                          variant={
+                            status === "PUBLISHED" ? "default" : "outline"
+                          }
                         >
                           {getModerationIcon(status)}
                         </Button>
@@ -689,7 +734,6 @@ function ProductFeedbackTable({
                   <em>-</em>
                 )}
               </TableCell>
-              <TableCell>{formatSupportDateTime(item.createdAt)}</TableCell>
             </TableRow>
           ))}
         </TableBody>

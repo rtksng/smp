@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Unpaid order",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "total": "₹2,360.00",
+      "cancellation_reason": "Ordered by mistake.",
+      "refund_message": "No payment was collected for this order. No refund is due."
+    }
+  },
+  {
+    "name": "Paid order; refund pending",
+    "variables": {
+      "brand_name": "Surgical Medical Equipment",
+      "customer_name": "Aarav",
+      "site_url": "https://shop.example.com",
+      "support_email": "support@example.com",
+      "account_url": "https://shop.example.com/account",
+      "order_url": "https://shop.example.com/account/orders/demo-order",
+      "quotes_url": "https://shop.example.com/account/quotes",
+      "product_url": "https://shop.example.com/products/demo-product",
+      "order_number": "SMP-2026-1042",
+      "total": "₹2,360.00",
+      "refund_message": "A refund request has been recorded for your payment. We will send a separate update when its status changes."
+    }
+  }
+]

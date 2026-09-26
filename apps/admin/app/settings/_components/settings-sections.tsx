@@ -1,15 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CheckCircle2,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-  X
-} from "lucide-react";
+import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { z } from "zod";
@@ -60,6 +52,7 @@ import {
   type AdminUserFormValues,
   type AdminUserListResponse
 } from "../../../lib/settings-management";
+import "../settings-responsive.css";
 
 type AdminUserFieldErrors = Partial<Record<keyof AdminUserFormValues, string>>;
 type SettingsSectionId = "admin-users" | "roles";
@@ -292,13 +285,16 @@ export function SettingsAdminUsersPage() {
   }
 
   return (
-    <>
+    <div
+      className="settingsModule settingsAdminUsersModule"
+      data-settings-view="admin-users"
+    >
       <section className="panel settingsOverviewPanel">
         <SettingsSectionNav active="admin-users" />
         <PageHeader
           className="settingsPageHeader"
           actions={
-            <div className="actionRow">
+            <div className="actionRow settingsHeaderActions">
               <Button
                 className="iconTextButton"
                 onClick={() => void handleRefresh()}
@@ -336,7 +332,7 @@ export function SettingsAdminUsersPage() {
       </section>
 
       <div className="settingsWorkspaceGrid">
-        <section className="panel settingsUsersPanel mt-3">
+        <section className="panel settingsUsersPanel">
           <PageHeader
             className="settingsSectionHeader"
             eyebrow="Admin users"
@@ -421,7 +417,7 @@ export function SettingsAdminUsersPage() {
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -444,7 +440,7 @@ export function SettingsRolesPage() {
   }, [loadError]);
 
   return (
-    <>
+    <div className="settingsModule settingsRolesModule" data-settings-view="roles">
       <section className="panel settingsOverviewPanel">
         <SettingsSectionNav active="roles" />
         <PageHeader
@@ -468,7 +464,7 @@ export function SettingsRolesPage() {
         </div>
       </section>
 
-      <section className="panel mt-3">
+      <section className="panel settingsRolesPanel">
         <PageHeader
           className="settingsSectionHeader"
           eyebrow="Roles"
@@ -483,7 +479,7 @@ export function SettingsRolesPage() {
         ) : null}
         {roles.length > 0 ? <RoleList roles={roles} /> : null}
       </section>
-    </>
+    </div>
   );
 }
 
@@ -598,8 +594,11 @@ function AdminUsersTable({
   users: AdminUser[];
 }) {
   return (
-    <div className="resourceTable">
-      <Table>
+    <div className="settingsTableShell settingsAdminUsersTableShell">
+      <p className="settingsTableHint">
+        Swipe sideways to view every admin user option.
+      </p>
+      <Table containerClassName="resourceTable settingsAdminUsersTable">
         <TableHeader>
           <TableRow>
             <TableHead>Admin</TableHead>
@@ -607,7 +606,7 @@ function AdminUsersTable({
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Last login</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead className="settingsAdminUsersActionsColumn">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -626,7 +625,7 @@ function AdminUsersTable({
                 {user.lastLoginAt ? formatDate(user.lastLoginAt) : "-"}
               </TableCell>
               <TableCell>
-                <div className="tableActions">
+                <div className="tableActions settingsAdminUsersTableActions">
                   <Button
                     className="iconTextButton"
                     onClick={() => onEdit(user)}
@@ -681,8 +680,8 @@ function AdminUserForm({
   values: AdminUserFormValues;
 }) {
   return (
-    <form className="formStack productForm" onSubmit={onSubmit}>
-      <div className="formGrid">
+    <form className="formStack productForm settingsAdminUserForm" onSubmit={onSubmit}>
+      <div className="formGrid settingsAdminUserFormGrid">
         <TextField
           error={errors.firstName}
           label="First name"
@@ -762,7 +761,7 @@ function AdminUserForm({
           value={values.password}
         />
       </div>
-      <div className="actionRow">
+      <div className="actionRow settingsFormActions">
         <Button
           className="iconTextButton"
           disabled={isSaving || roles.length === 0}
@@ -778,41 +777,46 @@ function AdminUserForm({
 
 function RoleList({ roles }: { roles: AdminRole[] }) {
   return (
-    <Table containerClassName="resourceTable rolePermissionTable mt-3">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Role</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Description</TableHead>
-          <TableHead>Permissions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {roles.map((role) => (
-          <TableRow key={role.id}>
-            <TableCell>
-              <strong>{role.name}</strong>
-              <em>{role.code}</em>
-            </TableCell>
-            <TableCell>
-              {role.isSystem ? (
-                <span className="statusBadge statusBadge--active">System</span>
-              ) : (
-                <span className="statusBadge statusBadge--draft">Custom</span>
-              )}
-            </TableCell>
-            <TableCell>{role.description ?? "-"}</TableCell>
-            <TableCell>
-              <div className="flagList compactFlagList">
-                {role.permissions.map((permission) => (
-                  <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
-                ))}
-              </div>
-            </TableCell>
+    <div className="settingsTableShell settingsRolesTableShell">
+      <p className="settingsTableHint">
+        Swipe sideways to view every role and permission.
+      </p>
+      <Table containerClassName="resourceTable rolePermissionTable settingsRolesTable">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Role</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>Permissions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {roles.map((role) => (
+            <TableRow key={role.id}>
+              <TableCell>
+                <strong>{role.name}</strong>
+                <em>{role.code}</em>
+              </TableCell>
+              <TableCell>
+                {role.isSystem ? (
+                  <span className="statusBadge statusBadge--active">System</span>
+                ) : (
+                  <span className="statusBadge statusBadge--draft">Custom</span>
+                )}
+              </TableCell>
+              <TableCell>{role.description ?? "-"}</TableCell>
+              <TableCell>
+                <div className="flagList compactFlagList">
+                  {role.permissions.map((permission) => (
+                    <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
+                  ))}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

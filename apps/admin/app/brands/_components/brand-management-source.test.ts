@@ -8,7 +8,12 @@ const brandManagementSource = existsSync(brandManagementPath)
   : "";
 const brandsPageSource = readFileSync(join(__dirname, "../page.tsx"), "utf8");
 const createPagePath = join(__dirname, "../create/page.tsx");
+const bulkCreatePagePath = join(__dirname, "../bulk-create/page.tsx");
 const editPagePath = join(__dirname, "../[id]/edit/page.tsx");
+const catalogStyles = readFileSync(
+  join(__dirname, "../../../components/admin/catalog-management.css"),
+  "utf8"
+);
 
 describe("brand management route flow", () => {
   it("renders the brand list as a table-only page with route links", () => {
@@ -44,5 +49,38 @@ describe("brand management route flow", () => {
     expect(brandManagementSource).toContain('body.append("purpose", "brand_logo")');
     expect(brandManagementSource).not.toContain("Logo URL");
     expect(brandManagementSource).not.toContain("Logo available");
+  });
+
+  it("offers a dedicated bulk brand creation page", () => {
+    expect(existsSync(bulkCreatePagePath)).toBe(true);
+    expect(brandManagementSource).toContain("CatalogBulkCreateWorkspace");
+    expect(brandManagementSource).toContain("BRAND_BULK_CREATE_PATH");
+    expect(brandManagementSource).toContain("Bulk create brands");
+    expect(brandManagementSource).toContain('kind="brand"');
+    expect(brandManagementSource).toContain('api.request<AdminBrand>("/admin/brands"');
+    expect(brandManagementSource).not.toContain("setIsBulkCreateOpen");
+  });
+
+  it("places brand search at the end of the managed brands heading", () => {
+    expect(brandManagementSource).toContain('className="catalogListHeader"');
+    expect(brandManagementSource).toContain('className="catalogListSearch"');
+    expect(brandManagementSource).toContain('aria-label="Search brands"');
+  });
+
+  it("keeps brand actions and table columns reachable on small screens", () => {
+    expect(brandManagementSource).toContain('className="catalogOverviewHeader"');
+    expect(brandManagementSource).toContain('className="catalogFormHeader"');
+    expect(brandManagementSource).toContain(
+      'className="metricGrid resourceMetrics catalogMetrics"'
+    );
+    expect(brandManagementSource).toContain(
+      'containerClassName="catalogTableViewport"'
+    );
+    expect(catalogStyles).toMatch(
+      /\.catalogMetrics\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+    );
+    expect(catalogStyles).toMatch(
+      /\.catalogTableViewport \.brandDataTable\s*\{[\s\S]*?min-width:\s*820px !important/
+    );
   });
 });

@@ -65,6 +65,7 @@ import {
   type QuoteRequestFilters,
   type QuoteRequestStatus
 } from "../../../lib/support-management";
+import "../quote-requests-responsive.css";
 
 const PAGE_SIZE = 20;
 
@@ -158,11 +159,11 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
   const pageCopy = quoteRequestCopy[view];
 
   return (
-    <>
+    <div className="quoteRequestModule" data-quote-request-view={view}>
       <section className="panel quoteRequestSummaryPanel">
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow quoteRequestHeaderActions">
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshQuoteRequests()}
@@ -174,7 +175,7 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
               </Button>
             </div>
           }
-          className="quoteRequestPageHeader"
+          className="quoteRequestPageHeader quoteRequestQueueHeader"
           eyebrow="Quote requests"
           summary={pageCopy.summary}
           title={pageCopy.title}
@@ -199,7 +200,7 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
       <div className="quoteRequestWorkspaceGrid quoteRequestWorkspaceGrid--single">
         <section className="panel quoteRequestListPanel mt-3">
           <PageHeader
-            className="settingsSectionHeader"
+            className="settingsSectionHeader quoteRequestSectionHeader"
             eyebrow="Requests"
             level={2}
             summary="Filter the queue, then open one enquiry to update status or send a quotation."
@@ -216,10 +217,27 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
           {quoteRequestsQuery.isLoading ? (
             <LoadingState label="Loading quote requests..." />
           ) : null}
-          <BulkActions key={bulk.scope} selection={bulk} actions={quoteBulkActions(api)} total={pagination?.total ?? 0}
-            disabled={quoteRequestsQuery.isFetching || quoteRequestsQuery.isError}
-            loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedAdminResponse<AdminQuoteRequest>>("/admin/quote-requests", { query: buildQuoteRequestQuery(appliedFilters, next, limit) }))}
-            getLabel={(quoteRequest) => quoteRequest.name} onComplete={refreshQuoteRequests} />
+          <div className="quoteRequestBulkActions">
+            <BulkActions
+              actions={quoteBulkActions(api)}
+              disabled={quoteRequestsQuery.isFetching || quoteRequestsQuery.isError}
+              getLabel={(quoteRequest) => quoteRequest.name}
+              key={bulk.scope}
+              loadAll={() =>
+                loadBulkRows((next, limit) =>
+                  api.request<PaginatedAdminResponse<AdminQuoteRequest>>(
+                    "/admin/quote-requests",
+                    {
+                      query: buildQuoteRequestQuery(appliedFilters, next, limit)
+                    }
+                  )
+                )
+              }
+              onComplete={refreshQuoteRequests}
+              selection={bulk}
+              total={pagination?.total ?? 0}
+            />
+          </div>
           {!quoteRequestsQuery.isLoading &&
           !quoteRequestsQuery.isError &&
           quoteRequests.length === 0 ? (
@@ -240,7 +258,7 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
           ) : null}
         </section>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -339,11 +357,11 @@ export function QuoteRequestDetailPage() {
   }
 
   return (
-    <>
+    <div className="quoteRequestModule quoteRequestDetailModule">
       <section className="panel quoteRequestDetailPagePanel">
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow quoteRequestHeaderActions quoteRequestDetailHeaderActions">
               <Button asChild className="iconTextButton" variant="outline">
                 <Link href="/quote-requests">
                   <ArrowLeft aria-hidden size={16} />
@@ -361,7 +379,7 @@ export function QuoteRequestDetailPage() {
               </Button>
             </div>
           }
-          className="quoteRequestPageHeader"
+          className="quoteRequestPageHeader quoteRequestDetailHeader"
           eyebrow="Quote request"
           summary={
             quoteRequest
@@ -392,7 +410,7 @@ export function QuoteRequestDetailPage() {
         <div className="quoteRequestDetailGrid">
           <section className="panel quoteRequestCustomerPanel">
             <PageHeader
-              className="settingsSectionHeader"
+              className="settingsSectionHeader quoteRequestSectionHeader"
               eyebrow="Customer"
               level={2}
               summary="Original enquiry and customer contact details."
@@ -439,7 +457,7 @@ export function QuoteRequestDetailPage() {
           </section>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -451,64 +469,75 @@ function QuoteRequestsTable({
   quoteRequests: AdminQuoteRequest[];
 }) {
   return (
-    <div className="resourceTable quoteRequestTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Request</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Quotation</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead>Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {quoteRequests.map((quoteRequest) => (
-            <TableRow key={quoteRequest.id}>
-              <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={quoteRequest} label={quoteRequest.name} /></TableCell>
-              <TableCell>
-                <strong>{quoteRequest.name}</strong>
-                <em>{quoteRequest.organization ?? "Individual customer"}</em>
-              </TableCell>
-              <TableCell>
-                <strong>{quoteRequest.mobileNumber}</strong>
-                <em>{quoteRequest.email}</em>
-              </TableCell>
-              <TableCell>
-                <MessageSquare aria-hidden className="mr-2 inline-block" size={16} />
-                {quoteRequest.message}
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={quoteRequest.status} />
-              </TableCell>
-              <TableCell>
-                {quoteRequest.quotation ? (
-                  <strong>{formatCurrency(quoteRequest.quotation.totals.grandTotal)}</strong>
-                ) : (
-                  <em>Not sent</em>
-                )}
-              </TableCell>
-              <TableCell>{formatSupportDateTime(quoteRequest.createdAt)}</TableCell>
-              <TableCell>
-                <Button
-                  asChild
-                  className="iconTextButton"
-                  size="sm"
-                  variant="outline"
-                >
-                  <Link href={`/quote-requests/${quoteRequest.id}`}>
-                    <MessageSquare aria-hidden size={16} />
-                    <span>Open</span>
-                  </Link>
-                </Button>
-              </TableCell>
+    <div className="quoteRequestTableShell">
+      <p className="quoteRequestTableHint">Swipe sideways to view every quote request option.</p>
+      <div className="resourceTable quoteRequestTable">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="bulkCheckboxCell">
+                <BulkPageCheckbox selection={bulk} />
+              </TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Request</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Quotation</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Action</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {quoteRequests.map((quoteRequest) => (
+              <TableRow key={quoteRequest.id}>
+                <TableCell className="bulkCheckboxCell">
+                  <BulkRowCheckbox
+                    item={quoteRequest}
+                    label={quoteRequest.name}
+                    selection={bulk}
+                  />
+                </TableCell>
+                <TableCell>
+                  <strong>{quoteRequest.name}</strong>
+                  <em>{quoteRequest.organization ?? "Individual customer"}</em>
+                </TableCell>
+                <TableCell>
+                  <strong>{quoteRequest.mobileNumber}</strong>
+                  <em>{quoteRequest.email}</em>
+                </TableCell>
+                <TableCell>
+                  <MessageSquare aria-hidden className="mr-2 inline-block" size={16} />
+                  {quoteRequest.message}
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={quoteRequest.status} />
+                </TableCell>
+                <TableCell>
+                  {quoteRequest.quotation ? (
+                    <strong>{formatCurrency(quoteRequest.quotation.totals.grandTotal)}</strong>
+                  ) : (
+                    <em>Not sent</em>
+                  )}
+                </TableCell>
+                <TableCell>{formatSupportDateTime(quoteRequest.createdAt)}</TableCell>
+                <TableCell>
+                  <Button
+                    asChild
+                    className="iconTextButton"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Link href={`/quote-requests/${quoteRequest.id}`}>
+                      <MessageSquare aria-hidden size={16} />
+                      <span>Open</span>
+                    </Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -580,7 +609,7 @@ function QuoteRequestResponsePanel({
   return (
     <>
       <PageHeader
-        className="settingsSectionHeader"
+        className="settingsSectionHeader quoteRequestSectionHeader"
         eyebrow="Quotation"
         level={2}
         summary="Update status and prepare the itemized quotation response."
@@ -596,7 +625,7 @@ function QuoteRequestResponsePanel({
         onValueChange={(value) => void onStatusChange(value as QuoteRequestStatus)}
         value={quoteRequest.status}
       >
-        <SelectTrigger>
+        <SelectTrigger className="quoteRequestStatusTrigger">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -656,7 +685,7 @@ function QuoteResponseEditor({
   }
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
+    <div className="quoteRequestResponseEditor grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
       {quoteRequest.quotation ? (
         <ExistingQuoteSummary quoteRequest={quoteRequest} />
       ) : null}
@@ -675,7 +704,7 @@ function QuoteResponseEditor({
       </div>
 
       <Button
-        className="iconTextButton justify-self-start"
+        className="iconTextButton quoteRequestAddLineButton justify-self-start"
         onClick={() =>
           onChange({
             ...draft,
@@ -689,7 +718,7 @@ function QuoteResponseEditor({
         <span>Add line</span>
       </Button>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="quoteRequestSupplementGrid grid gap-3 sm:grid-cols-2">
         <Input
           aria-label="Shipping total"
           inputMode="decimal"
@@ -727,7 +756,7 @@ function QuoteResponseEditor({
         value={draft.notes}
       />
 
-      <div className="grid gap-2 rounded-lg border border-border bg-background p-3 text-sm">
+      <div className="quoteRequestTotals grid gap-2 rounded-lg border border-border bg-background p-3 text-sm">
         <div className="flex items-center justify-between gap-3">
           <span>Subtotal</span>
           <strong>{formatCurrency(totals.subtotal)}</strong>
@@ -747,7 +776,7 @@ function QuoteResponseEditor({
       </div>
 
       <Button
-        className="iconTextButton justify-self-start"
+        className="iconTextButton quoteRequestSendButton justify-self-start"
         disabled={isSending}
         onClick={() => void onSend()}
         type="button"
@@ -780,8 +809,8 @@ function QuoteLineEditor({
   }
 
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-background p-3">
-      <div className="flex items-center justify-between gap-3">
+    <div className="quoteRequestLineEditor grid gap-2 rounded-lg border border-border bg-background p-3">
+      <div className="quoteRequestLineHeader flex items-center justify-between gap-3">
         <strong className="text-sm">Line {index + 1}</strong>
         <Button
           aria-label={`Remove line ${index + 1}`}

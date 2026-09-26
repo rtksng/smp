@@ -1,0 +1,354 @@
+.catalogListHeader {
+  align-items: end;
+}
+
+.catalogActionLabelCompact {
+  display: none;
+}
+
+.catalogOverviewHeader {
+  align-items: flex-start;
+}
+
+.catalogOverviewHeader .adminPageActions {
+  flex: 0 0 auto;
+}
+
+.catalogMetrics {
+  gap: 12px;
+}
+
+.catalogMetrics > [data-slot="card"] {
+  min-height: 96px !important;
+}
+
+.catalogMetrics .metricCardContent {
+  padding: 14px 16px !important;
+}
+
+.catalogMetrics .metricCardContent strong {
+  font-size: 26px !important;
+  margin-top: 10px !important;
+}
+
+.catalogListHeader .adminPageActions {
+  flex: 0 1 360px;
+  min-width: min(100%, 260px);
+  width: min(100%, 360px);
+}
+
+.catalogListSearch {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.catalogListSearch .searchInput {
+  width: 100%;
+}
+
+.catalogBulkActions .bulkActions {
+  margin: 12px 0;
+  padding: 10px 12px;
+}
+
+.catalogBulkActions .bulkActionBar {
+  gap: 8px;
+}
+
+.catalogBulkActions .bulkSelectionSummary {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.catalogBulkActions .bulkSelectionHint {
+  line-height: 1.35;
+}
+
+.catalogBulkActions .bulkActionBar button,
+.catalogBulkActions .bulkActionForm > button {
+  min-height: 34px;
+  padding-block: 6px;
+}
+
+.catalogBulkActions .bulkActionForm {
+  align-items: end;
+  gap: 8px 10px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  margin-top: 10px;
+  max-width: none;
+  padding-top: 10px;
+}
+
+.catalogBulkActions .bulkActionForm > [data-slot="select-trigger"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.catalogBulkActions .bulkActionForm > button {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.catalogBulkActions .bulkActionForm > :is(p, fieldset) {
+  grid-column: 1 / -1;
+}
+
+.catalogTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.catalogTableViewport {
+  max-height: min(620px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+}
+
+.catalogTableViewport .brandDataTable {
+  min-width: 820px !important;
+}
+
+.catalogTableViewport .categoryDataTable {
+  min-width: 940px !important;
+}
+
+.catalogTableViewport .categoryChildDataTable {
+  min-width: 680px !important;
+}
+
+.catalogFormPanel .productForm {
+  gap: 16px;
+}
+
+.catalogFormPanel .singleAssetRow {
+  padding: 12px;
+}
+
+.categoryChildDialog .catalogChildBulkActions .bulkActions {
+  margin-top: 0;
+}
+
+@media (max-width: 760px) {
+  .catalogListHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .catalogListHeader .adminPageActions {
+    flex-basis: auto;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 980px) {
+  .catalogOverviewHeader .adminPageActions {
+    width: 100%;
+  }
+
+  .catalogTableHint {
+    display: block;
+  }
+
+  .catalogTableViewport {
+    max-height: min(560px, calc(100dvh - 150px));
+  }
+
+  .catalogTableViewport tr > :last-child {
+    min-width: 150px !important;
+    position: sticky;
+    right: 0;
+  }
+
+  .catalogTableViewport tr > th:last-child {
+    background: #e4efed;
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 3;
+  }
+
+  .catalogTableViewport tr > td:last-child {
+    background: var(--surface-muted);
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 2;
+  }
+
+  .categoryChildDialog {
+    width: min(calc(100vw - 32px), 720px);
+  }
+}
+
+@media (max-width: 640px) {
+  .catalogOverviewPanel,
+  .catalogListPanel,
+  .catalogFormPanel {
+    padding: 14px;
+  }
+
+  .catalogOverviewHeader {
+    gap: 14px;
+  }
+
+  .catalogOverviewHeader .adminPageActions {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .catalogOverviewHeader .adminPageActions .iconTextButton {
+    gap: 5px;
+    min-width: 0;
+    padding-inline: 7px;
+    width: 100%;
+  }
+
+  .catalogActionLabelFull {
+    display: none;
+  }
+
+  .catalogActionLabelCompact {
+    display: inline;
+  }
+
+  .catalogMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalogMetrics > [data-slot="card"] {
+    min-height: 82px !important;
+  }
+
+  .catalogMetrics .metricCardContent {
+    padding: 11px 12px !important;
+  }
+
+  .catalogMetrics .metricCardContent span {
+    font-size: 11px !important;
+    line-height: 1.3;
+  }
+
+  .catalogMetrics .metricCardContent strong {
+    font-size: 22px !important;
+    margin-top: 6px !important;
+  }
+
+  .catalogListHeader {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .catalogBulkActions .bulkActions {
+    margin: 10px 0;
+    padding: 8px;
+  }
+
+  .catalogBulkActions .bulkActionBar {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalogBulkActions .bulkSelectionSummary {
+    align-items: baseline;
+    display: flex;
+    gap: 6px;
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .catalogBulkActions .bulkSelectionHint {
+    font-size: 11px;
+  }
+
+  .catalogBulkActions .bulkActionBar button {
+    font-size: 12px;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .catalogBulkActions .bulkActionForm {
+    grid-template-columns: 1fr;
+  }
+
+  .catalogBulkActions .bulkActionForm > *,
+  .catalogBulkActions .bulkActionForm > [data-slot="select-trigger"],
+  .catalogBulkActions .bulkActionForm > button {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .catalogFormHeader {
+    align-items: start;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .catalogFormHeader > div:first-child {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .catalogFormHeader .adminPageActions {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+
+  .catalogFormHeader .adminPageActions .iconTextButton {
+    padding-inline: 9px;
+    white-space: nowrap;
+    width: auto;
+  }
+
+  .catalogFormPanel .singleAssetRow {
+    grid-template-columns: 1fr !important;
+  }
+
+  .catalogFormPanel .singleAssetRow > * {
+    grid-column: 1 !important;
+  }
+
+  .catalogFormPanel .singleAssetRow .fileUploadButton {
+    width: 100% !important;
+  }
+
+  .catalogFormPanel .actionRow button {
+    width: 100%;
+  }
+
+  .adminDialogPanel.categoryChildDialog {
+    max-height: calc(100dvh - 20px) !important;
+    padding: 14px;
+    width: calc(100vw - 20px);
+  }
+
+  .categoryChildDialog .catalogBulkActions .bulkSelectionSummary {
+    display: grid;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 380px) {
+  .catalogOverviewHeader .adminPageActions .iconTextButton {
+    font-size: 11px;
+    padding-inline: 5px;
+  }
+
+  .catalogOverviewHeader .adminPageActions .iconTextButton svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  .catalogFormHeader .adminPageActions .iconTextButton {
+    font-size: 12px;
+  }
+}

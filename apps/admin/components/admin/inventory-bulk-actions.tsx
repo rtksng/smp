@@ -104,14 +104,16 @@ export function InventoryBulkActions({
     )
   }));
   return (
-    <BulkActions
-      selection={selection}
-      actions={actions}
-      total={total}
-      disabled={disabled}
-      loadAll={loadAll}
-      getLabel={getLabel}
-      onComplete={onComplete}
-    />
+    <div className="inventoryBulkActions">
+      <BulkActions
+        selection={selection}
+        actions={actions}
+        total={total}
+        disabled={disabled}
+        loadAll={loadAll}
+        getLabel={getLabel}
+        onComplete={onComplete}
+      />
+    </div>
   );
 }

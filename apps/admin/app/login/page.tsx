@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Suspense } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { APP_NAMES } from "@surgical/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminSession } from "../../lib/admin-session";
@@ -53,58 +53,56 @@ function AdminLoginForm() {
 
   return (
     <main className="loginScreen">
-      <section className="loginIntro" aria-label="Surgical Platform Admin">
-        <div className="loginIntroBrand">
-          <span className="brandMark">SMEP</span>
-          <span className="brand">{APP_NAMES.admin}</span>
+      <section className="loginPanel" aria-labelledby="login-heading">
+        <div className="loginLogo">
+          <Image
+            alt="Hospi Surgical Division"
+            height={200}
+            priority
+            sizes="(max-width: 520px) 220px, 280px"
+            src="/brand/hospisurgical.png"
+            width={500}
+          />
         </div>
-        <div className="loginIntroContent">
-          <p className="eyebrow">Surgical Platform</p>
-          <h1>Operations, in focus.</h1>
-          <p className="loginIntroCopy">A calm workspace for your admin team.</p>
-        </div>
-        <p className="loginIntroFooter">Secure admin access</p>
-      </section>
 
-      <section className="loginFormPane" aria-labelledby="login-heading">
-        <div className="loginPanel">
-          <span className="brand loginMobileBrand">{APP_NAMES.admin}</span>
-          <div>
-            <p className="eyebrow">Admin access</p>
-            <h2 id="login-heading">Sign in to operations</h2>
-          </div>
-          <form className="formStack" onSubmit={handleSubmit}>
-            <label>
-              Email
-              <Input
-                autoComplete="email"
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                type="email"
-                value={email}
-              />
-            </label>
-            <label>
-              Password
-              <Input
-                autoComplete="current-password"
-                minLength={8}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                type="password"
-                value={password}
-              />
-            </label>
-            {error ? (
-              <p className="formError" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
+        <div className="loginHeading">
+          <p className="eyebrow">Admin access</p>
+          <h1 id="login-heading">Sign in to operations</h1>
+          <p>Enter your administrator credentials to continue.</p>
         </div>
+
+        <form className="formStack loginForm" onSubmit={handleSubmit}>
+          <label>
+            Email
+            <Input
+              autoComplete="email"
+              autoFocus
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </label>
+          <label>
+            Password
+            <Input
+              autoComplete="current-password"
+              minLength={8}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+          {error ? (
+            <p className="formError" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <Button className="loginSubmit" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
       </section>
     </main>
   );

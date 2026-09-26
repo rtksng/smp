@@ -54,6 +54,7 @@ import {
   type OrderAddress,
   type OrderStatus
 } from "../../../lib/order-management";
+import "../orders-responsive.css";
 
 type ListResponse<T> = {
   items: T[];
@@ -261,12 +262,12 @@ export function OrderDetailContent() {
   }
 
   return (
-    <>
-      <Card>
-        <CardContent className="p-6">
+    <div className="ordersModule orderDetailModule">
+      <Card className="orderDetailHero">
+        <CardContent className="p-6 orderDetailHeroContent">
           <PageHeader
             actions={
-              <div className="actionRow">
+              <div className="actionRow orderDetailHeaderActions">
                 <Button asChild className="iconTextButton" variant="outline">
                   <Link href="/orders">
                     <ArrowLeft aria-hidden size={16} />
@@ -284,6 +285,7 @@ export function OrderDetailContent() {
                 </Button>
               </div>
             }
+            className="orderDetailPageHeader"
             eyebrow="Order detail"
             summary="Customer, fulfillment, payment, invoice, and timeline details for this order."
             title={
@@ -306,7 +308,7 @@ export function OrderDetailContent() {
           ) : null}
 
           {order ? (
-            <div className="metricGrid resourceMetrics">
+            <div className="metricGrid resourceMetrics orderDetailMetricGrid">
               <MetricCard
                 label="Status"
                 tone="primary"
@@ -687,7 +689,7 @@ export function OrderDetailContent() {
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -722,8 +724,10 @@ function OrderItemsTable({ order }: { order: AdminOrder }) {
   }
 
   return (
-    <div className="resourceTable orderItemsTable">
-      <Table>
+    <div className="ordersTableShell orderItemsTableShell">
+      <p className="ordersTableHint">Swipe sideways to view every item column.</p>
+      <div className="resourceTable orderItemsTable">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Item</TableHead>
@@ -753,7 +757,8 @@ function OrderItemsTable({ order }: { order: AdminOrder }) {
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

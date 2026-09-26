@@ -94,6 +94,7 @@ import {
   type DeliveryPartnerFilters,
   type PaginatedResponse
 } from "../../../lib/delivery-management";
+import "../delivery-responsive.css";
 
 const DELIVERY_PAGE_SIZE = 20;
 const deliveryChartColors = {
@@ -190,26 +191,28 @@ export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) 
   });
 
   return (
-    <section className="panel deliveryPartnerDetailPagePanel">
-      <PageHeader
-        actions={
-          <Button asChild className="buttonLink iconTextButton" variant="outline">
-            <Link href="/delivery/partners">
-              <ArrowLeft aria-hidden size={16} />
-              <span>Back</span>
-            </Link>
-          </Button>
-        }
-        className="settingsSectionHeader"
-        eyebrow="Partner detail"
-        title={partnerQuery.data?.fullName ?? "Delivery partner"}
-      />
-      <PartnerDetail
-        isLoading={partnerQuery.isLoading}
-        partner={partnerQuery.data ?? null}
-        queryError={partnerQuery.error}
-      />
-    </section>
+    <div className="deliveryModule deliveryPartnerDetailModule">
+      <section className="panel deliveryPartnerDetailPagePanel">
+        <PageHeader
+          actions={
+            <Button asChild className="buttonLink iconTextButton" variant="outline">
+              <Link href="/delivery/partners">
+                <ArrowLeft aria-hidden size={16} />
+                <span>Back</span>
+              </Link>
+            </Button>
+          }
+          className="settingsSectionHeader deliverySectionHeader deliveryPartnerDetailHeader"
+          eyebrow="Partner detail"
+          title={partnerQuery.data?.fullName ?? "Delivery partner"}
+        />
+        <PartnerDetail
+          isLoading={partnerQuery.isLoading}
+          partner={partnerQuery.data ?? null}
+          queryError={partnerQuery.error}
+        />
+      </section>
+    </div>
   );
 }
 
@@ -485,12 +488,12 @@ function DeliveryContent({
   ).length;
 
   return (
-    <>
+    <div className="deliveryModule" data-delivery-view={view}>
       <section className="panel deliveryOverviewPanel">
         <DeliverySectionNav active={view} />
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow deliveryHeaderActions">
               {view === "overview" ? (
                 <Button asChild className="iconTextButton">
                   <Link href="/delivery/partners">
@@ -542,7 +545,7 @@ function DeliveryContent({
       {view === "partners" ? (
         <section className="panel deliveryPartnersPanel mt-3">
           <PageHeader
-            className="settingsSectionHeader"
+            className="settingsSectionHeader deliverySectionHeader"
             eyebrow="Partners"
             level={2}
             summary="Filter partner records, approve verification, and open one profile for document review."
@@ -583,7 +586,7 @@ function DeliveryContent({
       {view === "assignments" ? (
         <section className="panel deliveryAssignmentsPanel mt-3">
           <PageHeader
-            className="settingsSectionHeader"
+            className="settingsSectionHeader deliverySectionHeader"
             eyebrow="Assignments"
             level={2}
             summary="Use filters to audit delivery progress, proof, pickup location, and issue history."
@@ -629,7 +632,7 @@ function DeliveryContent({
         <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
           <section className="panel deliveryAssignPanel mt-3">
             <PageHeader
-              className="settingsSectionHeader"
+              className="settingsSectionHeader deliverySectionHeader"
               eyebrow="Assignment"
               level={2}
               summary="Choose an assignable order, active partner, optional pickup warehouse, and dispatch note."
@@ -690,7 +693,7 @@ function DeliveryContent({
         onCancel={() => setConfirmation(null)}
         onConfirmComplete={() => setConfirmation(null)}
       />
-    </>
+    </div>
   );
 }
 
@@ -1054,7 +1057,7 @@ function PartnerFilterForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form className="deliveryFilters" onSubmit={onSubmit}>
+    <form className="deliveryFilters deliveryPartnerFilters" onSubmit={onSubmit}>
       <Select
         aria-label="Partner status"
         onValueChange={(value) =>
@@ -1214,72 +1217,75 @@ function PartnerList({
   }
 
   return (
-    <div className="resourceTable deliveryPartnerDataTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Partner</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Availability</TableHead>
-            <TableHead>Documents</TableHead>
-            <TableHead>Detail</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {partners.map((partner) => (
-            <TableRow key={partner.id}>
-              <TableCell>
-                <strong>{partner.fullName}</strong>
-                <em>{partner.mobileNumber}</em>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={partner.status} />
-              </TableCell>
-              <TableCell>
-                <AvailabilityBadge isOnline={partner.isOnline} />
-              </TableCell>
-              <TableCell>{partner.documents.length} files</TableCell>
-              <TableCell>
-                <Button asChild className="iconTextButton" size="sm" variant="outline">
-                  <Link href={`/delivery/partners/${partner.id}`}>
-                    <Eye aria-hidden size={14} />
-                    <span>View</span>
-                  </Link>
-                </Button>
-              </TableCell>
-              <TableCell>
-                <div className="tableActions">
-                  <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
-                    <Button
-                      className="iconTextButton"
-                      disabled={isMutating || partner.status === "ACTIVE"}
-                      onClick={() => onAction("approve", partner)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <CheckCircle2 aria-hidden size={16} />
-                      <span>Approve</span>
-                    </Button>
-                    <Button
-                      className="iconTextButton"
-                      disabled={isMutating || partner.status === "INACTIVE"}
-                      onClick={() => onAction("reject", partner)}
-                      size="sm"
-                      type="button"
-                      variant="destructive"
-                    >
-                      <XCircle aria-hidden size={16} />
-                      <span>Reject</span>
-                    </Button>
-                  </PermissionGate>
-                </div>
-              </TableCell>
+    <div className="deliveryTableShell deliveryPartnerTableShell">
+      <p className="deliveryTableHint">Swipe sideways to view every partner option.</p>
+      <div className="resourceTable deliveryPartnerDataTable">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Partner</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Availability</TableHead>
+              <TableHead>Documents</TableHead>
+              <TableHead>Detail</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {partners.map((partner) => (
+              <TableRow key={partner.id}>
+                <TableCell>
+                  <strong>{partner.fullName}</strong>
+                  <em>{partner.mobileNumber}</em>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={partner.status} />
+                </TableCell>
+                <TableCell>
+                  <AvailabilityBadge isOnline={partner.isOnline} />
+                </TableCell>
+                <TableCell>{partner.documents.length} files</TableCell>
+                <TableCell>
+                  <Button asChild className="iconTextButton" size="sm" variant="outline">
+                    <Link href={`/delivery/partners/${partner.id}`}>
+                      <Eye aria-hidden size={14} />
+                      <span>View</span>
+                    </Link>
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="tableActions deliveryPartnerTableActions">
+                    <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
+                      <Button
+                        className="iconTextButton"
+                        disabled={isMutating || partner.status === "ACTIVE"}
+                        onClick={() => onAction("approve", partner)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <CheckCircle2 aria-hidden size={16} />
+                        <span>Approve</span>
+                      </Button>
+                      <Button
+                        className="iconTextButton"
+                        disabled={isMutating || partner.status === "INACTIVE"}
+                        onClick={() => onAction("reject", partner)}
+                        size="sm"
+                        type="button"
+                        variant="destructive"
+                      >
+                        <XCircle aria-hidden size={16} />
+                        <span>Reject</span>
+                      </Button>
+                    </PermissionGate>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1377,68 +1383,71 @@ function AssignmentsTable({
   }
 
   return (
-    <div className="resourceTable deliveryAssignmentDataTable">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Order</TableHead>
-            <TableHead>Partner</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Pickup location</TableHead>
-            <TableHead>Timeline</TableHead>
-            <TableHead>Proof / issue</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {assignments.map((assignment) => (
-            <TableRow key={assignment.id}>
-              <TableCell>
-                <strong>{assignment.orderNumber}</strong>
-                <em>{assignment.orderId}</em>
-              </TableCell>
-              <TableCell>
-                <strong>{assignment.deliveryPartner?.fullName ?? "Unassigned"}</strong>
-                <em>{assignment.deliveryPartner?.mobileNumber ?? assignment.deliveryPartnerId}</em>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={assignment.status} />
-              </TableCell>
-              <TableCell>
-                {assignment.pickupWarehouse ? (
-                  <>
-                    <strong>{assignment.pickupWarehouse.name}</strong>
-                    <em>
-                      {assignment.pickupWarehouse.address}, {assignment.pickupWarehouse.city}{" "}
-                      {assignment.pickupWarehouse.pincode}
-                    </em>
-                  </>
-                ) : (
-                  "Order warehouse"
-                )}
-              </TableCell>
-              <TableCell>
-                <AssignmentTimeline assignment={assignment} />
-              </TableCell>
-              <TableCell>
-                {assignment.proofOfDeliveryUrl ? (
-                  <Button asChild className="iconTextButton" size="sm" variant="outline">
-                    <a
-                      href={assignment.proofOfDeliveryUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      <FileText aria-hidden size={16} />
-                      <span>Proof</span>
-                    </a>
-                  </Button>
-                ) : (
-                  assignment.failureReason ?? "-"
-                )}
-              </TableCell>
+    <div className="deliveryTableShell deliveryAssignmentTableShell">
+      <p className="deliveryTableHint">Swipe sideways to view every assignment column.</p>
+      <div className="resourceTable deliveryAssignmentDataTable">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order</TableHead>
+              <TableHead>Partner</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Pickup location</TableHead>
+              <TableHead>Timeline</TableHead>
+              <TableHead>Proof / issue</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {assignments.map((assignment) => (
+              <TableRow key={assignment.id}>
+                <TableCell>
+                  <strong>{assignment.orderNumber}</strong>
+                  <em>{assignment.orderId}</em>
+                </TableCell>
+                <TableCell>
+                  <strong>{assignment.deliveryPartner?.fullName ?? "Unassigned"}</strong>
+                  <em>{assignment.deliveryPartner?.mobileNumber ?? assignment.deliveryPartnerId}</em>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={assignment.status} />
+                </TableCell>
+                <TableCell>
+                  {assignment.pickupWarehouse ? (
+                    <>
+                      <strong>{assignment.pickupWarehouse.name}</strong>
+                      <em>
+                        {assignment.pickupWarehouse.address}, {assignment.pickupWarehouse.city}{" "}
+                        {assignment.pickupWarehouse.pincode}
+                      </em>
+                    </>
+                  ) : (
+                    "Order warehouse"
+                  )}
+                </TableCell>
+                <TableCell>
+                  <AssignmentTimeline assignment={assignment} />
+                </TableCell>
+                <TableCell>
+                  {assignment.proofOfDeliveryUrl ? (
+                    <Button asChild className="iconTextButton" size="sm" variant="outline">
+                      <a
+                        href={assignment.proofOfDeliveryUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        <FileText aria-hidden size={16} />
+                        <span>Proof</span>
+                      </a>
+                    </Button>
+                  ) : (
+                    assignment.failureReason ?? "-"
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -1501,8 +1510,8 @@ function AssignmentForm({
     Boolean(values.deliveryPartnerId);
 
   return (
-    <form className="formStack" onSubmit={onSubmit}>
-      <div className="formGrid">
+    <form className="formStack deliveryAssignmentForm" onSubmit={onSubmit}>
+      <div className="formGrid deliveryAssignmentFormGrid">
         <Select
           aria-label="Order"
           onValueChange={(value) => {

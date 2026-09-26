@@ -48,6 +48,7 @@ import {
   type CustomerFilters,
   type PaginatedCustomerResponse
 } from "../../../lib/customer-management";
+import "../customers-responsive.css";
 
 const customerCopy = {
   summary: "Review customer coverage, filter accounts, and open customer detail pages.",
@@ -114,11 +115,11 @@ function CustomersContent() {
   }
 
   return (
-    <>
+    <div className="customersModule customersListModule">
       <section className="panel customerOverviewPanel">
         <PageHeader
           actions={
-            <div className="actionRow">
+            <div className="actionRow customerHeaderActions">
               <Button
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
@@ -185,10 +186,14 @@ function CustomersContent() {
             title="No customers found"
           />
         ) : null}
-        {canUpdate ? <CustomerBulkActions key={bulk.scope} selection={bulk} total={pagination?.total ?? 0}
-          disabled={customersQuery.isFetching || customersQuery.isError}
-          loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedCustomerResponse>("/admin/customers", { query: buildCustomerQuery(appliedFilters, next, limit) }))}
-          onComplete={() => queryClient.invalidateQueries({ queryKey: ["admin", "customers"] })} /> : null}
+        {canUpdate ? (
+          <div className="customerBulkActions">
+            <CustomerBulkActions key={bulk.scope} selection={bulk} total={pagination?.total ?? 0}
+              disabled={customersQuery.isFetching || customersQuery.isError}
+              loadAll={() => loadBulkRows((next, limit) => api.request<PaginatedCustomerResponse>("/admin/customers", { query: buildCustomerQuery(appliedFilters, next, limit) }))}
+              onComplete={() => queryClient.invalidateQueries({ queryKey: ["admin", "customers"] })} />
+          </div>
+        ) : null}
         {customers.length > 0 ? <CustomerTable customers={customers} bulk={bulk} canUpdate={canUpdate} /> : null}
         {pagination ? (
           <PaginationControls
@@ -198,7 +203,7 @@ function CustomersContent() {
           />
         ) : null}
       </section>
-    </>
+    </div>
   );
 }
 
@@ -248,8 +253,12 @@ function CustomerFilterFields({
 
 function CustomerTable({ customers, bulk, canUpdate }: { customers: AdminCustomer[]; bulk: BulkSelection<AdminCustomer>; canUpdate: boolean }) {
   return (
-    <div className="resourceTable customerTable">
-      <Table>
+    <div className="customerTableShell">
+      <p className="customerTableHint">
+        Swipe sideways to view every customer option.
+      </p>
+      <div className="resourceTable customerTable">
+        <Table>
         <TableHeader>
           <TableRow>
             {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
@@ -299,7 +308,8 @@ function CustomerTable({ customers, bulk, canUpdate }: { customers: AdminCustome
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

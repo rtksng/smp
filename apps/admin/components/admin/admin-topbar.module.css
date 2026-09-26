@@ -5,7 +5,7 @@
   display: grid;
   gap: var(--admin-space-xl);
   grid-template-columns: minmax(236px, 1fr) minmax(220px, 440px) minmax(236px, 1fr);
-  margin-left: var(--admin-sidebar-width);
+  margin-left: var(--admin-current-sidebar-width);
   min-height: var(--admin-topbar-height);
   padding: var(--admin-space-sm) var(--admin-space-2xl);
   position: sticky;
@@ -25,6 +25,24 @@
   border-radius: 50%;
   height: 6px;
   width: 6px;
+}
+.mobileNavToggle {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--primary);
+  cursor: pointer;
+  display: none;
+  flex: 0 0 auto;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  width: 44px;
+}
+.mobileNavToggle:hover {
+  background: var(--brand-primary-soft);
+  border-color: var(--brand-primary-border);
 }
 .actions {
   align-items: center;
@@ -94,6 +112,63 @@
   color: var(--muted);
   font-size: 12px;
   padding-top: 5px;
+}
+.mobileAccount {
+  display: none;
+}
+.mobileAccountAvatar {
+  align-items: center;
+  background: rgba(139, 212, 205, 0.16);
+  border: 1px solid rgba(139, 212, 205, 0.3);
+  border-radius: 50%;
+  color: #dff8f5;
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+.mobileAccountIdentity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.mobileAccountIdentity strong,
+.mobileAccountIdentity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobileAccountIdentity strong {
+  color: #ffffff;
+  font-size: 12px;
+}
+.mobileAccountIdentity small {
+  color: rgba(224, 242, 240, 0.64);
+  font-size: 10px;
+}
+.mobileLogout {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 6px;
+  height: 38px;
+  padding: 0 10px;
+}
+.mobileLogout:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.mobileLogout:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 .searchRoot {
   min-width: 0;
@@ -270,6 +345,8 @@
 .workspace {
   min-height: calc(100vh - var(--admin-topbar-height));
 }
+.mobileLogout:focus-visible,
+.mobileNavToggle:focus-visible,
 .profile:focus-visible,
 .clearSearch:focus-visible {
   outline: 2px solid var(--primary);
@@ -291,42 +368,34 @@
 }
 @media (max-width: 980px) {
   .topbar {
+    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     margin-left: 0;
-    position: relative;
+    padding: 12px 16px;
+    position: sticky;
+    top: 0;
     z-index: 26;
   }
-}
-@media (max-width: 640px) {
-  .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 12px 16px;
+  .mobileNavToggle {
+    display: inline-flex;
   }
-  .workspaceLabel {
-    display: none;
-  }
-  .actions {
-    gap: 9px;
-  }
-  .identity,
+  .workspaceLabel,
   .divider,
-  .profile > svg,
+  .profile,
   .shortcut {
     display: none;
   }
-  .profile {
-    padding: 0;
+  .actions {
+    gap: 0;
   }
-  .avatar {
-    height: 36px;
-    width: 36px;
-  }
-  .searchField {
-    gap: 7px;
-    padding: 0 10px;
-  }
-  .searchField input {
-    font-size: 12px;
+  .mobileAccount {
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: grid;
+    gap: 10px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    margin-top: 12px;
+    padding: 14px 2px 0;
   }
   .searchRoot {
     position: static;
@@ -337,6 +406,19 @@
     top: calc(100% - 3px);
     transform: none;
     width: auto;
+  }
+}
+@media (max-width: 640px) {
+  .topbar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .searchField {
+    gap: 7px;
+    padding: 0 10px;
+  }
+  .searchField input {
+    font-size: 12px;
   }
   .resultGroup {
     max-width: 65px;

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut, Menu } from "lucide-react";
 import {
   Dropdown,
   DropdownItem,
@@ -15,7 +15,13 @@ import { AdminGlobalSearch } from "./admin-global-search";
 import { AdminNotificationBell } from "./admin-notification-bell";
 import styles from "./admin-topbar.module.css";
 
-export function AdminTopbar() {
+type AdminTopbarProps = {
+  isMobileNavigationOpen?: boolean;
+  mobileNavigationTriggerRef?: Ref<HTMLButtonElement>;
+  onOpenMobileNavigation?: () => void;
+};
+
+function useAdminAccount() {
   const { admin, logout } = useAdminSession();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -41,8 +47,29 @@ export function AdminTopbar() {
     }
   }
 
+  return { admin, handleLogout, initials, loggingOut, name };
+}
+
+export function AdminTopbar({
+  isMobileNavigationOpen = false,
+  mobileNavigationTriggerRef,
+  onOpenMobileNavigation
+}: AdminTopbarProps = {}) {
+  const { admin, handleLogout, initials, loggingOut, name } = useAdminAccount();
+
   return (
     <header className={styles.topbar} aria-label="Admin toolbar">
+      <button
+        aria-controls="mobile-admin-navigation"
+        aria-expanded={isMobileNavigationOpen}
+        aria-label="Open navigation"
+        className={styles.mobileNavToggle}
+        onClick={onOpenMobileNavigation}
+        ref={mobileNavigationTriggerRef}
+        type="button"
+      >
+        <Menu aria-hidden size={18} />
+      </button>
       <span className={styles.workspaceLabel}>
         <span />
         Workspace
@@ -92,5 +119,30 @@ export function AdminTopbar() {
         </Dropdown>
       </div>
     </header>
+  );
+}
+
+export function AdminMobileAccount() {
+  const { admin, handleLogout, initials, loggingOut, name } = useAdminAccount();
+
+  return (
+    <footer aria-label="Signed-in admin" className={styles.mobileAccount}>
+      <span aria-hidden="true" className={styles.mobileAccountAvatar}>
+        {initials}
+      </span>
+      <span className={styles.mobileAccountIdentity}>
+        <strong>{name}</strong>
+        <small>{admin?.role.name || "Admin"}</small>
+      </span>
+      <button
+        className={styles.mobileLogout}
+        disabled={loggingOut}
+        onClick={() => void handleLogout()}
+        type="button"
+      >
+        <LogOut aria-hidden size={16} />
+        <span>{loggingOut ? "Logging out…" : "Logout"}</span>
+      </button>
+    </footer>
   );
 }

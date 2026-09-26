@@ -8,7 +8,12 @@ const categoryManagementSource = existsSync(categoryManagementPath)
   : "";
 const categoriesPageSource = readFileSync(join(__dirname, "../page.tsx"), "utf8");
 const createPagePath = join(__dirname, "../create/page.tsx");
+const bulkCreatePagePath = join(__dirname, "../bulk-create/page.tsx");
 const editPagePath = join(__dirname, "../[id]/edit/page.tsx");
+const catalogStyles = readFileSync(
+  join(__dirname, "../../../components/admin/catalog-management.css"),
+  "utf8"
+);
 
 describe("category management route flow", () => {
   it("renders the category list as a table-only page with route links", () => {
@@ -40,7 +45,9 @@ describe("category management route flow", () => {
   });
 
   it("warns that linked products must be cleared before category deletion", () => {
-    expect(categoryManagementSource).toContain("Reassign or delete linked products first.");
+    expect(categoryManagementSource).toContain(
+      "Reassign or delete linked products first."
+    );
   });
 
   it("summarizes child categories in the table and opens a modal to choose one", () => {
@@ -55,5 +62,41 @@ describe("category management route flow", () => {
     );
     expect(categoryManagementSource).not.toContain("categoryChildModalBackdrop");
     expect(categoryManagementSource).not.toContain("categoryChildItem");
+  });
+
+  it("offers a bulk category creation page with existing roots as parent options", () => {
+    expect(existsSync(bulkCreatePagePath)).toBe(true);
+    expect(categoryManagementSource).toContain("CatalogBulkCreateWorkspace");
+    expect(categoryManagementSource).toContain("CATEGORY_BULK_CREATE_PATH");
+    expect(categoryManagementSource).toContain("Bulk create categories");
+    expect(categoryManagementSource).toContain('kind="category"');
+    expect(categoryManagementSource).toContain(
+      'api.request<AdminCategory>("/admin/categories"'
+    );
+    expect(categoryManagementSource).toContain("parentOptions={categories.map");
+    expect(categoryManagementSource).not.toContain("setIsBulkCreateOpen");
+  });
+
+  it("places category search at the end of the managed categories heading", () => {
+    expect(categoryManagementSource).toContain('className="catalogListHeader"');
+    expect(categoryManagementSource).toContain('className="catalogListSearch"');
+    expect(categoryManagementSource).toContain('aria-label="Search categories"');
+  });
+
+  it("keeps category lists, forms, and child-category actions responsive", () => {
+    expect(categoryManagementSource).toContain('className="catalogOverviewHeader"');
+    expect(categoryManagementSource).toContain('className="catalogFormHeader"');
+    expect(categoryManagementSource).toContain(
+      'className="metricGrid resourceMetrics catalogMetrics"'
+    );
+    expect(categoryManagementSource).toContain(
+      'containerClassName="catalogTableViewport categoryChildTableViewport"'
+    );
+    expect(catalogStyles).toMatch(
+      /\.catalogTableViewport \.categoryDataTable\s*\{[\s\S]*?min-width:\s*940px !important/
+    );
+    expect(catalogStyles).toMatch(
+      /\.catalogTableViewport tr > :last-child\s*\{[\s\S]*?position:\s*sticky/
+    );
   });
 });

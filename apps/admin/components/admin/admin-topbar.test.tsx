@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AdminTopbar } from "./admin-topbar";
+import { AdminMobileAccount, AdminTopbar } from "./admin-topbar";
 
 const mocks = vi.hoisted(() => ({ logout: vi.fn(), replace: vi.fn() }));
 
@@ -25,13 +25,20 @@ vi.mock("./admin-notification-bell", () => ({
   AdminNotificationBell: () => <button type="button">Notifications</button>
 }));
 
-function renderTopbar() {
+function renderTopbar({
+  includeMobileAccount = false,
+  onOpenMobileNavigation
+}: {
+  includeMobileAccount?: boolean;
+  onOpenMobileNavigation?: () => void;
+} = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(["admin", "private-records"], { name: "Cached customer" });
   const clear = vi.spyOn(client, "clear");
   render(
     <QueryClientProvider client={client}>
-      <AdminTopbar />
+      <AdminTopbar onOpenMobileNavigation={onOpenMobileNavigation} />
+      {includeMobileAccount ? <AdminMobileAccount /> : null}
     </QueryClientProvider>
   );
   return { client, clear };
@@ -60,6 +67,29 @@ describe("AdminTopbar", () => {
     });
     expect(within(menu).getByText("nisha@example.test")).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Logout" })).toBeInTheDocument();
+  });
+
+  it("keeps only navigation, search, and notifications in the mobile toolbar and moves account actions to the drawer", async () => {
+    const onOpenMobileNavigation = vi.fn();
+    const { clear } = renderTopbar({
+      includeMobileAccount: true,
+      onOpenMobileNavigation
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(onOpenMobileNavigation).toHaveBeenCalledTimes(1);
+
+    const mobileAccount = screen.getByRole("contentinfo", {
+      name: "Signed-in admin"
+    });
+    expect(within(mobileAccount).getByText("Nisha Kapoor")).toBeInTheDocument();
+    expect(within(mobileAccount).getByText("Order manager")).toBeInTheDocument();
+
+    fireEvent.click(within(mobileAccount).getByRole("button", { name: "Logout" }));
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
+    expect(mocks.logout).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
   });
 
   it.each([false, true])(

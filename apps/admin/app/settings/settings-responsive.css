@@ -1,0 +1,415 @@
+.settingsModule,
+.settingsModule > *,
+.settingsModule .settingsWorkspaceGrid,
+.settingsModule .settingsTableShell,
+.settingsModule .settingsAdminUsersTable,
+.settingsModule .settingsRolesTable,
+.settingsModule .settingsAdminUserForm,
+.settingsModule .settingsAdminUserFormGrid {
+  min-width: 0;
+}
+
+.settingsModule {
+  display: grid;
+  gap: 16px;
+}
+
+.settingsModule .settingsOverviewPanel,
+.settingsModule .settingsUsersPanel,
+.settingsModule .settingsFormPanel,
+.settingsModule .settingsRolesPanel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.settingsModule .settingsSectionNav {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.settingsModule .settingsSectionNav a {
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.settingsModule .settingsPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.settingsModule .settingsPageHeader .adminPageActions {
+  margin-left: auto;
+  width: auto;
+}
+
+.settingsModule .settingsHeaderActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.settingsModule .settingsHeaderActions > * {
+  min-height: 38px;
+  min-width: 0;
+  padding-inline: 11px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.settingsModule .settingsMetricGrid {
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.settingsModule .settingsMetricGrid > [data-slot="card"] {
+  min-height: 90px;
+}
+
+.settingsModule .settingsMetricGrid .metricCardContent {
+  padding: 12px 14px;
+}
+
+.settingsModule .settingsMetricGrid .metricCardContent strong {
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.settingsModule .settingsWorkspaceGrid {
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  margin-top: 0;
+}
+
+.settingsModule .settingsUsersPanel,
+.settingsModule .settingsRolesPanel {
+  display: grid;
+}
+
+.settingsModule .settingsSectionHeader {
+  gap: 10px;
+}
+
+.settingsModule .settingsFilters {
+  gap: 10px;
+  grid-template-columns:
+    minmax(200px, 1.2fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr)
+    auto;
+  padding: 10px;
+}
+
+.settingsModule .settingsFilters label,
+.settingsModule .settingsFilters [data-slot="select-trigger"] {
+  min-width: 0;
+}
+
+.settingsModule .settingsFilters .productFilterActions {
+  align-items: end;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settingsModule .settingsFilters .productFilterActions button {
+  min-height: 40px;
+  min-width: 76px;
+  padding-inline: 10px;
+  width: auto;
+}
+
+.settingsModule .settingsTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settingsModule .settingsTableHint {
+  background: #effaf8;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
+  display: none;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.settingsModule .settingsTableShell .resourceTable {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: auto;
+  touch-action: pan-x pan-y;
+}
+
+.settingsModule .settingsAdminUsersTable [data-slot="table"] {
+  min-width: 900px;
+}
+
+.settingsModule .settingsRolesTable [data-slot="table"] {
+  min-width: 980px;
+}
+
+.settingsModule :is(.settingsAdminUsersTable, .settingsRolesTable) th,
+.settingsModule :is(.settingsAdminUsersTable, .settingsRolesTable) td {
+  padding-inline: 10px;
+  vertical-align: top;
+}
+
+.settingsModule .settingsAdminUsersTableActions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.settingsModule .settingsAdminUsersTableActions button {
+  min-height: 34px;
+  padding-inline: 9px;
+}
+
+.settingsModule .settingsAdminUserForm,
+.settingsModule .settingsAdminUserFormGrid {
+  gap: 11px;
+}
+
+.settingsModule .settingsAdminUserFormGrid {
+  grid-template-columns: 1fr;
+}
+
+.settingsModule .settingsFormActions {
+  flex-direction: row;
+}
+
+.settingsModule .settingsFormActions button {
+  min-height: 40px;
+  width: 100%;
+}
+
+.settingsModule .rolePermissionTable .compactFlagList {
+  gap: 5px;
+}
+
+@media (max-width: 1440px) {
+  .settingsModule .settingsWorkspaceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsModule .settingsFormPanel {
+    position: static;
+  }
+
+  .settingsModule .settingsAdminUserFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settingsModule .settingsFormActions button {
+    width: auto;
+  }
+
+  .settingsModule .settingsTableHint {
+    display: block;
+  }
+
+  .settingsModule .settingsAdminUsersTable th:last-child,
+  .settingsModule .settingsAdminUsersTable td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    min-width: 176px;
+    position: sticky;
+    right: 0;
+    width: 176px;
+    z-index: 2;
+  }
+
+  .settingsModule .settingsAdminUsersTable th:last-child {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 980px) {
+  .settingsModule .settingsMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .settingsModule .settingsFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settingsModule .settingsFilters > label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .settingsModule .settingsFilters .productFilterActions {
+    align-self: end;
+  }
+
+  .settingsModule .settingsRolesTable th:first-child,
+  .settingsModule .settingsRolesTable td:first-child {
+    background: var(--surface);
+    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.45);
+    left: 0;
+    min-width: 170px;
+    position: sticky;
+    width: 170px;
+    z-index: 2;
+  }
+
+  .settingsModule .settingsRolesTable th:first-child {
+    background: var(--surface-muted);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .settingsModule {
+    gap: 10px;
+  }
+
+  .settingsModule .settingsOverviewPanel,
+  .settingsModule .settingsUsersPanel,
+  .settingsModule .settingsFormPanel,
+  .settingsModule .settingsRolesPanel {
+    gap: 11px;
+    padding: 12px;
+  }
+
+  .settingsModule .settingsSectionNav {
+    align-items: stretch;
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .settingsModule .settingsSectionNav a {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .settingsModule .settingsPageHeader {
+    align-items: start;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingsModule .settingsPageHeader .adminPageActions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .settingsModule .settingsHeaderActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .settingsModule .settingsHeaderActions > * {
+    font-size: 12px;
+    gap: 5px;
+    justify-content: center;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .settingsModule .settingsMetricGrid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .settingsModule .settingsMetricGrid > [data-slot="card"] {
+    min-height: 78px;
+  }
+
+  .settingsModule .settingsMetricGrid .metricCardContent {
+    justify-content: space-between;
+    padding: 9px 10px;
+  }
+
+  .settingsModule .settingsMetricGrid .metricCardContent span {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .settingsModule .settingsMetricGrid .metricCardContent strong {
+    font-size: 19px;
+    line-height: 1;
+    margin-top: 5px;
+  }
+
+  .settingsModule .settingsWorkspaceGrid {
+    gap: 10px;
+  }
+
+  .settingsModule .settingsFilters {
+    gap: 8px;
+    grid-template-columns: 1fr;
+    padding: 8px;
+  }
+
+  .settingsModule .settingsFilters > label:first-child {
+    grid-column: auto;
+  }
+
+  .settingsModule .settingsFilters .productFilterActions {
+    display: grid;
+    flex-direction: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .settingsModule .settingsFilters .productFilterActions button {
+    font-size: 12px;
+    min-width: 0;
+    padding-inline: 6px;
+    width: 100%;
+  }
+
+  .settingsModule .settingsAdminUserFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsModule .settingsFormActions button {
+    width: 100%;
+  }
+
+  .settingsModule .settingsTableShell .resourceTable {
+    max-height: min(440px, calc(100dvh - 130px));
+  }
+
+  .settingsModule .settingsAdminUsersTable th:last-child,
+  .settingsModule .settingsAdminUsersTable td:last-child {
+    min-width: 164px;
+    width: 164px;
+  }
+
+  .settingsModule .settingsAdminUsersTableActions button {
+    font-size: 12px;
+    padding-inline: 7px;
+  }
+
+  .settingsModule .settingsRolesTable th:first-child,
+  .settingsModule .settingsRolesTable td:first-child {
+    min-width: 150px;
+    width: 150px;
+  }
+
+  .settingsModule .rolePermissionTable .compactFlagList b {
+    font-size: 11px;
+  }
+
+  .settingsModule .paginationControls {
+    gap: 8px;
+    margin-top: 0;
+  }
+}

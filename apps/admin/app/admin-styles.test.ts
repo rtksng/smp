@@ -6,6 +6,18 @@ const adminAppDir = __dirname;
 const globalsCss = readFileSync(join(adminAppDir, "globals.css"), "utf8");
 const layoutSource = readFileSync(join(adminAppDir, "layout.tsx"), "utf8");
 const adminShellSource = readFileSync(join(adminAppDir, "admin-shell.tsx"), "utf8");
+const adminTopbarSource = readFileSync(
+  join(adminAppDir, "../components/admin/admin-topbar.tsx"),
+  "utf8"
+);
+const adminTopbarCss = readFileSync(
+  join(adminAppDir, "../components/admin/admin-topbar.module.css"),
+  "utf8"
+);
+const adminNotificationBellCss = readFileSync(
+  join(adminAppDir, "../components/admin/admin-notification-bell.module.css"),
+  "utf8"
+);
 const loginSource = readFileSync(join(adminAppDir, "login/page.tsx"), "utf8");
 const buttonSource = readFileSync(
   join(adminAppDir, "../components/ui/button.tsx"),
@@ -55,9 +67,11 @@ describe("admin layout styles", () => {
   });
 
   it("uses Plus Jakarta Sans as the admin interface font", () => {
-    expect(layoutSource).toContain('import { Plus_Jakarta_Sans } from "next/font/google"');
-    expect(layoutSource).toContain("variable: \"--font-admin\"");
-    expect(layoutSource).toContain('className={plusJakartaSans.variable}');
+    expect(layoutSource).toContain(
+      'import { Plus_Jakarta_Sans } from "next/font/google"'
+    );
+    expect(layoutSource).toContain('variable: "--font-admin"');
+    expect(layoutSource).toContain("className={plusJakartaSans.variable}");
     expect(globalsCss).toMatch(/font-family:\s*var\(--font-admin\)/);
   });
 
@@ -67,27 +81,63 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(
       /\.productManagementGrid,[\s\S]*?\.warehouseManagementGrid[\s\S]*?{[^}]*min-width:\s*0;/s
     );
-    expect(globalsCss).toMatch(/@media \(max-width:\s*1280px\)[\s\S]*?\.productManagementGrid[\s\S]*?grid-template-columns:\s*1fr;/s);
+    expect(globalsCss).toMatch(
+      /@media \(max-width:\s*1280px\)[\s\S]*?\.productManagementGrid[\s\S]*?grid-template-columns:\s*1fr;/s
+    );
   });
 
   it("lets dense catalog and inventory controls reflow on narrow screens", () => {
-    expect(globalsCss).toMatch(/\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 5;/s);
-    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s);
-    expect(globalsCss).toMatch(/\.assetRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 2;/s);
-    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 4;/s);
-    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s);
-    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 5;/s);
-    expect(globalsCss).toMatch(/\.documentRow > :nth-child\(4\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
-    expect(globalsCss).toMatch(/\.variantRow > :nth-child\(6\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s);
-    expect(globalsCss).toMatch(/\.rowFloatingDelete\s*{[^}]*margin-top:\s*0;[^}]*position:\s*absolute;[^}]*right:\s*14px;[^}]*top:\s*14px;/s);
-    expect(globalsCss).toMatch(/\.rowActionControl,[\s\S]*?\.rowIconButton,[\s\S]*?\.rowCheck\s*{[^}]*align-self:\s*start;[^}]*margin-top:\s*20px;/s);
-    expect(globalsCss).toMatch(/\.inlineUploadField\s*{[^}]*display:\s*flex;[\s\S]*?gap:\s*10px;/s);
-    expect(globalsCss).toMatch(/\.fileUploadButton\s*{[^}]*align-items:\s*center !important;[\s\S]*?display:\s*inline-flex !important;[\s\S]*?gap:\s*8px !important;[\s\S]*?justify-content:\s*center !important;[\s\S]*?min-height:\s*36px;[^}]*min-width:\s*112px;/s);
-    expect(globalsCss).toMatch(/\.fileUploadButton svg,[\s\S]*?\.fileUploadButton span\s*{[^}]*flex:\s*0 0 auto;/s);
-    expect(globalsCss).toMatch(/\.inlineUploadButton\s*{[^}]*height:\s*36px;[\s\S]*?margin-top:\s*24px;/s);
-    expect(globalsCss).toMatch(/@media \(max-width:\s*1040px\)[\s\S]*?\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/s);
-    expect(globalsCss).toMatch(/@media \(max-width:\s*640px\)[\s\S]*?\.productFilters,[\s\S]*?\.inventoryFilters,[\s\S]*?grid-template-columns:\s*1fr;/s);
+    expect(globalsCss).toMatch(
+      /\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\);/s
+    );
+    expect(globalsCss).toMatch(
+      /\.assetRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 5;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.assetRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.assetRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 2;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.documentRow > :nth-child\(1\)\s*{[^}]*grid-column:\s*span 4;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.documentRow > :nth-child\(2\)\s*{[^}]*grid-column:\s*span 3;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.documentRow > :nth-child\(3\)\s*{[^}]*grid-column:\s*span 5;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.documentRow > :nth-child\(4\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.variantRow > :nth-child\(6\)\s*{[^}]*grid-column:\s*1\s*\/\s*-1;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.rowFloatingDelete\s*{[^}]*margin-top:\s*0;[^}]*position:\s*absolute;[^}]*right:\s*14px;[^}]*top:\s*14px;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.rowActionControl,[\s\S]*?\.rowIconButton,[\s\S]*?\.rowCheck\s*{[^}]*align-self:\s*start;[^}]*margin-top:\s*20px;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.inlineUploadField\s*{[^}]*display:\s*flex;[\s\S]*?gap:\s*10px;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.fileUploadButton\s*{[^}]*align-items:\s*center !important;[\s\S]*?display:\s*inline-flex !important;[\s\S]*?gap:\s*8px !important;[\s\S]*?justify-content:\s*center !important;[\s\S]*?min-height:\s*36px;[^}]*min-width:\s*112px;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.fileUploadButton svg,[\s\S]*?\.fileUploadButton span\s*{[^}]*flex:\s*0 0 auto;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.inlineUploadButton\s*{[^}]*height:\s*36px;[\s\S]*?margin-top:\s*24px;/s
+    );
+    expect(globalsCss).toMatch(
+      /@media \(max-width:\s*1040px\)[\s\S]*?\.assetRow,[\s\S]*?\.documentRow,[\s\S]*?\.variantRow\s*{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/s
+    );
+    expect(globalsCss).toMatch(
+      /@media \(max-width:\s*640px\)[\s\S]*?\.productFilters,[\s\S]*?\.inventoryFilters,[\s\S]*?grid-template-columns:\s*1fr;/s
+    );
   });
 
   it("keeps button labels and icons visible in admin buttons", () => {
@@ -97,8 +147,12 @@ describe("admin layout styles", () => {
 
   it("stretches order detail panels and their inner cards to equal heights", () => {
     expect(globalsCss).toMatch(/\.orderDetailGrid\s*{[^}]*align-items:\s*stretch;/s);
-    expect(globalsCss).toMatch(/\.orderDetailGrid\s*{[^}]*grid-auto-rows:\s*minmax\(0,\s*1fr\);/s);
-    expect(globalsCss).toMatch(/\.orderDetailGrid > \.panel\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*min-height:\s*100%;/s);
+    expect(globalsCss).toMatch(
+      /\.orderDetailGrid\s*{[^}]*grid-auto-rows:\s*minmax\(0,\s*1fr\);/s
+    );
+    expect(globalsCss).toMatch(
+      /\.orderDetailGrid > \.panel\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*min-height:\s*100%;/s
+    );
     expect(globalsCss).toMatch(
       /\.orderDetailGrid > \.panel > \.detailGrid,[\s\S]*?\.orderDetailGrid > \.panel > \.emptyPanel\s*{[^}]*flex:\s*1 1 auto;/s
     );
@@ -127,6 +181,17 @@ describe("admin layout styles", () => {
     expect(loginSource).toContain('className="formError" role="alert"');
   });
 
+  it("keeps the admin login focused in a centered branded panel", () => {
+    expect(loginSource).toContain('src="/brand/hospisurgical.png"');
+    expect(loginSource).toContain('className="loginPanel"');
+    expect(loginSource).not.toContain('className="loginIntro"');
+    expect(globalsCss).toMatch(/\.loginScreen\s*{[^}]*place-items:\s*center;/s);
+    expect(globalsCss).toMatch(
+      /\.loginScreen::before\s*{[^}]*background-image:\s*radial-gradient/s
+    );
+    expect(globalsCss).toMatch(/\.loginPanel\s*{[^}]*max-width:\s*440px;/s);
+  });
+
   it("keeps shared admin cards and form controls aligned inside their boxes", () => {
     expect(metricCardSource).toContain("items-start");
     expect(metricCardSource).toContain("flex flex-col");
@@ -137,10 +202,18 @@ describe("admin layout styles", () => {
     expect(selectSource).toContain("selectorIcon");
     expect(selectSource).toContain("adminSelectListboxWrapper");
     expect(selectSource).toContain("truncate pr-1");
-    expect(globalsCss).toMatch(/\.adminSelectListbox\s*{[^}]*max-height:\s*none !important;/s);
-    expect(globalsCss).toMatch(/\.adminSelectListbox\s*{[^}]*overflow:\s*visible !important;/s);
-    expect(globalsCss).toMatch(/\.adminSelectListboxWrapper\s*{[^}]*overflow-y:\s*auto !important;/s);
-    expect(globalsCss).toMatch(/\.metricCardContent\s*{[^}]*flex-direction:\s*column !important;/s);
+    expect(globalsCss).toMatch(
+      /\.adminSelectListbox\s*{[^}]*max-height:\s*none !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminSelectListbox\s*{[^}]*overflow:\s*visible !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminSelectListboxWrapper\s*{[^}]*overflow-y:\s*auto !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.metricCardContent\s*{[^}]*flex-direction:\s*column !important;/s
+    );
     expect(globalsCss).toMatch(/\.searchInput\s*{[^}]*position:\s*relative;/s);
     expect(globalsCss).toMatch(/\.searchInput svg\s*{[^}]*position:\s*absolute;/s);
     expect(globalsCss).toMatch(
@@ -164,7 +237,7 @@ describe("admin layout styles", () => {
     expect(tableSource).toContain("adminTableColumn");
     expect(tableSource).toContain("containerClassName");
     expect(settingsSectionsSource).toContain(
-      'containerClassName="resourceTable rolePermissionTable mt-3"'
+      'containerClassName="resourceTable rolePermissionTable settingsRolesTable"'
     );
     expect(settingsSectionsSource).not.toContain(
       '<div className="resourceTable rolePermissionTable'
@@ -178,36 +251,97 @@ describe("admin layout styles", () => {
     expect(dialogSource).toContain("adminDialogWrapper");
     expect(dialogSource).toContain("adminDialogBackdrop");
     expect(dialogSource).toContain("adminDialogPanel");
-    expect(globalsCss).toMatch(/\.adminTableViewport\s*{[^}]*max-height:\s*min\(620px,\s*calc\(100dvh - 180px\)\);/s);
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport\s*{[^}]*max-height:\s*min\(620px,\s*calc\(100dvh - 180px\)\);/s
+    );
     expect(globalsCss).toMatch(/\.adminTableViewport\s*{[^}]*overflow:\s*auto;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport\s*{[^}]*--admin-table-column-max-width:\s*min\(360px,\s*42vw\);/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\s*{[^}]*table-layout:\s*auto !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\s*{[^}]*width:\s*100% !important;/s);
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport\s*{[^}]*--admin-table-column-max-width:\s*min\(360px,\s*42vw\);/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \[data-slot="table"\]\s*{[^}]*table-layout:\s*auto !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \[data-slot="table"\]\s*{[^}]*width:\s*100% !important;/s
+    );
     expect(globalsCss).toMatch(/\*\s*{[^}]*scrollbar-width:\s*thin;/s);
-    expect(globalsCss).toMatch(/\*::-webkit-scrollbar\s*{[^}]*height:\s*8px;[^}]*width:\s*8px;/s);
+    expect(globalsCss).toMatch(
+      /\*::-webkit-scrollbar\s*{[^}]*height:\s*8px;[^}]*width:\s*8px;/s
+    );
     expect(globalsCss).toMatch(/\.productDataTable\s*{[^}]*min-width:\s*1340px;/s);
     expect(globalsCss).toMatch(/\.productTableProductColumn\s*{[^}]*width:\s*320px;/s);
     expect(globalsCss).toMatch(/\.productTableFlagsColumn\s*{[^}]*width:\s*150px;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.productDataTable th:nth-child\(1\),[\s\S]*?\.adminTableViewport \.productDataTable td:nth-child\(1\)\s*{[^}]*width:\s*320px !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \[data-slot="table"\]\.productDataTable\s*{[^}]*table-layout:\s*fixed !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.productDataTable td:first-child,[\s\S]*?\.adminTableViewport \.productDataTable td:first-child > \*\s*{[^}]*white-space:\s*normal !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*max-width:\s*var\(--admin-table-column-max-width\) !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*min-width:\s*0 !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*text-overflow:\s*ellipsis !important;/s);
-    expect(globalsCss).toMatch(/\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*white-space:\s*nowrap !important;/s);
-    expect(globalsCss).toMatch(/\.adminDropdownContent\s*{[^}]*background:\s*var\(--surface\) !important;/s);
-    expect(globalsCss).toMatch(/\.adminDropdownContent\s*{[^}]*z-index:\s*80 !important;/s);
-    expect(globalsCss).toMatch(/\.adminDialogWrapper\s*{[^}]*position:\s*fixed !important;/s);
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.productDataTable th:nth-child\(1\),[\s\S]*?\.adminTableViewport \.productDataTable td:nth-child\(1\)\s*{[^}]*width:\s*320px !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \[data-slot="table"\]\.productDataTable\s*{[^}]*table-layout:\s*fixed !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.productDataTable td:first-child,[\s\S]*?\.adminTableViewport \.productDataTable td:first-child > \*\s*{[^}]*white-space:\s*normal !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*max-width:\s*var\(--admin-table-column-max-width\) !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*min-width:\s*0 !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*text-overflow:\s*ellipsis !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminTableViewport \.adminTableColumn,[\s\S]*?\.adminTableViewport \[data-slot="table-head"\]\s*{[^}]*white-space:\s*nowrap !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminDropdownContent\s*{[^}]*background:\s*var\(--surface\) !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminDropdownContent\s*{[^}]*z-index:\s*80 !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminDialogWrapper\s*{[^}]*position:\s*fixed !important;/s
+    );
     expect(globalsCss).toMatch(/\.adminDialogWrapper\s*{[^}]*inset:\s*0 !important;/s);
-    expect(globalsCss).toMatch(/\.adminDialogBackdrop\s*{[^}]*position:\s*fixed !important;/s);
-    expect(globalsCss).toMatch(/\.adminDialogBackdrop\s*{[^}]*height:\s*100dvh !important;/s);
+    expect(globalsCss).toMatch(
+      /\.adminDialogBackdrop\s*{[^}]*position:\s*fixed !important;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.adminDialogBackdrop\s*{[^}]*height:\s*100dvh !important;/s
+    );
   });
 
   it("keeps the sidebar fixed while the workspace scrolls independently", () => {
     expect(globalsCss).toMatch(/\.sidebar\s*{[^}]*position:\s*fixed;/s);
     expect(globalsCss).toMatch(/\.sidebar\s*{[^}]*height:\s*100dvh;/s);
     expect(globalsCss).toMatch(/\.sidebarNavScroller\s*{[^}]*overflow-y:\s*auto;/s);
-    expect(globalsCss).toMatch(/\.workspace\s*{[^}]*margin-left:\s*var\(--admin-sidebar-width\);/s);
+    expect(globalsCss).toMatch(
+      /\.workspace\s*{[^}]*margin-left:\s*var\(--admin-current-sidebar-width\);/s
+    );
+  });
+
+  it("supports a collapsible desktop sidebar and a shell-owned mobile drawer", () => {
+    expect(adminShellSource).toContain("SIDEBAR_COLLAPSED_STORAGE_KEY");
+    expect(adminShellSource).toContain('src="/brand/hospisurgical.png"');
+    expect(adminShellSource).toContain('className="sidebarBrandLogo"');
+    expect(adminShellSource).toContain(
+      'aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}'
+    );
+    expect(adminTopbarSource).toContain('aria-label="Open navigation"');
+    expect(adminShellSource).toContain('role="dialog"');
+    expect(globalsCss).toMatch(
+      /\.shell\.sidebarCollapsed\s*{[^}]*--admin-current-sidebar-width:\s*var\(--admin-sidebar-collapsed-width\);/s
+    );
+    expect(globalsCss).toMatch(/\.mobileNavOverlay\s*{[^}]*position:\s*fixed;/s);
+    expect(globalsCss).toMatch(
+      /\.mobileNavDrawer\s*{[^}]*transform:\s*translate3d\(-104%,\s*0,\s*0\);/s
+    );
+    expect(globalsCss).toMatch(
+      /\.mobileNavOverlay--open \.mobileNavDrawer\s*{[^}]*transform:\s*translate3d\(0,\s*0,\s*0\);/s
+    );
+    expect(globalsCss).toMatch(
+      /\.sidebarBrandLogo\s*{[^}]*border-radius:\s*10px;[^}]*width:\s*min\(116px,\s*100%\);/s
+    );
+    expect(globalsCss).toMatch(/\.mobileNavClose\s*{[^}]*position:\s*static;/s);
   });
 
   it("keeps the guide table of contents sticky while the page scrolls", () => {
@@ -227,10 +361,35 @@ describe("admin layout styles", () => {
     expect(adminShellSource).toContain("restoreKey={pathname}");
   });
 
-  it("mounts the shared admin toolbar without duplicating sidebar account controls", () => {
-    expect(adminShellSource).toContain("<AdminTopbar />");
-    expect(adminShellSource).not.toContain('className="sidebarFooter"');
-    expect(adminShellSource).not.toContain('className="sidebarAdminIdentity"');
+  it("uses a compact mobile toolbar and pins account actions in the mobile drawer", () => {
+    expect(adminShellSource).toContain("<AdminTopbar");
+    expect(adminShellSource).toContain("<AdminMobileAccount />");
+    expect(adminShellSource).not.toContain("SMEP");
     expect(adminShellSource).not.toContain("handleLogout");
+    expect(adminTopbarSource).toContain('aria-label="Open navigation"');
+    expect(adminTopbarSource).toContain('aria-label="Signed-in admin"');
+    expect(adminTopbarCss).toMatch(
+      /@media \(max-width: 980px\)[\s\S]*?\.topbar\s*{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;/s
+    );
+    expect(adminTopbarCss).toMatch(
+      /@media \(max-width: 980px\)[\s\S]*?\.profile[^}]*display:\s*none;/s
+    );
+    expect(globalsCss).toMatch(
+      /\.mobileNavDrawer\s*{[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;/s
+    );
+  });
+
+  it("keeps the mobile notification panel inside the viewport below the topbar", () => {
+    const mobileCss = adminNotificationBellCss.slice(
+      adminNotificationBellCss.indexOf("@media (max-width: 640px)")
+    );
+    expect(mobileCss).toMatch(/\.root\s*{[^}]*position:\s*static;/s);
+    expect(mobileCss).toMatch(/\.panel\s*{[^}]*left:\s*12px;[^}]*right:\s*12px;/s);
+    expect(mobileCss).toMatch(/\.panel\s*{[^}]*width:\s*auto;/s);
+    expect(mobileCss).toMatch(
+      /\.panel\s*{[^}]*max-height:\s*calc\(100dvh - var\(--admin-topbar-height\) - 20px\);/s
+    );
+    expect(mobileCss).toMatch(/\.iconButton\s*{[^}]*width:\s*40px;[^}]*height:\s*40px;/s);
+    expect(mobileCss).not.toMatch(/right:\s*-\d/);
   });
 });
