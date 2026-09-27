@@ -397,6 +397,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
+  .couponModule .couponMetricGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .couponModule .couponMetricGrid > [data-slot="card"] {
     min-height: 80px !important;
   }

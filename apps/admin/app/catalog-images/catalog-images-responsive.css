@@ -1,0 +1,70 @@
+.catalogImagesModule {
+  display: grid;
+  gap: 14px;
+}
+
+.catalogImagesModule,
+.catalogImagesModule > *,
+.catalogImagesModule .catalogImagesMetricGrid,
+.catalogImagesModule .sectionHeading {
+  min-width: 0;
+}
+
+.catalogImagesModule .catalogImagesMetricGrid {
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.catalogImagesModule .catalogImagesMetricGrid > [data-slot="card"] {
+  min-height: 92px !important;
+}
+
+.catalogImagesModule .sectionCopy {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 980px) {
+  .catalogImagesModule .catalogImagesMetricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .catalogImagesModule {
+    gap: 12px;
+  }
+
+  .catalogImagesModule .catalogImagesOverviewPanel,
+  .catalogImagesModule .catalogImagesActionPanel {
+    padding: 14px;
+  }
+
+  .catalogImagesModule .catalogImagesPageHeader {
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .catalogImagesModule .catalogImagesMetricGrid {
+    gap: 8px;
+  }
+
+  .catalogImagesModule .catalogImagesMetricGrid > [data-slot="card"] {
+    min-height: 80px !important;
+  }
+
+  .catalogImagesModule .catalogImagesMetricGrid .metricCardContent strong {
+    font-size: 22px !important;
+  }
+
+  .catalogImagesModule .sectionHeading h2 {
+    font-size: 18px;
+  }
+
+  .catalogImagesModule .catalogImagesActions,
+  .catalogImagesModule .catalogImagesActions > button {
+    width: 100%;
+  }
+}
