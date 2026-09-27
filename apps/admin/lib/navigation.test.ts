@@ -8,7 +8,6 @@ describe("admin navigation", () => {
       adminNavigationItems.map(({ category, label }) => ({ category, label }))
     ).toEqual([
       { category: "Workspace", label: "Dashboard" },
-      { category: "Workspace", label: "Admin Guide" },
       { category: "Catalog", label: "Products" },
       { category: "Catalog", label: "Categories" },
       { category: "Catalog", label: "Brands" },
@@ -29,8 +28,7 @@ describe("admin navigation", () => {
 
   it("always includes dashboard and hides permission-gated sections without access", () => {
     expect(getVisibleNavigationItems([]).map((item) => item.label)).toEqual([
-      "Dashboard",
-      "Admin Guide"
+      "Dashboard"
     ]);
   });
 
@@ -67,7 +65,6 @@ describe("admin navigation", () => {
 
     expect(labels).toEqual([
       "Dashboard",
-      "Admin Guide",
       "Delivery",
       "Quote Requests",
       "Coupons",

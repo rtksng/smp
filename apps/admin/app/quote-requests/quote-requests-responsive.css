@@ -159,6 +159,7 @@
 }
 
 .quoteRequestModule .quoteRequestTable [data-slot="table"] {
+  min-width: 1040px !important;
   table-layout: fixed !important;
   width: 100%;
 }
@@ -261,7 +262,7 @@
   }
 
   .quoteRequestModule .quoteRequestTable [data-slot="table"] {
-    min-width: 820px;
+    min-width: 820px !important;
   }
 
   .quoteRequestModule .quoteRequestTable tr > .bulkCheckboxCell {
@@ -440,7 +441,7 @@
   }
 
   .quoteRequestModule .quoteRequestTable [data-slot="table"] {
-    min-width: 760px;
+    min-width: 760px !important;
   }
 
   .quoteRequestModule .quoteRequestDetailGrid {

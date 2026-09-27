@@ -227,6 +227,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
+  .reportsModule .reportMetricGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .reportsModule .reportMetric {
     min-height: 80px;
   }

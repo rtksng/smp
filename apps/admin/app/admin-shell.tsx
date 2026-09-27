@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import {
   Badge,
   BarChart3,
-  BookOpenCheck,
   Boxes,
   Circle,
   CircleDollarSign,
@@ -35,7 +34,6 @@ import { getVisibleNavigationItems, type AdminNavigationItem } from "../lib/navi
 
 const navIconMap: Record<string, LucideIcon> = {
   Brands: Badge,
-  "Admin Guide": BookOpenCheck,
   Categories: FolderTree,
   Coupons: TicketPercent,
   Customers: Users,

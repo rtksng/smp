@@ -153,11 +153,11 @@
 }
 
 .settingsModule .settingsAdminUsersTable [data-slot="table"] {
-  min-width: 900px;
+  min-width: 900px !important;
 }
 
 .settingsModule .settingsRolesTable [data-slot="table"] {
-  min-width: 980px;
+  min-width: 980px !important;
 }
 
 .settingsModule :is(.settingsAdminUsersTable, .settingsRolesTable) th,

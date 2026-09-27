@@ -241,7 +241,7 @@
 }
 
 .deliveryModule .deliveryBulkOrderTable [data-slot="table"] {
-  min-width: 720px;
+  min-width: 720px !important;
 }
 
 @media (max-width: 980px) {
