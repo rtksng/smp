@@ -11,6 +11,7 @@ import { ProtectedRoute, useAdminSession } from "@/lib/admin-session";
 import type { AdminCategory } from "@/lib/catalog-management";
 import type { AdminProduct, ProductListResponse } from "@/lib/product-form";
 import { ADMIN_PERMISSION } from "@/lib/permissions";
+import "./catalog-images-responsive.css";
 
 type UploadResponse = {
   key: string;
@@ -251,8 +252,8 @@ function CatalogImagesContent() {
   }
 
   return (
-    <>
-      <Card className="panel">
+    <div className="catalogImagesModule">
+      <Card className="panel catalogImagesOverviewPanel">
         <PageHeader
           actions={
             <Button
@@ -266,6 +267,7 @@ function CatalogImagesContent() {
               <RefreshCw aria-hidden size={17} />
             </Button>
           }
+          className="catalogImagesPageHeader"
           eyebrow="Catalog media"
           title="Backfill missing catalog images"
         />
@@ -275,7 +277,7 @@ function CatalogImagesContent() {
         </p>
       </Card>
 
-      <div className="metricGrid">
+      <div className="metricGrid catalogImagesMetricGrid">
         <MetricCard
           label="Products with images"
           value={catalog ? catalog.products.length - missingProducts.length : "—"}
@@ -288,7 +290,7 @@ function CatalogImagesContent() {
         <MetricCard label="Categories missing" value={catalog ? missingCategories.length : "—"} />
       </div>
 
-      <Card className="panel stack">
+      <Card className="panel stack catalogImagesActionPanel">
         <div className="sectionHeading">
           <div>
             <h2>Image-only update</h2>
@@ -307,7 +309,7 @@ function CatalogImagesContent() {
         {message ? <p aria-live="polite" className="successText">{message}</p> : null}
         {error ? <p aria-live="assertive" className="errorText">{error}</p> : null}
 
-        <div className="buttonRow">
+        <div className="buttonRow catalogImagesActions">
           <Button
             disabled={isLoading || isRunning || !catalog}
             onClick={() => void runBackfill()}
@@ -318,7 +320,7 @@ function CatalogImagesContent() {
           </Button>
         </div>
       </Card>
-    </>
+    </div>
   );
 }
 

@@ -277,6 +277,10 @@
     grid-column: 1 / -1;
   }
 
+  .reportsModule .reportMetricGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .reportsModule .reportMetric {
     min-height: 78px;
   }

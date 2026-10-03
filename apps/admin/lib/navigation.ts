@@ -37,11 +37,6 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     label: "Dashboard"
   },
   {
-    category: "Workspace",
-    href: "/admin-guide",
-    label: "Admin Guide"
-  },
-  {
     category: "Catalog",
     href: "/products",
     label: "Products",
