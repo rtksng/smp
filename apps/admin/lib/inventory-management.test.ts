@@ -14,6 +14,7 @@ import {
   INVENTORY_MOVEMENTS_PATH,
   INVENTORY_OVERVIEW_PATH,
   INVENTORY_TABS,
+  getStockLevel,
   isLowStock,
   isNearExpiry,
   loadAllPaginatedItems,
@@ -344,5 +345,13 @@ describe("inventory management helpers", () => {
         quantity: "1"
       }).success
     ).toBe(false);
+  });
+
+  it("labels stock as out of stock, low stock, or in stock", () => {
+    expect(getStockLevel({ availableQuantity: 0, lowStockThreshold: 5 })).toBe("OUT_OF_STOCK");
+    expect(getStockLevel({ availableQuantity: 0, lowStockThreshold: 0 })).toBe("OUT_OF_STOCK");
+    expect(getStockLevel({ availableQuantity: 5, lowStockThreshold: 5 })).toBe("LOW_STOCK");
+    expect(getStockLevel({ availableQuantity: 6, lowStockThreshold: 5 })).toBe("IN_STOCK");
+    expect(getStockLevel({ availableQuantity: 1, lowStockThreshold: 0 })).toBe("IN_STOCK");
   });
 });

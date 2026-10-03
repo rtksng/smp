@@ -84,8 +84,7 @@ describe("admin navigation", () => {
     ]).find((item) => item.href === "/warehouses");
 
     expect(warehousesItem?.children?.map((item) => item.label)).toEqual([
-      "Warehouse staff",
-      "Warehouse list"
+      "Warehouse staff"
     ]);
   });
 
@@ -107,8 +106,6 @@ describe("admin navigation", () => {
       ADMIN_PERMISSION.WarehouseRead
     ]).find((item) => item.href === "/warehouses");
 
-    expect(warehousesItem?.children?.map((item) => item.label)).toEqual([
-      "Warehouse list"
-    ]);
+    expect(warehousesItem?.children?.map((item) => item.label)).toEqual([]);
   });
 });

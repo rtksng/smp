@@ -56,15 +56,33 @@ export type InventoryListRequest = {
   type: InventoryRequestType;
 };
 
+export type InventoryStockProduct = {
+  id: string;
+  name: string;
+  sku: string;
+  status: string;
+};
+
+export type InventoryStockVariant = {
+  id: string;
+  name: string;
+  sku: string;
+};
+
 export type InventoryStock = {
   availableQuantity: number;
   id: string;
   lowStockThreshold: number;
+  // Stock list endpoints name the product; stock mutation responses do not.
+  product?: InventoryStockProduct;
   productId: string;
   reservedQuantity: number;
+  variant?: InventoryStockVariant | null;
   variantId: string | null;
   warehouseId: string;
 };
+
+export type InventoryStockLevel = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 
 export type StockBatch = {
   batchNumber: string;
@@ -449,6 +467,16 @@ export function isLowStock(
   stock: Pick<InventoryStock, "availableQuantity" | "lowStockThreshold">
 ) {
   return stock.availableQuantity <= stock.lowStockThreshold;
+}
+
+export function getStockLevel(
+  stock: Pick<InventoryStock, "availableQuantity" | "lowStockThreshold">
+): InventoryStockLevel {
+  if (stock.availableQuantity <= 0) {
+    return "OUT_OF_STOCK";
+  }
+
+  return isLowStock(stock) ? "LOW_STOCK" : "IN_STOCK";
 }
 
 export function isNearExpiry(

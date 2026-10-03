@@ -195,7 +195,7 @@ describe("admin global search", () => {
 
     expect(results.filter((item) => item.group === "Warehouses")).toHaveLength(5);
     expect(results.find((item) => item.group === "Warehouses")?.href).toBe(
-      "/warehouses/list?warehouseId=warehouse-0"
+      "/warehouses/warehouse-0"
     );
     expect(results.find((item) => item.group === "Inventory")?.href).toBe(
       "/inventory?productId=product-1&warehouseId=warehouse-1"

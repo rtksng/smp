@@ -124,14 +124,15 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `DELETE /api/v1/admin/warehouses/:id`
 - Admin warehouse staff:
   - `POST /api/v1/admin/warehouses/:id/staff`
-  - `GET /api/v1/admin/warehouses/:id/staff`
+  - `GET /api/v1/admin/warehouses/:id/staff` (each row includes the admin's role)
+  - `GET /api/v1/admin/warehouses/:id/staff/candidates` (active admins not yet assigned, with their role)
   - `DELETE /api/v1/admin/warehouses/:id/staff/:staffId`
 - Admin inventory:
   - `POST /api/v1/admin/inventory/stock-in`
   - `POST /api/v1/admin/inventory/adjust`
   - `POST /api/v1/admin/inventory/transfer`
-  - `GET /api/v1/admin/inventory`
-  - `GET /api/v1/admin/inventory/low-stock`
+  - `GET /api/v1/admin/inventory` (rows include the product and variant name and SKU)
+  - `GET /api/v1/admin/inventory/low-stock` (same rows, filtered and paged in the database)
   - `GET /api/v1/admin/inventory/near-expiry`
   - `GET /api/v1/admin/inventory/movements`
 - Admin orders:
@@ -141,7 +142,7 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `PATCH /api/v1/admin/orders/:id/status`
   - `POST /api/v1/admin/orders/:id/cancel`
 - Admin delivery partners:
-  - `GET /api/v1/admin/delivery-partners`
+  - `GET /api/v1/admin/delivery-partners` (optional `warehouseId`: partners with at least one assignment for that warehouse)
   - `PATCH /api/v1/admin/delivery-partners/:id/approve`
 - Admin delivery:
   - `POST /api/v1/admin/delivery/assign`

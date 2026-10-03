@@ -240,10 +240,13 @@ describe("reports management helpers", () => {
 
   it("only allows drilldowns with the destination's permission", () => {
     const reportOnly = (permission: string) => permission === "reports.read";
-    for (const href of ["/orders?pendingOnly=true", "/inventory", "/products/product-1/edit", "/warehouses/list", "/customers"]) {
+    for (const href of ["/orders?pendingOnly=true", "/inventory", "/products/product-1/edit", "/warehouses", "/customers"]) {
       expect(canAccessReportHref(href, reportOnly)).toBe(false);
     }
     expect(canAccessReportHref("/reports/orders", reportOnly)).toBe(true);
+    expect(canAccessReportHref("/warehouses/warehouse-2", reportOnly)).toBe(false);
+    expect(canAccessReportHref("/warehouses/warehouse-2", (permission) => permission === "warehouse.read"))
+      .toBe(true);
     expect(canAccessReportHref("/orders?dateFrom=2026-09-03", (permission) => permission === "orders.read"))
       .toBe(true);
   });
@@ -334,6 +337,12 @@ describe("reports management helpers", () => {
     );
     expect(buildReportDrilldownHref("product", filters, "product-1")).toBe(
       "/products/product-1/edit"
+    );
+    expect(buildReportDrilldownHref("warehouse", filters, "warehouse-2")).toBe(
+      "/warehouses/warehouse-2"
+    );
+    expect(buildReportDrilldownHref("warehouse", filters)).toBe(
+      "/warehouses?warehouseId=warehouse-1"
     );
   });
 });

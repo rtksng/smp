@@ -13,7 +13,7 @@ const staffViewSource = source.slice(
 );
 const filterPanelSource = source.slice(
   source.indexOf("{showWarehouseFilters ? ("),
-  source.indexOf('{view === "analytics" ? (', source.indexOf("{showWarehouseFilters ? ("))
+  source.indexOf('{view === "list" ? (', source.indexOf("{showWarehouseFilters ? ("))
 );
 
 describe("warehouse create page source", () => {
@@ -58,9 +58,20 @@ describe("warehouse filter source", () => {
 describe("warehouse list edit flow source", () => {
   it("routes list edits through the edit page and returns to the list after saving", () => {
     expect(source).toContain("buildWarehouseEditPath(warehouse.id)");
-    expect(source).toContain("const redirectAfterSavePath = wasEditing ? WAREHOUSE_LIST_PATH : returnToPath");
+    expect(source).toContain(
+      "const redirectAfterSavePath = wasEditing ? returnToPath ?? WAREHOUSES_PATH : returnToPath"
+    );
+    expect(source).toContain("buildWarehouseDetailPath(warehouse.id)");
     expect(source).toContain("router.push(redirectAfterSavePath)");
     expect(source).toContain("initialEditWarehouseId");
+  });
+
+  it("shows the warehouse table on the main screen without the state footprint panel", () => {
+    expect(source).not.toContain('view === "analytics"');
+    expect(source).not.toContain("Warehouse footprint by state");
+    expect(source).not.toContain("function WarehouseAnalytics");
+    expect(listViewSource).toContain("warehouseOverviewPanel");
+    expect(listViewSource).toContain("<WarehouseTable");
   });
 
   it("does not render a warehouse detail card on the list page", () => {
@@ -78,9 +89,8 @@ describe("warehouse list edit flow source", () => {
   });
 
   it("links create actions to the create page with source-aware return behavior", () => {
-    expect(source).toContain("buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)");
-    expect(source).toContain("buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)");
-    expect(source).toContain("const warehouseBackPath = returnToPath ?? WAREHOUSE_ANALYTICS_PATH");
+    expect(source).toContain("buildWarehouseCreatePath(WAREHOUSES_PATH)");
+    expect(source).toContain("const warehouseBackPath = returnToPath ?? WAREHOUSES_PATH");
     expect(source).toContain("returnToPath");
   });
 });

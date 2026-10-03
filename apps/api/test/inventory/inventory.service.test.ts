@@ -103,6 +103,7 @@ function createInventoryPrismaMock({
 } = {}) {
   const calls: Record<string, unknown[]> = {
     adminAuditLogCreate: [],
+    inventoryStockCount: [],
     inventoryStockCreate: [],
     inventoryStockFindFirst: [],
     inventoryStockFindMany: [],
@@ -129,6 +130,12 @@ function createInventoryPrismaMock({
     variantId: null,
     warehouseId: "warehouse-1"
   };
+  const stockProduct = {
+    id: "product-1",
+    name: "Curved Artery Forceps",
+    sku: "CAF-001",
+    status: "ACTIVE"
+  };
   const batch = {
     batchNumber: "BATCH-1",
     createdAt: now,
@@ -154,7 +161,11 @@ function createInventoryPrismaMock({
       }
     },
     inventoryStock: {
-      count: async () => 1,
+      count: async (args: unknown) => {
+        calls.inventoryStockCount.push(args);
+        return 1;
+      },
+      fields: { reorderLevel: "reorderLevel" },
       create: async (args: unknown) => {
         calls.inventoryStockCreate.push(args);
         return stock;
@@ -165,7 +176,7 @@ function createInventoryPrismaMock({
       },
       findMany: async (args: unknown) => {
         calls.inventoryStockFindMany.push(args);
-        return [stock];
+        return [{ ...stock, product: stockProduct, variant: null }];
       },
       update: async (args: {
         data?: { availableQuantity?: { increment?: number } };
@@ -675,6 +686,116 @@ test("listInventory scopes non-super-admins to assigned warehouses", async () =>
       }
     }
   );
+});
+
+const stockListInclude = {
+  product: { select: { id: true, name: true, sku: true, status: true } },
+  variant: { select: { id: true, name: true, sku: true } }
+};
+
+test("listInventory names each stocked product and pages one warehouse in the database", async () => {
+  const prisma = createInventoryPrismaMock();
+  const access = new FakeWarehouseAccess();
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    access as unknown as WarehouseAccessService
+  );
+
+  const result = await service.listInventory(
+    { limit: 10, page: 2, search: " forceps ", warehouseId: "warehouse-1" },
+    adminAuth()
+  );
+  const where = {
+    OR: [
+      { product: { name: { contains: "forceps", mode: "insensitive" } } },
+      { product: { sku: { contains: "forceps", mode: "insensitive" } } }
+    ],
+    warehouseId: "warehouse-1"
+  };
+
+  assert.deepEqual(prisma.calls.inventoryStockFindMany, [{
+    include: stockListInclude,
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    skip: 10,
+    take: 10,
+    where
+  }]);
+  assert.deepEqual(prisma.calls.inventoryStockCount, [{ where }]);
+  assert.deepEqual(access.assertedWarehouseIds, ["warehouse-1"]);
+  assert.deepEqual(result.items, [{
+    availableQuantity: 10,
+    id: "stock-1",
+    lowStockThreshold: 5,
+    product: { id: "product-1", name: "Curved Artery Forceps", sku: "CAF-001", status: "ACTIVE" },
+    productId: "product-1",
+    reservedQuantity: 0,
+    variant: null,
+    variantId: null,
+    warehouseId: "warehouse-1"
+  }]);
+});
+
+test("listLowStock compares stock with its threshold and pages in the database", async () => {
+  const prisma = createInventoryPrismaMock();
+  prisma.inventoryStock.count = async (args: unknown) => {
+    prisma.calls.inventoryStockCount.push(args);
+    return 3;
+  };
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  const result = await service.listLowStock({ limit: 1, page: 1, warehouseId: "warehouse-1" }, adminAuth());
+  const where = {
+    availableQuantity: { lte: "reorderLevel" },
+    warehouseId: "warehouse-1"
+  };
+
+  assert.deepEqual(prisma.calls.inventoryStockFindMany, [{
+    include: stockListInclude,
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    skip: 0,
+    take: 1,
+    where
+  }]);
+  assert.deepEqual(prisma.calls.inventoryStockCount, [{ where }]);
+  assert.equal(result.pagination.total, 3);
+  assert.equal(result.pagination.totalPages, 3);
+  assert.equal(result.items[0]?.product.name, "Curved Artery Forceps");
+});
+
+test("stock changes keep returning the stock row without product details", async () => {
+  const prisma = createInventoryPrismaMock();
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  const result = await service.stockIn(
+    {
+      batchNumber: "BATCH-1",
+      expiryDate: "2026-07-01",
+      lowStockThreshold: 5,
+      mrp: 150,
+      productId: "product-1",
+      purchasePrice: 90,
+      quantity: 4,
+      sellingPrice: 120,
+      warehouseId: "warehouse-1"
+    },
+    actionContext()
+  );
+
+  assert.deepEqual(result, {
+    availableQuantity: 14,
+    id: "stock-1",
+    lowStockThreshold: 5,
+    productId: "product-1",
+    reservedQuantity: 0,
+    variantId: null,
+    warehouseId: "warehouse-1"
+  });
 });
 
 test("near-expiry and movement searches filter by product name or SKU", async () => {

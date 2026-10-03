@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { WarehouseFilters } from "../../../lib/warehouse-management";
 import { WarehouseManagementPage } from "./warehouse-management";
 
 const { request, push, access } = vi.hoisted(() => ({ request: vi.fn(), push: vi.fn(), access: { allowed: true } }));
@@ -32,10 +33,10 @@ const candidateLabel = "QA Staff (qa@example.test) - Warehouse manager";
 const response = (page = 1, totalPages = 1) => ({ items: [{ ...warehouse, id: `warehouse-${page}` }], pagination: { page, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1, limit: 100, total: totalPages * 100 } });
 const clients: QueryClient[] = [];
 
-function mount(view: "create" | "list" | "staff", edit = false) {
+function mount(view: "create" | "list" | "staff", edit = false, initialFilters: WarehouseFilters | null = null, returnToPath: string | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   clients.push(client);
-  render(<QueryClientProvider client={client}><WarehouseManagementPage view={view} initialEditWarehouseId={edit ? warehouse.id : null} /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><WarehouseManagementPage view={view} initialEditWarehouseId={edit ? warehouse.id : null} initialFilters={initialFilters} returnToPath={returnToPath} /></QueryClientProvider>);
   return client;
 }
 
@@ -58,11 +59,33 @@ it("keeps an unsaved edit during background refresh and saves details and status
   await act(async () => { client.setQueryData(["admin", "warehouses", warehouse.id], { ...warehouse, name: "Server refresh" }); });
   expect(name).toHaveValue("Edited warehouse");
   fireEvent.click(screen.getByRole("button", { name: "Save warehouse" }));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/warehouses/list"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/warehouses"));
   const mutations = request.mock.calls.filter(([, options]) => options?.method);
   expect(mutations).toHaveLength(1);
   expect(mutations[0]?.[0]).toBe(`/admin/warehouses/${warehouse.id}`);
   expect(JSON.parse(mutations[0]?.[1].body)).toMatchObject({ name: "Edited warehouse", code: "1", status: "INACTIVE" });
+});
+
+it("returns to the warehouse detail page after an edit opened from it", async () => {
+  mount("create", true, null, "/warehouses/warehouse-1");
+  const name = await screen.findByRole("textbox", { name: "Warehouse name" });
+  await waitFor(() => expect(name).toHaveValue("QA warehouse"));
+  expect(screen.getByRole("link", { name: "Back to warehouses" })).toHaveAttribute("href", "/warehouses/warehouse-1");
+  fireEvent.click(screen.getByRole("button", { name: "Save warehouse" }));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/warehouses/warehouse-1"));
+});
+
+it("opens each listed warehouse's detail page from its name and View action", async () => {
+  mount("list");
+  expect(await screen.findByRole("link", { name: "View QA warehouse" })).toHaveAttribute("href", "/warehouses/warehouse-1");
+  expect(screen.getByRole("link", { name: "QA warehouse" })).toHaveAttribute("href", "/warehouses/warehouse-1");
+});
+
+it("preselects the warehouse passed to the staff page", async () => {
+  mount("staff", false, { search: "", state: "", status: "", warehouseId: "warehouse-1" });
+  await waitFor(() => expect(request).toHaveBeenCalledWith("/admin/warehouses/warehouse-1/staff"));
+  expect(request).toHaveBeenCalledWith("/admin/warehouses", expect.objectContaining({ query: expect.objectContaining({ warehouseId: "warehouse-1" }) }));
+  expect(screen.getByRole("heading", { name: "QA warehouse" })).toBeInTheDocument();
 });
 
 it("shows a save error and lets a corrected retry clear it", async () => {
@@ -77,15 +100,30 @@ it("shows a save error and lets a corrected retry clear it", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Warehouse code already exists.");
   fail = false;
   fireEvent.click(screen.getByRole("button", { name: "Save warehouse" }));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/warehouses/list"));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/warehouses"));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
-it("opens later warehouse list pages", async () => {
-  request.mockImplementation(async (_path: string, options: { query: { page: number } }) => response(options.query.page, 2));
+it("shows KPIs for every warehouse above the table and pages the table in the browser", async () => {
+  const named = (from: number, count: number) => Array.from({ length: count }, (_, index) => ({ ...warehouse, id: `warehouse-${from + index}`, name: `Warehouse ${from + index}`, status: "ACTIVE" }));
+  request.mockImplementation(async (_path: string, options: { query: { page: number } }) => options.query.page === 1
+    ? { items: named(1, 15), pagination: { page: 1, limit: 100, total: 25, totalPages: 2, hasNextPage: true, hasPreviousPage: false } }
+    : { items: named(16, 10), pagination: { page: 2, limit: 100, total: 25, totalPages: 2, hasNextPage: false, hasPreviousPage: true } });
   mount("list");
-  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
-  await waitFor(() => expect(request).toHaveBeenCalledWith("/admin/warehouses", expect.objectContaining({ query: expect.objectContaining({ page: 2 }) })));
+  expect(await screen.findByText("Warehouse 20")).toBeInTheDocument();
+  expect(screen.queryByText("Warehouse 21")).not.toBeInTheDocument();
+  expect(screen.getByText("Visible after filter").nextElementSibling).toHaveTextContent("25");
+  expect(screen.queryByText("Warehouse footprint by state")).not.toBeInTheDocument();
+  expect(request.mock.calls.map(([, options]) => options.query.page)).toEqual([1, 2]);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(await screen.findByText("Warehouse 21")).toBeInTheDocument();
+  expect(screen.queryByText("Warehouse 1")).not.toBeInTheDocument();
+  expect(request).toHaveBeenCalledTimes(2);
+});
+
+it("applies filters from links such as search results on the main screen", async () => {
+  mount("list", false, { search: "", state: "", status: "", warehouseId: "warehouse-7" });
+  await waitFor(() => expect(request).toHaveBeenCalledWith("/admin/warehouses", expect.objectContaining({ query: expect.objectContaining({ warehouseId: "warehouse-7" }) })));
 });
 
 it("assigns staff picked by name, email and role, surfaces rejections, and offers removed staff again", async () => {

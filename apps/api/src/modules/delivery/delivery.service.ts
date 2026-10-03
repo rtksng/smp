@@ -155,6 +155,9 @@ export class DeliveryService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const where: Prisma.DeliveryPartnerWhereInput = {
+      assignments: query.warehouseId
+        ? { some: buildDeliveryAssignmentWarehouseFilter(query.warehouseId) }
+        : undefined,
       deletedAt: null,
       status: query.status
     };
@@ -395,22 +398,9 @@ export class DeliveryService {
   async listAdminDeliveryAssignments(query: AdminDeliveryAssignmentListQueryDto = {}) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const warehouseFilter: Prisma.DeliveryAssignmentWhereInput | undefined =
-      query.warehouseId
-        ? {
-            OR: [
-              {
-                pickupWarehouseId: query.warehouseId
-              },
-              {
-                order: {
-                  warehouseId: query.warehouseId
-                },
-                pickupWarehouseId: null
-              }
-            ]
-          }
-        : undefined;
+    const warehouseFilter = query.warehouseId
+      ? buildDeliveryAssignmentWarehouseFilter(query.warehouseId)
+      : undefined;
     const assignmentFilters = stripUndefined(buildAssignmentFilters(query));
     const where: Prisma.DeliveryAssignmentWhereInput = {
       ...(query.search && warehouseFilter
@@ -1640,6 +1630,21 @@ export class DeliveryService {
       updatedAt: assignment.updatedAt
     };
   }
+}
+
+/**
+ * Assignments that belong to a warehouse: picked up there, or (when no pickup warehouse is linked)
+ * for an order fulfilled from it. Shared by the assignment list and the warehouse partner filter.
+ */
+export function buildDeliveryAssignmentWarehouseFilter(
+  warehouseId: string
+): Prisma.DeliveryAssignmentWhereInput {
+  return {
+    OR: [
+      { pickupWarehouseId: warehouseId },
+      { order: { warehouseId }, pickupWarehouseId: null }
+    ]
+  };
 }
 
 function buildAssignmentFilters(

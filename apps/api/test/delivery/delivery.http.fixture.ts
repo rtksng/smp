@@ -14,7 +14,7 @@ import { AdminDeliveryController } from "../../src/modules/delivery/admin-delive
 import { AdminDeliveryPartnersController } from "../../src/modules/delivery/admin-delivery-partners.controller";
 import { DeliveryController } from "../../src/modules/delivery/delivery.controller";
 import { DeliveryService } from "../../src/modules/delivery/delivery.service";
-import { AdminDeliveryAssignmentListQueryDto, AssignDeliveryDto, CreateDeliveryIncidentDto, DeliveryAssignmentListQueryDto, UpdateCashSettlementDto, UpdateDeliveryAssignmentStatusDto } from "../../src/modules/delivery/dto/delivery.dto";
+import { AdminDeliveryAssignmentListQueryDto, AssignDeliveryDto, CreateDeliveryIncidentDto, DeliveryAssignmentListQueryDto, DeliveryPartnerListQueryDto, UpdateCashSettlementDto, UpdateDeliveryAssignmentStatusDto } from "../../src/modules/delivery/dto/delivery.dto";
 import { InvoicesService } from "../../src/modules/invoices/invoices.service";
 import { OrdersController } from "../../src/modules/orders/orders.controller";
 import { OrdersService } from "../../src/modules/orders/orders.service";
@@ -45,6 +45,7 @@ export async function createDeliveryHttpFixture(configureApp?: (app: INestApplic
     [AdminDeliveryController, "assignOrder", [AssignDeliveryDto, Object]],
     [AdminDeliveryController, "listAssignments", [AdminDeliveryAssignmentListQueryDto]],
     [AdminDeliveryController, "updateCashSettlement", [String, UpdateCashSettlementDto, Object]],
+    [AdminDeliveryPartnersController, "listPartners", [DeliveryPartnerListQueryDto]],
     [DeliveryController, "listAssignments", [DeliveryAssignmentListQueryDto, Object]],
     [DeliveryController, "updateAssignmentStatus", [String, UpdateDeliveryAssignmentStatusDto, Object]],
     [DeliveryController, "createIncident", [String, CreateDeliveryIncidentDto, Object]]

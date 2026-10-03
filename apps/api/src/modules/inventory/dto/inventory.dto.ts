@@ -17,7 +17,7 @@ import {
   ValidateNested
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { StockMovementType } from "../../../generated/prisma/enums";
+import { ProductStatus, StockMovementType } from "../../../generated/prisma/enums";
 
 export enum ReturnStockDisposition {
   QUARANTINE = "QUARANTINE",
@@ -232,6 +232,39 @@ export class InventoryStockResponseDto {
 
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;
+}
+
+export class InventoryStockProductResponseDto {
+  @ApiProperty({ example: "product-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Curved Artery Forceps" })
+  name!: string;
+
+  @ApiProperty({ example: "CAF-001" })
+  sku!: string;
+
+  @ApiProperty({ enum: ProductStatus, example: ProductStatus.ACTIVE })
+  status!: ProductStatus;
+}
+
+export class InventoryStockVariantResponseDto {
+  @ApiProperty({ example: "variant-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Size 6" })
+  name!: string;
+
+  @ApiProperty({ example: "CAF-001-6" })
+  sku!: string;
+}
+
+export class InventoryStockListItemResponseDto extends InventoryStockResponseDto {
+  @ApiProperty({ type: InventoryStockProductResponseDto })
+  product!: InventoryStockProductResponseDto;
+
+  @ApiProperty({ type: InventoryStockVariantResponseDto, nullable: true })
+  variant!: InventoryStockVariantResponseDto | null;
 }
 
 export class ReturnDispositionItemDto {

@@ -22,7 +22,7 @@
 .warehouseModule .warehouseListPanel,
 .warehouseModule .warehouseCreatePanel,
 .warehouseModule .warehouseStaffPanel,
-.warehouseModule .warehouseCoveragePanel {
+.warehouseModule .warehouseDetailPanel {
   padding: 18px;
 }
 
@@ -70,21 +70,6 @@
   overflow-wrap: anywhere;
 }
 
-.warehouseModule .warehouseCoverageHeader {
-  align-items: center;
-}
-
-.warehouseModule .warehouseCoverageCount {
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 750;
-  padding: 4px 10px;
-  white-space: nowrap;
-}
-
 /* Table shell: border and hint strip wrap the shared viewport, which owns scrolling. */
 .warehouseModule .warehouseTableShell {
   margin: 0;
@@ -109,10 +94,6 @@
 
 .warehouseModule .warehouseDataTable {
   min-width: 860px !important;
-}
-
-.warehouseModule .warehouseAnalyticsDataTable {
-  min-width: 480px !important;
 }
 
 .warehouseModule .warehouseStaffDataTable {
@@ -203,6 +184,67 @@
   width: 100%;
 }
 
+.warehouseModule .warehouseNameLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.warehouseModule .warehouseNameLink:hover strong,
+.warehouseModule .warehouseNameLink:focus-visible strong {
+  text-decoration: underline;
+}
+
+/* Detail page: the warehouse name is the page title, so keep it visible on phones too. */
+.warehouseModule .warehouseDetailHeader .adminPageHeaderTitle {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.warehouseModule .warehouseDetailMetricGrid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.warehouseModule .warehouseDetailGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.warehouseModule .warehouseDetailNote {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.warehouseModule .warehouseQuickLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.warehouseModule .warehouseProductSearch {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(220px, 420px) auto auto;
+  justify-content: start;
+  margin-bottom: 12px;
+}
+
+.warehouseModule .warehouseProductSearch > button {
+  min-height: 40px;
+}
+
+.warehouseModule .warehouseProductDataTable {
+  min-width: 920px !important;
+}
+
+.warehouseModule .warehousePartnerDataTable {
+  min-width: 760px !important;
+}
+
+.warehouseModule .warehouseDetailStaffDataTable {
+  min-width: 560px !important;
+}
+
 @media (max-width: 1280px) {
   .warehouseModule .warehouseFormGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -225,6 +267,10 @@
   .warehouseModule .warehouseTableViewport {
     max-height: min(560px, calc(100dvh - 150px));
   }
+
+  .warehouseModule .warehouseDetailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -236,7 +282,7 @@
   .warehouseModule .warehouseListPanel,
   .warehouseModule .warehouseCreatePanel,
   .warehouseModule .warehouseStaffPanel,
-  .warehouseModule .warehouseCoveragePanel {
+  .warehouseModule .warehouseDetailPanel {
     padding: 14px;
   }
 
@@ -253,24 +299,16 @@
     display: inline;
   }
 
-  /* Overview and list headers: actions become an even grid of compact buttons. */
-  .warehouseModule .warehousePageHeader:not(.warehouseCreateHeader, .warehouseCoverageHeader, .warehouseStaffHeader) .adminPageActions {
+  /* Overview header: actions become an even grid of compact buttons. */
+  .warehouseModule .warehousePageHeader:not(.warehouseCreateHeader, .warehouseStaffHeader) .adminPageActions {
     width: 100%;
   }
 
-  .warehouseModule .warehouseAnalyticsHeaderActions,
-  .warehouseModule .warehouseListHeaderActions {
+  .warehouseModule :is(.warehouseOverviewHeaderActions, .warehouseDetailHeaderActions) {
     display: grid;
     gap: 6px;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     width: 100%;
-  }
-
-  .warehouseModule .warehouseAnalyticsHeaderActions {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  }
-
-  .warehouseModule .warehouseListHeaderActions {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   }
 
   .warehouseModule .warehouseHeaderActions > * {
@@ -281,15 +319,15 @@
     width: 100%;
   }
 
-  /* Form, staff and coverage headers keep a single compact action on the eyebrow row. */
-  .warehouseModule :is(.warehouseCreateHeader, .warehouseStaffHeader, .warehouseCoverageHeader) {
+  /* Form and staff headers keep a single compact action on the eyebrow row. */
+  .warehouseModule :is(.warehouseCreateHeader, .warehouseStaffHeader) {
     align-items: center;
     display: grid;
     gap: 10px;
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .warehouseModule :is(.warehouseCreateHeader, .warehouseStaffHeader, .warehouseCoverageHeader) .adminPageActions {
+  .warehouseModule :is(.warehouseCreateHeader, .warehouseStaffHeader) .adminPageActions {
     justify-content: flex-end;
     width: auto;
   }
@@ -367,6 +405,24 @@
     font-size: 12px;
     padding-inline: 10px;
     width: auto;
+  }
+
+  .warehouseModule .warehouseDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouseModule .warehouseQuickLinks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .warehouseModule .warehouseQuickLinks > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .warehouseModule .warehouseProductSearch {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 

@@ -1,13 +1,20 @@
 import { z } from "zod";
-import type { QueryParams } from "./admin-api";
+import { AdminApiClientError, type QueryParams } from "./admin-api";
+import { INVENTORY_MOVEMENTS_PATH, INVENTORY_OVERVIEW_PATH } from "./inventory-management";
+import { ADMIN_PERMISSION } from "./permissions";
 
 export const WAREHOUSE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
-export const WAREHOUSE_ANALYTICS_PATH = "/warehouses";
+export const WAREHOUSES_PATH = "/warehouses";
 export const WAREHOUSE_CREATE_PATH = "/warehouses/create";
-export const WAREHOUSE_LIST_PATH = "/warehouses/list";
-/** Table pages match the rest of the admin; analytics and pickers still read every warehouse. */
-export const WAREHOUSE_LIST_PAGE_SIZE = 20;
+export const WAREHOUSE_STAFF_PATH = "/warehouses/staff";
+export const WAREHOUSE_DETAIL_PRODUCTS_PAGE_SIZE = 20;
+export const WAREHOUSE_DETAIL_PARTNERS_PAGE_SIZE = 10;
+export const WAREHOUSE_NEAR_EXPIRY_DAYS = 30;
 const WAREHOUSE_LOOKUP_PAGE_SIZE = 100;
+// Matches the API's inventory search limit.
+const WAREHOUSE_PRODUCT_SEARCH_MAX_LENGTH = 160;
+const WAREHOUSE_DETAIL_PATH_PATTERN =
+  /^\/warehouses\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type WarehouseStatus = (typeof WAREHOUSE_STATUSES)[number];
 
@@ -40,12 +47,20 @@ export type WarehouseListResponse = {
   };
 };
 
+export type WarehouseStaffRole = {
+  code: string;
+  id: string;
+  name: string;
+};
+
 export type WarehouseStaffAssignment = {
   adminUserId: string;
   email: string;
   firstName: string;
   id: string;
   lastName: string | null;
+  // Optional so staff rows still render against an API that predates roles on this list.
+  role?: WarehouseStaffRole | null;
   warehouseId: string;
 };
 
@@ -54,11 +69,12 @@ export type WarehouseStaffCandidate = {
   email: string;
   firstName: string;
   lastName: string | null;
-  role: {
-    code: string;
-    id: string;
-    name: string;
-  };
+  role: WarehouseStaffRole;
+};
+
+export type WarehouseQuickLink = {
+  href: string;
+  label: string;
 };
 
 export type WarehouseFilters = {
@@ -68,7 +84,7 @@ export type WarehouseFilters = {
   warehouseId: string;
 };
 
-export type WarehouseFilterView = "analytics" | "create" | "list" | "staff";
+export type WarehouseFilterView = "create" | "list" | "staff";
 
 export type WarehouseFilterContent = {
   searchPlaceholder: string;
@@ -211,6 +227,17 @@ export function createWarehouseFiltersFromSearchParams(searchParams: {
   };
 }
 
+export function createWarehouseFiltersFromRouteParams(
+  params: Record<string, string | string[] | undefined>
+): WarehouseFilters {
+  return createWarehouseFiltersFromSearchParams({
+    get: (key) => {
+      const value = params[key];
+      return (Array.isArray(value) ? value[0] : value) ?? null;
+    }
+  });
+}
+
 export function buildWarehousePayload(
   values: ParsedWarehouseFormValues | WarehouseFormValues
 ): WarehousePayload {
@@ -244,15 +271,11 @@ export function buildWarehouseQuery(
   };
 }
 
+/** Reads every matching warehouse so KPIs, the paged table, and staff pickers share one result. */
 export async function loadWarehouseResults(
   fetchPage: (query: QueryParams) => Promise<WarehouseListResponse>,
-  filters: WarehouseFilters,
-  page: number,
-  allPages: boolean,
-  pageSize = WAREHOUSE_LIST_PAGE_SIZE
+  filters: WarehouseFilters
 ): Promise<WarehouseListResponse> {
-  if (!allPages) return fetchPage(buildWarehouseQuery(filters, page, pageSize));
-
   const first = await fetchPage(buildWarehouseQuery(filters, 1));
 
   const items = [...first.items];
@@ -274,10 +297,118 @@ export function buildWarehouseCreatePath(returnToPath?: string | null) {
   return `${WAREHOUSE_CREATE_PATH}?${params.toString()}`;
 }
 
-export function buildWarehouseEditPath(warehouseId: string) {
+export function buildWarehouseEditPath(warehouseId: string, returnToPath?: string | null) {
   const params = new URLSearchParams({ edit: warehouseId });
 
+  if (returnToPath) {
+    params.set("returnTo", returnToPath);
+  }
+
   return `${WAREHOUSE_CREATE_PATH}?${params.toString()}`;
+}
+
+export function buildWarehouseDetailPath(warehouseId: string) {
+  return `${WAREHOUSES_PATH}/${encodeURIComponent(warehouseId)}`;
+}
+
+export function isWarehouseDetailPath(path: string) {
+  return WAREHOUSE_DETAIL_PATH_PATTERN.test(path);
+}
+
+/** Links a related admin screen pre-filtered to one warehouse. */
+export function buildWarehouseScopedHref(
+  path: string,
+  warehouseId: string,
+  extraParams: Record<string, string> = {}
+) {
+  const params = new URLSearchParams({ ...extraParams, warehouseId });
+
+  return `${path}?${params.toString()}`;
+}
+
+export function buildWarehouseStaffPath(warehouseId: string) {
+  return buildWarehouseScopedHref(WAREHOUSE_STAFF_PATH, warehouseId);
+}
+
+const WAREHOUSE_QUICK_LINKS: Array<{
+  extraParams?: Record<string, string>;
+  label: string;
+  path: string;
+  permission: string;
+}> = [
+  { label: "Stock overview", path: INVENTORY_OVERVIEW_PATH, permission: ADMIN_PERMISSION.InventoryRead },
+  {
+    extraParams: { lowStock: "true" },
+    label: "Low stock",
+    path: INVENTORY_OVERVIEW_PATH,
+    permission: ADMIN_PERMISSION.InventoryRead
+  },
+  {
+    extraParams: { nearExpiry: "true", nearExpiryDays: String(WAREHOUSE_NEAR_EXPIRY_DAYS) },
+    label: "Near expiry",
+    path: INVENTORY_OVERVIEW_PATH,
+    permission: ADMIN_PERMISSION.InventoryRead
+  },
+  { label: "Stock movements", path: INVENTORY_MOVEMENTS_PATH, permission: ADMIN_PERMISSION.InventoryRead },
+  { label: "Orders", path: "/orders", permission: ADMIN_PERMISSION.OrdersRead },
+  { label: "Deliveries", path: "/delivery/assignments", permission: ADMIN_PERMISSION.DeliveryRead },
+  { label: "Manage staff", path: WAREHOUSE_STAFF_PATH, permission: ADMIN_PERMISSION.WarehouseStaffManage }
+];
+
+export function buildWarehouseQuickLinks(
+  warehouseId: string,
+  hasPermission: (permission: string) => boolean
+): WarehouseQuickLink[] {
+  return WAREHOUSE_QUICK_LINKS.filter((link) => hasPermission(link.permission)).map((link) => ({
+    href: buildWarehouseScopedHref(link.path, warehouseId, link.extraParams),
+    label: link.label
+  }));
+}
+
+export function normalizeWarehouseProductSearch(search: string) {
+  return search.trim().slice(0, WAREHOUSE_PRODUCT_SEARCH_MAX_LENGTH);
+}
+
+export function buildWarehouseStockQuery(
+  warehouseId: string,
+  page: number,
+  search: string
+): QueryParams {
+  return {
+    limit: WAREHOUSE_DETAIL_PRODUCTS_PAGE_SIZE,
+    page,
+    search: normalizeWarehouseProductSearch(search) || undefined,
+    warehouseId
+  };
+}
+
+export function buildWarehousePartnerQuery(warehouseId: string, page: number): QueryParams {
+  return {
+    limit: WAREHOUSE_DETAIL_PARTNERS_PAGE_SIZE,
+    page,
+    warehouseId
+  };
+}
+
+export function getWarehouseDetailError(error: unknown) {
+  if (error instanceof AdminApiClientError && error.status === 403) {
+    return {
+      message: "You are not assigned to this warehouse. Ask a super admin to add you to its staff.",
+      title: "Warehouse unavailable"
+    };
+  }
+
+  if (error instanceof AdminApiClientError && (error.status === 400 || error.status === 404)) {
+    return {
+      message: "This warehouse does not exist or has been deleted.",
+      title: "Warehouse not found"
+    };
+  }
+
+  return {
+    message: error instanceof Error && error.message ? error.message : "Unable to load this warehouse.",
+    title: "Warehouse unavailable"
+  };
 }
 
 export function getWarehouseEditId(
@@ -295,8 +426,11 @@ export function getWarehouseReturnToPath(
   const rawValue = Array.isArray(value) ? value[0] : value;
   const returnToPath = rawValue?.trim();
 
-  return returnToPath === WAREHOUSE_ANALYTICS_PATH ||
-    returnToPath === WAREHOUSE_LIST_PATH
+  if (!returnToPath) {
+    return null;
+  }
+
+  return returnToPath === WAREHOUSES_PATH || isWarehouseDetailPath(returnToPath)
     ? returnToPath
     : null;
 }
@@ -310,13 +444,6 @@ export function shouldShowWarehouseFilters(
 export function getWarehouseFilterContent(
   view: WarehouseFilterView
 ): WarehouseFilterContent {
-  if (view === "analytics") {
-    return {
-      searchPlaceholder: "Name, code, city",
-      submitLabel: "Apply analytics filters"
-    };
-  }
-
   if (view === "staff") {
     return {
       searchPlaceholder: "Warehouse for staff assignment",
@@ -326,7 +453,7 @@ export function getWarehouseFilterContent(
 
   return {
     searchPlaceholder: "Warehouse name, code, city",
-    submitLabel: "Apply table filters"
+    submitLabel: "Apply warehouse filters"
   };
 }
 
@@ -345,6 +472,10 @@ export function formatWarehouseStatus(status: WarehouseStatus) {
   return status === "ACTIVE" ? "Active" : "Inactive";
 }
 
+export function formatWarehouseCoordinates(latitude: number | null, longitude: number | null) {
+  return latitude === null || longitude === null ? "Not set" : `${latitude}, ${longitude}`;
+}
+
 export function formatWarehouseStaffCandidate(candidate: WarehouseStaffCandidate) {
   const name = [candidate.firstName, candidate.lastName].filter(Boolean).join(" ");
 
@@ -355,7 +486,6 @@ export function getWarehouseAnalytics(warehouses: AdminWarehouse[]) {
   return {
     active: warehouses.filter((warehouse) => warehouse.status === "ACTIVE").length,
     inactive: warehouses.filter((warehouse) => warehouse.status === "INACTIVE").length,
-    states: new Set(warehouses.map((warehouse) => warehouse.state.trim()).filter(Boolean)).size,
     visible: warehouses.length
   };
 }

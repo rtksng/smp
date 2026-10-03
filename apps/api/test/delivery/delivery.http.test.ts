@@ -71,3 +71,26 @@ test("HTTP incident reporting, resolution and failed-attempt reassignment", asyn
     assert.equal(fixture.prisma.calls.inventoryStockUpdateMany.length, 0);
   } finally { await fixture.app.close(); }
 });
+
+test("HTTP admin partner list narrows to one warehouse and rejects a malformed warehouse id", async () => {
+  const fixture = await createDeliveryHttpFixture();
+  const server = fixture.app.getHttpServer();
+  try {
+    await request(server).get("/admin/delivery-partners?warehouseId=not-a-uuid").expect(400);
+    const listed = await request(server).get(`/admin/delivery-partners?warehouseId=${ids.warehouse}&limit=5`).expect(200);
+    assert.equal(listed.body.data.items[0].id, ids.partner);
+    const lastQuery = fixture.prisma.calls.deliveryPartnerFindMany.at(-1) as { take: number; where: unknown };
+    assert.equal(lastQuery.take, 5);
+    assert.deepEqual(lastQuery.where, {
+      assignments: {
+        some: {
+          OR: [
+            { pickupWarehouseId: ids.warehouse },
+            { order: { warehouseId: ids.warehouse }, pickupWarehouseId: null }
+          ]
+        }
+      },
+      deletedAt: null
+    });
+  } finally { await fixture.app.close(); }
+});

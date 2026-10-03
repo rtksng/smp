@@ -74,6 +74,16 @@ type PendingInventoryAlerts = {
   nearExpiry: SendNearExpiryAlertJobData[];
 };
 
+// Stock lists name the product so admins can read a warehouse's stock without a catalog lookup.
+const INVENTORY_STOCK_LIST_INCLUDE = {
+  product: { select: { id: true, name: true, sku: true, status: true } },
+  variant: { select: { id: true, name: true, sku: true } }
+} as const satisfies Prisma.InventoryStockInclude;
+
+type InventoryStockListRecord = Prisma.InventoryStockGetPayload<{
+  include: typeof INVENTORY_STOCK_LIST_INCLUDE;
+}>;
+
 const NEAR_EXPIRY_ALERT_WINDOW_DAYS = 30;
 
 @Injectable()
@@ -629,8 +639,31 @@ export class InventoryService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const where = await this.buildInventoryWhere(query, auth);
+
+    return this.listStockPage(where, page, limit);
+  }
+
+  async listLowStock(query: InventoryListQueryDto, auth: AuthJwtPayload) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where: Prisma.InventoryStockWhereInput = {
+      ...(await this.buildInventoryWhere(query, auth)),
+      availableQuantity: {
+        lte: this.prisma.inventoryStock.fields.reorderLevel
+      }
+    };
+
+    return this.listStockPage(where, page, limit);
+  }
+
+  private async listStockPage(
+    where: Prisma.InventoryStockWhereInput,
+    page: number,
+    limit: number
+  ) {
     const [items, total] = await Promise.all([
       this.prisma.inventoryStock.findMany({
+        include: INVENTORY_STOCK_LIST_INCLUDE,
         orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
@@ -642,30 +675,8 @@ export class InventoryService {
     ]);
 
     return paginated(
-      items.map((item) => this.serializeStock(item)),
+      items.map((item) => this.serializeStockListItem(item)),
       total,
-      page,
-      limit
-    );
-  }
-
-  async listLowStock(query: InventoryListQueryDto, auth: AuthJwtPayload) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const where = await this.buildInventoryWhere(query, auth);
-    const items = await this.prisma.inventoryStock.findMany({
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      where
-    });
-    const lowStockItems = items.filter(
-      (item) => item.availableQuantity <= item.reorderLevel
-    );
-
-    return paginated(
-      lowStockItems
-        .slice((page - 1) * limit, page * limit)
-        .map((item) => this.serializeStock(item)),
-      lowStockItems.length,
       page,
       limit
     );
@@ -1109,6 +1120,25 @@ export class InventoryService {
       reservedQuantity: stock.reservedQuantity,
       variantId: stock.variantId,
       warehouseId: stock.warehouseId
+    };
+  }
+
+  private serializeStockListItem(stock: InventoryStockListRecord) {
+    return {
+      ...this.serializeStock(stock),
+      product: {
+        id: stock.product.id,
+        name: stock.product.name,
+        sku: stock.product.sku,
+        status: stock.product.status
+      },
+      variant: stock.variant
+        ? {
+            id: stock.variant.id,
+            name: stock.variant.name,
+            sku: stock.variant.sku
+          }
+        : null
     };
   }
 

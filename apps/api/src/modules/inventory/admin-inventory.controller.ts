@@ -27,6 +27,7 @@ import type { AdminActionContext } from "../warehouses/warehouses.service";
 import {
   AdjustStockDto,
   InventoryListQueryDto,
+  InventoryStockListItemResponseDto,
   InventoryStockResponseDto,
   NearExpiryQueryDto,
   ReturnDispositionDto,
@@ -103,7 +104,7 @@ export class AdminInventoryController {
   @Get()
   @RequirePermission(PermissionCode.InventoryRead)
   @ApiOperation({ summary: "List inventory by warehouse and product." })
-  @ApiOkResponse({ description: "Inventory returned.", type: [InventoryStockResponseDto] })
+  @ApiOkResponse({ description: "Inventory returned.", type: [InventoryStockListItemResponseDto] })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
   listInventory(
@@ -116,7 +117,7 @@ export class AdminInventoryController {
   @Get("low-stock")
   @RequirePermission(PermissionCode.InventoryRead)
   @ApiOperation({ summary: "List inventory at or below low-stock threshold." })
-  @ApiOkResponse({ description: "Low-stock inventory returned.", type: [InventoryStockResponseDto] })
+  @ApiOkResponse({ description: "Low-stock inventory returned.", type: [InventoryStockListItemResponseDto] })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
   listLowStock(

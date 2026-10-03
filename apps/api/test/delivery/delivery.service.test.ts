@@ -7,7 +7,7 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import { AdminJwtGuard } from "../../src/modules/auth/guards/admin-jwt.guard";
 import { DeliveryPartnerJwtGuard } from "../../src/modules/auth/guards/delivery-partner-jwt.guard";
 import { PermissionGuard } from "../../src/modules/auth/guards/permission.guard";
-import { DeliveryService } from "../../src/modules/delivery/delivery.service";
+import { buildDeliveryAssignmentWarehouseFilter, DeliveryService } from "../../src/modules/delivery/delivery.service";
 import { AdminDeliveryController } from "../../src/modules/delivery/admin-delivery.controller";
 import { AdminDeliveryPartnersController } from "../../src/modules/delivery/admin-delivery-partners.controller";
 import { DeliveryController } from "../../src/modules/delivery/delivery.controller";
@@ -33,6 +33,34 @@ test("listAdminDeliveryPartners returns profiles with documents, online state, a
     currency: "INR",
     totalEarnings: 0
   });
+});
+
+test("listAdminDeliveryPartners narrows to partners with assignments for a warehouse using the assignment rule", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+  const rule = {
+    OR: [
+      { pickupWarehouseId: "warehouse-1" },
+      { order: { warehouseId: "warehouse-1" }, pickupWarehouseId: null }
+    ]
+  };
+
+  assert.deepEqual(buildDeliveryAssignmentWarehouseFilter("warehouse-1"), rule);
+  await service.listAdminDeliveryPartners({ limit: 5, page: 1, status: "ACTIVE", warehouseId: "warehouse-1" });
+  await service.listAdminDeliveryPartners({});
+  await service.listAdminDeliveryAssignments({ warehouseId: "warehouse-1" });
+
+  const partnerCalls = prisma.calls.deliveryPartnerFindMany as Array<{ skip: number; take: number; where: unknown }>;
+  const warehouseWhere = { assignments: { some: rule }, deletedAt: null, status: "ACTIVE" };
+  assert.deepEqual(partnerCalls[0]?.where, warehouseWhere);
+  assert.equal(partnerCalls[0]?.skip, 0);
+  assert.equal(partnerCalls[0]?.take, 5);
+  assert.deepEqual(prisma.calls.deliveryPartnerCount[0], { where: warehouseWhere });
+  assert.deepEqual(partnerCalls[1]?.where, { deletedAt: null });
+  assert.deepEqual((prisma.calls.deliveryAssignmentFindMany[0] as { where: unknown }).where, rule);
 });
 
 test("approveDeliveryPartner activates the partner and writes an admin audit log", async () => {

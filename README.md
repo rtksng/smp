@@ -451,8 +451,8 @@ Admin panel routes:
 - `/orders/[id]`
 - `/customers`
 - `/warehouses`
+- `/warehouses/[id]`
 - `/warehouses/create`
-- `/warehouses/list`
 - `/warehouses/staff`
 - `/delivery`
 - `/reports`
@@ -470,7 +470,7 @@ The `/settings` admin route uses `settings.manage` to show role and permission c
 
 Warehouse and inventory admin screens are permission-aware in the UI, but backend guards remain authoritative. Warehouse CRUD requires warehouse permissions, inventory mutations require inventory permissions, and non-`SUPER_ADMIN` users are scoped to warehouses assigned through `WarehouseStaff`.
 
-The `/warehouses` admin route shows warehouse analytics with search/status/state filtering. The warehouse sidebar opens `/warehouses/list` for a filtered table with edit and deactivate actions, `/warehouses/staff` for filtered staff assignments, and button-driven `/warehouses/create` flows. Create actions from the analytics and list pages return to `/warehouses/list` after save, and list edits open the create/edit page before returning to the table. Warehouse create/edit/activate/deactivate actions require `warehouse.manage`; staff assignment and removal are shown only to admins with `warehouse.staff.manage`.
+The `/warehouses` admin route shows warehouse KPIs above a paged warehouse table with edit, activate/deactivate, and delete actions. Its filter drawer (search, state, status, and a `warehouseId` passed in the URL by search results, notifications, and reports) drives both the KPIs and the table; the old `/warehouses/list` URL redirects there with its query string. The warehouse sidebar also opens `/warehouses/staff` for filtered staff assignments (`?warehouseId=` preselects one warehouse), and button-driven `/warehouses/create` flows return to `/warehouses` after save, so list edits open the create/edit page before returning to the table. Each warehouse name and View action opens `/warehouses/[id]`, which shows the warehouse's details, stock KPIs, shortcuts into its inventory, movements, orders, deliveries and staff, a searchable paged product table, its staff with roles, and the delivery partners who have handled its deliveries. Each section loads only with its own permission (`inventory.read`, `warehouse.staff.manage`, `delivery.read`), admins not assigned to the warehouse see a single access message, and edits started there return to the detail page. Global search, new-warehouse notifications, and report rows open this page. Warehouse create/edit/activate/deactivate actions require `warehouse.manage`; staff assignment and removal are shown only to admins with `warehouse.staff.manage`.
 
 The inventory admin route group is split into `/inventory` for aggregate stock, low-stock, and near-expiry overview tables, `/inventory/actions` for stock-in, signed adjustments, and warehouse transfers, and `/inventory/movements` for the movement audit trail. It uses the warehouse and inventory APIs, validates warehouse/product IDs, batch numbers, quantities, prices, expiry dates, and reasons before submit, and keeps stock-changing actions behind confirmation dialogs. Stock rows show low-stock and near-expiry warnings, and batch views show batch number plus expiry date.
 

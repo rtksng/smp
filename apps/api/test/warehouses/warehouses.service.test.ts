@@ -276,6 +276,20 @@ test("admin warehouse controller methods declare required permissions", () => {
     ),
     [PermissionCode.WarehouseStaffManage]
   );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      "admin:required-permissions",
+      AdminWarehousesController.prototype.getWarehouse
+    ),
+    [PermissionCode.WarehouseRead]
+  );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      "admin:required-permissions",
+      AdminWarehousesController.prototype.listStaff
+    ),
+    [PermissionCode.WarehouseStaffManage]
+  );
 });
 
 test("warehouse create and edit persist status in the same write as the details", async () => {
@@ -410,7 +424,13 @@ test("duplicate warehouse codes return a conflict without assigning staff", asyn
 test("staff assignment supports duplicate retries, removal and reassignment and rejects inactive users", async () => {
   let activeUser = true;
   let assignment: { id: string; warehouseId: string; adminUserId: string; deletedAt: Date | null } | null = null;
-  const adminUser = { id: "staff-1", firstName: "QA", lastName: "Staff", email: "qa@example.test" };
+  const adminUser = {
+    id: "staff-1",
+    firstName: "QA",
+    lastName: "Staff",
+    email: "qa@example.test",
+    role: { code: AdminRoleCode.WarehouseManager, id: "role-1", name: "Warehouse manager" }
+  };
   const audits: unknown[] = [];
   const prisma = {
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>): Promise<T> => callback(prisma),
@@ -441,4 +461,59 @@ test("staff assignment supports duplicate retries, removal and reassignment and 
   activeUser = false;
   await assert.rejects(() => service.assignStaff("warehouse-1", { adminUserId: "staff-1" }, actionContext()), NotFoundException);
   assert.equal(audits.length, 4);
+});
+
+test("staff rows show each admin's role and load only the fields they display", async () => {
+  const role = { code: AdminRoleCode.WarehouseManager, id: "role-1", name: "Warehouse manager" };
+  const adminUser = { email: "manager@example.test", firstName: "Asha", lastName: null, role };
+  const staffRow = { adminUserId: "admin-2", deletedAt: null, id: "assignment-2", warehouseId: "warehouse-1" };
+  const adminUserFindFirstCalls: unknown[] = [];
+  const staffFindManyCalls: unknown[] = [];
+  const prisma = {
+    $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>): Promise<T> => callback(prisma),
+    adminAuditLog: { create: async () => ({ id: "audit-1" }) },
+    adminUser: {
+      findFirst: async (args: unknown) => {
+        adminUserFindFirstCalls.push(args);
+        return adminUser;
+      }
+    },
+    warehouse: { findFirst: async () => warehouseRecord() },
+    warehouseStaff: {
+      findFirst: async () => null,
+      findMany: async (args: unknown) => {
+        staffFindManyCalls.push(args);
+        return [{ ...staffRow, adminUser }];
+      },
+      upsert: async () => staffRow
+    }
+  };
+  const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
+  const expected = {
+    adminUserId: "admin-2",
+    email: "manager@example.test",
+    firstName: "Asha",
+    id: "assignment-2",
+    lastName: null,
+    role,
+    warehouseId: "warehouse-1"
+  };
+  const adminUserSelect = {
+    email: true,
+    firstName: true,
+    lastName: true,
+    role: { select: { code: true, id: true, name: true } }
+  };
+
+  assert.deepEqual(await service.assignStaff("warehouse-1", { adminUserId: "admin-2" }, actionContext()), expected);
+  assert.deepEqual(await service.listStaff("warehouse-1", adminAuth()), [expected]);
+  assert.deepEqual(adminUserFindFirstCalls, [{
+    select: adminUserSelect,
+    where: { deletedAt: null, id: "admin-2", status: "ACTIVE" }
+  }]);
+  assert.deepEqual(staffFindManyCalls, [{
+    include: { adminUser: { select: adminUserSelect } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    where: { deletedAt: null, warehouseId: "warehouse-1" }
+  }]);
 });

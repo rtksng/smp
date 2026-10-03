@@ -51,6 +51,15 @@ export class DeliveryPartnerListQueryDto {
   @IsEnum(DeliveryPartnerStatus)
   @IsOptional()
   status?: DeliveryPartnerStatus;
+
+  @ApiPropertyOptional({
+    description:
+      "Only partners with at least one assignment for this warehouse (its pickup warehouse, or the order warehouse when no pickup warehouse is linked).",
+    example: "2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"
+  })
+  @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
 }
 
 export class DeliveryAssignmentListQueryDto {

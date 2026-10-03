@@ -36,6 +36,14 @@ type WarehouseRecord = {
   updatedAt: Date;
 };
 
+// Only what staff rows show, so staff reads never load password hashes.
+const STAFF_ADMIN_USER_SELECT = {
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: { select: { code: true, id: true, name: true } }
+} as const satisfies Prisma.AdminUserSelect;
+
 export type AdminActionContext = {
   auth: AuthJwtPayload;
   ipAddress?: string;
@@ -221,6 +229,7 @@ export class WarehousesService {
     );
     await this.findExistingWarehouse(warehouseId);
     const adminUser = await this.prisma.adminUser.findFirst({
+      select: STAFF_ADMIN_USER_SELECT,
       where: {
         deletedAt: null,
         id: input.adminUserId,
@@ -268,7 +277,7 @@ export class WarehousesService {
 
     const assignments = await this.prisma.warehouseStaff.findMany({
       include: {
-        adminUser: true
+        adminUser: { select: STAFF_ADMIN_USER_SELECT }
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       where: {
@@ -590,6 +599,7 @@ export class WarehousesService {
       email: string;
       firstName: string;
       lastName: string | null;
+      role: { code: string; id: string; name: string };
     };
     adminUserId: string;
     id: string;
@@ -601,6 +611,11 @@ export class WarehousesService {
       firstName: assignment.adminUser.firstName,
       id: assignment.id,
       lastName: assignment.adminUser.lastName,
+      role: {
+        code: assignment.adminUser.role.code,
+        id: assignment.adminUser.role.id,
+        name: assignment.adminUser.role.name
+      },
       warehouseId: assignment.warehouseId
     };
   }

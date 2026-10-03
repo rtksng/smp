@@ -1,16 +1,25 @@
 import { describe, expect, it } from "vitest";
+import { AdminApiClientError } from "./admin-api";
 import {
-  WAREHOUSE_ANALYTICS_PATH,
+  WAREHOUSES_PATH,
   WAREHOUSE_CREATE_PATH,
-  WAREHOUSE_LIST_PATH,
   buildWarehouseCreatePath,
+  buildWarehouseDetailPath,
   buildWarehouseEditPath,
+  buildWarehousePartnerQuery,
   buildWarehousePayload,
   buildWarehouseQuery,
+  buildWarehouseQuickLinks,
+  buildWarehouseStaffPath,
+  buildWarehouseStockQuery,
   createEmptyWarehouseFilters,
+  createWarehouseFiltersFromRouteParams,
   createWarehouseFiltersFromSearchParams,
+  formatWarehouseCoordinates,
   formatWarehouseStaffCandidate,
+  getWarehouseDetailError,
   getWarehouseEditId,
+  normalizeWarehouseProductSearch,
   getWarehouseAnalytics,
   getWarehouseFilterContent,
   getWarehouseReturnToPath,
@@ -52,7 +61,7 @@ describe("warehouse management helpers", () => {
     expect(buildWarehousePayload({ ...values, status: "INACTIVE" }).status).toBe("INACTIVE");
   });
 
-  it("loads every analytics page but only the requested list page", async () => {
+  it("loads every warehouse page so KPIs and the paged table share one result", async () => {
     const pages: number[] = [];
     const fetchPage = async (query: Record<string, unknown>) => {
       const page = Number(query.page);
@@ -62,13 +71,10 @@ describe("warehouse management helpers", () => {
         pagination: { page, limit: 100, total: 201, totalPages: 3, hasNextPage: page < 3, hasPreviousPage: page > 1 }
       };
     };
-    const analytics = await loadWarehouseResults(fetchPage, createEmptyWarehouseFilters(), 2, true);
+    const results = await loadWarehouseResults(fetchPage, createEmptyWarehouseFilters());
     expect(pages).toEqual([1, 2, 3]);
-    expect(getWarehouseAnalytics(analytics.items)).toMatchObject({ visible: 3, active: 1, inactive: 2 });
-    pages.length = 0;
-    const listing = await loadWarehouseResults(fetchPage, createEmptyWarehouseFilters(), 2, false);
-    expect(pages).toEqual([2]);
-    expect(listing.items[0]?.id).toBe("warehouse-2");
+    expect(results.items.map((item) => item.id)).toEqual(["warehouse-1", "warehouse-2", "warehouse-3"]);
+    expect(getWarehouseAnalytics(results.items)).toEqual({ visible: 3, active: 1, inactive: 2 });
   });
   it("preserves the selected report warehouse in list requests until reset", () => {
     const filters = createWarehouseFiltersFromSearchParams(new URLSearchParams({
@@ -152,21 +158,16 @@ describe("warehouse management helpers", () => {
     ).toEqual({
       active: 2,
       inactive: 1,
-      states: 2,
       visible: 3
     });
   });
 
   it("builds the list-to-edit warehouse route and normalizes edit search params", () => {
     expect(WAREHOUSE_CREATE_PATH).toBe("/warehouses/create");
-    expect(WAREHOUSE_ANALYTICS_PATH).toBe("/warehouses");
-    expect(WAREHOUSE_LIST_PATH).toBe("/warehouses/list");
+    expect(WAREHOUSES_PATH).toBe("/warehouses");
     expect(buildWarehouseCreatePath()).toBe("/warehouses/create");
-    expect(buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)).toBe(
+    expect(buildWarehouseCreatePath(WAREHOUSES_PATH)).toBe(
       "/warehouses/create?returnTo=%2Fwarehouses"
-    );
-    expect(buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)).toBe(
-      "/warehouses/create?returnTo=%2Fwarehouses%2Flist"
     );
     expect(buildWarehouseEditPath("warehouse/1")).toBe(
       "/warehouses/create?edit=warehouse%2F1"
@@ -174,13 +175,9 @@ describe("warehouse management helpers", () => {
     expect(getWarehouseEditId(" warehouse-1 ")).toBe("warehouse-1");
     expect(getWarehouseEditId(["warehouse-2", "warehouse-3"])).toBe("warehouse-2");
     expect(getWarehouseEditId("")).toBeNull();
-    expect(getWarehouseReturnToPath(WAREHOUSE_ANALYTICS_PATH)).toBe(
-      WAREHOUSE_ANALYTICS_PATH
-    );
-    expect(getWarehouseReturnToPath(WAREHOUSE_LIST_PATH)).toBe(WAREHOUSE_LIST_PATH);
-    expect(getWarehouseReturnToPath(["/warehouses/list", "/settings"])).toBe(
-      WAREHOUSE_LIST_PATH
-    );
+    expect(getWarehouseReturnToPath(WAREHOUSES_PATH)).toBe(WAREHOUSES_PATH);
+    expect(getWarehouseReturnToPath([" /warehouses ", "/settings"])).toBe(WAREHOUSES_PATH);
+    expect(getWarehouseReturnToPath("/warehouses/list")).toBeNull();
     expect(getWarehouseReturnToPath("/settings")).toBeNull();
   });
 
@@ -190,13 +187,9 @@ describe("warehouse management helpers", () => {
   });
 
   it("uses page-specific warehouse filter content", () => {
-    expect(getWarehouseFilterContent("analytics")).toEqual({
-      searchPlaceholder: "Name, code, city",
-      submitLabel: "Apply analytics filters"
-    });
     expect(getWarehouseFilterContent("list")).toEqual({
       searchPlaceholder: "Warehouse name, code, city",
-      submitLabel: "Apply table filters"
+      submitLabel: "Apply warehouse filters"
     });
     expect(getWarehouseFilterContent("staff")).toEqual({
       searchPlaceholder: "Warehouse for staff assignment",
@@ -219,5 +212,98 @@ describe("warehouse management helpers", () => {
     expect(formatWarehouseStaffCandidate({ ...candidate, lastName: "Rao" })).toBe(
       "Asha Rao (asha@example.com) - Warehouse manager"
     );
+  });
+
+  it("builds warehouse detail, edit-and-return, and staff links and only returns to safe pages", () => {
+    const id = "7d9f8f33-d348-4a89-94e8-907be76a91c6";
+
+    expect(buildWarehouseDetailPath(id)).toBe(`/warehouses/${id}`);
+    expect(buildWarehouseDetailPath("warehouse/1")).toBe("/warehouses/warehouse%2F1");
+    expect(buildWarehouseEditPath(id, buildWarehouseDetailPath(id))).toBe(
+      `/warehouses/create?edit=${id}&returnTo=%2Fwarehouses%2F${id}`
+    );
+    expect(buildWarehouseStaffPath(id)).toBe(`/warehouses/staff?warehouseId=${id}`);
+    expect(getWarehouseReturnToPath(`/warehouses/${id}`)).toBe(`/warehouses/${id}`);
+    for (const unsafe of [
+      "/warehouses/list",
+      "/warehouses/create",
+      "/warehouses/not-a-uuid",
+      `/warehouses/${id}/extra`,
+      `//evil.example/warehouses/${id}`,
+      `https://evil.example/warehouses/${id}`
+    ]) {
+      expect(getWarehouseReturnToPath(unsafe)).toBeNull();
+    }
+  });
+
+  it("offers only the shortcuts an admin can open, each filtered to the warehouse", () => {
+    const allow = (...permissions: string[]) => (permission: string) => permissions.includes(permission);
+
+    expect(buildWarehouseQuickLinks("warehouse-1", () => true)).toEqual([
+      { href: "/inventory?warehouseId=warehouse-1", label: "Stock overview" },
+      { href: "/inventory?lowStock=true&warehouseId=warehouse-1", label: "Low stock" },
+      {
+        href: "/inventory?nearExpiry=true&nearExpiryDays=30&warehouseId=warehouse-1",
+        label: "Near expiry"
+      },
+      { href: "/inventory/movements?warehouseId=warehouse-1", label: "Stock movements" },
+      { href: "/orders?warehouseId=warehouse-1", label: "Orders" },
+      { href: "/delivery/assignments?warehouseId=warehouse-1", label: "Deliveries" },
+      { href: "/warehouses/staff?warehouseId=warehouse-1", label: "Manage staff" }
+    ]);
+    expect(
+      buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read", "inventory.read")).map(
+        (link) => link.label
+      )
+    ).toEqual(["Stock overview", "Low stock", "Near expiry", "Stock movements"]);
+    expect(
+      buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read", "delivery.read", "orders.read")).map(
+        (link) => link.label
+      )
+    ).toEqual(["Orders", "Deliveries"]);
+    expect(buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read"))).toEqual([]);
+  });
+
+  it("builds product and delivery partner queries for one warehouse", () => {
+    expect(buildWarehouseStockQuery("warehouse-1", 2, "  forceps  ")).toEqual({
+      limit: 20,
+      page: 2,
+      search: "forceps",
+      warehouseId: "warehouse-1"
+    });
+    expect(buildWarehouseStockQuery("warehouse-1", 1, "   ").search).toBeUndefined();
+    expect(normalizeWarehouseProductSearch(` ${"a".repeat(200)} `)).toHaveLength(160);
+    expect(buildWarehousePartnerQuery("warehouse-1", 3)).toEqual({
+      limit: 10,
+      page: 3,
+      warehouseId: "warehouse-1"
+    });
+  });
+
+  it("explains why a warehouse cannot be shown", () => {
+    expect(
+      getWarehouseDetailError(new AdminApiClientError("Admin is not assigned to this warehouse.", 403))
+    ).toEqual({
+      message: "You are not assigned to this warehouse. Ask a super admin to add you to its staff.",
+      title: "Warehouse unavailable"
+    });
+    expect(getWarehouseDetailError(new AdminApiClientError("Warehouse was not found.", 404)).title).toBe(
+      "Warehouse not found"
+    );
+    expect(
+      getWarehouseDetailError(new AdminApiClientError("Validation failed (uuid is expected)", 400)).title
+    ).toBe("Warehouse not found");
+    expect(getWarehouseDetailError(new Error("Network down"))).toEqual({
+      message: "Network down",
+      title: "Warehouse unavailable"
+    });
+  });
+
+  it("formats coordinates and reads warehouse filters from route params", () => {
+    expect(formatWarehouseCoordinates(19.076, 72.8777)).toBe("19.076, 72.8777");
+    expect(formatWarehouseCoordinates(null, 72.8777)).toBe("Not set");
+    expect(
+      createWarehouseFiltersFromRouteParams({ status: "ACTIVE", warehouseId: [" warehouse-7 ", "warehouse-8"] })
+    ).toEqual({ search: "", state: "", status: "ACTIVE", warehouseId: "warehouse-7" });
   });
 });

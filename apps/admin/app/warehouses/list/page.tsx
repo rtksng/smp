@@ -1,18 +1,20 @@
-import { WarehouseManagementPage } from "../_components/warehouse-management";
-import { createWarehouseFiltersFromSearchParams } from "../../../lib/warehouse-management";
+import { redirect } from "next/navigation";
+import { WAREHOUSES_PATH } from "../../../lib/warehouse-management";
 
+/** The list now lives on the main warehouses screen; keep old links and their filters working. */
 export default async function WarehouseListPage({
   searchParams
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = (await searchParams) ?? {};
-  const filters = createWarehouseFiltersFromSearchParams({
-    get: (key) => {
-      const value = params[key];
-      return (Array.isArray(value) ? value[0] : value) ?? null;
-    }
-  });
+  const query = new URLSearchParams();
 
-  return <WarehouseManagementPage initialFilters={filters} view="list" />;
+  for (const [key, value] of Object.entries((await searchParams) ?? {})) {
+    for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) {
+      query.append(key, item);
+    }
+  }
+
+  const search = query.toString();
+  redirect(search ? `${WAREHOUSES_PATH}?${search}` : WAREHOUSES_PATH);
 }

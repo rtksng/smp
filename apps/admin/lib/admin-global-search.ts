@@ -17,7 +17,7 @@ import type {
   AdminProductFeedback,
   AdminQuoteRequest
 } from "./support-management";
-import type { AdminWarehouse } from "./warehouse-management";
+import { buildWarehouseDetailPath, type AdminWarehouse } from "./warehouse-management";
 
 export type AdminSearchResult = {
   id: string;
@@ -379,7 +379,7 @@ export async function searchAdmin(
           item.id,
           item.name,
           join(item.code, item.city, item.state),
-          url("/warehouses/list", { warehouseId: item.id })
+          buildWarehouseDetailPath(item.id)
         )
     )
   );

@@ -333,6 +333,9 @@ export class WarehouseStaffResponseDto {
   @ApiProperty({ example: "Sharma", nullable: true })
   lastName!: string | null;
 
+  @ApiProperty({ type: AdminUserRoleResponseDto })
+  role!: AdminUserRoleResponseDto;
+
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;
 }

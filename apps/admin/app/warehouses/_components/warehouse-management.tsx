@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
+  Eye,
   Pencil,
   Plus,
   Power,
@@ -56,9 +57,9 @@ import {
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import {
   WAREHOUSE_STATUSES,
-  WAREHOUSE_ANALYTICS_PATH,
-  WAREHOUSE_LIST_PATH,
+  WAREHOUSES_PATH,
   buildWarehouseCreatePath,
+  buildWarehouseDetailPath,
   buildWarehouseEditPath,
   buildWarehousePayload,
   loadWarehouseResults,
@@ -84,7 +85,7 @@ import {
 import "../warehouse-responsive.css";
 
 type WarehouseFieldErrors = Partial<Record<keyof WarehouseFormValues, string>>;
-export type WarehouseView = "analytics" | "create" | "list" | "staff";
+export type WarehouseView = "create" | "list" | "staff";
 const ALL_WAREHOUSE_STATUSES_VALUE = "__all_warehouse_statuses__";
 
 export function WarehouseManagementPage({
@@ -137,7 +138,6 @@ function WarehousesContent({
     urlFilters
   );
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [page, setPage] = useState(1);
   const initializedFormId = useRef<string | null>(null);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(
     initialEditWarehouseId
@@ -161,10 +161,9 @@ function WarehousesContent({
     enabled: view !== "create",
     queryFn: ({ signal }) => loadWarehouseResults(
       (query) => api.request<WarehouseListResponse>("/admin/warehouses", { query, signal }),
-      // Analytics totals and the staff warehouse picker need every warehouse, not one table page.
-      appliedFilters, page, view === "analytics" || view === "staff"
+      appliedFilters
     ),
-    queryKey: ["admin", "warehouses", appliedFilters, page, view]
+    queryKey: ["admin", "warehouses", appliedFilters, view]
   });
 
   const warehouseDetailQuery = useQuery({
@@ -283,12 +282,11 @@ function WarehousesContent({
       <span className="warehouseActionLabelCompact">Filter</span>
     </Button>
   ) : null;
-  const warehouseBackPath = returnToPath ?? WAREHOUSE_ANALYTICS_PATH;
+  const warehouseBackPath = returnToPath ?? WAREHOUSES_PATH;
 
   useEffect(() => {
     setDraftFilters(urlFilters);
     setAppliedFilters(urlFilters);
-    setPage(1);
   }, [urlFilters]);
 
   useEffect(() => {
@@ -348,7 +346,6 @@ function WarehousesContent({
   function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAppliedFilters(draftFilters);
-    setPage(1);
     setIsFilterDrawerOpen(false);
   }
 
@@ -356,7 +353,6 @@ function WarehousesContent({
     const emptyFilters = createEmptyWarehouseFilters();
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
-    setPage(1);
   }
 
   function selectWarehouse(warehouse: AdminWarehouse) {
@@ -377,7 +373,7 @@ function WarehousesContent({
     setMessage(null);
 
     if (view === "create") {
-      router.push(buildWarehouseCreatePath(WAREHOUSE_LIST_PATH));
+      router.push(buildWarehouseCreatePath(WAREHOUSES_PATH));
     }
   }
 
@@ -424,7 +420,7 @@ function WarehousesContent({
     setMessage(editingWarehouseId ? "Warehouse updated." : "Warehouse created.");
     await refreshWarehouses();
 
-    const redirectAfterSavePath = wasEditing ? WAREHOUSE_LIST_PATH : returnToPath;
+    const redirectAfterSavePath = wasEditing ? returnToPath ?? WAREHOUSES_PATH : returnToPath;
 
     if (view === "create" && redirectAfterSavePath) {
       router.push(redirectAfterSavePath);
@@ -514,7 +510,6 @@ function WarehousesContent({
         setMessage(null);
         await deleteMutation.mutateAsync(warehouse.id);
         setMessage("Warehouse deleted.");
-        if (warehouses.length === 1 && page > 1) setPage(page - 1);
         await refreshWarehouses();
       }
     });
@@ -522,13 +517,13 @@ function WarehousesContent({
 
   return (
     <div className="warehouseModule" data-warehouse-view={view}>
-      {view === "analytics" ? (
+      {view === "list" ? (
         <Card className="panel warehouseOverviewPanel">
           <PageHeader
             className="warehousePageHeader"
             level={2}
             actions={
-              <div className="actionRow warehouseHeaderActions warehouseAnalyticsHeaderActions">
+              <div className="actionRow warehouseHeaderActions warehouseOverviewHeaderActions">
                 {warehouseFilterAction}
                 <Button
                   className="iconTextButton"
@@ -543,7 +538,7 @@ function WarehousesContent({
                   <Button asChild className="buttonLink iconTextButton">
                     <Link
                       aria-label="New warehouse"
-                      href={buildWarehouseCreatePath(WAREHOUSE_ANALYTICS_PATH)}
+                      href={buildWarehouseCreatePath(WAREHOUSES_PATH)}
                     >
                       <Plus aria-hidden size={16} />
                       <span className="warehouseActionLabelFull">New warehouse</span>
@@ -553,17 +548,10 @@ function WarehousesContent({
                 ) : null}
               </div>
             }
-            eyebrow="Warehouse analytics"
-            summary="Track warehouse coverage, status mix, and filtered operating footprint."
+            eyebrow="Warehouses"
+            summary="Filter warehouses, track their status mix, and manage each record."
             title="Warehouse overview"
           />
-
-          {message ? <p className="formSuccess">{message}</p> : null}
-          {mutationError ? (
-            <p className="formError" role="alert">
-              {mutationError}
-            </p>
-          ) : null}
 
           <div className="metricGrid resourceMetrics warehouseMetricGrid">
             <MetricCard label="Total warehouses" tone="primary" value={totalCount} />
@@ -593,44 +581,11 @@ function WarehousesContent({
         </FilterDrawer>
       ) : null}
 
-      {view === "analytics" ? (
-        warehousesQuery.isLoading || warehousesQuery.isError ? (
-          <Card className="panel warehouseCoveragePanel">
-            {warehousesQuery.isLoading ? (
-              <LoadingState label="Loading warehouses..." />
-            ) : (
-              <p className="formError" role="alert">
-                {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-              </p>
-            )}
-          </Card>
-        ) : (
-          <WarehouseAnalytics analytics={analytics} warehouses={warehouses} />
-        )
-      ) : null}
-
       {view === "list" ? (
         <Card className="panel warehouseListPanel">
           <PageHeader
             className="warehousePageHeader"
             level={2}
-            actions={
-              <div className="actionRow warehouseHeaderActions warehouseListHeaderActions">
-                {warehouseFilterAction}
-                {canManage ? (
-                  <Button asChild className="buttonLink iconTextButton">
-                    <Link
-                      aria-label="Create warehouse"
-                      href={buildWarehouseCreatePath(WAREHOUSE_LIST_PATH)}
-                    >
-                      <Plus aria-hidden size={16} />
-                      <span className="warehouseActionLabelFull">Create warehouse</span>
-                      <span className="warehouseActionLabelCompact">New</span>
-                    </Link>
-                  </Button>
-                ) : null}
-              </div>
-            }
             eyebrow="Warehouse list"
             title="Filtered warehouse table"
           />
@@ -663,18 +618,8 @@ function WarehousesContent({
               onDeactivate={(warehouse) => requestStatusChange(warehouse, "deactivate")}
               onEdit={startEdit}
               onDelete={requestDelete}
+              scope={JSON.stringify(appliedFilters)}
               warehouses={warehouses}
-            />
-          ) : null}
-          {warehousesQuery.data ? (
-            <PaginationControls
-              ariaLabel="Warehouses pagination"
-              isPending={warehousesQuery.isFetching && !warehousesQuery.isLoading}
-              onChange={(nextPage) => { if (!isMutating) setPage(nextPage); }}
-              page={warehousesQuery.data.pagination.page}
-              pageSize={warehousesQuery.data.pagination.limit}
-              totalItems={warehousesQuery.data.pagination.total}
-              totalPages={warehousesQuery.data.pagination.totalPages}
             />
           ) : null}
         </Card>
@@ -894,102 +839,6 @@ function WarehousesContent({
   );
 }
 
-function WarehouseAnalytics({
-  analytics,
-  warehouses
-}: {
-  analytics: ReturnType<typeof getWarehouseAnalytics>;
-  warehouses: AdminWarehouse[];
-}) {
-  const stateRows = useMemo(
-    () =>
-      Array.from(
-        warehouses.reduce((states, warehouse) => {
-          const current = states.get(warehouse.state) ?? {
-            active: 0,
-            inactive: 0,
-            state: warehouse.state,
-            total: 0
-          };
-
-          current.total += 1;
-          if (warehouse.status === "ACTIVE") {
-            current.active += 1;
-          } else {
-            current.inactive += 1;
-          }
-          states.set(warehouse.state, current);
-          return states;
-        }, new Map<string, { active: number; inactive: number; state: string; total: number }>())
-      )
-        .map(([, value]) => value)
-        .sort((left, right) => right.total - left.total || left.state.localeCompare(right.state)),
-    [warehouses]
-  );
-  const statePages = useClientPagination(stateRows);
-
-  return (
-    <Card className="panel warehouseCoveragePanel">
-      <PageHeader
-        className="warehousePageHeader warehouseCoverageHeader"
-        level={2}
-        actions={<span className="warehouseCoverageCount">{analytics.states} states</span>}
-        eyebrow="Coverage"
-        title="Warehouse footprint by state"
-      />
-      {stateRows.length > 0 ? (
-        <>
-          <div className="resourceTable warehouseTableShell warehouseAnalyticsTableShell">
-            <p className="warehouseTableHint" id="warehouse-coverage-table-hint">
-              Swipe sideways to view every coverage column.
-            </p>
-            <Table
-              aria-describedby="warehouse-coverage-table-hint"
-              aria-label="Warehouse footprint by state"
-              className="warehouseAnalyticsDataTable"
-              containerClassName="warehouseTableViewport"
-            >
-              <TableHeader>
-                <TableRow>
-                  <TableHead>State</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead>Inactive</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {statePages.pageItems.map((row) => (
-                  <TableRow key={row.state}>
-                    <TableCell>
-                      <strong>{row.state}</strong>
-                    </TableCell>
-                    <TableCell>{row.total}</TableCell>
-                    <TableCell>{row.active}</TableCell>
-                    <TableCell>{row.inactive}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <PaginationControls
-            ariaLabel="Warehouse coverage pagination"
-            onChange={statePages.setPage}
-            page={statePages.page}
-            pageSize={statePages.pageSize}
-            totalItems={statePages.totalItems}
-            totalPages={statePages.totalPages}
-          />
-        </>
-      ) : (
-        <EmptyState
-          body="No warehouses match the selected filters."
-          title="No warehouses found"
-        />
-      )}
-    </Card>
-  );
-}
-
 function WarehouseTable({
   canManage,
   isMutating,
@@ -997,6 +846,7 @@ function WarehouseTable({
   onDeactivate,
   onEdit,
   onDelete,
+  scope,
   warehouses
 }: {
   canManage: boolean;
@@ -1005,112 +855,138 @@ function WarehouseTable({
   onDeactivate: (warehouse: AdminWarehouse) => void;
   onEdit: (warehouse: AdminWarehouse) => void;
   onDelete: (warehouse: AdminWarehouse) => void;
+  scope: string;
   warehouses: AdminWarehouse[];
 }) {
+  const warehousePages = useClientPagination(warehouses, scope);
+
   return (
-    <div className="resourceTable warehouseTableShell warehouseListTableShell">
-      <p className="warehouseTableHint" id="warehouse-list-table-hint">
-        Swipe sideways to view every warehouse option.
-      </p>
-      <Table
-        aria-describedby="warehouse-list-table-hint"
-        aria-label="Warehouses"
-        className="warehouseDataTable"
-        containerClassName="warehouseTableViewport"
-      >
-        <TableHeader>
-          <TableRow>
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="warehouseActionsCell">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {warehouses.map((warehouse) => (
-            <TableRow key={warehouse.id}>
-              <TableCell>
-                <strong title={warehouse.name}>{warehouse.name}</strong>
-                <em>{warehouse.code}</em>
-              </TableCell>
-              <TableCell>
-                <span className="warehouseCellText" title={`${warehouse.city}, ${warehouse.state}`}>
-                  {warehouse.city}, {warehouse.state}
-                </span>
-                <em>{warehouse.pincode}</em>
-              </TableCell>
-              <TableCell>
-                <span className="warehouseCellText" title={warehouse.contactPerson}>
-                  {warehouse.contactPerson}
-                </span>
-                <em>{warehouse.contactNumber}</em>
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={warehouse.status} />
-              </TableCell>
-              <TableCell className="warehouseActionsCell">
-                <span className="tableActions">
-                  <Button
-                    aria-label={`Edit ${warehouse.name}`}
-                    className="tableIconButton"
-                    disabled={!canManage || isMutating}
-                    onClick={() => onEdit(warehouse)}
-                    size="icon"
-                    title="Edit"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Pencil aria-hidden size={16} />
-                  </Button>
-                  {warehouse.status === "ACTIVE" ? (
-                    <Button
-                      aria-label={`Deactivate ${warehouse.name}`}
-                      className="tableIconButton"
-                      disabled={!canManage || isMutating}
-                      onClick={() => onDeactivate(warehouse)}
-                      size="icon"
-                      title="Deactivate"
-                      type="button"
-                      variant="outline"
-                    >
-                      <PowerOff aria-hidden size={16} />
-                    </Button>
-                  ) : (
-                    <Button
-                      aria-label={`Activate ${warehouse.name}`}
-                      className="tableIconButton"
-                      disabled={!canManage || isMutating}
-                      onClick={() => onActivate(warehouse)}
-                      size="icon"
-                      title="Activate"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Power aria-hidden size={16} />
-                    </Button>
-                  )}
-                  {canManage ? (
-                    <Button
-                      aria-label={`Delete ${warehouse.name}`}
-                      className="tableIconButton"
-                      disabled={isMutating}
-                      onClick={() => onDelete(warehouse)}
-                      size="icon"
-                      title="Delete"
-                      type="button"
-                      variant="destructive"
-                    >
-                      <Trash2 aria-hidden size={16} />
-                    </Button>
-                  ) : null}
-                </span>
-              </TableCell>
+    <>
+      <div className="resourceTable warehouseTableShell warehouseListTableShell">
+        <p className="warehouseTableHint" id="warehouse-list-table-hint">
+          Swipe sideways to view every warehouse option.
+        </p>
+        <Table
+          aria-describedby="warehouse-list-table-hint"
+          aria-label="Warehouses"
+          className="warehouseDataTable"
+          containerClassName="warehouseTableViewport"
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="warehouseActionsCell">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {warehousePages.pageItems.map((warehouse) => (
+              <TableRow key={warehouse.id}>
+                <TableCell>
+                  <Link className="warehouseNameLink" href={buildWarehouseDetailPath(warehouse.id)}>
+                    <strong title={warehouse.name}>{warehouse.name}</strong>
+                  </Link>
+                  <em>{warehouse.code}</em>
+                </TableCell>
+                <TableCell>
+                  <span className="warehouseCellText" title={`${warehouse.city}, ${warehouse.state}`}>
+                    {warehouse.city}, {warehouse.state}
+                  </span>
+                  <em>{warehouse.pincode}</em>
+                </TableCell>
+                <TableCell>
+                  <span className="warehouseCellText" title={warehouse.contactPerson}>
+                    {warehouse.contactPerson}
+                  </span>
+                  <em>{warehouse.contactNumber}</em>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={warehouse.status} />
+                </TableCell>
+                <TableCell className="warehouseActionsCell">
+                  <span className="tableActions">
+                    <Button
+                      asChild
+                      className="tableIconButton"
+                      size="icon"
+                      title="View"
+                      variant="outline"
+                    >
+                      <Link aria-label={`View ${warehouse.name}`} href={buildWarehouseDetailPath(warehouse.id)}>
+                        <Eye aria-hidden size={16} />
+                      </Link>
+                    </Button>
+                    <Button
+                      aria-label={`Edit ${warehouse.name}`}
+                      className="tableIconButton"
+                      disabled={!canManage || isMutating}
+                      onClick={() => onEdit(warehouse)}
+                      size="icon"
+                      title="Edit"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Pencil aria-hidden size={16} />
+                    </Button>
+                    {warehouse.status === "ACTIVE" ? (
+                      <Button
+                        aria-label={`Deactivate ${warehouse.name}`}
+                        className="tableIconButton"
+                        disabled={!canManage || isMutating}
+                        onClick={() => onDeactivate(warehouse)}
+                        size="icon"
+                        title="Deactivate"
+                        type="button"
+                        variant="outline"
+                      >
+                        <PowerOff aria-hidden size={16} />
+                      </Button>
+                    ) : (
+                      <Button
+                        aria-label={`Activate ${warehouse.name}`}
+                        className="tableIconButton"
+                        disabled={!canManage || isMutating}
+                        onClick={() => onActivate(warehouse)}
+                        size="icon"
+                        title="Activate"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Power aria-hidden size={16} />
+                      </Button>
+                    )}
+                    {canManage ? (
+                      <Button
+                        aria-label={`Delete ${warehouse.name}`}
+                        className="tableIconButton"
+                        disabled={isMutating}
+                        onClick={() => onDelete(warehouse)}
+                        size="icon"
+                        title="Delete"
+                        type="button"
+                        variant="destructive"
+                      >
+                        <Trash2 aria-hidden size={16} />
+                      </Button>
+                    ) : null}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <PaginationControls
+        ariaLabel="Warehouses pagination"
+        onChange={(nextPage) => { if (!isMutating) warehousePages.setPage(nextPage); }}
+        page={warehousePages.page}
+        pageSize={warehousePages.pageSize}
+        totalItems={warehousePages.totalItems}
+        totalPages={warehousePages.totalPages}
+      />
+    </>
   );
 }
 

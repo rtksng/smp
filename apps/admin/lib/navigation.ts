@@ -110,11 +110,6 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
         href: "/warehouses/staff",
         label: "Warehouse staff",
         permissions: [ADMIN_PERMISSION.WarehouseStaffManage]
-      },
-      {
-        href: "/warehouses/list",
-        label: "Warehouse list",
-        permissions: [ADMIN_PERMISSION.WarehouseRead]
       }
     ],
     permissions: [ADMIN_PERMISSION.WarehouseRead]

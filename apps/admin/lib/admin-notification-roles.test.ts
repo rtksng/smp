@@ -200,7 +200,7 @@ function permissionForPath(href: string) {
   if (href.startsWith("/inventory")) return "inventory.read";
   if (href.startsWith("/delivery/")) return "delivery.read";
   if (href.startsWith("/product-feedback/")) return "products.read";
-  if (href.startsWith("/warehouses/")) return "warehouse.read";
+  if (href === "/warehouses" || href.startsWith("/warehouses?") || href.startsWith("/warehouses/")) return "warehouse.read";
   if (href.startsWith("/customers/")) return "users.read";
   if (href.startsWith("/reports/")) return "reports.read";
   throw new Error(`Unknown notification destination ${href}`);

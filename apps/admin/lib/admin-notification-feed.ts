@@ -9,7 +9,7 @@ import type { AdminOrder, PaginatedResponse } from "./order-management";
 import { ADMIN_PERMISSION, hasPermission } from "./permissions";
 import type { DashboardReport } from "./reports-management";
 import type { AdminProductFeedback, AdminQuoteRequest } from "./support-management";
-import type { WarehouseListResponse } from "./warehouse-management";
+import { buildWarehouseDetailPath, type WarehouseListResponse } from "./warehouse-management";
 
 export type AdminNotificationKind =
   | "order"
@@ -296,7 +296,7 @@ export async function loadAdminNotificationFeed(
           kind: "warehouse",
           title: `Warehouse added: ${warehouse.name}`,
           description: `Warehouse ${warehouse.code} was created.`,
-          href: `/warehouses/list?warehouseId=${encodeURIComponent(warehouse.id)}`,
+          href: buildWarehouseDetailPath(warehouse.id),
           occurredAt: new Date(warehouse.createdAt).toISOString()
         }));
       }

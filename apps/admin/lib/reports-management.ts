@@ -8,6 +8,7 @@ import {
   type OrderStatus,
   type PaymentStatus
 } from "./order-management";
+import { buildWarehouseDetailPath } from "./warehouse-management";
 
 export const REPORT_ORDER_STATUSES = ORDER_STATUSES;
 export const REPORT_PAYMENT_STATUSES = PAYMENT_STATUSES;
@@ -173,9 +174,12 @@ export function buildReportDrilldownHref(
     case "product":
       return resourceId ? `/products/${encodeURIComponent(resourceId)}/edit` : "/products";
     case "warehouse":
-      return buildRelativePath("/warehouses/list", {
-        warehouseId: resourceId || filters.warehouseId || undefined
-      });
+      // A report row opens that warehouse; report-wide links open the list filtered by the report.
+      return resourceId
+        ? buildWarehouseDetailPath(resourceId)
+        : buildRelativePath("/warehouses", {
+            warehouseId: filters.warehouseId || undefined
+          });
   }
 }
 
