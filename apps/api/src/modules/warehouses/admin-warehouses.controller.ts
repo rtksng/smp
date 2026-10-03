@@ -40,6 +40,7 @@ import {
   WarehouseListQueryDto,
   WarehouseListResponseDto,
   WarehouseResponseDto,
+  WarehouseStaffCandidateResponseDto,
   WarehouseStaffResponseDto
 } from "./dto/warehouse.dto";
 import type { AdminActionContext } from "./warehouses.service";
@@ -211,6 +212,24 @@ export class AdminWarehousesController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.warehousesService.listStaff(id, getAuth(request));
+  }
+
+  @Get(":id/staff/candidates")
+  @RequirePermission(PermissionCode.WarehouseStaffManage)
+  @ApiOperation({ summary: "List active admin users that can be assigned to a warehouse." })
+  @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
+  @ApiOkResponse({
+    description: "Assignable admin users returned.",
+    type: [WarehouseStaffCandidateResponseDto]
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks warehouse.staff.manage permission or assignment." })
+  @ApiNotFoundResponse({ description: "Warehouse does not exist." })
+  listStaffCandidates(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.warehousesService.listStaffCandidates(id, getAuth(request));
   }
 
   @Delete(":id/staff/:staffId")

@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
 import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import type { PrismaService } from "../../src/database/prisma.service";
@@ -269,6 +269,13 @@ test("admin warehouse controller methods declare required permissions", () => {
     ),
     [PermissionCode.WarehouseStaffManage]
   );
+  assert.deepEqual(
+    Reflect.getMetadata(
+      "admin:required-permissions",
+      AdminWarehousesController.prototype.listStaffCandidates
+    ),
+    [PermissionCode.WarehouseStaffManage]
+  );
 });
 
 test("warehouse create and edit persist status in the same write as the details", async () => {
@@ -326,7 +333,70 @@ test("staff reads and removals reject a missing or deleted warehouse even for su
   const prisma = { ...base, warehouse: { ...base.warehouse, findFirst: async () => null } };
   const service = new WarehousesService(prisma as unknown as PrismaService, new FakeWarehouseAccess() as unknown as WarehouseAccessService);
   await assert.rejects(() => service.listStaff("warehouse-1", adminAuth(AdminRoleCode.SuperAdmin)), NotFoundException);
+  await assert.rejects(() => service.listStaffCandidates("warehouse-1", adminAuth(AdminRoleCode.SuperAdmin)), NotFoundException);
   await assert.rejects(() => service.removeStaff("warehouse-1", "admin-1", actionContext(AdminRoleCode.SuperAdmin)), NotFoundException);
+});
+
+test("staff candidates are active admins not yet assigned, labelled with their role", async () => {
+  const findManyCalls: unknown[] = [];
+  const access = new FakeWarehouseAccess();
+  const prisma = {
+    adminUser: {
+      findMany: async (args: unknown) => {
+        findManyCalls.push(args);
+        return [{
+          email: "manager@example.test",
+          firstName: "Asha",
+          id: "admin-2",
+          lastName: null,
+          role: { code: AdminRoleCode.WarehouseManager, id: "role-1", name: "Warehouse manager" }
+        }];
+      }
+    },
+    warehouse: { findFirst: async () => warehouseRecord() }
+  };
+  const service = new WarehousesService(prisma as unknown as PrismaService, access as unknown as WarehouseAccessService);
+
+  assert.deepEqual(await service.listStaffCandidates("warehouse-1", adminAuth()), [{
+    adminUserId: "admin-2",
+    email: "manager@example.test",
+    firstName: "Asha",
+    lastName: null,
+    role: { code: AdminRoleCode.WarehouseManager, id: "role-1", name: "Warehouse manager" }
+  }]);
+  assert.deepEqual(access.assertedWarehouseIds, ["warehouse-1"]);
+  assert.deepEqual(findManyCalls, [{
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { email: "asc" }],
+    select: {
+      email: true,
+      firstName: true,
+      id: true,
+      lastName: true,
+      role: { select: { code: true, id: true, name: true } }
+    },
+    where: {
+      deletedAt: null,
+      status: "ACTIVE",
+      warehouses: { none: { deletedAt: null, warehouseId: "warehouse-1" } }
+    }
+  }]);
+});
+
+test("staff candidates are hidden from admins who cannot manage the warehouse", async () => {
+  let adminUsersRead = false;
+  const access = {
+    assertCanManageWarehouse: async () => {
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
+    }
+  };
+  const prisma = {
+    adminUser: { findMany: async () => { adminUsersRead = true; return []; } },
+    warehouse: { findFirst: async () => warehouseRecord() }
+  };
+  const service = new WarehousesService(prisma as unknown as PrismaService, access as unknown as WarehouseAccessService);
+
+  await assert.rejects(() => service.listStaffCandidates("warehouse-1", adminAuth()), ForbiddenException);
+  assert.equal(adminUsersRead, false);
 });
 
 test("duplicate warehouse codes return a conflict without assigning staff", async () => {

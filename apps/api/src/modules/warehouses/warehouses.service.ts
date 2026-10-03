@@ -280,6 +280,43 @@ export class WarehousesService {
     return assignments.map((assignment) => this.serializeStaffAssignment(assignment));
   }
 
+  async listStaffCandidates(warehouseId: string, auth: AuthJwtPayload) {
+    await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+    await this.findExistingWarehouse(warehouseId);
+
+    const adminUsers = await this.prisma.adminUser.findMany({
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { email: "asc" }],
+      select: {
+        email: true,
+        firstName: true,
+        id: true,
+        lastName: true,
+        role: {
+          select: {
+            code: true,
+            id: true,
+            name: true
+          }
+        }
+      },
+      where: {
+        deletedAt: null,
+        status: AdminStatus.ACTIVE,
+        warehouses: {
+          none: {
+            deletedAt: null,
+            warehouseId
+          }
+        }
+      }
+    });
+
+    return adminUsers.map(({ id, ...adminUser }) => ({
+      adminUserId: id,
+      ...adminUser
+    }));
+  }
+
   async removeStaff(
     warehouseId: string,
     staffId: string,

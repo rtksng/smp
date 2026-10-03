@@ -49,6 +49,18 @@ export type WarehouseStaffAssignment = {
   warehouseId: string;
 };
 
+export type WarehouseStaffCandidate = {
+  adminUserId: string;
+  email: string;
+  firstName: string;
+  lastName: string | null;
+  role: {
+    code: string;
+    id: string;
+    name: string;
+  };
+};
+
 export type WarehouseFilters = {
   search: string;
   state: string;
@@ -136,7 +148,7 @@ export const warehouseFormSchema = z.object({
 });
 
 export const warehouseStaffFormSchema = z.object({
-  adminUserId: z.string().trim().uuid("Enter a valid admin user ID.")
+  adminUserId: z.string().trim().uuid("Select an admin user to assign.")
 });
 
 export type WarehouseFormValues = z.input<typeof warehouseFormSchema>;
@@ -331,6 +343,12 @@ export function getWarehouseStatusAction(
 
 export function formatWarehouseStatus(status: WarehouseStatus) {
   return status === "ACTIVE" ? "Active" : "Inactive";
+}
+
+export function formatWarehouseStaffCandidate(candidate: WarehouseStaffCandidate) {
+  const name = [candidate.firstName, candidate.lastName].filter(Boolean).join(" ");
+
+  return `${name} (${candidate.email}) - ${candidate.role.name}`;
 }
 
 export function getWarehouseAnalytics(warehouses: AdminWarehouse[]) {

@@ -15,6 +15,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { WarehouseStatus } from "../../../generated/prisma/enums";
+import { AdminUserRoleResponseDto } from "../../admin-users/dto/admin-user.dto";
 
 const trimText = ({ value }: { value: unknown }) =>
   typeof value === "string" ? value.trim() : value;
@@ -334,4 +335,21 @@ export class WarehouseStaffResponseDto {
 
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;
+}
+
+export class WarehouseStaffCandidateResponseDto {
+  @ApiProperty({ example: "admin-id" })
+  adminUserId!: string;
+
+  @ApiProperty({ example: "admin@example.com" })
+  email!: string;
+
+  @ApiProperty({ example: "Ravi" })
+  firstName!: string;
+
+  @ApiProperty({ example: "Sharma", nullable: true })
+  lastName!: string | null;
+
+  @ApiProperty({ type: AdminUserRoleResponseDto })
+  role!: AdminUserRoleResponseDto;
 }

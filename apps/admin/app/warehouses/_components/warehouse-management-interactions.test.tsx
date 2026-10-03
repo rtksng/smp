@@ -12,6 +12,13 @@ vi.mock("../../../lib/admin-session", () => ({
   ProtectedRoute: ({ children }: { children: ReactNode }) => children,
   PermissionGate: ({ children, fallback }: { children: ReactNode; fallback: ReactNode }) => access.allowed ? children : fallback
 }));
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ children, value, onValueChange, disabled, "aria-label": label }: { children: ReactNode; value: string; onValueChange: (value: string) => void; disabled?: boolean; "aria-label"?: string }) => <select aria-label={label} disabled={disabled} value={value} onChange={(event) => onValueChange(event.target.value)}><option value="">Select</option>{children}</select>,
+  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectItem: ({ children, value }: { children: ReactNode; value: string }) => <option value={value}>{children}</option>,
+  SelectTrigger: () => null,
+  SelectValue: () => null
+}));
 
 const warehouse = {
   id: "warehouse-1", name: "QA warehouse", code: "1", address: "Plot 1", city: "Pune", state: "Maharashtra",
@@ -20,6 +27,8 @@ const warehouse = {
 };
 const adminId = "daaa9716-a744-4a6e-9015-9e9da8ea5912";
 const assignment = { id: "assignment-1", adminUserId: adminId, warehouseId: warehouse.id, firstName: "QA", lastName: "Staff", email: "qa@example.test" };
+const candidate = { adminUserId: adminId, firstName: "QA", lastName: "Staff", email: "qa@example.test", role: { code: "WAREHOUSE_MANAGER", id: "role-1", name: "Warehouse manager" } };
+const candidateLabel = "QA Staff (qa@example.test) - Warehouse manager";
 const response = (page = 1, totalPages = 1) => ({ items: [{ ...warehouse, id: `warehouse-${page}` }], pagination: { page, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1, limit: 100, total: totalPages * 100 } });
 const clients: QueryClient[] = [];
 
@@ -34,6 +43,7 @@ beforeEach(() => {
   access.allowed = true;
   request.mockImplementation(async (path: string, options?: { method?: string }) => {
     if (options?.method) return warehouse;
+    if (path.endsWith("/staff/candidates")) return [];
     if (path.endsWith("/staff")) return [];
     return path === "/admin/warehouses" ? response() : warehouse;
   });
@@ -78,7 +88,7 @@ it("opens later warehouse list pages", async () => {
   await waitFor(() => expect(request).toHaveBeenCalledWith("/admin/warehouses", expect.objectContaining({ query: expect.objectContaining({ page: 2 }) })));
 });
 
-it("handles invalid staff, backend rejection, successful assignment and removal", async () => {
+it("assigns staff picked by name, email and role, surfaces rejections, and offers removed staff again", async () => {
   let assigned = false;
   let reject = true;
   request.mockImplementation(async (path: string, options?: { method?: string }) => {
@@ -88,30 +98,35 @@ it("handles invalid staff, backend rejection, successful assignment and removal"
       return assignment;
     }
     if (options?.method === "DELETE") { assigned = false; return; }
+    if (path.endsWith("/staff/candidates")) return assigned ? [] : [candidate];
     if (path.endsWith("/staff")) return assigned ? [assignment] : [];
     return response();
   });
   mount("staff");
-  const input = await screen.findByRole("textbox", { name: "Admin user ID" });
-  fireEvent.change(input, { target: { value: "invalid" } });
+  const picker = await screen.findByLabelText("Admin user");
   fireEvent.click(screen.getByRole("button", { name: "Assign staff" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("valid admin user ID");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Select an admin user to assign.");
   expect(request.mock.calls.filter(([, options]) => options?.method)).toHaveLength(0);
-  fireEvent.change(input, { target: { value: adminId } });
+  await screen.findByRole("option", { name: candidateLabel });
+  fireEvent.change(picker, { target: { value: adminId } });
   fireEvent.click(screen.getByRole("button", { name: "Assign staff" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Admin user was not found.");
   reject = false;
   fireEvent.click(screen.getByRole("button", { name: "Assign staff" }));
   expect(await screen.findByText("qa@example.test")).toBeInTheDocument();
+  expect(request).toHaveBeenCalledWith(`/admin/warehouses/${warehouse.id}/staff`, { body: JSON.stringify({ adminUserId: adminId }), method: "POST" });
+  await waitFor(() => expect(screen.queryByRole("option", { name: candidateLabel })).not.toBeInTheDocument());
+  expect(picker).toBeDisabled();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(screen.queryByText("qa@example.test")).not.toBeInTheDocument());
   expect(request).toHaveBeenCalledWith(`/admin/warehouses/${warehouse.id}/staff/${adminId}`, { method: "DELETE" });
+  expect(await screen.findByRole("option", { name: candidateLabel })).toBeInTheDocument();
 });
 
-it("does not fetch staff assignments without staff-management permission", async () => {
+it("does not fetch staff assignments or candidates without staff-management permission", async () => {
   access.allowed = false;
   mount("staff");
   expect(await screen.findByText("Staff management unavailable")).toBeInTheDocument();
-  expect(request.mock.calls.some(([path]) => path.endsWith("/staff"))).toBe(false);
+  expect(request.mock.calls.some(([path]) => path.includes("/staff"))).toBe(false);
 });

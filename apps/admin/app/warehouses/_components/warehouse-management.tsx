@@ -64,6 +64,7 @@ import {
   loadWarehouseResults,
   createEmptyWarehouseFilters,
   createEmptyWarehouseFormValues,
+  formatWarehouseStaffCandidate,
   formatWarehouseStatus,
   getWarehouseAnalytics,
   getWarehouseFilterContent,
@@ -77,6 +78,7 @@ import {
   type WarehouseFormValues,
   type WarehouseListResponse,
   type WarehouseStaffAssignment,
+  type WarehouseStaffCandidate,
   type WarehouseStatus
 } from "../../../lib/warehouse-management";
 import "../warehouse-responsive.css";
@@ -180,6 +182,16 @@ function WarehousesContent({
     queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
   });
 
+  // Nested under the staff key so assigning or removing staff also refreshes this list.
+  const staffCandidatesQuery = useQuery({
+    enabled: Boolean(view === "staff" && selectedWarehouseId && canManageStaff),
+    queryFn: () =>
+      api.request<WarehouseStaffCandidate[]>(
+        `/admin/warehouses/${selectedWarehouseId ?? ""}/staff/candidates`
+      ),
+    queryKey: ["admin", "warehouses", selectedWarehouseId, "staff", "candidates"]
+  });
+
   const createMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof buildWarehousePayload>) =>
       api.request<AdminWarehouse>("/admin/warehouses", {
@@ -233,6 +245,12 @@ function WarehousesContent({
     warehouseDetailQuery.data ??
     warehouses.find((warehouse) => warehouse.id === selectedWarehouseId) ??
     null;
+  const staffCandidates = staffCandidatesQuery.data ?? [];
+  const staffCandidatePlaceholder = staffCandidatesQuery.isLoading
+    ? "Loading admin users..."
+    : staffCandidates.length > 0
+      ? "Select admin user"
+      : "No admin users to assign";
   const showWarehouseFilters = shouldShowWarehouseFilters(view);
   const warehouseFilterContent = getWarehouseFilterContent(view);
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -452,7 +470,7 @@ function WarehousesContent({
     const parsed = warehouseStaffFormSchema.safeParse({ adminUserId: staffAdminUserId });
 
     if (!parsed.success) {
-      setStaffError(parsed.error.issues[0]?.message ?? "Enter a valid admin user ID.");
+      setStaffError(parsed.error.issues[0]?.message ?? "Select an admin user to assign.");
       return;
     }
 
@@ -805,14 +823,29 @@ function WarehousesContent({
                   {staffError}
                 </p>
               ) : null}
+              {staffCandidatesQuery.isError ? (
+                <p className="formError" role="alert">
+                  {getErrorMessage(staffCandidatesQuery.error) ?? "Unable to load admin users."}
+                </p>
+              ) : null}
               <form className="inlineForm warehouseStaffAssignForm" onSubmit={handleAssignStaff}>
-                <Input
-                  aria-label="Admin user ID"
-                  disabled={isMutating}
-                  onChange={(event) => setStaffAdminUserId(event.target.value)}
-                  placeholder="Admin user ID"
+                <Select
+                  aria-label="Admin user"
+                  disabled={isMutating || staffCandidates.length === 0}
+                  onValueChange={setStaffAdminUserId}
                   value={staffAdminUserId}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={staffCandidatePlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staffCandidates.map((candidate) => (
+                      <SelectItem key={candidate.adminUserId} value={candidate.adminUserId}>
+                        {formatWarehouseStaffCandidate(candidate)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   className="iconTextButton"
                   disabled={!selectedWarehouseId || isMutating}

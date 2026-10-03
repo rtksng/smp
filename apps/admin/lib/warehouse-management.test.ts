@@ -9,6 +9,7 @@ import {
   buildWarehouseQuery,
   createEmptyWarehouseFilters,
   createWarehouseFiltersFromSearchParams,
+  formatWarehouseStaffCandidate,
   getWarehouseEditId,
   getWarehouseAnalytics,
   getWarehouseFilterContent,
@@ -201,5 +202,22 @@ describe("warehouse management helpers", () => {
       searchPlaceholder: "Warehouse for staff assignment",
       submitLabel: "Apply staff filters"
     });
+  });
+
+  it("labels staff candidates with their name, email, and role", () => {
+    const candidate = {
+      adminUserId: "admin-2",
+      email: "asha@example.com",
+      firstName: "Asha",
+      lastName: null,
+      role: { code: "WAREHOUSE_MANAGER", id: "role-1", name: "Warehouse manager" }
+    };
+
+    expect(formatWarehouseStaffCandidate(candidate)).toBe(
+      "Asha (asha@example.com) - Warehouse manager"
+    );
+    expect(formatWarehouseStaffCandidate({ ...candidate, lastName: "Rao" })).toBe(
+      "Asha Rao (asha@example.com) - Warehouse manager"
+    );
   });
 });
