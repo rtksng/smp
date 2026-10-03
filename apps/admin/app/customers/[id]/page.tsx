@@ -1,12 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  MessageSquarePlus,
-  RefreshCw
-} from "lucide-react";
+import { CheckCircle2, MessageSquarePlus, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -49,7 +44,6 @@ import {
   CUSTOMER_STATUSES,
   formatCustomerStatus,
   formatCustomerDate,
-  getCustomerStatusTone,
   resolveCustomerStatus,
   type AdminCustomerAddress,
   type AdminCustomerDetail,
@@ -58,6 +52,7 @@ import {
   type CustomerStatus
 } from "../../../lib/customer-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import {
   formatCurrency,
   formatDateTime,
@@ -168,12 +163,6 @@ function CustomerDetailContent() {
           <PageHeader
             actions={
               <div className="actionRow customerDetailHeaderActions">
-                <Button asChild className="iconTextButton" variant="outline">
-                  <Link href="/customers">
-                    <ArrowLeft aria-hidden size={16} />
-                    <span>Back</span>
-                  </Link>
-                </Button>
                 <Button
                   className="iconTextButton"
                   onClick={() => void customerQuery.refetch()}
@@ -185,6 +174,8 @@ function CustomerDetailContent() {
                 </Button>
               </div>
             }
+            backHref="/customers"
+            backLabel="Back to customers"
             eyebrow="Customer detail"
             className="customerDetailPageHeader"
             summary="Profile, address, order, and support activity for this customer."
@@ -225,12 +216,12 @@ function CustomerDetailContent() {
         <>
           <div className="orderDetailGrid customerProfileGrid my-3">
             <section className="panel customerDetailPanel">
+              {/* Status already leads the metric cards above, so the profile header stays plain. */}
               <div className="panelHeader">
                 <div>
                   <p className="eyebrow">Profile</p>
                   <h2>Customer info</h2>
                 </div>
-                <StatusBadge status={getCustomerStatusTone(customerStatus)} />
               </div>
               <div className="detailGrid">
                 <DetailItem label="Name" value={customer.name} />
@@ -406,17 +397,25 @@ function CustomerOrdersTable({
 }: {
   orders: AdminCustomerOrderSummary[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow(orders.length > 0);
+
   if (orders.length === 0) {
     return <EmptyState body="No orders found for this customer." title="No orders" />;
   }
 
   return (
-    <div className="customerOrderTableShell">
-      <p className="customerTableHint">
-        Swipe sideways to view every order option.
-      </p>
+    <div
+      className="customerOrderTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="customerTableHint" id="customer-orders-table-hint">
+          Swipe sideways to view every order option.
+        </p>
+      ) : null}
       <div className="resourceTable ordersTable customerOrdersTable">
-        <Table>
+        <Table aria-describedby="customer-orders-table-hint" aria-label="Order history">
         <TableHeader>
           <TableRow>
             <TableHead>Order</TableHead>
@@ -430,19 +429,23 @@ function CustomerOrdersTable({
         <TableBody>
           {orders.map((order) => (
             <TableRow key={order.id}>
-              <TableCell>
+              <TableCell className="customerOrderCell">
                 <strong>{order.orderNumber}</strong>
-                <em>{order.id}</em>
+                <em title={order.id}>{order.id}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="customerOrderStatusCell">
                 <StatusBadge status={order.status} />
               </TableCell>
-              <TableCell>
+              <TableCell className="customerOrderPaymentCell" data-label="Payment">
                 <StatusBadge status={order.paymentStatus} />
               </TableCell>
-              <TableCell>{formatCurrency(order.grandTotal)}</TableCell>
-              <TableCell>{formatDateTime(order.placedAt ?? order.createdAt)}</TableCell>
-              <TableCell>
+              <TableCell className="customerOrderTotalCell" data-label="Total">
+                {formatCurrency(order.grandTotal)}
+              </TableCell>
+              <TableCell className="customerOrderPlacedCell" data-label="Placed">
+                {formatDateTime(order.placedAt ?? order.createdAt)}
+              </TableCell>
+              <TableCell className="customerOrderActionCell">
                 <Button asChild size="sm" variant="outline">
                   <Link href={`/orders/${order.id}`}>Open</Link>
                 </Button>

@@ -55,4 +55,31 @@ describe("Delivery Charges responsive source", () => {
       /\.deliveryChargeModule \.deliveryChargeFormPanel \.deliveryChargeFormGrid\s*{[^}]*grid-template-columns:\s*1fr/s
     );
   });
+
+  it("only shows the swipe hint when the rules table overflows and uses cards on phones", () => {
+    expect(sectionsSource).toContain("useTableOverflow()");
+    expect(sectionsSource).toContain('data-overflowing={isOverflowing ? "true" : undefined}');
+    expect(sectionsSource).toContain('data-label="Charge"');
+    expect(sectionsSource).toContain('data-label="Order range"');
+    expect(responsiveStyles).not.toContain("min-width: 1040px");
+    expect(responsiveStyles).toContain(
+      '.deliveryChargeModule .deliveryChargeRulesTable[data-overflowing="true"]'
+    );
+    expect(responsiveStyles).toContain('"check rule status"');
+    expect(responsiveStyles).toMatch(
+      /td:is\(\.deliveryChargeRuleCell, \.deliveryChargeScopeCell\) > \*\s*{[^}]*white-space:\s*normal !important;/s
+    );
+  });
+
+  it("keeps create and edit forms compact with a back link and one footer row", () => {
+    expect(sectionsSource).toContain('backHref={view === "new" ? "/delivery-charges/rules" : undefined}');
+    expect(sectionsSource).not.toContain("View rules");
+    expect(sectionsSource).toContain('className="deliveryChargeFormFooter"');
+    expect(responsiveStyles).toMatch(
+      /\.deliveryChargeModule \.deliveryChargeFormFooter\s*{[^}]*justify-content:\s*space-between;/s
+    );
+    expect(responsiveStyles).toMatch(
+      /\.deliveryChargeModule \.deliveryChargeMetricGrid\s*{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/s
+    );
+  });
 });

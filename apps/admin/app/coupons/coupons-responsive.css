@@ -1,3 +1,9 @@
+/*
+ * Coupon pages are scoped under .couponModule so they outrank the shared single-class rules in
+ * globals.css. Layout follows the settings, delivery charge, and catalog modules: compact header
+ * actions, one-row KPIs, header search, a table that only pins columns when it scrolls sideways,
+ * and labelled cards on phones.
+ */
 .couponModule,
 .couponModule > *,
 .couponModule .couponMetricGrid,
@@ -13,28 +19,59 @@
 .couponModule .couponOverviewPanel,
 .couponModule .couponListPanel,
 .couponModule .couponFormPanel {
+  display: grid;
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   padding: 18px;
 }
 
+.couponModule .couponOverviewPanel > :is(.formSuccess, .formError) {
+  margin: 0;
+}
+
+.couponModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
+}
+
+/* Section tabs mirror the settings and delivery charge modules. */
 .couponModule .couponSectionNav {
+  display: grid;
   gap: 4px;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  justify-self: start;
   padding: 4px;
 }
 
 .couponModule .couponSectionNav a {
-  min-height: 34px;
-  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 750;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  padding: 8px 14px;
+  text-align: center;
 }
 
-.couponModule .couponPageHeader,
-.couponModule .couponSectionHeader {
+.couponModule .couponSectionNav a[aria-current="page"] {
+  box-shadow: 0 2px 8px rgba(15, 111, 104, 0.18);
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.couponModule .adminPageHeader {
   align-items: center;
   flex-direction: row;
   gap: 12px;
+  margin: 0;
 }
 
-.couponModule .couponPageHeader .adminPageActions {
+.couponModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.couponModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   margin-left: auto;
   width: auto;
 }
@@ -43,34 +80,38 @@
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  width: auto;
 }
 
 .couponModule .couponHeaderActions > * {
   min-height: 38px;
   padding-inline: 12px;
+  white-space: nowrap;
   width: auto;
 }
 
+/* Five KPIs stay on one row until phones, so tablets never leave an empty slot. */
 .couponModule .couponMetricGrid {
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  margin: 0;
 }
 
 .couponModule .couponMetricGrid > [data-slot="card"] {
-  min-height: 94px !important;
+  min-height: 90px !important;
 }
 
 .couponModule .couponMetricGrid .metricCardContent {
-  padding: 13px 14px !important;
+  padding: 12px 14px !important;
 }
 
 .couponModule .couponMetricGrid .metricCardContent strong {
-  font-size: 26px;
-  margin-top: 9px !important;
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px !important;
 }
 
 .couponModule .couponListPanel {
-  display: grid;
   gap: 12px;
 }
 
@@ -78,26 +119,42 @@
   margin-bottom: 0;
 }
 
-.couponModule .couponFilters {
-  align-items: end;
-  gap: 10px;
-  grid-template-columns: minmax(180px, 1fr) auto !important;
+.couponModule .couponListPanel .paginationControls {
+  margin-top: 0;
 }
 
-.couponModule .couponFilters > label {
+/* The single code search lives in the list header, like the brand and category search. */
+.couponModule .couponSectionHeader .adminPageActions {
+  flex: 0 1 460px;
+  min-width: min(100%, 300px);
+}
+
+.couponModule .couponFilters {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.couponModule .couponFilterSearch {
+  display: block;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.couponModule .couponFilters .productFilterActions {
-  align-items: center;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  gap: 8px;
+.couponModule .couponFilterSearch .searchInput {
+  width: 100%;
 }
 
-.couponModule .couponFilters .productFilterActions button {
+.couponModule .couponFilterActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.couponModule .couponFilterActions button {
   min-height: 40px;
-  width: auto;
+  padding-inline: 14px;
 }
 
 .couponModule .couponBulkActions .bulkActions {
@@ -149,39 +206,36 @@
   grid-column: 1 / -1;
 }
 
+/* Table shell: border and hint strip wrap the shared viewport, which owns scrolling. */
 .couponModule .couponTableShell {
+  border: 1px solid var(--border);
+  border-radius: 8px;
   max-width: 100%;
   overflow: hidden;
 }
 
 .couponModule .couponTableHint {
   background: #effaf8;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
-  border-radius: 8px;
-  color: var(--muted);
-  display: none;
+  border-bottom: 1px solid #c5e7e3;
+  color: #0f6f68;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 750;
   line-height: 1.4;
-  margin: 0 0 8px;
-  padding: 7px 9px;
+  margin: 0;
+  padding: 8px 10px;
 }
 
-.couponModule .resourceTable.couponTable {
+.couponModule .couponTableShell .resourceTable.couponTable {
+  border: 0;
+  border-radius: 0;
   margin: 0;
   max-width: 100%;
-  overflow: hidden;
 }
 
-.couponModule .couponTable .adminTableViewport {
-  max-width: 100%;
-  overflow: auto;
-}
-
-.couponModule .couponTable [data-slot="table"] {
-  min-width: 0 !important;
-  table-layout: fixed !important;
-  width: 100%;
+.couponModule .couponTable [data-slot="table-container"] {
+  max-height: min(620px, calc(100dvh - 180px));
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
 }
 
 .couponModule .couponTable th,
@@ -189,54 +243,23 @@
   padding-inline: 10px;
 }
 
-.couponModule .couponTable th:first-child {
-  width: 44px;
-}
-
-.couponModule .couponTable tr > .bulkCheckboxCell {
-  max-width: 44px !important;
-  min-width: 44px !important;
-  width: 44px !important;
-}
-
-.couponModule .couponTable th:nth-child(2) {
-  width: 126px;
-}
-
-.couponModule .couponTable th:nth-child(3) {
-  width: 94px;
-}
-
-.couponModule .couponTable th:nth-child(4) {
-  width: 150px;
-}
-
-.couponModule .couponTable th:nth-child(5) {
-  width: 188px;
-}
-
-.couponModule .couponTable th:nth-child(6) {
-  width: 100px;
-}
-
-.couponModule .couponTable th:nth-child(7) {
-  width: 96px;
-}
-
-.couponModule .couponTable th:last-child {
-  width: 96px;
-}
-
-.couponModule .couponTable th:last-child,
-.couponModule .couponTable td:last-child {
-  max-width: 96px !important;
-  min-width: 96px !important;
-  width: 96px !important;
-}
-
-.couponModule .couponTable td strong,
-.couponModule .couponTable td em {
+/* Long codes wrap onto a second line instead of being cut off with an ellipsis. */
+.couponModule .couponTable td.couponCodeCell,
+.couponModule .couponTable td.couponCodeCell > * {
+  overflow: visible !important;
   overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.couponModule .couponTable td.couponCodeCell {
+  line-height: 1.35;
+  max-width: 220px !important;
+  min-width: 140px !important;
+}
+
+.couponModule .couponTable tr > .couponActionsCell {
+  width: 1%;
 }
 
 .couponModule .couponTable .tableActions {
@@ -247,6 +270,11 @@
 .couponModule .couponFormOnlyPanel {
   max-width: none;
   width: 100%;
+}
+
+/* The shared .formStack top margin applies to both the form and its fieldset; neither needs it here. */
+.couponModule :is(.couponForm, .couponFormFieldset) {
+  margin-top: 0;
 }
 
 .couponModule .couponFormFieldset {
@@ -264,15 +292,26 @@
   width: 100%;
 }
 
+/* The active toggle and the save buttons share one row instead of two half-empty ones. */
+.couponModule .couponFormFooter {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .couponModule .couponActiveField {
   margin: 0;
-  padding: 11px 12px;
+  padding: 10px 12px;
 }
 
 .couponModule .couponFormActions {
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .couponModule .couponFormActions button {
@@ -280,51 +319,50 @@
   width: auto;
 }
 
-@media (max-width: 1100px) {
-  .couponModule .couponTableHint {
-    display: block;
-  }
-
-  .couponModule .couponTable [data-slot="table"] {
-    min-width: 980px !important;
-  }
-
+/* Selection and actions stay pinned only while the coupon columns scroll sideways. */
+@media (min-width: 641px) {
   .couponModule .couponTable tr > .bulkCheckboxCell {
-    background: var(--surface);
-    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.45);
     left: 0;
     max-width: 44px !important;
     min-width: 44px !important;
     position: sticky;
     width: 44px !important;
-    z-index: 3;
   }
 
   .couponModule .couponTable th:last-child,
   .couponModule .couponTable td:last-child {
-    background: var(--surface);
-    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    max-width: 96px !important;
-    min-width: 96px !important;
     position: sticky;
     right: 0;
-    width: 96px !important;
+  }
+
+  .couponModule .couponTable th:is(.bulkCheckboxCell, :last-child) {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+
+  .couponModule .couponTable td:is(.bulkCheckboxCell, :last-child) {
+    background: var(--surface);
     z-index: 2;
   }
 
-  .couponModule .couponTable th:last-child {
-    background: var(--surface-muted);
-    z-index: 4;
+  .couponModule .couponTableShell[data-overflowing="true"] tr > .bulkCheckboxCell {
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
+
+  .couponModule .couponTableShell[data-overflowing="true"] :is(th, td):last-child {
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
+}
+
+@media (max-width: 1280px) {
+  .couponModule .couponFormPanel .couponFormGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 980px) {
-  .couponModule .couponMetricGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-
-  .couponModule .couponPageHeader {
-    flex-direction: row;
+  .couponModule .couponTable [data-slot="table-container"] {
+    max-height: min(560px, calc(100dvh - 150px));
   }
 
   .couponModule .couponFormPanel .couponFormGrid {
@@ -332,64 +370,66 @@
   }
 }
 
+@media (max-width: 760px) {
+  /* The search needs the full width once it no longer fits beside the heading. */
+  .couponModule .couponSectionHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .couponModule .couponSectionHeader .adminPageActions {
+    flex-basis: auto;
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .couponModule .couponOverviewPanel,
   .couponModule .couponListPanel,
   .couponModule .couponFormPanel {
-    gap: 11px;
-    padding: 14px;
+    gap: 12px;
+    padding: 12px;
   }
 
   .couponModule .couponSectionNav {
-    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
     width: 100%;
   }
 
   .couponModule .couponSectionNav a {
-    justify-content: center;
-    min-height: 34px;
-    padding-inline: 6px;
-    text-align: center;
+    padding-inline: 8px;
     width: 100%;
   }
 
   .couponModule .couponPageHeader {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .couponModule .couponPageHeader .adminPageActions {
-    margin-left: 0;
-    width: 100%;
+    gap: 8px;
   }
 
   .couponModule .couponHeaderActions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
+    gap: 6px;
   }
 
   .couponModule .couponHeaderActions > * {
+    font-size: 12px;
+    gap: 5px;
     justify-content: center;
+    min-height: 34px;
     min-width: 0;
-    padding-inline: 7px;
-    width: 100%;
+    padding-inline: 10px;
   }
 
-  .couponModule .couponEditPageHeader {
-    align-items: center;
-    grid-template-columns: minmax(0, 1fr) auto;
+  .couponModule .couponSectionHeader {
+    gap: 8px;
   }
 
-  .couponModule .couponEditPageHeader .adminPageActions {
-    width: auto;
-  }
-
-  .couponModule .couponEditPageHeader .adminPageActions a {
-    padding-inline: 9px;
-    width: auto;
+  .couponModule .couponFilterActions button {
+    font-size: 12px;
+    min-height: 40px;
+    padding-inline: 10px;
+    width: auto !important;
   }
 
   .couponModule .couponMetricGrid {
@@ -397,47 +437,29 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
+  /* Five KPIs: let the last card fill the row instead of leaving half of it empty. */
+  .couponModule .couponMetricGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
   .couponModule .couponMetricGrid > [data-slot="card"] {
-    min-height: 80px !important;
+    min-height: 78px !important;
   }
 
   .couponModule .couponMetricGrid .metricCardContent {
     justify-content: space-between;
-    padding: 10px 11px !important;
+    padding: 10px 12px !important;
   }
 
   .couponModule .couponMetricGrid .metricCardContent span {
-    font-size: 12px;
-    line-height: 1.2;
+    font-size: 11px;
+    line-height: 1.25;
   }
 
   .couponModule .couponMetricGrid .metricCardContent strong {
-    font-size: 22px;
+    font-size: clamp(20px, 6vw, 24px);
     line-height: 1;
-    margin-top: 7px !important;
-  }
-
-  .couponModule .couponSectionHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .couponModule .couponFilters {
-    gap: 6px;
-    grid-template-columns: minmax(0, 1fr) auto !important;
-  }
-
-  .couponModule .couponFilters .productFilterActions {
-    display: grid;
-    gap: 5px;
-    grid-template-columns: repeat(2, auto);
-  }
-
-  .couponModule .couponFilters .productFilterActions button {
-    font-size: 12px;
-    min-width: 0;
-    padding-inline: 7px;
-    width: auto !important;
+    margin-top: 6px !important;
   }
 
   .couponModule .couponBulkActions .bulkActions {
@@ -489,25 +511,194 @@
     grid-column: 1 / -1;
   }
 
-  .couponModule .couponTableHint {
-    display: block;
+  /* Rows become cards so discount, limits, window, usage, and actions are readable without swiping. */
+  .couponModule .couponTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .couponModule .couponTableShell .resourceTable.couponTable {
+    overflow: visible;
+  }
+
+  .couponModule .couponTable [data-slot="table-container"] {
+    max-height: none;
+    overflow: visible;
   }
 
   .couponModule .couponTable [data-slot="table"] {
-    min-width: 790px !important;
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .couponModule .couponTable :is(thead, tbody) {
+    display: block;
+  }
+
+  /* The header shrinks to a "select page" bar, like the category child dialog on phones. */
+  .couponModule .couponTable thead tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+  }
+
+  .couponModule .couponTable thead th {
+    display: none;
+  }
+
+  .couponModule .couponTable thead th:is(.bulkCheckboxCell, .couponCodeCell) {
+    background: transparent;
+    display: block;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0;
+    position: static;
+    width: auto !important;
+  }
+
+  .couponModule .couponTable tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .couponModule .couponTable tbody tr {
+    align-items: start;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    grid-template-areas:
+      "check coupon status"
+      "check discount usage"
+      "check rules rules"
+      "check window actions";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 12px;
+    row-gap: 8px;
+  }
+
+  .couponModule .couponTable tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .couponModule .couponTable tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .couponModule .couponTable tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .couponModule .couponTable tbody td.bulkCheckboxCell {
+    grid-area: check;
+    padding-top: 2px;
+  }
+
+  .couponModule .couponTable tbody td.couponCodeCell {
+    grid-area: coupon;
+  }
+
+  .couponModule .couponTable tbody td.couponCodeCell strong {
+    font-size: 14px;
+  }
+
+  .couponModule .couponTable tbody td.couponStatusCell {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .couponModule .couponTable tbody td.couponDiscountCell {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 800;
+    grid-area: discount;
+  }
+
+  .couponModule .couponTable tbody td.couponUsageCell {
+    grid-area: usage;
+    text-align: right;
+  }
+
+  .couponModule .couponTable tbody td.couponRulesCell {
+    grid-area: rules;
+  }
+
+  .couponModule .couponTable tbody td:is(.couponRulesCell, .couponWindowCell) :is(strong, em) {
+    font-size: 13px;
+  }
+
+  /* Min and max limits read as one line: "Min ₹2,500.00 · Max ₹1,500.00". */
+  .couponModule .couponTable tbody td.couponRulesCell :is(strong, em) {
+    display: inline;
+  }
+
+  .couponModule .couponTable tbody td.couponRulesCell em::before {
+    content: " · ";
+  }
+
+  .couponModule .couponTable tbody td.couponWindowCell {
+    grid-area: window;
+  }
+
+  .couponModule .couponTable tbody td.couponActionsCell {
+    align-self: end;
+    grid-area: actions;
+    justify-self: end;
   }
 
   .couponModule .couponFormPanel .couponFormGrid {
     grid-template-columns: 1fr !important;
   }
 
+  .couponModule .couponFormFooter {
+    align-items: stretch;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .couponModule .couponActiveField {
+    justify-self: stretch;
     padding: 10px;
   }
 
   .couponModule .couponFormActions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 0;
   }
 
   .couponModule .couponFormActions button {
@@ -519,5 +710,17 @@
 
   .couponModule[data-coupon-view="new"] .couponFormActions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .couponModule .couponHeaderActions > * {
+    font-size: 11px;
+    padding-inline: 7px;
+  }
+
+  .couponModule .couponHeaderActions svg {
+    height: 14px;
+    width: 14px;
   }
 }

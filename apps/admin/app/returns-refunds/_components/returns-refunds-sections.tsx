@@ -11,7 +11,7 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminShell } from "../../admin-shell";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 import {
   RETURN_STOCK_DISPOSITIONS,
@@ -204,6 +205,9 @@ function ReturnsRefundsContent() {
     rejectMutation.isPending ||
     processMutation.isPending;
   const isDispositionPending = dispositionMutation.isPending;
+  const activeFilterCount = Object.values(appliedFilters).filter((value) =>
+    String(value ?? "").trim()
+  ).length;
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -371,12 +375,20 @@ function ReturnsRefundsContent() {
           actions={
             <div className="actionRow returnsRefundsHeaderActions">
               <Button
+                aria-label={
+                  activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : "Add filter"
+                }
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
                 type="button"
               >
                 <SlidersHorizontal aria-hidden size={16} />
-                <span>Add filter</span>
+                <span>{activeFilterCount > 0 ? "Filters" : "Add filter"}</span>
+                {activeFilterCount > 0 ? (
+                  <span aria-hidden className="returnsRefundsFilterCount">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
               </Button>
               <Button
                 className="iconTextButton"
@@ -592,6 +604,8 @@ function ReturnRequestsTable({
   onReject: (order: AdminOrder) => void;
   orders: AdminOrder[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow(orders.length > 0);
+
   if (orders.length === 0) {
     return (
       <EmptyState
@@ -601,13 +615,25 @@ function ReturnRequestsTable({
     );
   }
 
+  const showWorkflow = canUpdateOrders || canUpdateInventory;
+
+  /*
+   * Each request is a compact summary row plus a full-width workflow row holding the return
+   * decision and stock disposition forms, so the forms never hide behind sideways scrolling.
+   */
   return (
-    <div className="returnsRefundsTableShell">
-      <p className="returnsRefundsTableHint">
-        Swipe sideways to view every return and refund option.
-      </p>
+    <div
+      className="returnsRefundsTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="returnsRefundsTableHint" id="returns-refunds-table-hint">
+          Swipe sideways to view every return and refund option.
+        </p>
+      ) : null}
       <div className="resourceTable returnsRefundsTable">
-        <Table>
+        <Table aria-describedby="returns-refunds-table-hint" aria-label="Return requests">
         <TableHeader>
           <TableRow>
             <TableHead>Order</TableHead>
@@ -615,9 +641,7 @@ function ReturnRequestsTable({
             <TableHead>Payment</TableHead>
             <TableHead>Refund</TableHead>
             <TableHead>Reason</TableHead>
-            <TableHead>Warehouse</TableHead>
-            <TableHead>Stock disposition</TableHead>
-            <TableHead>Actions</TableHead>
+            <TableHead>Detail</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -634,115 +658,140 @@ function ReturnRequestsTable({
               );
 
             return (
-              <TableRow key={order.id}>
-                <TableCell>
-                  <strong>{order.orderNumber}</strong>
-                  <em>{formatDateTime(order.placedAt ?? order.createdAt)}</em>
-                  <StatusBadge status={order.status} />
-                </TableCell>
-                <TableCell>
-                  <strong>{getCustomerName(order)}</strong>
-                  <em>{order.customer.mobileNumber}</em>
-                  {order.customer.businessName ? (
-                    <em>{order.customer.businessName}</em>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={order.paymentStatus} />
-                  <em>{payment ? formatCurrency(payment.amount) : "No payment row"}</em>
-                  {payment?.providerPaymentId ? (
-                    <em>{payment.providerPaymentId}</em>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {refund ? (
-                    <>
-                      <StatusBadge status={refund.status} />
-                      <strong>{formatCurrency(refund.amount)}</strong>
-                      <em>Requested {formatDateTime(refund.createdAt)}</em>
-                      {refund.processedAt ? (
-                        <em>Processed {formatDateTime(refund.processedAt)}</em>
-                      ) : null}
-                      {refund.providerRefundId ? (
-                        <em>{refund.providerRefundId}</em>
-                      ) : null}
-                    </>
-                  ) : (
-                    "No refund"
-                  )}
-                </TableCell>
-                <TableCell>{refund?.reason ?? "-"}</TableCell>
-                <TableCell>{order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}</TableCell>
-                <TableCell>
-                  {canUpdateInventory ? (
-                    <ReturnDispositionInlineForm
-                      error={dispositionErrors[order.id]}
-                      isPending={isDispositionPending}
-                      items={dispositionItems}
-                      onChange={(values) => onDispositionChange(order, values)}
-                      onSubmit={(values) => onDispositionSubmit(order, values)}
-                      order={order}
-                      values={dispositionValues}
-                    />
-                  ) : (
-                    <em>Inventory permission required</em>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="tableActions verticalActions returnsRefundsActionGroup">
+              <Fragment key={order.id}>
+                <TableRow
+                  className="returnsRefundsSummaryRow"
+                  data-has-workflow={showWorkflow ? "true" : undefined}
+                >
+                  <TableCell className="returnsRefundsOrderCell">
+                    <strong>{order.orderNumber}</strong>
+                    <em>{formatDateTime(order.placedAt ?? order.createdAt)}</em>
+                    <em>{order.warehouse?.name ?? order.warehouseId ?? "Unassigned warehouse"}</em>
+                    <StatusBadge status={order.status} />
+                  </TableCell>
+                  <TableCell className="returnsRefundsCustomerCell" data-label="Customer">
+                    <strong>{getCustomerName(order)}</strong>
+                    <em>{order.customer.mobileNumber}</em>
+                    {order.customer.businessName ? (
+                      <em>{order.customer.businessName}</em>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="returnsRefundsPaymentCell" data-label="Payment">
+                    <StatusBadge status={order.paymentStatus} />
+                    <em>{payment ? formatCurrency(payment.amount) : "No payment row"}</em>
+                    {payment?.providerPaymentId ? (
+                      <em>{payment.providerPaymentId}</em>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="returnsRefundsRefundCell" data-label="Refund">
+                    {refund ? (
+                      <>
+                        <StatusBadge status={refund.status} />
+                        <strong>{formatCurrency(refund.amount)}</strong>
+                        <em>Requested {formatDateTime(refund.createdAt)}</em>
+                        {refund.processedAt ? (
+                          <em>Processed {formatDateTime(refund.processedAt)}</em>
+                        ) : null}
+                        {refund.providerRefundId ? (
+                          <em>{refund.providerRefundId}</em>
+                        ) : null}
+                      </>
+                    ) : (
+                      "No refund"
+                    )}
+                  </TableCell>
+                  <TableCell className="returnsRefundsReasonCell" data-label="Reason">
+                    {refund?.reason ?? "-"}
+                  </TableCell>
+                  <TableCell className="returnsRefundsDetailCell">
                     <Button asChild className="iconTextButton" size="sm" variant="outline">
                       <Link href={`/orders/${order.id}`}>
                         <Eye aria-hidden size={16} />
                         <span>View</span>
                       </Link>
                     </Button>
-                    {canUpdateOrders ? (
-                      <>
-                        <Textarea
-                          aria-label={`Return note for ${order.orderNumber}`}
-                          onChange={(event) =>
-                            onNoteChange(order.id, event.target.value)
-                          }
-                          placeholder="Internal note"
-                          value={note}
-                        />
-                        <Button
-                          className="iconTextButton"
-                          disabled={!canApproveReturn(order) || isActionPending}
-                          onClick={() => onApprove(order)}
-                          size="sm"
-                          type="button"
+                  </TableCell>
+                </TableRow>
+                {showWorkflow ? (
+                  <TableRow className="returnsRefundsWorkflowRow">
+                    <TableCell className="returnsRefundsWorkflowCell" colSpan={6}>
+                      <div className="returnsRefundsWorkflow">
+                        {canUpdateOrders ? (
+                          <section
+                            aria-label={`Return decision for ${order.orderNumber}`}
+                            className="returnsRefundsWorkflowSection"
+                          >
+                            <h3>Return decision</h3>
+                            <div className="returnsRefundsActionGroup">
+                              <Textarea
+                                aria-label={`Return note for ${order.orderNumber}`}
+                                onChange={(event) =>
+                                  onNoteChange(order.id, event.target.value)
+                                }
+                                placeholder="Internal note"
+                                value={note}
+                              />
+                              <div className="returnsRefundsDecisionButtons">
+                                <Button
+                                  className="iconTextButton"
+                                  disabled={!canApproveReturn(order) || isActionPending}
+                                  onClick={() => onApprove(order)}
+                                  size="sm"
+                                  type="button"
+                                >
+                                  <CheckCircle2 aria-hidden size={16} />
+                                  <span>Approve</span>
+                                </Button>
+                                <Button
+                                  className="iconTextButton"
+                                  disabled={!canRejectReturn(order) || isActionPending}
+                                  onClick={() => onReject(order)}
+                                  size="sm"
+                                  type="button"
+                                  variant="destructive"
+                                >
+                                  <X aria-hidden size={16} />
+                                  <span>Reject</span>
+                                </Button>
+                                <Button
+                                  className="iconTextButton"
+                                  disabled={!canProcessReturnRefund(order) || isActionPending}
+                                  onClick={() => onProcess(order)}
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  <RotateCw aria-hidden size={16} />
+                                  <span>Process/refetch</span>
+                                </Button>
+                              </div>
+                            </div>
+                          </section>
+                        ) : null}
+                        <section
+                          aria-label={`Stock disposition for ${order.orderNumber}`}
+                          className="returnsRefundsWorkflowSection"
                         >
-                          <CheckCircle2 aria-hidden size={16} />
-                          <span>Approve</span>
-                        </Button>
-                        <Button
-                          className="iconTextButton"
-                          disabled={!canRejectReturn(order) || isActionPending}
-                          onClick={() => onReject(order)}
-                          size="sm"
-                          type="button"
-                          variant="destructive"
-                        >
-                          <X aria-hidden size={16} />
-                          <span>Reject</span>
-                        </Button>
-                        <Button
-                          className="iconTextButton"
-                          disabled={!canProcessReturnRefund(order) || isActionPending}
-                          onClick={() => onProcess(order)}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <RotateCw aria-hidden size={16} />
-                          <span>Process/refetch</span>
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </TableCell>
-              </TableRow>
+                          <h3>Stock disposition</h3>
+                          {canUpdateInventory ? (
+                            <ReturnDispositionInlineForm
+                              error={dispositionErrors[order.id]}
+                              isPending={isDispositionPending}
+                              items={dispositionItems}
+                              onChange={(values) => onDispositionChange(order, values)}
+                              onSubmit={(values) => onDispositionSubmit(order, values)}
+                              order={order}
+                              values={dispositionValues}
+                            />
+                          ) : (
+                            <em>Inventory permission required</em>
+                          )}
+                        </section>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
             );
           })}
         </TableBody>
@@ -774,97 +823,110 @@ function ReturnDispositionInlineForm({
   const maxQuantity = selectedItem?.quantity ?? 1;
 
   if (!isEnabled) {
-    return <em>Approve return first</em>;
+    return <em className="returnsRefundsWorkflowNote">Approve return first</em>;
   }
 
   if (items.length === 0) {
-    return <em>No warehouse-linked items</em>;
+    return <em className="returnsRefundsWorkflowNote">No warehouse-linked items</em>;
   }
 
   return (
     <form
-      className="tableActions verticalActions returnsRefundsDispositionForm"
+      className="returnsRefundsDispositionForm"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(values);
       }}
     >
-      <Select
-        aria-label={`Returned item for ${order.orderNumber}`}
-        disabled={isPending}
-        onValueChange={(value) =>
-          onChange({
-            ...values,
-            orderItemId: value
-          })
-        }
-        value={values.orderItemId}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Returned item" />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.id} value={item.id}>
-              {formatOrderItemLabel(item)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Input
-        aria-label={`Disposition quantity for ${order.orderNumber}`}
-        inputMode="numeric"
-        max={maxQuantity}
-        min={1}
-        onChange={(event) =>
-          onChange({
-            ...values,
-            quantity: event.target.value
-          })
-        }
-        type="number"
-        value={values.quantity}
-      />
-      <Select
-        aria-label={`Disposition for ${order.orderNumber}`}
-        disabled={isPending}
-        onValueChange={(value) =>
-          onChange({
-            ...values,
-            disposition: value as ReturnDispositionFormValues["disposition"]
-          })
-        }
-        value={values.disposition}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Disposition" />
-        </SelectTrigger>
-        <SelectContent>
-          {RETURN_STOCK_DISPOSITIONS.map((disposition) => (
-            <SelectItem key={disposition} value={disposition}>
-              {formatOrderLabel(disposition)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Textarea
-        aria-label={`Disposition note for ${order.orderNumber}`}
-        onChange={(event) =>
-          onChange({
-            ...values,
-            note: event.target.value
-          })
-        }
-        placeholder="Inspection note"
-        value={values.note}
-      />
+      {/* Controls carry aria-labels, so the visible captions are hidden from assistive tech. */}
+      <div className="returnsRefundsField returnsRefundsItemField">
+        <span aria-hidden="true">Returned item</span>
+        <Select
+          aria-label={`Returned item for ${order.orderNumber}`}
+          disabled={isPending}
+          onValueChange={(value) =>
+            onChange({
+              ...values,
+              orderItemId: value
+            })
+          }
+          value={values.orderItemId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Returned item" />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {formatOrderItemLabel(item)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="returnsRefundsField returnsRefundsQuantityField">
+        <span aria-hidden="true">Qty</span>
+        <Input
+          aria-label={`Disposition quantity for ${order.orderNumber}`}
+          inputMode="numeric"
+          max={maxQuantity}
+          min={1}
+          onChange={(event) =>
+            onChange({
+              ...values,
+              quantity: event.target.value
+            })
+          }
+          type="number"
+          value={values.quantity}
+        />
+      </div>
+      <div className="returnsRefundsField returnsRefundsDispositionField">
+        <span aria-hidden="true">Disposition</span>
+        <Select
+          aria-label={`Disposition for ${order.orderNumber}`}
+          disabled={isPending}
+          onValueChange={(value) =>
+            onChange({
+              ...values,
+              disposition: value as ReturnDispositionFormValues["disposition"]
+            })
+          }
+          value={values.disposition}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Disposition" />
+          </SelectTrigger>
+          <SelectContent>
+            {RETURN_STOCK_DISPOSITIONS.map((disposition) => (
+              <SelectItem key={disposition} value={disposition}>
+                {formatOrderLabel(disposition)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="returnsRefundsField returnsRefundsNoteField">
+        <span aria-hidden="true">Inspection note</span>
+        <Textarea
+          aria-label={`Disposition note for ${order.orderNumber}`}
+          onChange={(event) =>
+            onChange({
+              ...values,
+              note: event.target.value
+            })
+          }
+          placeholder="Inspection note"
+          value={values.note}
+        />
+      </div>
       {error ? (
-        <p className="formError" role="alert">
+        <p className="formError returnsRefundsDispositionError" role="alert">
           {error}
         </p>
       ) : null}
       <Button
-        className="iconTextButton"
+        className="iconTextButton returnsRefundsRecordButton"
         disabled={isPending}
         size="sm"
         type="submit"

@@ -36,11 +36,32 @@ describe("Customers responsive layout", () => {
   });
 
   it("keeps list and order-table actions pinned while their tables scroll", () => {
-    expect(responsiveStyles).toContain("@media (max-width: 1440px)");
+    expect(responsiveStyles).toContain("@media (min-width: 641px)");
     expect(responsiveStyles).toContain(
       ".customersModule :is(.customerTable, .customerOrdersTable) th:last-child"
     );
     expect(responsiveStyles).toContain("position: sticky");
     expect(responsiveStyles).toContain("touch-action: pan-x pan-y");
+  });
+
+  it("only shows swipe hints while tables overflow and turns rows into labelled cards on phones", () => {
+    expect(listSource).toContain("useTableOverflow()");
+    expect(detailSource).toContain("useTableOverflow(orders.length > 0)");
+    expect(listSource).toContain('data-label="Business"');
+    expect(detailSource).toContain('data-label="Payment"');
+    expect(responsiveStyles).toContain(
+      '.customersModule .customerTableShell[data-overflowing="true"]'
+    );
+    expect(responsiveStyles).toContain('"check customer status"');
+    expect(responsiveStyles).toContain('"payment total"');
+  });
+
+  it("keeps the detail page compact with a back link and side-by-side addresses", () => {
+    expect(detailSource).toContain('backHref="/customers"');
+    expect(detailSource).not.toContain("<span>Back</span>");
+    expect(listSource).toContain("customerFilterCount");
+    expect(responsiveStyles).toMatch(
+      /\.customersModule \.customerAddressGrid\s*{[^}]*grid-template-columns:\s*repeat\(auto-fill/s
+    );
   });
 });

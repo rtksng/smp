@@ -49,6 +49,7 @@ import {
 import { AdminShell } from "../../admin-shell";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import {
   COUPON_TYPES,
   buildCouponPayload,
@@ -262,21 +263,6 @@ function CouponsContent({ view }: { view: CouponView }) {
         <PageHeader
           actions={
             <div className="actionRow couponHeaderActions">
-              {view === "new" ? (
-                <Button asChild className="iconTextButton" variant="outline">
-                  <Link href="/coupons/list">
-                    <Search aria-hidden size={16} />
-                    <span>View coupons</span>
-                  </Link>
-                </Button>
-              ) : (
-                <Button asChild className="iconTextButton">
-                  <Link href="/coupons/new">
-                    <Plus aria-hidden size={16} />
-                    <span>New coupon</span>
-                  </Link>
-                </Button>
-              )}
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshCoupons()}
@@ -286,8 +272,18 @@ function CouponsContent({ view }: { view: CouponView }) {
                 <RefreshCw aria-hidden size={16} />
                 <span>Refresh</span>
               </Button>
+              {view === "coupons" ? (
+                <Button asChild className="iconTextButton">
+                  <Link href="/coupons/new">
+                    <Plus aria-hidden size={16} />
+                    <span>New coupon</span>
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           }
+          backHref={view === "new" ? "/coupons/list" : undefined}
+          backLabel="Back to coupons"
           className="couponPageHeader"
           eyebrow="Coupons"
           summary={pageCopy.summary}
@@ -330,18 +326,19 @@ function CouponsContent({ view }: { view: CouponView }) {
         <div className="couponWorkspaceGrid couponWorkspaceGrid--single">
           <section className="panel couponListPanel mt-3">
             <PageHeader
+              actions={
+                <CouponFiltersForm
+                  filters={draftFilters}
+                  onChange={setDraftFilters}
+                  onReset={resetFilters}
+                  onSubmit={applyFilters}
+                />
+              }
               className="settingsSectionHeader couponSectionHeader"
               eyebrow="Coupon list"
               level={2}
               summary="Filter first, then edit or archive coupon records from the table."
               title="Checkout discounts"
-            />
-
-            <CouponFiltersForm
-              filters={draftFilters}
-              onChange={setDraftFilters}
-              onReset={resetFilters}
-              onSubmit={applyFilters}
             />
 
             {couponsQuery.isLoading ? <LoadingState label="Loading coupons..." /> : null}
@@ -428,26 +425,28 @@ function CouponFiltersForm({
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  // Coupons have a single code filter, so it sits in the list header like the catalog search.
   return (
-    <form className="productFilters couponFilters" onSubmit={onSubmit}>
-      <label>
-        Search
-        <Input
-          onChange={(event) =>
-            onChange({
-              search: event.target.value
-            })
-          }
-          placeholder="Coupon code"
-          maxLength={64}
-          value={filters.search}
-        />
-      </label>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
+    <form className="couponFilters" onSubmit={onSubmit} role="search">
+      <Label className="couponFilterSearch">
+        <span className="sr-only">Search coupons</span>
+        <span className="searchInput">
           <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
+          <Input
+            aria-label="Search coupons"
+            onChange={(event) =>
+              onChange({
+                search: event.target.value
+              })
+            }
+            placeholder="Coupon code"
+            maxLength={64}
+            value={filters.search}
+          />
+        </span>
+      </Label>
+      <div className="couponFilterActions">
+        <Button type="submit">Apply</Button>
         <Button onClick={onReset} type="button" variant="outline">
           Reset
         </Button>
@@ -565,30 +564,32 @@ export function CouponForm({
           value={values.expiresAt}
         />
       </div>
-      <Label className="checkField rowCheck couponActiveField">
-        <Checkbox
-          checked={values.isActive}
-          onCheckedChange={(checked) => onChange("isActive", checked === true)}
-        />
-        <span>Active for customer checkout</span>
-      </Label>
-      <div className="actionRow couponFormActions">
-        <Button className="iconTextButton" disabled={isSaving} type="submit">
-          {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
-          <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create coupon"}</span>
-        </Button>
-        {isEditing ? (
-          <Button
-            className="iconTextButton"
-            disabled={isSaving}
-            onClick={onCancel}
-            type="button"
-            variant="outline"
-          >
-            <X aria-hidden size={16} />
-            <span>Cancel edit</span>
+      <div className="couponFormFooter">
+        <Label className="checkField rowCheck couponActiveField">
+          <Checkbox
+            checked={values.isActive}
+            onCheckedChange={(checked) => onChange("isActive", checked === true)}
+          />
+          <span>Active for customer checkout</span>
+        </Label>
+        <div className="actionRow couponFormActions">
+          <Button className="iconTextButton" disabled={isSaving} type="submit">
+            {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
+            <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create coupon"}</span>
           </Button>
-        ) : null}
+          {isEditing ? (
+            <Button
+              className="iconTextButton"
+              disabled={isSaving}
+              onClick={onCancel}
+              type="button"
+              variant="outline"
+            >
+              <X aria-hidden size={16} />
+              <span>Cancel edit</span>
+            </Button>
+          ) : null}
+        </div>
       </div>
       </fieldset>
     </form>
@@ -606,17 +607,25 @@ function CouponsTable({
   isDeleting: boolean;
   onDelete: (coupon: AdminCoupon) => void;
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow();
+
   return (
-    <div className="couponTableShell">
-      <p className="couponTableHint">
-        Swipe sideways to view every coupon option.
-      </p>
+    <div
+      className="couponTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="couponTableHint" id="coupon-table-hint">
+          Swipe sideways to view every coupon option.
+        </p>
+      ) : null}
       <div className="resourceTable couponTable">
-        <Table>
+        <Table aria-describedby="coupon-table-hint" aria-label="Coupons">
         <TableHeader>
           <TableRow>
             <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
-            <TableHead>Coupon</TableHead>
+            <TableHead className="couponCodeCell">Coupon</TableHead>
             <TableHead>Discount</TableHead>
             <TableHead>Rules</TableHead>
             <TableHead>Window</TableHead>
@@ -629,27 +638,29 @@ function CouponsTable({
           {coupons.map((coupon) => (
             <TableRow key={coupon.id}>
               <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={coupon} label={coupon.code} /></TableCell>
-              <TableCell>
-                <strong>{coupon.code}</strong>
+              <TableCell className="couponCodeCell">
+                <strong title={coupon.code}>{coupon.code}</strong>
                 <em>{formatSupportLabel(coupon.type)}</em>
               </TableCell>
-              <TableCell>{formatCouponDiscount(coupon)}</TableCell>
-              <TableCell>
+              <TableCell className="couponDiscountCell" data-label="Discount">
+                {formatCouponDiscount(coupon)}
+              </TableCell>
+              <TableCell className="couponRulesCell" data-label="Rules">
                 <strong>Min {formatCurrency(coupon.minOrderAmount)}</strong>
                 <em>Max {formatCurrency(coupon.maxDiscount)}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="couponWindowCell" data-label="Window">
                 <strong>Start {formatSupportDateTime(coupon.startsAt)}</strong>
                 <em>End {formatSupportDateTime(coupon.expiresAt)}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="couponUsageCell" data-label="Usage">
                 <strong>{coupon.usedCount} used</strong>
                 <em>{coupon.usageLimit === null ? "No limit" : `${coupon.usageLimit} max`}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="couponStatusCell">
                 <StatusBadge status={coupon.isActive ? "ACTIVE" : "INACTIVE"} />
               </TableCell>
-              <TableCell>
+              <TableCell className="couponActionsCell">
                 <div className="tableActions">
                   <Button
                     asChild

@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 import {
   ORDER_STATUSES,
@@ -187,6 +188,9 @@ function OrdersContent() {
   }
 
   const paidVisibleCount = orders.filter((order) => order.paymentStatus === "PAID").length;
+  const activeFilterCount = Object.values(appliedFilters).filter((value) =>
+    typeof value === "boolean" ? value : String(value ?? "").trim()
+  ).length;
   return (
     <div className="ordersModule ordersListModule">
       <section className="panel orderOverviewPanel">
@@ -194,12 +198,20 @@ function OrdersContent() {
           actions={
             <div className="actionRow ordersHeaderActions">
               <Button
+                aria-label={
+                  activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : "Add filter"
+                }
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
                 type="button"
               >
                 <SlidersHorizontal aria-hidden size={16} />
-                <span>Add filter</span>
+                <span>{activeFilterCount > 0 ? "Filters" : "Add filter"}</span>
+                {activeFilterCount > 0 ? (
+                  <span aria-hidden className="ordersFilterCount">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
               </Button>
               <Button
                 className="iconTextButton"
@@ -244,7 +256,7 @@ function OrdersContent() {
         />
       </FilterDrawer>
 
-      <section className="panel orderListPanel mt-3">
+      <section className="panel orderListPanel">
         <PageHeader
           className="settingsSectionHeader"
           eyebrow="Order table"
@@ -420,6 +432,8 @@ function OrderFilterFields({
 }
 
 function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelection<AdminOrder> }) {
+  const { isOverflowing, shellRef } = useTableOverflow(orders.length > 0);
+
   if (orders.length === 0) {
     return (
       <EmptyState
@@ -429,19 +443,27 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
     );
   }
 
+  // Placed date sits under the order number and payment under the order status, so the
+  // View action stays on screen at laptop widths instead of ten columns overflowing.
   return (
-    <div className="ordersTableShell">
-      <p className="ordersTableHint">Swipe sideways to view every order column.</p>
+    <div
+      className="ordersTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="ordersTableHint" id="orders-table-hint">
+          Swipe sideways to view every order column.
+        </p>
+      ) : null}
       <div className="resourceTable ordersTable">
-        <Table>
+        <Table aria-describedby="orders-table-hint" aria-label="Orders">
         <TableHeader>
           <TableRow>
             <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
-            <TableHead>Order</TableHead>
+            <TableHead className="ordersOrderCell">Order</TableHead>
             <TableHead>Customer</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Payment</TableHead>
-            <TableHead>Date</TableHead>
             <TableHead>Warehouse</TableHead>
             <TableHead>Delivery partner</TableHead>
             <TableHead>Total</TableHead>
@@ -452,27 +474,32 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
       {orders.map((order) => (
         <TableRow key={order.id}>
           <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={order} label={order.orderNumber} /></TableCell>
-          <TableCell>
+          <TableCell className="ordersOrderCell">
             <strong>{order.orderNumber}</strong>
-            <em>{order.id}</em>
+            <em>{formatDateTime(order.placedAt ?? order.createdAt)}</em>
           </TableCell>
-          <TableCell>
+          <TableCell className="ordersCustomerCell">
             <strong>
               {order.customer.firstName} {order.customer.lastName ?? ""}
             </strong>
             <em>{order.customer.mobileNumber}</em>
           </TableCell>
-          <TableCell>
-            <StatusBadge status={order.status} />
+          <TableCell className="ordersStatusCell">
+            <span className="ordersStatusStack">
+              <StatusBadge status={order.status} />
+              <StatusBadge status={order.paymentStatus} />
+            </span>
           </TableCell>
-          <TableCell>
-            <StatusBadge status={order.paymentStatus} />
+          <TableCell className="ordersWarehouseCell" data-label="Warehouse">
+            {order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}
           </TableCell>
-          <TableCell>{formatDateTime(order.placedAt ?? order.createdAt)}</TableCell>
-          <TableCell>{order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}</TableCell>
-          <TableCell>{getAssignedDeliveryPartnerName(order) ?? "Unassigned"}</TableCell>
-          <TableCell>{formatCurrency(order.totals.grandTotal)}</TableCell>
-          <TableCell>
+          <TableCell className="ordersPartnerCell" data-label="Delivery partner">
+            {getAssignedDeliveryPartnerName(order) ?? "Unassigned"}
+          </TableCell>
+          <TableCell className="ordersTotalCell" data-label="Total">
+            {formatCurrency(order.totals.grandTotal)}
+          </TableCell>
+          <TableCell className="ordersActionCell">
             <Button asChild className="iconTextButton" size="sm" variant="outline">
               <Link href={`/orders/${order.id}`}>
               <Eye aria-hidden size={16} />

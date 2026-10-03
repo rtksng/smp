@@ -23,6 +23,7 @@ import { deliveryBulkAction } from "@/lib/bulk-module-actions";
 import type { AdminDeliveryPartner } from "@/lib/delivery-management";
 import type { AdminOrder } from "@/lib/order-management";
 import { useBulkSelection } from "@/lib/use-bulk-selection";
+import { useTableOverflow } from "@/lib/use-table-overflow";
 import type { WarehouseListResponse } from "@/lib/warehouse-management";
 
 export function DeliveryBulkAssignment({
@@ -57,6 +58,7 @@ export function DeliveryBulkAssignment({
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / 20)));
   const visible = filtered.slice((currentPage - 1) * 20, currentPage * 20);
   const bulk = useBulkSelection(search, visible);
+  const { isOverflowing, shellRef } = useTableOverflow();
   const partner = partners.find((item) => item.id === values.deliveryPartnerId);
   const warehouse = warehouses.find((item) => item.id === values.pickupWarehouseId);
   const action = deliveryBulkAction(
@@ -121,16 +123,24 @@ export function DeliveryBulkAssignment({
         getLabel={(order) => order.orderNumber}
         onComplete={onComplete}
       />
-      <div className="deliveryTableShell deliveryBulkTableShell">
-        <p className="deliveryTableHint">Swipe sideways to view every selected-order option.</p>
+      <div
+        className="deliveryTableShell deliveryBulkTableShell"
+        data-overflowing={isOverflowing ? "true" : undefined}
+        ref={shellRef}
+      >
+        {isOverflowing ? (
+          <p className="deliveryTableHint" id="delivery-bulk-table-hint">
+            Swipe sideways to view every selected-order option.
+          </p>
+        ) : null}
         <div className="resourceTable deliveryBulkOrderTable">
-          <Table>
+          <Table aria-describedby="delivery-bulk-table-hint" aria-label="Ready orders">
             <TableHeader>
               <TableRow>
                 <TableHead className="bulkCheckboxCell">
                   <BulkPageCheckbox selection={bulk} />
                 </TableHead>
-                <TableHead>Order</TableHead>
+                <TableHead className="deliveryBulkOrderCell">Order</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Warehouse</TableHead>
@@ -146,16 +156,22 @@ export function DeliveryBulkAssignment({
                       label={order.orderNumber}
                     />
                   </TableCell>
-                  <TableCell>{order.orderNumber}</TableCell>
-                  <TableCell>{order.customer?.firstName ?? "-"}</TableCell>
-                  <TableCell>
+                  <TableCell className="deliveryBulkOrderCell">
+                    <strong>{order.orderNumber}</strong>
+                  </TableCell>
+                  <TableCell className="deliveryBulkCustomerCell" data-label="Customer">
+                    {order.customer?.firstName ?? "-"}
+                  </TableCell>
+                  <TableCell className="deliveryStatusCell">
                     <StatusBadge status={order.status} />
                   </TableCell>
-                  <TableCell>{order.warehouse?.name ?? "Unassigned"}</TableCell>
+                  <TableCell className="deliveryBulkWarehouseCell" data-label="Warehouse">
+                    {order.warehouse?.name ?? "Unassigned"}
+                  </TableCell>
                 </TableRow>
               ))}
               {!visible.length ? (
-                <TableRow>
+                <TableRow className="deliveryBulkEmptyRow">
                   <TableCell colSpan={5}>No ready orders match your search.</TableCell>
                 </TableRow>
               ) : null}

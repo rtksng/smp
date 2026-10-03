@@ -1,49 +1,74 @@
+/*
+ * Page rules are scoped under .settingsModule so they outrank the shared single-class
+ * rules in globals.css no matter which stylesheet the router inserts last.
+ * The admin user dialog renders in a portal outside the module, so its rules stay unscoped.
+ */
 .settingsModule,
 .settingsModule > *,
-.settingsModule .settingsWorkspaceGrid,
 .settingsModule .settingsTableShell,
-.settingsModule .settingsAdminUsersTable,
-.settingsModule .settingsRolesTable,
-.settingsModule .settingsAdminUserForm,
-.settingsModule .settingsAdminUserFormGrid {
+.settingsModule .settingsTableShell .resourceTable {
   min-width: 0;
 }
 
 .settingsModule {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .settingsModule .settingsOverviewPanel,
-.settingsModule .settingsUsersPanel,
-.settingsModule .settingsFormPanel,
-.settingsModule .settingsRolesPanel {
+.settingsModule .settingsListPanel {
+  display: grid;
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
   padding: 18px;
 }
 
+.settingsModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
+}
+
+/* Section tabs mirror the product feedback module. */
 .settingsModule .settingsSectionNav {
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  justify-self: start;
   padding: 4px;
 }
 
 .settingsModule .settingsSectionNav a {
+  border-radius: 6px;
+  font-weight: 750;
   justify-content: center;
-  min-height: 34px;
-  padding: 6px 10px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 8px 14px;
   text-align: center;
 }
 
-.settingsModule .settingsPageHeader {
+.settingsModule .settingsSectionNav a[aria-current="page"] {
+  box-shadow: 0 2px 8px rgba(15, 111, 104, 0.18);
+}
+
+/* Headers keep their actions on the same row at every width instead of stacking. */
+.settingsModule .adminPageHeader {
   align-items: center;
   flex-direction: row;
   gap: 12px;
+  margin-bottom: 0;
 }
 
-.settingsModule .settingsPageHeader .adminPageActions {
+.settingsModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settingsModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   margin-left: auto;
+  max-width: 100%;
   width: auto;
 }
 
@@ -51,19 +76,34 @@
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  width: auto;
 }
 
-.settingsModule .settingsHeaderActions > * {
+.settingsModule .adminPageActions button {
   min-height: 38px;
-  min-width: 0;
-  padding-inline: 11px;
   white-space: nowrap;
   width: auto;
 }
 
+.settingsModule .settingsFilterCount {
+  align-items: center;
+  background: var(--primary);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 18px;
+  padding: 0 5px;
+}
+
 .settingsModule .settingsMetricGrid {
-  gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
 }
 
 .settingsModule .settingsMetricGrid > [data-slot="card"] {
@@ -79,48 +119,6 @@
   line-height: 1.05;
   margin-top: 8px;
   overflow-wrap: anywhere;
-}
-
-.settingsModule .settingsWorkspaceGrid {
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-  margin-top: 0;
-}
-
-.settingsModule .settingsUsersPanel,
-.settingsModule .settingsRolesPanel {
-  display: grid;
-}
-
-.settingsModule .settingsSectionHeader {
-  gap: 10px;
-}
-
-.settingsModule .settingsFilters {
-  gap: 10px;
-  grid-template-columns:
-    minmax(200px, 1.2fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr)
-    auto;
-  padding: 10px;
-}
-
-.settingsModule .settingsFilters label,
-.settingsModule .settingsFilters [data-slot="select-trigger"] {
-  min-width: 0;
-}
-
-.settingsModule .settingsFilters .productFilterActions {
-  align-items: end;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.settingsModule .settingsFilters .productFilterActions button {
-  min-height: 40px;
-  min-width: 76px;
-  padding-inline: 10px;
-  width: auto;
 }
 
 .settingsModule .settingsTableShell {
@@ -145,25 +143,17 @@
   border: 0;
   border-radius: 0;
   margin: 0;
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: min(620px, calc(100dvh - 180px));
   overflow: auto;
   overscroll-behavior-inline: contain;
   scrollbar-gutter: auto;
   touch-action: pan-x pan-y;
 }
 
-.settingsModule .settingsAdminUsersTable [data-slot="table"] {
-  min-width: 900px;
-}
-
-.settingsModule .settingsRolesTable [data-slot="table"] {
-  min-width: 980px;
-}
-
-.settingsModule :is(.settingsAdminUsersTable, .settingsRolesTable) th,
-.settingsModule :is(.settingsAdminUsersTable, .settingsRolesTable) td {
-  padding-inline: 10px;
-  vertical-align: top;
+/* Icon actions keep their own colour and stay centred inside the 34px buttons. */
+.settingsModule .settingsAdminUsersTable .settingsAdminUsersTableActions svg {
+  color: currentColor;
+  margin: 0;
 }
 
 .settingsModule .settingsAdminUsersTableActions {
@@ -171,97 +161,152 @@
   gap: 6px;
 }
 
-.settingsModule .settingsAdminUserForm,
-.settingsModule .settingsAdminUserFormGrid {
-  gap: 11px;
+/* Roles: descriptions and permission chips wrap instead of being cut off with an ellipsis. */
+.settingsModule .settingsRolesTable td {
+  vertical-align: top;
 }
 
-.settingsModule .settingsAdminUserFormGrid {
-  grid-template-columns: 1fr;
+.settingsModule .settingsRolesTable td:is(.settingsRoleDescriptionCell, .settingsRolePermissionsCell),
+.settingsModule .settingsRolesTable .settingsRolePermissionsCell > .compactFlagList {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
-.settingsModule .settingsFormActions {
-  flex-direction: row;
+/* Minimums keep the roles table inside a 1024px laptop or 768px tablet without sideways scrolling. */
+.settingsModule .settingsRolesTable td.settingsRoleDescriptionCell {
+  line-height: 1.5;
+  max-width: 340px !important;
+  min-width: 160px !important;
 }
 
-.settingsModule .settingsFormActions button {
-  min-height: 40px;
-  width: 100%;
+.settingsModule .settingsRolesTable td.settingsRolePermissionsCell {
+  max-width: none !important;
+  min-width: 180px !important;
 }
 
-.settingsModule .rolePermissionTable .compactFlagList {
+.settingsModule .settingsRolesTable .settingsRolePermissionsCell > .compactFlagList {
   gap: 5px;
+  max-width: none !important;
 }
 
-@media (max-width: 1440px) {
-  .settingsModule .settingsWorkspaceGrid {
-    grid-template-columns: 1fr;
-  }
+.settingsModule .settingsRolesTable .compactFlagList b {
+  white-space: nowrap;
+}
 
-  .settingsModule .settingsFormPanel {
-    position: static;
-  }
+/* Admin user create/edit dialog: header and footer stay put, the fields are the scroll area. */
+.adminDialogPanel.settingsAdminUserDialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 640px;
+  overflow: hidden !important;
+  padding: 0;
+  width: calc(100% - 32px);
+}
 
-  .settingsModule .settingsAdminUserFormGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.adminDialogPanel .settingsAdminUserForm {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
 
-  .settingsModule .settingsFormActions button {
-    width: auto;
-  }
+.settingsAdminUserDialogHeader {
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 18px 56px 16px 22px;
+}
 
-  .settingsModule .settingsTableHint {
+.settingsAdminUserDialogHeader .eyebrow,
+.settingsAdminUserDialogHeader .panelSummary {
+  margin: 0;
+}
+
+.settingsAdminUserDialogHeader h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settingsAdminUserDialogBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 22px 20px;
+}
+
+.settingsAdminUserDialog .settingsAdminUserFormGrid {
+  gap: 14px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settingsAdminUserDialogFooter {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+  padding: 14px 22px;
+}
+
+.settingsAdminUserDialogFooter button {
+  min-height: 40px;
+}
+
+/* The admin users table outgrows the content area beside the 280px sidebar, so pin actions from 1440px down. */
+@media (max-width: 1440px) and (min-width: 641px) {
+  .settingsModule .settingsAdminUsersTableShell .settingsTableHint {
     display: block;
   }
 
-  .settingsModule .settingsAdminUsersTable th:last-child,
-  .settingsModule .settingsAdminUsersTable td:last-child {
-    background: var(--surface);
-    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    min-width: 94px !important;
+  .settingsModule .settingsAdminUsersTable tr > :last-child {
     position: sticky;
     right: 0;
-    width: 94px !important;
-    z-index: 2;
   }
 
-  .settingsModule .settingsAdminUsersTable th:last-child {
+  .settingsModule .settingsAdminUsersTable tr > th:last-child {
     background: var(--surface-muted);
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
     z-index: 3;
+  }
+
+  .settingsModule .settingsAdminUsersTable tr > td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 2;
+  }
+}
+
+/* The wrapping roles table normally fits; the pinned role column only matters for unusually long data. */
+@media (max-width: 1280px) and (min-width: 641px) {
+  .settingsModule .settingsRolesTable tr > :first-child {
+    left: 0;
+    position: sticky;
+  }
+
+  .settingsModule .settingsRolesTable tr > th:first-child {
+    background: var(--surface-muted);
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 3;
+  }
+
+  .settingsModule .settingsRolesTable tr > td:first-child {
+    background: var(--surface);
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 2;
   }
 }
 
 @media (max-width: 980px) {
   .settingsModule .settingsMetricGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .settingsModule .settingsFilters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .settingsModule .settingsFilters > label:first-child {
-    grid-column: 1 / -1;
-  }
-
-  .settingsModule .settingsFilters .productFilterActions {
-    align-self: end;
-  }
-
-  .settingsModule .settingsRolesTable th:first-child,
-  .settingsModule .settingsRolesTable td:first-child {
-    background: var(--surface);
-    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    left: 0;
-    min-width: 170px;
-    position: sticky;
-    width: 170px;
-    z-index: 2;
-  }
-
-  .settingsModule .settingsRolesTable th:first-child {
-    background: var(--surface-muted);
-    z-index: 3;
+  .settingsModule .settingsTableShell .resourceTable {
+    max-height: min(560px, calc(100dvh - 150px));
   }
 }
 
@@ -271,55 +316,39 @@
   }
 
   .settingsModule .settingsOverviewPanel,
-  .settingsModule .settingsUsersPanel,
-  .settingsModule .settingsFormPanel,
-  .settingsModule .settingsRolesPanel {
-    gap: 11px;
+  .settingsModule .settingsListPanel {
+    gap: 12px;
     padding: 12px;
   }
 
   .settingsModule .settingsSectionNav {
-    align-items: stretch;
-    flex-direction: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
     width: 100%;
   }
 
   .settingsModule .settingsSectionNav a {
-    font-size: 12px;
-    min-width: 0;
-    padding-inline: 6px;
+    padding-inline: 8px;
     width: 100%;
   }
 
-  .settingsModule .settingsPageHeader {
-    align-items: start;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .settingsModule .settingsPageHeader .adminPageActions {
-    margin-left: 0;
-    width: 100%;
+  .settingsModule .adminPageHeader {
+    gap: 8px;
   }
 
   .settingsModule .settingsHeaderActions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
+    gap: 6px;
   }
 
-  .settingsModule .settingsHeaderActions > * {
+  .settingsModule .adminPageActions button {
     font-size: 12px;
     gap: 5px;
-    justify-content: center;
-    padding-inline: 6px;
-    width: 100%;
+    min-height: 34px;
+    padding-inline: 10px;
   }
 
   .settingsModule .settingsMetricGrid {
     gap: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .settingsModule .settingsMetricGrid > [data-slot="card"] {
@@ -327,68 +356,232 @@
   }
 
   .settingsModule .settingsMetricGrid .metricCardContent {
-    justify-content: space-between;
-    padding: 9px 10px;
+    padding: 10px 12px;
   }
 
   .settingsModule .settingsMetricGrid .metricCardContent span {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .settingsModule .settingsMetricGrid .metricCardContent strong {
-    font-size: 19px;
+    font-size: clamp(20px, 6vw, 24px);
     line-height: 1;
-    margin-top: 5px;
+    margin-top: 6px;
   }
 
-  .settingsModule .settingsWorkspaceGrid {
-    gap: 10px;
-  }
-
-  .settingsModule .settingsFilters {
-    gap: 8px;
-    grid-template-columns: 1fr;
-    padding: 8px;
-  }
-
-  .settingsModule .settingsFilters > label:first-child {
-    grid-column: auto;
-  }
-
-  .settingsModule .settingsFilters .productFilterActions {
-    display: grid;
-    flex-direction: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .settingsModule .settingsFilters .productFilterActions button {
-    font-size: 12px;
-    min-width: 0;
-    padding-inline: 6px;
-    width: 100%;
-  }
-
-  .settingsModule .settingsAdminUserFormGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .settingsModule .settingsFormActions button {
-    width: 100%;
+  /* Rows become cards so every field and action is readable without sideways scrolling. */
+  .settingsModule .settingsTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
   }
 
   .settingsModule .settingsTableShell .resourceTable {
-    max-height: min(440px, calc(100dvh - 130px));
+    max-height: none;
+    overflow: visible;
   }
 
-  .settingsModule .settingsRolesTable th:first-child,
-  .settingsModule .settingsRolesTable td:first-child {
-    min-width: 150px;
-    width: 150px;
+  .settingsModule .settingsTableShell [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
   }
 
-  .settingsModule .rolePermissionTable .compactFlagList b {
+  .settingsModule .settingsTableShell :is(thead, tbody) {
+    display: block;
+  }
+
+  /* Column headings stay available to assistive tech but take no space. */
+  .settingsModule .settingsTableShell thead {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  .settingsModule .settingsTableShell tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .settingsModule .settingsTableShell tbody tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+    row-gap: 6px;
+  }
+
+  .settingsModule .settingsTableShell tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .settingsModule .settingsTableShell tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .settingsModule .settingsTableShell tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label) ": ";
+    font-weight: 750;
+  }
+
+  .settingsModule .settingsAdminUsersTable tbody tr {
+    grid-template-areas:
+      "admin status"
+      "email email"
+      "role actions"
+      "login actions";
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminUserCell {
+    grid-area: admin;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminUserCell strong {
+    font-size: 14px;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminEmailCell {
+    color: var(--text);
+    grid-area: email;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminRoleCell {
+    font-size: 12px;
+    grid-area: role;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminStatusCell {
+    align-self: start;
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminLastLoginCell {
+    font-size: 12px;
+    grid-area: login;
+  }
+
+  .settingsModule .settingsAdminUsersTable .settingsAdminActionsCell {
+    align-self: end;
+    grid-area: actions;
+    justify-self: end;
+  }
+
+  .settingsModule .settingsRolesTable tbody tr {
+    align-items: start;
+    grid-template-areas:
+      "name type"
+      "description description"
+      "permissions permissions";
+  }
+
+  .settingsModule .settingsRolesTable .settingsRoleNameCell {
+    grid-area: name;
+  }
+
+  .settingsModule .settingsRolesTable .settingsRoleTypeCell {
+    grid-area: type;
+    justify-self: end;
+  }
+
+  .settingsModule .settingsRolesTable .settingsRoleDescriptionCell {
+    grid-area: description;
+    line-height: 1.45;
+  }
+
+  .settingsModule .settingsRolesTable .settingsRoleDescriptionCell[data-empty="true"] {
+    display: none;
+  }
+
+  .settingsModule .settingsRolesTable .settingsRolePermissionsCell {
+    border-top: 1px solid var(--border);
+    grid-area: permissions;
+    margin-top: 4px;
+    padding-top: 10px;
+  }
+
+  .settingsModule .settingsRolesTable tbody td.settingsRolePermissionsCell[data-label]::before {
+    content: attr(data-label);
+    display: block;
     font-size: 11px;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .settingsModule .settingsRolesTable .compactFlagList b {
+    font-size: 11px;
+  }
+
+  .adminDialogPanel.settingsAdminUserDialog {
+    max-height: calc(100dvh - 20px) !important;
+    width: calc(100vw - 20px);
+  }
+
+  .settingsAdminUserDialogHeader {
+    padding: 14px 48px 12px 16px;
+  }
+
+  .settingsAdminUserDialogHeader h2 {
+    font-size: 18px;
+  }
+
+  .settingsAdminUserDialogBody {
+    padding: 14px 16px 16px;
+  }
+
+  .settingsAdminUserDialog .settingsAdminUserFormGrid {
+    gap: 12px;
+    grid-template-columns: 1fr;
+  }
+
+  .settingsAdminUserDialogFooter {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .settingsAdminUserDialogFooter button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .settingsModule .adminPageActions button {
+    font-size: 11px;
+    padding-inline: 8px;
+  }
+
+  .settingsModule .adminPageActions button svg {
+    height: 14px;
+    width: 14px;
   }
 }

@@ -21,29 +21,56 @@ describe("Settings responsive layout", () => {
     expect(source).toContain('data-settings-view="roles"');
   });
 
-  it("keeps actions, compact two-by-two KPIs, filters, and forms responsive", () => {
+  it("uses full-width list panels with drawer filters instead of a side form", () => {
     expect(source).toContain("settingsHeaderActions");
-    expect(source).toContain("settingsAdminUserFormGrid");
-    expect(responsiveStyles).toContain("@media (max-width: 1440px)");
+    expect(source).toContain("<FilterDrawer");
+    expect(source).toContain("<AdminUserFilterFields");
+    expect(source).not.toContain("settingsWorkspaceGrid");
+    expect(source).not.toContain("settingsFormPanel");
+    expect(responsiveStyles).toContain("@media (max-width: 1440px) and (min-width: 641px)");
+    expect(responsiveStyles).toContain("@media (max-width: 1280px) and (min-width: 641px)");
     expect(responsiveStyles).toContain("@media (max-width: 980px)");
     expect(responsiveStyles).toContain("@media (max-width: 640px)");
     expect(responsiveStyles).toMatch(
       /\.settingsModule \.settingsMetricGrid\s*{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s
     );
-    expect(responsiveStyles).toContain(".settingsModule .settingsFilters");
-    expect(responsiveStyles).toContain(".settingsModule .settingsAdminUserFormGrid");
+  });
+
+  it("creates and edits admin users in a dialog with a fixed header and footer", () => {
+    expect(source).toContain('className="settingsAdminUserDialog"');
+    expect(source).toContain("settingsAdminUserFormGrid");
+    expect(source).toContain('autoComplete="new-password"');
+    expect(responsiveStyles).toMatch(
+      /\.adminDialogPanel\.settingsAdminUserDialog\s*{[^}]*overflow:\s*hidden !important;/s
+    );
+    expect(responsiveStyles).toMatch(
+      /\.settingsAdminUserDialogBody\s*{[^}]*overflow-y:\s*auto;/s
+    );
+    expect(responsiveStyles).toContain(".settingsAdminUserDialog .settingsAdminUserFormGrid");
   });
 
   it("keeps every admin-user and role table option reachable", () => {
     expect(source).toContain("Swipe sideways to view every admin user option.");
-    expect(source).toContain("Swipe sideways to view every role and permission.");
     expect(responsiveStyles).toContain("touch-action: pan-x pan-y");
     expect(responsiveStyles).toContain(
-      ".settingsModule .settingsAdminUsersTable th:last-child"
+      ".settingsModule .settingsAdminUsersTable tr > :last-child"
     );
     expect(responsiveStyles).toContain(
-      ".settingsModule .settingsRolesTable th:first-child"
+      ".settingsModule .settingsRolesTable tr > :first-child"
     );
     expect(responsiveStyles).toContain("position: sticky");
+    expect(responsiveStyles).toMatch(
+      /\.settingsRolesTable td:is\(\.settingsRoleDescriptionCell, \.settingsRolePermissionsCell\),[^{]*{[^}]*white-space:\s*normal !important;/s
+    );
+  });
+
+  it("turns table rows into labelled cards on phones", () => {
+    expect(source).toContain('data-label="Role"');
+    expect(source).toContain('data-label="Last login"');
+    expect(responsiveStyles).toContain('"admin status"');
+    expect(responsiveStyles).toContain('"permissions permissions"');
+    expect(responsiveStyles).toMatch(
+      /\.settingsModule \.settingsTableShell thead\s*{[^}]*clip-path:\s*inset\(50%\);/s
+    );
   });
 });

@@ -1,3 +1,8 @@
+/*
+ * Order pages are scoped under .ordersModule so they outrank the shared single-class rules in
+ * globals.css. Layout follows the customer, delivery, and settings modules: compact headers, tables
+ * that only pin columns while they scroll sideways, and labelled cards on phones.
+ */
 .ordersModule,
 .ordersModule > *,
 .ordersTableShell,
@@ -8,24 +13,104 @@
   min-width: 0;
 }
 
+.ordersModule {
+  display: grid;
+  gap: 12px;
+}
+
+.ordersModule > *,
+.ordersModule .orderDetailGrid {
+  margin: 0;
+}
+
 .ordersModule .orderOverviewPanel,
 .ordersModule .orderListPanel,
-.ordersModule .orderDetailHeroContent,
+.ordersModule .orderDetailHeroContent {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 18px;
+}
+
 .ordersModule .panel {
   padding: 18px;
 }
 
-.ordersModule .orderPageHeader,
-.ordersModule .orderDetailPageHeader {
-  align-items: flex-start;
+.ordersModule .orderListPanel {
   gap: 12px;
-  margin-bottom: 14px;
+}
+
+.ordersModule :is(.orderListPanel, .orderDetailHeroContent) > :is(.formSuccess, .formError),
+.ordersModule :is(.adminEmptyState, .adminLoadingState),
+.ordersModule .orderListPanel .paginationControls {
+  margin: 0;
+}
+
+.ordersModule .panel > .panelHeader {
+  margin-bottom: 12px;
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.ordersModule .adminPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+  margin: 0;
+}
+
+.ordersModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ordersModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-left: auto;
+  width: auto;
+}
+
+/* The order number is the only thing identifying the detail page, so it stays visible on phones. */
+.ordersModule .orderDetailPageHeader .adminPageHeaderTitle {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.ordersModule :is(.ordersHeaderActions, .orderDetailHeaderActions) {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: auto;
+}
+
+.ordersModule :is(.ordersHeaderActions, .orderDetailHeaderActions) > * {
+  min-height: 38px;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.ordersModule .ordersFilterCount {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 18px;
+  padding: 0 5px;
 }
 
 .ordersModule .orderMetricGrid,
 .ordersModule .orderDetailMetricGrid {
-  gap: 10px;
-  margin-top: 14px;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
 }
 
 .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) > [data-slot="card"] {
@@ -36,15 +121,16 @@
   padding: 12px 14px;
 }
 
+/* Values shrink with the viewport so codes and totals stay on one line beside the sidebar. */
 .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent strong {
-  font-size: 24px;
+  font-size: clamp(18px, 1.9vw, 24px);
   line-height: 1.05;
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
 
 .ordersBulkActions .bulkActions {
-  margin: 8px 0;
+  margin: 0;
   padding: 10px 12px;
 }
 
@@ -97,19 +183,20 @@
   gap: 8px;
 }
 
+/* Table shells: border and hint strip wrap the shared viewport, which owns scrolling. */
 .ordersTableShell {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
 
-.ordersTableHint {
+.ordersModule .ordersTableHint {
   background: #effaf8;
   border-bottom: 1px solid #c5e7e3;
   color: #0f6f68;
-  display: none;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.4;
   margin: 0;
   padding: 8px 10px;
 }
@@ -118,19 +205,153 @@
 .ordersTableShell .orderItemsTable {
   border: 0;
   border-radius: 0;
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: none;
   overflow: hidden;
 }
 
 .ordersTableShell :is(.ordersTable, .orderItemsTable) .adminTableViewport {
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: min(620px, calc(100dvh - 180px));
   overscroll-behavior-inline: contain;
   touch-action: pan-x pan-y;
 }
 
+.ordersModule :is(.ordersTable, .orderItemsTable) th,
+.ordersModule :is(.ordersTable, .orderItemsTable) td {
+  padding-inline: 10px;
+}
+
+/* Customers, warehouses, partners, and item names wrap instead of being cut off with an ellipsis. */
+.ordersModule .ordersTable td:is(.ordersOrderCell, .ordersCustomerCell, .ordersWarehouseCell, .ordersPartnerCell),
+.ordersModule .ordersTable td:is(.ordersOrderCell, .ordersCustomerCell, .ordersWarehouseCell, .ordersPartnerCell) > *,
+.ordersModule .orderItemsTable td:is(.orderItemNameCell, .orderItemSkuCell, .orderItemTaxCell, .orderItemWarehouseCell),
+.ordersModule .orderItemsTable td:is(.orderItemNameCell, .orderItemSkuCell, .orderItemTaxCell, .orderItemWarehouseCell) > * {
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.ordersModule .ordersTable td :is(strong, em),
+.ordersModule .orderItemsTable td :is(strong, em) {
+  display: block;
+}
+
+.ordersModule :is(.ordersTable, .orderItemsTable) td em {
+  font-size: 11px;
+}
+
+.ordersModule .ordersStatusStack {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ordersModule .ordersTable td.ordersTotalCell,
+.ordersModule .orderItemsTable td.orderItemTotalCell {
+  color: var(--text);
+  font-weight: 800;
+}
+
+/* Column widths only apply to the table layout; phone cards size cells from their grid areas. */
+@media (min-width: 641px) {
+  .ordersModule .ordersTable td.ordersOrderCell {
+    line-height: 1.35;
+    max-width: 210px !important;
+    min-width: 160px !important;
+  }
+
+  /* Order numbers never break at their hyphens; the placed date below them may wrap. */
+  .ordersModule .ordersTable td.ordersOrderCell strong {
+    overflow-wrap: normal;
+    white-space: nowrap !important;
+  }
+
+  .ordersModule .ordersTable td.ordersCustomerCell {
+    line-height: 1.35;
+    max-width: 230px !important;
+    min-width: 128px !important;
+  }
+
+  .ordersModule .ordersTable td.ordersWarehouseCell {
+    line-height: 1.35;
+    max-width: 220px !important;
+    min-width: 120px !important;
+  }
+
+  .ordersModule .ordersTable td.ordersPartnerCell {
+    line-height: 1.35;
+    max-width: 200px !important;
+    min-width: 110px !important;
+  }
+
+  .ordersModule .orderItemsTable td.orderItemNameCell {
+    line-height: 1.35;
+    max-width: 360px !important;
+    min-width: 220px !important;
+  }
+
+  .ordersModule .orderItemsTable td.orderItemSkuCell {
+    line-height: 1.35;
+    max-width: 180px !important;
+    min-width: 120px !important;
+  }
+
+  .ordersModule .orderItemsTable td.orderItemTaxCell {
+    min-width: 110px !important;
+  }
+
+  .ordersModule .orderItemsTable td.orderItemWarehouseCell {
+    line-height: 1.35;
+    max-width: 220px !important;
+    min-width: 140px !important;
+  }
+
+  /* Selection and the view action stay pinned only while the order columns scroll sideways. */
+  .ordersModule .ordersTable tr > .bulkCheckboxCell {
+    max-width: 44px !important;
+    min-width: 44px !important;
+    width: 44px !important;
+  }
+
+  .ordersModule .ordersTableShell[data-overflowing="true"] .ordersTable tr > .bulkCheckboxCell {
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    left: 0;
+    position: sticky;
+  }
+
+  .ordersModule .ordersTableShell[data-overflowing="true"] .ordersTable :is(th, td):last-child {
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    position: sticky;
+    right: 0;
+  }
+
+  .ordersModule .ordersTableShell[data-overflowing="true"] .ordersTable :is(th.bulkCheckboxCell, th:last-child) {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+
+  .ordersModule .ordersTableShell[data-overflowing="true"] .ordersTable :is(td.bulkCheckboxCell, td:last-child) {
+    background: var(--surface);
+    z-index: 2;
+  }
+}
+
+/* Detail panels pair up only when each one is wide enough for two columns of facts. */
+.ordersModule.orderDetailModule {
+  container: order-detail / inline-size;
+}
+
 .ordersModule .orderDetailGrid {
   align-items: start;
+  gap: 12px;
   grid-auto-rows: auto;
+}
+
+@container order-detail (max-width: 820px) {
+  .ordersModule .orderDetailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .ordersModule .orderDetailGrid > .panel {
@@ -139,10 +360,41 @@
   min-height: 0;
 }
 
+/* The shared order-detail grid forces 76px equal rows; order facts size to their content. */
+.ordersModule .orderDetailGrid > .panel > .detailGrid {
+  flex: 0 0 auto;
+  grid-auto-rows: auto;
+}
+
+.ordersModule .detailGrid {
+  gap: 8px;
+}
+
+.ordersModule .detailItem {
+  align-content: start;
+  gap: 4px;
+  min-height: 0;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+}
+
+.ordersModule .orderActionsGrid {
+  gap: 12px;
+}
+
 .ordersModule .orderActionsGrid > .compactForm {
   align-self: start;
   gap: 10px;
+  margin: 0;
   padding: 14px;
+}
+
+.ordersModule .orderActionsGrid > .compactForm h3 {
+  margin: 0;
+}
+
+.ordersModule .orderActionsGrid [data-slot="textarea"] {
+  min-height: 72px;
 }
 
 .ordersModule .orderTimeline {
@@ -150,91 +402,108 @@
 }
 
 @media (max-width: 980px) {
-  .ordersModule .orderMetricGrid,
-  .ordersModule .orderDetailMetricGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .ordersTableShell :is(.ordersTable, .orderItemsTable) .adminTableViewport {
+    max-height: min(560px, calc(100dvh - 150px));
   }
 
-  .ordersTableHint {
-    display: block;
-  }
-
-  .ordersTableShell .ordersTable tr > .bulkCheckboxCell {
-    left: 0;
-    position: sticky;
-  }
-
-  .ordersTableShell .ordersTable th.bulkCheckboxCell {
-    background: #e4efed;
-    z-index: 4;
-  }
-
-  .ordersTableShell .ordersTable td.bulkCheckboxCell {
-    background: var(--surface-muted);
-    z-index: 3;
+  /* With two action columns, a leftover form takes the whole row instead of leaving a gap. */
+  .ordersModule .orderActionsGrid > .compactForm:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 640px) {
+  .ordersModule {
+    gap: 10px;
+  }
+
   .ordersModule .orderOverviewPanel,
   .ordersModule .orderListPanel,
-  .ordersModule .orderDetailHeroContent,
+  .ordersModule .orderDetailHeroContent {
+    gap: 12px;
+    padding: 12px;
+  }
+
   .ordersModule .panel {
     padding: 12px;
   }
 
-  .ordersModule .orderPageHeader,
+  .ordersModule .panel > .panelHeader {
+    margin-bottom: 10px;
+  }
+
+  .ordersModule .adminPageHeader {
+    gap: 8px;
+  }
+
+  /* Back link and Refresh share the first row so the order number gets the full width below. */
   .ordersModule .orderDetailPageHeader {
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-
-  .ordersModule :is(.orderPageHeader, .orderDetailPageHeader) .adminPageActions {
-    width: 100%;
-  }
-
-  .ordersModule .ordersHeaderActions,
-  .ordersModule .orderDetailHeaderActions {
+    align-items: center;
     display: grid;
+    gap: 6px 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ordersModule .orderDetailPageHeader > div:first-child {
+    display: contents;
+  }
+
+  .ordersModule .orderDetailPageHeader .adminPageHeaderEyebrowRow {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .ordersModule .orderDetailPageHeader .adminPageActions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ordersModule .orderDetailPageHeader .adminPageHeaderTitle {
+    font-size: 18px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    line-height: 1.25;
+    margin: 0;
+  }
+
+  .ordersModule :is(.ordersHeaderActions, .orderDetailHeaderActions) {
     gap: 6px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
   }
 
   .ordersModule :is(.ordersHeaderActions, .orderDetailHeaderActions) > * {
     font-size: 12px;
     gap: 5px;
-    min-width: 0;
-    padding-inline: 7px;
-    width: 100%;
+    min-height: 34px;
+    padding-inline: 10px;
   }
 
   .ordersModule .orderMetricGrid,
   .ordersModule .orderDetailMetricGrid {
+    gap: 8px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) > [data-slot="card"] {
-    min-height: 80px;
+    min-height: 78px;
   }
 
   .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent {
-    padding: 9px 10px;
+    padding: 10px 12px;
   }
 
   .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent span {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .ordersModule :is(.orderMetricGrid, .orderDetailMetricGrid) .metricCardContent strong {
-    font-size: 19px;
-    line-height: 1.05;
-    margin-top: 5px;
+    font-size: clamp(17px, 5vw, 24px);
+    line-height: 1;
+    margin-top: 6px;
   }
 
   .ordersBulkActions .bulkActions {
-    margin: 6px 0;
     padding: 8px;
   }
 
@@ -270,23 +539,269 @@
     width: 100%;
   }
 
-  .ordersTableShell .ordersTable,
-  .ordersTableShell .orderItemsTable,
-  .ordersTableShell :is(.ordersTable, .orderItemsTable) .adminTableViewport {
-    max-height: min(450px, calc(100dvh - 130px));
+  /* Rows become cards so customers, warehouses, partners, and totals are readable without swiping. */
+  .ordersModule .ordersTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .ordersModule .ordersTableHint {
+    border: 1px solid #c5e7e3;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable),
+  .ordersModule :is(.ordersTable, .orderItemsTable) .adminTableViewport {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) :is(thead, tbody) {
+    display: block;
+  }
+
+  /* Item headings stay available to assistive tech but take no space. */
+  .ordersModule .orderItemsTable thead {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  /* The order list keeps its "select page" checkbox as a slim bar above the cards. */
+  .ordersModule .ordersTable thead tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+  }
+
+  .ordersModule .ordersTable thead th {
+    display: none;
+  }
+
+  .ordersModule .ordersTable thead th:is(.bulkCheckboxCell, .ordersOrderCell) {
+    background: transparent;
+    display: block;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0;
+    position: static;
+    width: auto !important;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) tbody tr {
+    align-items: start;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    padding: 12px;
+    row-gap: 8px;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .ordersModule :is(.ordersTable, .orderItemsTable) tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .ordersModule .ordersTable tbody tr {
+    grid-template-areas:
+      "check order order"
+      "check status status"
+      "check customer customer"
+      "check warehouse partner"
+      "check total action";
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ordersModule .ordersTable tbody td.bulkCheckboxCell {
+    grid-area: check;
+    padding-top: 2px;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersOrderCell {
+    grid-area: order;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersOrderCell strong {
+    font-size: 14px;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersStatusCell {
+    grid-area: status;
+  }
+
+  .ordersModule .ordersStatusStack {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersCustomerCell {
+    grid-area: customer;
+  }
+
+  .ordersModule .ordersTable tbody td:is(.ordersWarehouseCell, .ordersPartnerCell) {
+    color: var(--text);
+  }
+
+  .ordersModule .ordersTable tbody td.ordersWarehouseCell {
+    grid-area: warehouse;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersPartnerCell {
+    grid-area: partner;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersTotalCell {
+    grid-area: total;
+  }
+
+  .ordersModule .ordersTable tbody td.ordersActionCell {
+    align-self: end;
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .ordersModule .orderItemsTable tbody tr {
+    grid-template-areas:
+      "item item total"
+      "qty unit tax"
+      "sku warehouse warehouse";
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ordersModule .orderItemsTable tbody td {
+    color: var(--text);
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemNameCell {
+    grid-area: item;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemNameCell strong {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemTotalCell {
+    grid-area: total;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemQtyCell {
+    grid-area: qty;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemUnitCell {
+    grid-area: unit;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemTaxCell {
+    grid-area: tax;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemSkuCell {
+    grid-area: sku;
+  }
+
+  .ordersModule .orderItemsTable tbody td.orderItemWarehouseCell {
+    grid-area: warehouse;
   }
 
   .ordersModule .orderDetailGrid,
-  .ordersModule .orderActionsGrid,
-  .ordersModule .detailGrid {
+  .ordersModule .orderActionsGrid {
     grid-template-columns: 1fr;
   }
 
+  /* Short facts pair up on phones; long values marked wide keep the full row. */
+  .ordersModule .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ordersModule .detailGrid > .detailItem[data-wide="true"] {
+    grid-column: 1 / -1;
+  }
+
+  .ordersModule .orderDetailGrid,
   .ordersModule .orderActionsGrid {
     gap: 10px;
   }
 
+  .ordersModule .detailItem {
+    padding: 10px;
+  }
+
+  /* Slightly smaller values keep GSTINs and codes on one line in a half-width fact. */
+  .ordersModule .detailItem strong {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .ordersModule .detailItem span {
+    font-size: 11px;
+  }
+
   .ordersModule .orderActionsGrid > .compactForm {
     padding: 11px;
+  }
+
+  .ordersModule .orderActionsGrid [data-slot="textarea"] {
+    min-height: 62px;
   }
 }

@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Trash2
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { z } from "zod";
@@ -11,13 +19,23 @@ import {
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
+import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -94,6 +112,8 @@ export function SettingsAdminUsersPage() {
     createEmptyAdminUserFilters()
   );
   const [page, setPage] = useState(1);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [formValues, setFormValues] = useState<AdminUserFormValues>(
     createEmptyAdminUserFormValues()
@@ -152,8 +172,9 @@ export function SettingsAdminUsersPage() {
   ).length;
   const loadError =
     getErrorMessage(rolesQuery.error) ?? getErrorMessage(adminUsersQuery.error);
-  const isMutating =
-    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isMutating = isSaving || deleteMutation.isPending;
+  const activeFilterCount = countActiveAdminUserFilters(appliedFilters);
 
   useEffect(() => {
     if (loadError) {
@@ -177,10 +198,17 @@ export function SettingsAdminUsersPage() {
     }
   }
 
+  function openFilters() {
+    // Unapplied edits from a previously dismissed drawer should not linger.
+    setDraftFilters(appliedFilters);
+    setIsFilterDrawerOpen(true);
+  }
+
   function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPage(1);
     setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
   }
 
   function resetFilters() {
@@ -197,12 +225,20 @@ export function SettingsAdminUsersPage() {
       roleId: roles[0]?.id ?? ""
     });
     setFieldErrors({});
+    setIsFormOpen(true);
   }
 
   function startEdit(user: AdminUser) {
     setEditingUser(user);
     setFormValues(adminUserToFormValues(user));
     setFieldErrors({});
+    setIsFormOpen(true);
+  }
+
+  function closeForm() {
+    if (!isSaving) {
+      setIsFormOpen(false);
+    }
   }
 
   function updateValue<Key extends keyof AdminUserFormValues>(
@@ -241,15 +277,17 @@ export function SettingsAdminUsersPage() {
 
     try {
       const isEditing = Boolean(editingUser);
-      const savedUser = editingUser
-        ? await updateMutation.mutateAsync({
-            id: editingUser.id,
-            payload
-          })
-        : await createMutation.mutateAsync(payload);
 
-      setEditingUser(savedUser);
-      setFormValues(adminUserToFormValues(savedUser));
+      if (editingUser) {
+        await updateMutation.mutateAsync({
+          id: editingUser.id,
+          payload
+        });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+
+      setIsFormOpen(false);
       notify.success(isEditing ? "Admin user updated." : "Admin user created.");
       await refreshSettings();
     } catch (error) {
@@ -269,11 +307,6 @@ export function SettingsAdminUsersPage() {
       onConfirm: async () => {
         try {
           await deleteMutation.mutateAsync(user.id);
-
-          if (editingUser?.id === user.id) {
-            startCreate();
-          }
-
           notify.success("Admin user deleted.");
           await refreshSettings();
         } catch (error) {
@@ -306,7 +339,7 @@ export function SettingsAdminUsersPage() {
               </Button>
               <Button className="iconTextButton" onClick={startCreate} type="button">
                 <Plus aria-hidden size={16} />
-                <span>New User</span>
+                <span>New user</span>
               </Button>
             </div>
           }
@@ -331,87 +364,96 @@ export function SettingsAdminUsersPage() {
         </div>
       </section>
 
-      <div className="settingsWorkspaceGrid">
-        <section className="panel settingsUsersPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            eyebrow="Admin users"
-            level={2}
-            summary="Search, filter, edit, or remove admin accounts from one table."
-            title="Accounts and access"
-          />
+      <section className="panel settingsListPanel settingsUsersPanel">
+        <PageHeader
+          actions={
+            <Button
+              aria-label={
+                activeFilterCount > 0
+                  ? `Filters, ${activeFilterCount} active`
+                  : "Add filter"
+              }
+              className="iconTextButton settingsFilterButton"
+              onClick={openFilters}
+              type="button"
+              variant="outline"
+            >
+              <SlidersHorizontal aria-hidden size={16} />
+              <span>{activeFilterCount > 0 ? "Filters" : "Add filter"}</span>
+              {activeFilterCount > 0 ? (
+                <span aria-hidden className="settingsFilterCount">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </Button>
+          }
+          className="settingsSectionHeader"
+          eyebrow="Admin users"
+          level={2}
+          summary="Search, filter, edit, or remove admin accounts from one table."
+          title="Accounts and access"
+        />
 
-          <AdminUserFilterForm
-            filters={draftFilters}
-            onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={applyFilters}
-            roles={roles}
+        {adminUsersQuery.isLoading ? (
+          <LoadingState label="Loading admin users..." />
+        ) : null}
+        {!adminUsersQuery.isLoading &&
+        !adminUsersQuery.isError &&
+        adminUsers.length === 0 ? (
+          <EmptyState
+            body="No admin users match the current filters."
+            title="No admin users found"
           />
-
-          {adminUsersQuery.isLoading ? (
-            <LoadingState label="Loading admin users..." />
-          ) : null}
-          {!adminUsersQuery.isLoading &&
-          !adminUsersQuery.isError &&
-          adminUsers.length === 0 ? (
-            <EmptyState
-              body="No admin users match the current filters."
-              title="No admin users found"
-            />
-          ) : null}
-          {adminUsers.length > 0 ? (
-            <AdminUsersTable
-              currentAdminId={admin?.id ?? null}
-              isDeleting={deleteMutation.isPending}
-              onDelete={requestDelete}
-              onEdit={startEdit}
-              users={adminUsers}
-            />
-          ) : null}
-          {pagination ? (
-            <PaginationControls
-              onChange={setPage}
-              page={pagination.page}
-              pageSize={pagination.limit}
-              totalItems={pagination.total}
-              totalPages={Math.max(pagination.totalPages, 1)}
-            />
-          ) : null}
-        </section>
-
-        <aside className="panel settingsFormPanel">
-          <PageHeader
-            className="settingsSectionHeader"
-            actions={
-              editingUser ? (
-                <Button
-                  className="iconTextButton"
-                  onClick={startCreate}
-                  type="button"
-                  variant="outline"
-                >
-                  <X aria-hidden size={16} />
-                  <span>Clear</span>
-                </Button>
-              ) : null
-            }
-            eyebrow={editingUser ? "Edit admin" : "Create admin"}
-            level={2}
-            title={editingUser ? getAdminUserName(editingUser) : "New admin user"}
+        ) : null}
+        {adminUsers.length > 0 ? (
+          <AdminUsersTable
+            currentAdminId={admin?.id ?? null}
+            isDeleting={deleteMutation.isPending}
+            onDelete={requestDelete}
+            onEdit={startEdit}
+            users={adminUsers}
           />
-
-          <AdminUserForm
-            errors={fieldErrors}
-            isSaving={createMutation.isPending || updateMutation.isPending}
-            mode={editingUser ? "update" : "create"}
-            onSubmit={handleSubmit}
-            onValueChange={updateValue}
-            roles={roles}
-            values={formValues}
+        ) : null}
+        {pagination ? (
+          <PaginationControls
+            ariaLabel="Admin users pagination"
+            onChange={setPage}
+            page={pagination.page}
+            pageSize={pagination.limit}
+            totalItems={pagination.total}
+            totalPages={Math.max(pagination.totalPages, 1)}
           />
-        </aside>
-      </div>
+        ) : null}
+      </section>
+
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        isSubmitting={adminUsersQuery.isFetching}
+        onApply={applyFilters}
+        onOpenChange={setIsFilterDrawerOpen}
+        onReset={resetFilters}
+        summary="Search admin users by name, email, or mobile and narrow by role or status."
+        title="Admin user filters"
+      >
+        <AdminUserFilterFields
+          filters={draftFilters}
+          onChange={setDraftFilters}
+          roles={roles}
+        />
+      </FilterDrawer>
+
+      <AdminUserFormDialog
+        errors={fieldErrors}
+        isOpen={isFormOpen}
+        isSaving={isSaving}
+        mode={editingUser ? "update" : "create"}
+        onClose={closeForm}
+        onSubmit={handleSubmit}
+        onValueChange={updateValue}
+        roles={roles}
+        title={editingUser ? getAdminUserName(editingUser) : "New admin user"}
+        values={formValues}
+      />
 
       <ConfirmationDialog
         confirmation={confirmation}
@@ -425,6 +467,7 @@ export function SettingsAdminUsersPage() {
 
 export function SettingsRolesPage() {
   const { api } = useAdminSession();
+  const queryClient = useQueryClient();
   const rolesQuery = useQuery({
     queryFn: () => api.request<AdminRole[]>("/admin/roles"),
     queryKey: ["admin", "roles"]
@@ -441,12 +484,34 @@ export function SettingsRolesPage() {
     }
   }, [loadError]);
 
+  async function handleRefresh() {
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "roles"] });
+      notify.info("Roles refreshed.");
+    } catch (error) {
+      notify.error(getErrorMessage(error) ?? "Unable to refresh roles.");
+    }
+  }
+
   return (
     <div className="settingsModule settingsRolesModule" data-settings-view="roles">
       <section className="panel settingsOverviewPanel">
         <SettingsSectionNav active="roles" />
         <PageHeader
           className="settingsPageHeader"
+          actions={
+            <div className="actionRow settingsHeaderActions">
+              <Button
+                className="iconTextButton"
+                onClick={() => void handleRefresh()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw aria-hidden size={16} />
+                <span>Refresh</span>
+              </Button>
+            </div>
+          }
           eyebrow="Settings"
           summary="Review the predefined roles available when assigning administrator access."
           title="Roles"
@@ -466,7 +531,7 @@ export function SettingsRolesPage() {
         </div>
       </section>
 
-      <section className="panel settingsRolesPanel">
+      <section className="panel settingsListPanel settingsRolesPanel">
         <PageHeader
           className="settingsSectionHeader"
           eyebrow="Roles"
@@ -501,37 +566,37 @@ function SettingsSectionNav({ active }: { active: SettingsSectionId }) {
   );
 }
 
-function AdminUserFilterForm({
+function AdminUserFilterFields({
   filters,
   onChange,
-  onReset,
-  onSubmit,
   roles
 }: {
   filters: AdminUserFilters;
   onChange: (filters: AdminUserFilters) => void;
-  onReset: () => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   roles: AdminRole[];
 }) {
   return (
-    <form className="productFilters settingsFilters" onSubmit={onSubmit}>
-      <label>
+    <div className="filterDrawerFields">
+      <Label>
         Search
-        <Input
-          onChange={(event) => onChange({ ...filters, search: event.target.value })}
-          placeholder="Name, email, mobile"
-          value={filters.search}
-        />
-      </label>
-      <label>
+        <span className="searchInput">
+          <Search aria-hidden size={16} />
+          <Input
+            className="filterDrawerControl"
+            onChange={(event) => onChange({ ...filters, search: event.target.value })}
+            placeholder="Name, email, mobile"
+            value={filters.search}
+          />
+        </span>
+      </Label>
+      <Label>
         Role
         <Select
           aria-label="Role"
           onValueChange={(value) => onChange({ ...filters, roleCode: value })}
           value={filters.roleCode}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="Any role" />
           </SelectTrigger>
           <SelectContent>
@@ -543,8 +608,8 @@ function AdminUserFilterForm({
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <label>
+      </Label>
+      <Label>
         Status
         <Select
           aria-label="Status"
@@ -556,7 +621,7 @@ function AdminUserFilterForm({
           }
           value={filters.status}
         >
-          <SelectTrigger>
+          <SelectTrigger className="filterDrawerControl">
             <SelectValue placeholder="Any status" />
           </SelectTrigger>
           <SelectContent>
@@ -568,17 +633,8 @@ function AdminUserFilterForm({
             ))}
           </SelectContent>
         </Select>
-      </label>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
-        <Button onClick={onReset} type="button" variant="outline">
-          Reset
-        </Button>
-      </div>
-    </form>
+      </Label>
+    </div>
   );
 }
 
@@ -597,10 +653,14 @@ function AdminUsersTable({
 }) {
   return (
     <div className="settingsTableShell settingsAdminUsersTableShell">
-      <p className="settingsTableHint">
+      <p className="settingsTableHint" id="settings-admin-users-table-hint">
         Swipe sideways to view every admin user option.
       </p>
-      <Table containerClassName="resourceTable settingsAdminUsersTable">
+      <Table
+        aria-describedby="settings-admin-users-table-hint"
+        aria-label="Admin users"
+        containerClassName="resourceTable settingsAdminUsersTable"
+      >
         <TableHeader>
           <TableRow>
             <TableHead>Admin</TableHead>
@@ -608,25 +668,29 @@ function AdminUsersTable({
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Last login</TableHead>
-            <TableHead className="settingsAdminUsersActionsColumn">Actions</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.map((user) => (
             <TableRow key={user.id}>
-              <TableCell>
-                <strong>{getAdminUserName(user)}</strong>
+              <TableCell className="settingsAdminUserCell">
+                <strong title={getAdminUserName(user)}>{getAdminUserName(user)}</strong>
                 <em>{user.mobileNumber ?? "No mobile number"}</em>
               </TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>{user.role.name}</TableCell>
-              <TableCell>
+              <TableCell className="settingsAdminEmailCell" title={user.email}>
+                {user.email}
+              </TableCell>
+              <TableCell className="settingsAdminRoleCell" data-label="Role">
+                {user.role.name}
+              </TableCell>
+              <TableCell className="settingsAdminStatusCell">
                 <StatusBadge status={user.status} />
               </TableCell>
-              <TableCell>
-                {user.lastLoginAt ? formatDate(user.lastLoginAt) : "-"}
+              <TableCell className="settingsAdminLastLoginCell" data-label="Last login">
+                {user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}
               </TableCell>
-              <TableCell>
+              <TableCell className="settingsAdminActionsCell">
                 <div className="tableActions settingsAdminUsersTableActions">
                   <Button
                     aria-label={`Edit ${getAdminUserName(user)}`}
@@ -663,19 +727,99 @@ function AdminUsersTable({
   );
 }
 
-function AdminUserForm({
+function AdminUserFormDialog({
   errors,
+  isOpen,
   isSaving,
   mode,
+  onClose,
   onSubmit,
+  onValueChange,
+  roles,
+  title,
+  values
+}: {
+  errors: AdminUserFieldErrors;
+  isOpen: boolean;
+  isSaving: boolean;
+  mode: "create" | "update";
+  onClose: () => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onValueChange: <Key extends keyof AdminUserFormValues>(
+    key: Key,
+    value: AdminUserFormValues[Key]
+  ) => void;
+  roles: AdminRole[];
+  title: string;
+  values: AdminUserFormValues;
+}) {
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        className="settingsAdminUserDialog"
+        isDismissable={!isSaving}
+        isKeyboardDismissDisabled={isSaving}
+      >
+        <form className="productForm settingsAdminUserForm" onSubmit={onSubmit}>
+          <DialogHeader className="settingsAdminUserDialogHeader">
+            <p className="eyebrow">{mode === "update" ? "Edit admin" : "Create admin"}</p>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription className="panelSummary">
+              {mode === "update"
+                ? "Update account details, role, or status. Leave the password blank to keep the current one."
+                : "Add an administrator account and assign one of the predefined roles."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="settingsAdminUserDialogBody">
+            <AdminUserFormFields
+              errors={errors}
+              mode={mode}
+              onValueChange={onValueChange}
+              roles={roles}
+              values={values}
+            />
+          </div>
+          <DialogFooter className="settingsAdminUserDialogFooter">
+            <Button disabled={isSaving} onClick={onClose} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button
+              className="iconTextButton"
+              disabled={isSaving || roles.length === 0}
+              type="submit"
+            >
+              <CheckCircle2 aria-hidden size={16} />
+              <span>
+                {isSaving
+                  ? "Saving..."
+                  : mode === "update"
+                    ? "Save changes"
+                    : "Create admin user"}
+              </span>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AdminUserFormFields({
+  errors,
+  mode,
   onValueChange,
   roles,
   values
 }: {
   errors: AdminUserFieldErrors;
-  isSaving: boolean;
   mode: "create" | "update";
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onValueChange: <Key extends keyof AdminUserFormValues>(
     key: Key,
     value: AdminUserFormValues[Key]
@@ -684,108 +828,102 @@ function AdminUserForm({
   values: AdminUserFormValues;
 }) {
   return (
-    <form className="formStack productForm settingsAdminUserForm" onSubmit={onSubmit}>
-      <div className="formGrid settingsAdminUserFormGrid">
-        <TextField
-          error={errors.firstName}
-          label="First name"
-          onChange={(value) => onValueChange("firstName", value)}
-          value={values.firstName}
-        />
-        <TextField
-          error={errors.lastName}
-          label="Last name"
-          onChange={(value) => onValueChange("lastName", value)}
-          required={false}
-          value={values.lastName}
-        />
-        <TextField
-          error={errors.email}
-          inputMode="email"
-          label="Email"
-          onChange={(value) => onValueChange("email", value)}
-          value={values.email}
-        />
-        <TextField
-          error={errors.mobileNumber}
-          inputMode="tel"
-          label="Mobile number"
-          onChange={(value) => onValueChange("mobileNumber", value)}
-          required={false}
-          value={values.mobileNumber}
-        />
-        <label>
-          Role
-          <Select
-            aria-label="Role"
-            onValueChange={(value) => onValueChange("roleId", value)}
-            value={values.roleId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              {roles.map((role) => (
-                <SelectItem key={role.id} value={role.id}>
-                  {role.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.roleId ? <span className="fieldError">{errors.roleId}</span> : null}
-        </label>
-        <label>
-          Status
-          <Select
-            aria-label="Status"
-            onValueChange={(value) =>
-              onValueChange("status", value as AdminUserFormValues["status"])
-            }
-            value={values.status}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {ADMIN_USER_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {formatAdminStatus(status)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.status ? <span className="fieldError">{errors.status}</span> : null}
-        </label>
-        <TextField
-          error={errors.password}
-          label={mode === "create" ? "Password" : "New password"}
-          onChange={(value) => onValueChange("password", value)}
-          required={mode === "create"}
-          type="password"
-          value={values.password}
-        />
-      </div>
-      <div className="actionRow settingsFormActions">
-        <Button
-          className="iconTextButton"
-          disabled={isSaving || roles.length === 0}
-          type="submit"
+    <div className="formGrid settingsAdminUserFormGrid">
+      <TextField
+        autoComplete="off"
+        error={errors.firstName}
+        label="First name"
+        onChange={(value) => onValueChange("firstName", value)}
+        value={values.firstName}
+      />
+      <TextField
+        autoComplete="off"
+        error={errors.lastName}
+        label="Last name"
+        onChange={(value) => onValueChange("lastName", value)}
+        required={false}
+        value={values.lastName}
+      />
+      <TextField
+        autoComplete="off"
+        error={errors.email}
+        inputMode="email"
+        label="Email"
+        onChange={(value) => onValueChange("email", value)}
+        value={values.email}
+      />
+      <TextField
+        autoComplete="off"
+        error={errors.mobileNumber}
+        inputMode="tel"
+        label="Mobile number"
+        onChange={(value) => onValueChange("mobileNumber", value)}
+        required={false}
+        value={values.mobileNumber}
+      />
+      <label>
+        Role
+        <Select
+          aria-label="Role"
+          onValueChange={(value) => onValueChange("roleId", value)}
+          value={values.roleId}
         >
-          <CheckCircle2 aria-hidden size={16} />
-          <span>{isSaving ? "Saving..." : "Save admin user"}</span>
-        </Button>
-      </div>
-    </form>
+          <SelectTrigger>
+            <SelectValue placeholder="Select role" />
+          </SelectTrigger>
+          <SelectContent>
+            {roles.map((role) => (
+              <SelectItem key={role.id} value={role.id}>
+                {role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.roleId ? <span className="fieldError">{errors.roleId}</span> : null}
+      </label>
+      <label>
+        Status
+        <Select
+          aria-label="Status"
+          onValueChange={(value) =>
+            onValueChange("status", value as AdminUserFormValues["status"])
+          }
+          value={values.status}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {ADMIN_USER_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatAdminStatus(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.status ? <span className="fieldError">{errors.status}</span> : null}
+      </label>
+      {/* Keep the browser from autofilling the signed-in admin's own saved password. */}
+      <TextField
+        autoComplete="new-password"
+        error={errors.password}
+        label={mode === "create" ? "Password" : "New password"}
+        onChange={(value) => onValueChange("password", value)}
+        required={mode === "create"}
+        type="password"
+        value={values.password}
+      />
+    </div>
   );
 }
 
 function RoleList({ roles }: { roles: AdminRole[] }) {
   return (
     <div className="settingsTableShell settingsRolesTableShell">
-      <p className="settingsTableHint">
-        Swipe sideways to view every role and permission.
-      </p>
-      <Table containerClassName="resourceTable rolePermissionTable settingsRolesTable">
+      <Table
+        aria-label="Predefined roles"
+        containerClassName="resourceTable rolePermissionTable settingsRolesTable"
+      >
         <TableHeader>
           <TableRow>
             <TableHead>Role</TableHead>
@@ -797,19 +935,27 @@ function RoleList({ roles }: { roles: AdminRole[] }) {
         <TableBody>
           {roles.map((role) => (
             <TableRow key={role.id}>
-              <TableCell>
+              <TableCell className="settingsRoleNameCell">
                 <strong>{role.name}</strong>
                 <em>{role.code}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="settingsRoleTypeCell">
                 {role.isSystem ? (
                   <span className="statusBadge statusBadge--active">System</span>
                 ) : (
                   <span className="statusBadge statusBadge--draft">Custom</span>
                 )}
               </TableCell>
-              <TableCell>{role.description ?? "-"}</TableCell>
-              <TableCell>
+              <TableCell
+                className="settingsRoleDescriptionCell"
+                data-empty={role.description ? undefined : "true"}
+              >
+                {role.description ?? "-"}
+              </TableCell>
+              <TableCell
+                className="settingsRolePermissionsCell"
+                data-label={`Permissions (${role.permissions.length})`}
+              >
                 <div className="flagList compactFlagList">
                   {role.permissions.map((permission) => (
                     <b key={permission.id}>{formatPermissionCode(permission.code)}</b>
@@ -825,6 +971,7 @@ function RoleList({ roles }: { roles: AdminRole[] }) {
 }
 
 function TextField({
+  autoComplete,
   error,
   inputMode,
   label,
@@ -833,6 +980,7 @@ function TextField({
   type = "text",
   value
 }: {
+  autoComplete?: string;
   error?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   label: string;
@@ -845,6 +993,7 @@ function TextField({
     <label>
       {label}
       <Input
+        autoComplete={autoComplete}
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         required={required}
@@ -858,6 +1007,11 @@ function TextField({
 
 function getAdminUserName(user: AdminUser) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ");
+}
+
+function countActiveAdminUserFilters(filters: AdminUserFilters) {
+  return [filters.search.trim(), filters.roleCode, filters.status].filter(Boolean)
+    .length;
 }
 
 function formatDate(value: Date | string) {

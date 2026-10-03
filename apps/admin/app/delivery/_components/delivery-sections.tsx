@@ -1,7 +1,6 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   Eye,
   FileText,
@@ -77,6 +76,7 @@ import {
   type PaginatedResponse as OrderPaginatedResponse
 } from "../../../lib/order-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 import {
   DELIVERY_ASSIGNMENT_STATUSES,
@@ -195,13 +195,12 @@ export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) 
       <section className="panel deliveryPartnerDetailPagePanel">
         <PageHeader
           actions={
-            <Button asChild className="buttonLink iconTextButton" variant="outline">
-              <Link href="/delivery/partners">
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back</span>
-              </Link>
-            </Button>
+            partnerQuery.data ? (
+              <AvailabilityBadge isOnline={partnerQuery.data.isOnline} />
+            ) : undefined
           }
+          backHref="/delivery/partners"
+          backLabel="Back to partners"
           className="settingsSectionHeader deliverySectionHeader deliveryPartnerDetailHeader"
           eyebrow="Partner detail"
           title={partnerQuery.data?.fullName ?? "Delivery partner"}
@@ -494,14 +493,6 @@ function DeliveryContent({
         <PageHeader
           actions={
             <div className="actionRow deliveryHeaderActions">
-              {view === "overview" ? (
-                <Button asChild className="iconTextButton">
-                  <Link href="/delivery/partners">
-                    <Truck aria-hidden size={16} />
-                    <span>Open delivery</span>
-                  </Link>
-                </Button>
-              ) : null}
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshDeliveryData()}
@@ -545,17 +536,19 @@ function DeliveryContent({
       {view === "partners" ? (
         <section className="panel deliveryPartnersPanel mt-3">
           <PageHeader
-            className="settingsSectionHeader deliverySectionHeader"
+            actions={
+              <PartnerFilterForm
+                filters={partnerDraftFilters}
+                onChange={setPartnerDraftFilters}
+                onReset={resetPartnerFilters}
+                onSubmit={applyPartnerFilters}
+              />
+            }
+            className="settingsSectionHeader deliverySectionHeader deliveryListHeader"
             eyebrow="Partners"
             level={2}
             summary="Filter partner records, approve verification, and open one profile for document review."
             title="Partner approvals"
-          />
-          <PartnerFilterForm
-            filters={partnerDraftFilters}
-            onChange={setPartnerDraftFilters}
-            onReset={resetPartnerFilters}
-            onSubmit={applyPartnerFilters}
           />
           {partnersQuery.isLoading ? (
             <LoadingState label="Loading delivery partners..." />
@@ -1060,8 +1053,9 @@ function PartnerFilterForm({
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  // A single status filter, so it sits in the list header like the coupon and quote request filters.
   return (
-    <form className="deliveryFilters deliveryPartnerFilters" onSubmit={onSubmit}>
+    <form className="deliveryPartnerFilters" onSubmit={onSubmit}>
       <Select
         aria-label="Partner status"
         onValueChange={(value) =>
@@ -1083,11 +1077,8 @@ function PartnerFilterForm({
           ))}
         </SelectContent>
       </Select>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
+      <div className="deliveryPartnerFilterActions">
+        <Button type="submit">Apply</Button>
         <Button onClick={onReset} type="button" variant="outline">
           Reset
         </Button>
@@ -1211,6 +1202,8 @@ function PartnerList({
   onAction: (action: "approve" | "reject", partner: AdminDeliveryPartner) => void;
   partners: AdminDeliveryPartner[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow(partners.length > 0);
+
   if (partners.length === 0) {
     return (
       <EmptyState
@@ -1221,10 +1214,18 @@ function PartnerList({
   }
 
   return (
-    <div className="deliveryTableShell deliveryPartnerTableShell">
-      <p className="deliveryTableHint">Swipe sideways to view every partner option.</p>
+    <div
+      className="deliveryTableShell deliveryPartnerTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="deliveryTableHint" id="delivery-partner-table-hint">
+          Swipe sideways to view every partner option.
+        </p>
+      ) : null}
       <div className="resourceTable deliveryPartnerDataTable">
-        <Table>
+        <Table aria-describedby="delivery-partner-table-hint" aria-label="Delivery partners">
           <TableHeader>
             <TableRow>
               <TableHead>Partner</TableHead>
@@ -1238,18 +1239,20 @@ function PartnerList({
           <TableBody>
             {partners.map((partner) => (
               <TableRow key={partner.id}>
-                <TableCell>
+                <TableCell className="deliveryPartnerCell">
                   <strong>{partner.fullName}</strong>
                   <em>{partner.mobileNumber}</em>
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryStatusCell">
                   <StatusBadge status={partner.status} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryAvailabilityCell">
                   <AvailabilityBadge isOnline={partner.isOnline} />
                 </TableCell>
-                <TableCell>{partner.documents.length} files</TableCell>
-                <TableCell>
+                <TableCell className="deliveryDocumentsCell" data-label="Documents">
+                  {partner.documents.length} files
+                </TableCell>
+                <TableCell className="deliveryDetailCell">
                   <Button asChild className="iconTextButton" size="sm" variant="outline">
                     <Link href={`/delivery/partners/${partner.id}`}>
                       <Eye aria-hidden size={14} />
@@ -1257,7 +1260,7 @@ function PartnerList({
                     </Link>
                   </Button>
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryActionsCell">
                   <div className="tableActions deliveryPartnerTableActions">
                     <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
                       <Button
@@ -1324,18 +1327,12 @@ function PartnerDetail({
     );
   }
 
+  // The page header already shows the partner name and availability, so the detail starts with facts.
   return (
     <div className="deliveryDetailPanel">
-      <div className="sectionTitleRow">
-        <div>
-          <p className="eyebrow">Partner detail</p>
-          <h2>{partner.fullName}</h2>
-        </div>
-        <AvailabilityBadge isOnline={partner.isOnline} />
-      </div>
       <div className="detailGrid">
         <DetailItem label="Mobile" value={partner.mobileNumber} />
-        <DetailItem label="Email" value={partner.email ?? "-"} />
+        <DetailItem label="Email" value={partner.email ?? "-"} wide />
         <DetailItem label="Status" value={formatDeliveryLabel(partner.status)} />
         <DetailItem label="Vehicle" value={partner.vehicleNumber ?? "-"} />
         <DetailItem label="Wallet" value={formatCurrency(partner.wallet.balance)} />
@@ -1377,6 +1374,8 @@ function AssignmentsTable({
 }: {
   assignments: AdminDeliveryAssignment[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow(assignments.length > 0);
+
   if (assignments.length === 0) {
     return (
       <EmptyState
@@ -1387,10 +1386,21 @@ function AssignmentsTable({
   }
 
   return (
-    <div className="deliveryTableShell deliveryAssignmentTableShell">
-      <p className="deliveryTableHint">Swipe sideways to view every assignment column.</p>
+    <div
+      className="deliveryTableShell deliveryAssignmentTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="deliveryTableHint" id="delivery-assignment-table-hint">
+          Swipe sideways to view every assignment column.
+        </p>
+      ) : null}
       <div className="resourceTable deliveryAssignmentDataTable">
-        <Table>
+        <Table
+          aria-describedby="delivery-assignment-table-hint"
+          aria-label="Delivery assignments"
+        >
           <TableHeader>
             <TableRow>
               <TableHead>Order</TableHead>
@@ -1404,18 +1414,18 @@ function AssignmentsTable({
           <TableBody>
             {assignments.map((assignment) => (
               <TableRow key={assignment.id}>
-                <TableCell>
+                <TableCell className="deliveryOrderCell">
                   <strong>{assignment.orderNumber}</strong>
-                  <em>{assignment.orderId}</em>
+                  <em title={assignment.orderId}>{assignment.orderId}</em>
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryAssigneeCell" data-label="Partner">
                   <strong>{assignment.deliveryPartner?.fullName ?? "Unassigned"}</strong>
                   <em>{assignment.deliveryPartner?.mobileNumber ?? assignment.deliveryPartnerId}</em>
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryStatusCell">
                   <StatusBadge status={assignment.status} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryPickupCell" data-label="Pickup location">
                   {assignment.pickupWarehouse ? (
                     <>
                       <strong>{assignment.pickupWarehouse.name}</strong>
@@ -1428,10 +1438,10 @@ function AssignmentsTable({
                     "Order warehouse"
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryTimelineCell" data-label="Timeline">
                   <AssignmentTimeline assignment={assignment} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="deliveryProofCell" data-label="Proof / issue">
                   {assignment.proofOfDeliveryUrl ? (
                     <Button asChild className="iconTextButton" size="sm" variant="outline">
                       <a
@@ -1516,73 +1526,84 @@ function AssignmentForm({
   return (
     <form className="formStack deliveryAssignmentForm" onSubmit={onSubmit}>
       <div className="formGrid deliveryAssignmentFormGrid">
-        <Select
-          aria-label="Order"
-          onValueChange={(value) => {
-            onValidationReset();
-            onChange({
-              ...values,
-              orderId: value
-            });
-          }}
-          value={values.orderId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select order" />
-          </SelectTrigger>
-          <SelectContent>
-            {assignableOrders.map((order) => (
-              <SelectItem key={order.id} value={order.id}>
-                {order.orderNumber} ({formatDeliveryLabel(order.status)})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          aria-label="Delivery partner"
-          onValueChange={(value) => {
-            onValidationReset();
-            onChange({
-              ...values,
-              deliveryPartnerId: value
-            });
-          }}
-          value={values.deliveryPartnerId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select partner" />
-          </SelectTrigger>
-          <SelectContent>
-            {activePartners.map((partner) => (
-              <SelectItem key={partner.id} value={partner.id}>
-                {partner.fullName} ({partner.mobileNumber})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          aria-label="Pickup warehouse"
-          onValueChange={(value) =>
-            onChange({
-              ...values,
-              pickupWarehouseId: value
-            })
-          }
-          value={values.pickupWarehouseId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Use order warehouse" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Use order warehouse</SelectItem>
-            {warehouses.map((warehouse) => (
-              <SelectItem key={warehouse.id} value={warehouse.id}>
-                {warehouse.name} ({warehouse.code})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label>
+        {/* Selects already carry an aria-label, so the visible caption is hidden from assistive tech. */}
+        <div className="deliveryField">
+          <span aria-hidden="true">Order</span>
+          <Select
+            aria-label="Order"
+            onValueChange={(value) => {
+              onValidationReset();
+              onChange({
+                ...values,
+                orderId: value
+              });
+            }}
+            value={values.orderId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select order" />
+            </SelectTrigger>
+            <SelectContent>
+              {assignableOrders.map((order) => (
+                <SelectItem key={order.id} value={order.id}>
+                  {order.orderNumber} ({formatDeliveryLabel(order.status)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="deliveryField">
+          <span aria-hidden="true">Delivery partner</span>
+          <Select
+            aria-label="Delivery partner"
+            onValueChange={(value) => {
+              onValidationReset();
+              onChange({
+                ...values,
+                deliveryPartnerId: value
+              });
+            }}
+            value={values.deliveryPartnerId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select partner" />
+            </SelectTrigger>
+            <SelectContent>
+              {activePartners.map((partner) => (
+                <SelectItem key={partner.id} value={partner.id}>
+                  {partner.fullName} ({partner.mobileNumber})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="deliveryField">
+          <span aria-hidden="true">Pickup warehouse</span>
+          <Select
+            aria-label="Pickup warehouse"
+            onValueChange={(value) =>
+              onChange({
+                ...values,
+                pickupWarehouseId: value
+              })
+            }
+            value={values.pickupWarehouseId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Use order warehouse" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Use order warehouse</SelectItem>
+              {warehouses.map((warehouse) => (
+                <SelectItem key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name} ({warehouse.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <label className="deliveryField">
+          <span>Pickup instructions</span>
           <Input
             onChange={(event) =>
               onChange({
@@ -1638,13 +1659,15 @@ function AvailabilityBadge({ isOnline }: { isOnline: boolean }) {
 
 function DetailItem({
   label,
-  value
+  value,
+  wide = false
 }: {
   label: string;
   value: React.ReactNode;
+  wide?: boolean;
 }) {
   return (
-    <div className="detailItem">
+    <div className="detailItem" data-wide={wide ? "true" : undefined}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>

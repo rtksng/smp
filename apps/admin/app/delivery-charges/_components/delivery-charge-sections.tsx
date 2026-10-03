@@ -13,7 +13,6 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Trash2,
-  Truck,
   X
 } from "lucide-react";
 import Link from "next/link";
@@ -69,6 +68,7 @@ import {
   type PaginatedDeliveryChargeResponse
 } from "../../../lib/delivery-charge-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 import "../delivery-charges-responsive.css";
 
@@ -345,14 +345,7 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
                 <RefreshCw aria-hidden size={16} />
                 <span>Refresh</span>
               </Button>
-              {view === "new" ? (
-                <Button asChild className="iconTextButton" variant="outline">
-                  <Link href="/delivery-charges/rules">
-                    <Truck aria-hidden size={16} />
-                    <span>View rules</span>
-                  </Link>
-                </Button>
-              ) : (
+              {view === "rules" ? (
                 <Button asChild className="iconTextButton">
                   <Link aria-label="New rule" href="/delivery-charges/new">
                     <Plus aria-hidden size={16} />
@@ -360,9 +353,11 @@ function DeliveryChargesContent({ view }: { view: DeliveryChargeView }) {
                     <span className="deliveryChargeActionLabelCompact">New</span>
                   </Link>
                 </Button>
-              )}
+              ) : null}
             </div>
           }
+          backHref={view === "new" ? "/delivery-charges/rules" : undefined}
+          backLabel="Back to rules"
           className="deliveryChargePageHeader"
           eyebrow="Delivery charges"
           summary={pageCopy.summary}
@@ -624,30 +619,32 @@ export function DeliveryChargeForm({
           value={values.priority}
         />
       </div>
-      <Label className="checkField rowCheck deliveryChargeActiveField">
-        <Checkbox
-          checked={values.isActive}
-          onCheckedChange={(checked) => onChange("isActive", checked === true)}
-        />
-        <span>Active for checkout</span>
-      </Label>
-      <div className="actionRow deliveryChargeFormActions">
-        <Button className="iconTextButton" disabled={isSaving} type="submit">
-          {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
-          <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create rule"}</span>
-        </Button>
-        {isEditing ? (
-          <Button
-            className="iconTextButton"
-            disabled={isSaving}
-            onClick={onCancel}
-            type="button"
-            variant="outline"
-          >
-            <X aria-hidden size={16} />
-            <span>Cancel edit</span>
+      <div className="deliveryChargeFormFooter">
+        <Label className="checkField rowCheck deliveryChargeActiveField">
+          <Checkbox
+            checked={values.isActive}
+            onCheckedChange={(checked) => onChange("isActive", checked === true)}
+          />
+          <span>Active for checkout</span>
+        </Label>
+        <div className="actionRow deliveryChargeFormActions">
+          <Button className="iconTextButton" disabled={isSaving} type="submit">
+            {isEditing ? <CheckCircle2 aria-hidden size={16} /> : <Plus aria-hidden size={16} />}
+            <span>{isSaving ? "Saving..." : isEditing ? "Save changes" : "Create rule"}</span>
           </Button>
-        ) : null}
+          {isEditing ? (
+            <Button
+              className="iconTextButton"
+              disabled={isSaving}
+              onClick={onCancel}
+              type="button"
+              variant="outline"
+            >
+              <X aria-hidden size={16} />
+              <span>Cancel edit</span>
+            </Button>
+          ) : null}
+        </div>
       </div>
     </form>
   );
@@ -748,11 +745,19 @@ function DeliveryChargeRulesTable({
   bulk: BulkSelection<AdminDeliveryChargeRule>;
   rules: AdminDeliveryChargeRule[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow();
+
   return (
-    <div className="resourceTable deliveryChargeTableShell deliveryChargeRulesTable">
-      <p className="deliveryChargeTableHint" id="delivery-charge-table-hint">
-        Swipe sideways to view every delivery charge rule detail.
-      </p>
+    <div
+      className="resourceTable deliveryChargeTableShell deliveryChargeRulesTable"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="deliveryChargeTableHint" id="delivery-charge-table-hint">
+          Swipe sideways to view every delivery charge rule detail.
+        </p>
+      ) : null}
       <Table
         aria-describedby="delivery-charge-table-hint"
         aria-label="Delivery charge rules"
@@ -764,7 +769,7 @@ function DeliveryChargeRulesTable({
             <TableHead className="bulkCheckboxCell">
               <BulkPageCheckbox selection={bulk} />
             </TableHead>
-            <TableHead>Rule</TableHead>
+            <TableHead className="deliveryChargeRuleCell">Rule</TableHead>
             <TableHead>Charge</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Scope</TableHead>
@@ -784,25 +789,29 @@ function DeliveryChargeRulesTable({
                   selection={bulk}
                 />
               </TableCell>
-              <TableCell>
+              <TableCell className="deliveryChargeRuleCell">
                 <strong title={rule.name}>{rule.name}</strong>
                 <em>Priority {rule.priority}</em>
               </TableCell>
-              <TableCell>
+              <TableCell className="deliveryChargeChargeCell" data-label="Charge">
                 <strong>{formatCurrency(rule.charge)}</strong>
               </TableCell>
-              <TableCell>
+              <TableCell className="deliveryChargeStatusCell">
                 <StatusBadge status={rule.isActive ? "ACTIVE" : "INACTIVE"} />
               </TableCell>
-              <TableCell>
+              <TableCell className="deliveryChargeScopeCell" data-label="Scope">
                 <strong>{formatDeliveryScope(rule)}</strong>
                 <em title={rule.warehouse?.name}>
                   {rule.warehouse?.name ?? "No warehouse restriction"}
                 </em>
               </TableCell>
-              <TableCell>{formatDeliveryRange(rule)}</TableCell>
-              <TableCell>{formatCurrency(rule.freeDeliveryThreshold)}</TableCell>
-              <TableCell>
+              <TableCell className="deliveryChargeRangeCell" data-label="Order range">
+                {formatDeliveryRange(rule)}
+              </TableCell>
+              <TableCell className="deliveryChargeFreeCell" data-label="Free threshold">
+                {formatCurrency(rule.freeDeliveryThreshold)}
+              </TableCell>
+              <TableCell className="deliveryChargeUpdatedCell" data-label="Updated">
                 <span className="deliveryChargeCellText">
                   {formatDeliveryDateParts(rule.updatedAt).date}
                 </span>

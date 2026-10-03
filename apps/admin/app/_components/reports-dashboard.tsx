@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/table";
 import styles from "./reports-dashboard.module.css";
 import { useAdminSession } from "../../lib/admin-session";
+import { useTableOverflow } from "../../lib/use-table-overflow";
 import {
   buildDashboardReportQuery,
   buildReportDrilldownHref,
@@ -288,12 +289,16 @@ export function ReportsDashboard({
           actions={
             <div className="reportExportActions">
               <Button
+                aria-label={isMainDashboard ? undefined : "Add filter"}
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
                 type="button"
               >
                 <SlidersHorizontal aria-hidden size={16} />
-                <span>Add filter</span>
+                <span className="reportActionLabelFull">Add filter</span>
+                {isMainDashboard ? null : (
+                  <span className="reportActionLabelCompact">Filter</span>
+                )}
               </Button>
               <Button
                 className="iconTextButton"
@@ -354,6 +359,14 @@ export function ReportsDashboard({
             {exportError}
           </p>
         ) : null}
+        {report && !isMainDashboard ? (
+          <MetricGrid
+            cards={report.cards}
+            filters={displayedFilters}
+            todayDate={todayDate}
+            view={view}
+          />
+        ) : null}
       </section>
 
       {dashboardQuery.isLoading ? <LoadingState label="Loading reports..." /> : null}
@@ -371,15 +384,10 @@ export function ReportsDashboard({
       {report ? (
         isMainDashboard ? (
           <DashboardOverview filters={displayedFilters} report={report} />
+        ) : view === "overview" ? (
+          <ReportHub cards={report.cards} />
         ) : (
-          <>
-            <MetricGrid cards={report.cards} filters={displayedFilters} todayDate={todayDate} view={view} />
-            {view === "overview" ? (
-              <ReportHub cards={report.cards} />
-            ) : (
-              <ReportViewTable filters={displayedFilters} report={report} view={view} />
-            )}
-          </>
+          <ReportViewTable filters={displayedFilters} report={report} view={view} />
         )
       ) : null}
     </>
@@ -1021,10 +1029,12 @@ function MetricGrid({
 }) {
   const { hasPermission } = useAdminSession();
   const metrics = getMetricsForView(cards, filters, view, todayDate);
+  const spansRow = getMetricRowSpans(metrics);
 
   return (
     <section className="metricGrid reportMetricGrid" aria-label="Report metrics">
-      {metrics.map((metric) => {
+      {metrics.map((metric, index) => {
+        const span = spansRow[index] ? "row" : undefined;
         const card = (
           <Card className={`metric reportMetric metric--${metric.tone}`}>
             <CardContent>
@@ -1038,15 +1048,35 @@ function MetricGrid({
         );
 
         return metric.href && canAccessReportHref(metric.href, hasPermission) ? (
-          <Link className="reportMetricLink" href={metric.href} key={metric.label}>
+          <Link
+            className="reportMetricLink"
+            data-span={span}
+            href={metric.href}
+            key={metric.label}
+          >
             {card}
           </Link>
         ) : (
-          <div key={metric.label}>{card}</div>
+          <div data-span={span} key={metric.label}>
+            {card}
+          </div>
         );
       })}
     </section>
   );
+}
+
+/*
+ * Phones show metrics two per row. Long values (currency) take a full row, and an odd
+ * leftover card stretches so the grid never ends with an empty half row.
+ */
+function getMetricRowSpans(metrics: ReportMetricCard[]) {
+  const isWide = metrics.map((metric) => metric.value.length > 9);
+  const narrowIndexes = metrics.flatMap((_, index) => (isWide[index] ? [] : [index]));
+  const stretchedIndex =
+    narrowIndexes.length % 2 === 1 ? narrowIndexes[narrowIndexes.length - 1] : -1;
+
+  return metrics.map((_, index) => isWide[index] || index === stretchedIndex);
 }
 
 function ReportViewTable({
@@ -1095,6 +1125,8 @@ function ReportTablePanel({
   summary: string;
   title: string;
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow(!isEmpty);
+
   return (
     <section className="panel reportTablePanel">
       <PageHeader
@@ -1107,16 +1139,24 @@ function ReportTablePanel({
       {isEmpty ? (
         <div className="emptyPanel smallEmpty">{emptyState}</div>
       ) : (
-        <div className="reportTableShell">
-          <p className="reportTableHint">
-            Swipe sideways to view every report detail and drilldown.
-          </p>
+        <div
+          className="reportTableShell"
+          data-overflowing={isOverflowing ? "true" : undefined}
+          ref={shellRef}
+        >
+          {isOverflowing ? (
+            <p className="reportTableHint" id={REPORT_TABLE_HINT_ID}>
+              Swipe sideways to view every report detail and drilldown.
+            </p>
+          ) : null}
           {children}
         </div>
       )}
     </section>
   );
 }
+
+const REPORT_TABLE_HINT_ID = "report-table-hint";
 
 function OrdersByDayTable({
   filters,
@@ -1133,7 +1173,7 @@ function OrdersByDayTable({
       title="Orders by day"
     >
       <div className="resourceTable reportDataTable">
-        <Table>
+        <Table aria-describedby={REPORT_TABLE_HINT_ID} aria-label="Orders by day">
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
@@ -1144,12 +1184,12 @@ function OrdersByDayTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.date}>
-                <TableCell>
+                <TableCell className="reportTitleCell">
                   <strong>{formatLongDate(item.date)}</strong>
                   <em>{item.date}</em>
                 </TableCell>
-                <TableCell>{formatReportNumber(item.orders)}</TableCell>
-                <TableCell>
+                <TableCell data-label="Orders">{formatReportNumber(item.orders)}</TableCell>
+                <TableCell className="reportLinksCell">
                   <ReportTableLink
                     href={buildReportDrilldownHref("orders", {
                       ...filters,
@@ -1186,7 +1226,10 @@ function RevenueByDayTable({
       title={`${revenue.label} by day`}
     >
       <div className="resourceTable reportDataTable">
-        <Table>
+        <Table
+          aria-describedby={REPORT_TABLE_HINT_ID}
+          aria-label={`${revenue.label} by day`}
+        >
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
@@ -1197,12 +1240,14 @@ function RevenueByDayTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.date}>
-                <TableCell>
+                <TableCell className="reportTitleCell">
                   <strong>{formatLongDate(item.date)}</strong>
                   <em>{item.date}</em>
                 </TableCell>
-                <TableCell>{formatReportCurrency(item.revenue)}</TableCell>
-                <TableCell>
+                <TableCell data-label={revenue.label}>
+                  {formatReportCurrency(item.revenue)}
+                </TableCell>
+                <TableCell className="reportLinksCell">
                   <ReportTableLink
                     href={buildReportDrilldownHref("orders", {
                       ...filters,
@@ -1238,7 +1283,7 @@ function TopProductsTable({
       title="Top selling products"
     >
       <div className="resourceTable reportDataTable">
-        <Table>
+        <Table aria-describedby={REPORT_TABLE_HINT_ID} aria-label="Top selling products">
           <TableHeader>
             <TableRow>
               <TableHead>Product</TableHead>
@@ -1251,13 +1296,15 @@ function TopProductsTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.productId}>
-                <TableCell>
+                <TableCell className="reportTitleCell">
                   <strong>{item.name}</strong>
                 </TableCell>
-                <TableCell>{item.sku}</TableCell>
-                <TableCell>{formatReportNumber(item.quantity)}</TableCell>
-                <TableCell>{formatReportCurrency(item.revenue)}</TableCell>
-                <TableCell>
+                <TableCell className="reportWideCell" data-label="SKU" title={item.sku}>
+                  {item.sku}
+                </TableCell>
+                <TableCell data-label="Quantity">{formatReportNumber(item.quantity)}</TableCell>
+                <TableCell data-label="Revenue">{formatReportCurrency(item.revenue)}</TableCell>
+                <TableCell className="reportLinksCell">
                   <ReportTableLink
                     href={buildReportDrilldownHref(
                       "product",
@@ -1292,7 +1339,7 @@ function StockAlertsTable({
       title="Stock alerts"
     >
       <div className="resourceTable reportDataTable">
-        <Table>
+        <Table aria-describedby={REPORT_TABLE_HINT_ID} aria-label="Stock alerts">
           <TableHeader>
             <TableRow>
               <TableHead>Warehouse</TableHead>
@@ -1304,13 +1351,17 @@ function StockAlertsTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.warehouseId}>
-                <TableCell>
+                <TableCell className="reportTitleCell">
                   <strong>{item.warehouseName}</strong>
                   <em>{item.warehouseCode}</em>
                 </TableCell>
-                <TableCell>{formatReportNumber(item.lowStockProducts)}</TableCell>
-                <TableCell>{formatReportNumber(item.nearExpiryBatches)}</TableCell>
-                <TableCell>
+                <TableCell data-label="Low stock">
+                  {formatReportNumber(item.lowStockProducts)}
+                </TableCell>
+                <TableCell data-label="Near expiry">
+                  {formatReportNumber(item.nearExpiryBatches)}
+                </TableCell>
+                <TableCell className="reportLinksCell">
                   <div className="tableActions">
                     <ReportTableLink
                       href={buildReportDrilldownHref(
@@ -1356,7 +1407,10 @@ function WarehouseStockSummaryTable({
       title="Warehouse-wise stock summary"
     >
       <div className="resourceTable reportDataTable">
-        <Table>
+        <Table
+          aria-describedby={REPORT_TABLE_HINT_ID}
+          aria-label="Warehouse-wise stock summary"
+        >
           <TableHeader>
             <TableRow>
               <TableHead>Warehouse</TableHead>
@@ -1370,14 +1424,20 @@ function WarehouseStockSummaryTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.warehouseId}>
-                <TableCell>
+                <TableCell className="reportTitleCell">
                   <strong>{item.warehouseName}</strong>
                   <em>{item.warehouseCode}</em>
                 </TableCell>
-                <TableCell>{formatReportNumber(item.availableQuantity)}</TableCell>
-                <TableCell>{formatReportNumber(item.reservedQuantity)}</TableCell>
-                <TableCell>{formatReportNumber(item.activeBatches)}</TableCell>
-                <TableCell>
+                <TableCell data-label="Available">
+                  {formatReportNumber(item.availableQuantity)}
+                </TableCell>
+                <TableCell data-label="Reserved">
+                  {formatReportNumber(item.reservedQuantity)}
+                </TableCell>
+                <TableCell data-label="Batches">
+                  {formatReportNumber(item.activeBatches)}
+                </TableCell>
+                <TableCell data-label="Alerts">
                   <span className="flagList">
                     {item.lowStockProducts > 0 ? (
                       <ReportResourceLink
@@ -1406,7 +1466,7 @@ function WarehouseStockSummaryTable({
                     ) : null}
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="reportLinksCell">
                   <ReportTableLink
                     href={buildReportDrilldownHref(
                       "warehouse",

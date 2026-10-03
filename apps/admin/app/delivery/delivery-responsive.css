@@ -1,3 +1,9 @@
+/*
+ * Delivery pages are scoped under .deliveryModule so they outrank the shared single-class rules in
+ * globals.css. Layout follows the settings, coupon, and quote request modules: compact headers,
+ * header filters, tables that only pin columns while they scroll sideways, labelled cards on phones,
+ * and forms whose fields keep visible labels.
+ */
 .deliveryModule,
 .deliveryModule > *,
 .deliveryTableShell,
@@ -11,47 +17,93 @@
   min-width: 0;
 }
 
+.deliveryModule {
+  display: grid;
+  gap: 12px;
+}
+
 .deliveryModule .deliveryOverviewPanel,
 .deliveryModule .deliveryPartnersPanel,
 .deliveryModule .deliveryAssignmentsPanel,
 .deliveryModule .deliveryAssignPanel,
-.deliveryModule .deliveryPartnerDetailPagePanel,
-.deliveryModule .deliveryChartPanel {
+.deliveryModule .deliveryPartnerDetailPagePanel {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  max-width: none;
   padding: 18px;
 }
 
-.deliveryModule .deliveryPageHeader,
-.deliveryModule .deliverySectionHeader {
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 14px;
+.deliveryModule .deliveryOverviewPanel > :is(.formSuccess, .formError) {
+  margin: 0;
 }
 
-.deliveryModule .deliveryHeaderActions {
-  flex-wrap: nowrap;
-  gap: 8px;
+.deliveryModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
 }
 
-.deliveryModule .deliveryHeaderActions > * {
-  min-height: 36px;
-  white-space: nowrap;
-}
-
+/* Section tabs mirror the settings, coupon, and delivery charge modules. */
 .deliveryModule .deliverySectionNav {
-  gap: 6px;
-  margin-bottom: 14px;
-  overflow: visible;
-  padding: 5px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, minmax(96px, 1fr));
+  justify-self: start;
+  margin: 0;
+  padding: 4px;
 }
 
 .deliveryModule .deliverySectionNav a {
-  min-height: 34px;
-  padding: 7px 10px;
+  border-radius: 6px;
+  font-weight: 750;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  padding: 8px 14px;
+  text-align: center;
+}
+
+.deliveryModule .deliverySectionNav a[aria-current="page"] {
+  box-shadow: 0 2px 8px rgba(15, 111, 104, 0.18);
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.deliveryModule .adminPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+  margin: 0;
+}
+
+.deliveryModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.deliveryModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-left: auto;
+  width: auto;
+}
+
+.deliveryModule .deliveryHeaderActions {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: auto;
+}
+
+.deliveryModule .deliveryHeaderActions > * {
+  min-height: 38px;
+  white-space: nowrap;
+  width: auto;
 }
 
 .deliveryModule .deliveryMetricGrid {
-  gap: 10px;
-  margin-top: 14px;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0;
 }
 
 .deliveryModule .deliveryMetricGrid > [data-slot="card"] {
@@ -71,35 +123,74 @@
 
 .deliveryModule .deliveryChartsGrid {
   gap: 12px;
-  margin-top: 12px;
+  margin: 0;
 }
 
 .deliveryModule .deliveryChartPanel {
   gap: 12px;
   min-height: 0;
+  padding: 18px;
 }
 
 .deliveryModule .dashboardChartHeader em {
   line-height: 1.35;
 }
 
-.deliveryModule .deliveryFilters {
+.deliveryModule :is(.deliveryPartnersPanel, .deliveryAssignmentsPanel) .paginationControls {
+  margin-top: 0;
+}
+
+/* The single partner status filter lives in the list header, like the coupon search. */
+.deliveryModule .deliveryListHeader .adminPageActions {
+  flex: 0 1 400px;
+  min-width: min(100%, 280px);
+}
+
+.deliveryModule .deliveryPartnerFilters {
+  align-items: center;
+  display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  width: 100%;
 }
 
-.deliveryModule .deliveryFilters .productFilterActions {
-  align-items: stretch;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.deliveryModule .deliveryFilters .productFilterActions button {
-  min-height: 36px;
+.deliveryModule .deliveryPartnerFilters > [data-slot="select"] {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
+.deliveryModule .deliveryPartnerFilterActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.deliveryModule .deliveryPartnerFilterActions button {
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
+/* Assignment filters stay visible because notifications open this page with filters applied. */
+.deliveryModule .deliveryAssignmentFilters {
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)) auto;
+  margin: 0;
+}
+
+.deliveryModule .deliveryAssignmentFilters .productFilterActions {
+  display: grid;
+  flex-wrap: nowrap;
+  gap: 6px;
+  grid-template-columns: repeat(2, auto);
+}
+
+.deliveryModule .deliveryAssignmentFilters .productFilterActions button {
+  min-height: 40px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Table shells: border and hint strip wrap the shared viewport, which owns scrolling. */
 .deliveryTableShell {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -110,9 +201,9 @@
   background: #effaf8;
   border-bottom: 1px solid #c5e7e3;
   color: #0f6f68;
-  display: none;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.4;
   margin: 0;
   padding: 8px 10px;
 }
@@ -120,14 +211,77 @@
 .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) {
   border: 0;
   border-radius: 0;
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: none;
   overflow: hidden;
 }
 
 .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: min(620px, calc(100dvh - 180px));
   overscroll-behavior-inline: contain;
   touch-action: pan-x pan-y;
+}
+
+/* Long names, addresses, IDs, and issue notes wrap instead of being cut off with an ellipsis. */
+.deliveryModule .deliveryTableShell td:is(
+    .deliveryPartnerCell,
+    .deliveryOrderCell,
+    .deliveryAssigneeCell,
+    .deliveryPickupCell,
+    .deliveryTimelineCell,
+    .deliveryProofCell,
+    .deliveryBulkWarehouseCell
+  ),
+.deliveryModule .deliveryTableShell td:is(
+    .deliveryPartnerCell,
+    .deliveryOrderCell,
+    .deliveryAssigneeCell,
+    .deliveryPickupCell,
+    .deliveryTimelineCell,
+    .deliveryProofCell,
+    .deliveryBulkWarehouseCell
+  )
+  > * {
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.deliveryModule .deliveryTableShell td.deliveryOrderCell em {
+  font-size: 11px;
+}
+
+/* Column widths only apply to the table layout; phone cards size cells from their grid areas. */
+@media (min-width: 641px) {
+  .deliveryModule .deliveryTableShell td.deliveryPartnerCell {
+    line-height: 1.35;
+    max-width: 260px !important;
+    min-width: 170px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td:is(.deliveryOrderCell, .deliveryAssigneeCell) {
+    line-height: 1.35;
+    max-width: 200px !important;
+    min-width: 150px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td.deliveryPickupCell {
+    line-height: 1.35;
+    max-width: 260px !important;
+    min-width: 180px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td:is(.deliveryTimelineCell, .deliveryProofCell) {
+    line-height: 1.35;
+    max-width: 220px !important;
+    min-width: 150px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td.deliveryBulkWarehouseCell {
+    line-height: 1.35;
+    max-width: 280px !important;
+    min-width: 170px !important;
+  }
 }
 
 .deliveryModule .deliveryPartnerTableActions {
@@ -140,55 +294,105 @@
   padding-inline: 9px;
 }
 
+/* Key columns stay pinned only while a table scrolls sideways. */
+@media (min-width: 641px) {
+  .deliveryModule .deliveryPartnerTableShell[data-overflowing="true"] tr > :last-child {
+    position: sticky;
+    right: 0;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell[data-overflowing="true"] tr > th:last-child {
+    background: var(--surface-muted);
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 4;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell[data-overflowing="true"] tr > td:last-child {
+    background: var(--surface);
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 2;
+  }
+
+  .deliveryModule
+    :is(.deliveryAssignmentTableShell, .deliveryBulkTableShell)[data-overflowing="true"]
+    tr
+    > :first-child {
+    left: 0;
+    position: sticky;
+  }
+
+  .deliveryModule
+    :is(.deliveryAssignmentTableShell, .deliveryBulkTableShell)[data-overflowing="true"]
+    tr
+    > th:first-child {
+    background: var(--surface-muted);
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 4;
+  }
+
+  .deliveryModule
+    :is(.deliveryAssignmentTableShell, .deliveryBulkTableShell)[data-overflowing="true"]
+    tr
+    > td:first-child {
+    background: var(--surface);
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    z-index: 2;
+  }
+}
+
+/* The single-assign form and the bulk section share one full-width panel. */
 .deliveryModule .deliveryAssignmentForm {
   gap: 12px;
+  margin-top: 0;
 }
 
 .deliveryModule .deliveryAssignmentFormGrid {
-  gap: 10px 12px;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.deliveryModule .deliveryField {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 850;
+  gap: 6px;
+  min-width: 0;
 }
 
 .deliveryModule .deliveryAssignmentForm > button {
   justify-self: end;
-  min-height: 36px;
-}
-
-.deliveryModule .deliveryDetailPanel {
-  gap: 12px;
-}
-
-.deliveryModule .deliveryDetailPanel .detailGrid {
-  gap: 10px;
-}
-
-.deliveryModule .deliveryDetailPanel .detailItem {
-  min-height: 68px;
-  overflow-wrap: anywhere;
-  padding: 12px;
-}
-
-.deliveryModule .documentList {
-  gap: 8px;
-}
-
-.deliveryModule .deliveryDocumentRow {
-  gap: 8px 10px;
-  padding: 10px 12px;
+  min-height: 38px;
 }
 
 .deliveryModule .bulkDeliverySection {
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 14px;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 16px;
+}
+
+.deliveryModule .bulkDeliverySection h3 {
+  color: var(--text);
+  font-size: var(--admin-text-lg);
+  line-height: 1.3;
+}
+
+.deliveryModule .bulkDeliverySection > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .deliveryModule .bulkDeliverySection > label {
-  gap: 5px;
-  max-width: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  gap: 6px;
+  max-width: 480px;
 }
 
 .deliveryModule .bulkDeliverySection .bulkActions {
-  margin: 8px 0;
+  margin: 0;
   padding: 10px 12px;
 }
 
@@ -240,12 +444,69 @@
   gap: 8px;
 }
 
-.deliveryModule .deliveryBulkOrderTable [data-slot="table"] {
-  min-width: 720px;
+/*
+ * Partner detail: eight facts with a double-width email fill a three-column grid exactly;
+ * dense packing keeps narrower grids from leaving holes beside the email.
+ */
+.deliveryModule .deliveryDetailPanel {
+  gap: 12px;
+}
+
+.deliveryModule .deliveryDetailPanel .detailGrid {
+  gap: 10px;
+  grid-auto-flow: row dense;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.deliveryModule .deliveryDetailPanel .detailItem {
+  align-content: start;
+  min-height: 0;
+  overflow-wrap: anywhere;
+  padding: 12px;
+}
+
+.deliveryModule .deliveryDetailPanel .detailItem[data-wide="true"] {
+  grid-column: span 2;
+}
+
+.deliveryModule .documentList {
+  gap: 8px;
+}
+
+.deliveryModule .deliveryDocumentRow {
+  gap: 8px 10px;
+  padding: 10px 12px;
+}
+
+@media (max-width: 1280px) {
+  .deliveryModule .deliveryAssignmentFilters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryAssignmentFilters > :first-child {
+    grid-column: span 2;
+  }
+
+  .deliveryModule .deliveryAssignmentFilters .productFilterActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryAssignmentFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryDetailPanel .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .deliveryModule .deliveryMetricGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
-  .deliveryModule .deliveryMetricGrid,
   .deliveryModule .deliveryChartsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -254,84 +515,97 @@
     grid-column: 1 / -1;
   }
 
-  .deliveryTableHint {
-    display: block;
+  .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+    max-height: min(560px, calc(100dvh - 150px));
+  }
+}
+
+@media (max-width: 760px) {
+  /* The partner filter needs the full width once it no longer fits beside the heading. */
+  .deliveryModule .deliveryListHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .deliveryModule .deliveryListHeader .adminPageActions {
+    flex-basis: auto;
+    margin-left: 0;
+    min-width: 0;
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
+  .deliveryModule {
+    gap: 10px;
+  }
+
   .deliveryModule .deliveryOverviewPanel,
   .deliveryModule .deliveryPartnersPanel,
   .deliveryModule .deliveryAssignmentsPanel,
   .deliveryModule .deliveryAssignPanel,
   .deliveryModule .deliveryPartnerDetailPagePanel,
   .deliveryModule .deliveryChartPanel {
+    gap: 12px;
     padding: 12px;
   }
 
-  .deliveryModule .deliveryPageHeader,
-  .deliveryModule .deliverySectionHeader {
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-
-  .deliveryModule .deliveryPageHeader .adminPageActions {
+  /* Four tabs sit two by two at a readable size instead of shrinking to 10px text. */
+  .deliveryModule .deliverySectionNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
     width: 100%;
   }
 
-  .deliveryModule .deliveryHeaderActions {
-    display: grid;
-    flex-direction: row;
-    gap: 6px;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  .deliveryModule .deliverySectionNav a {
+    font-size: 12px;
+    padding-inline: 6px;
     width: 100%;
+  }
+
+  .deliveryModule .adminPageHeader {
+    gap: 8px;
   }
 
   .deliveryModule .deliveryHeaderActions > * {
     font-size: 12px;
     gap: 5px;
+    min-height: 34px;
     min-width: 0;
-    padding-inline: 7px;
-    width: 100%;
+    padding-inline: 10px;
   }
 
-  .deliveryModule .deliverySectionNav {
-    display: grid;
-    flex-direction: row;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: visible;
-    width: 100%;
+  .deliveryModule .deliveryListHeader {
+    gap: 8px;
   }
 
-  .deliveryModule .deliverySectionNav a {
-    font-size: 10px;
-    min-width: 0;
-    padding: 6px 3px;
-    text-align: center;
-    width: 100%;
+  .deliveryModule .deliveryPartnerFilterActions button {
+    font-size: 12px;
+    padding-inline: 10px;
   }
 
   .deliveryModule .deliveryMetricGrid {
+    gap: 8px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .deliveryModule .deliveryMetricGrid > [data-slot="card"] {
-    min-height: 80px;
+    min-height: 78px;
   }
 
   .deliveryModule .deliveryMetricGrid .metricCardContent {
-    padding: 9px 10px;
+    padding: 10px 12px;
   }
 
   .deliveryModule .deliveryMetricGrid .metricCardContent span {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .deliveryModule .deliveryMetricGrid .metricCardContent strong {
-    font-size: 19px;
-    line-height: 1.05;
-    margin-top: 5px;
+    font-size: clamp(20px, 6vw, 24px);
+    line-height: 1;
+    margin-top: 6px;
   }
 
   .deliveryModule .deliveryChartsGrid {
@@ -347,19 +621,8 @@
     min-height: 240px;
   }
 
-  .deliveryModule .deliveryFilters {
+  .deliveryModule .deliveryAssignmentFilters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .deliveryModule .deliveryPartnerFilters {
-    align-items: center;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .deliveryModule .deliveryPartnerFilters .productFilterActions {
-    display: grid;
-    flex-direction: row;
-    grid-template-columns: repeat(2, minmax(54px, 1fr));
   }
 
   .deliveryModule .deliveryAssignmentFilters > :first-child,
@@ -368,39 +631,249 @@
     grid-column: 1 / -1;
   }
 
-  .deliveryModule .deliveryFilters .productFilterActions {
-    flex-direction: row;
-  }
-
-  .deliveryModule .deliveryFilters .productFilterActions button {
+  .deliveryModule .deliveryAssignmentFilters .productFilterActions button {
     font-size: 12px;
     padding-inline: 6px;
     width: 100%;
   }
 
-  .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable),
-  .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
-    max-height: min(440px, calc(100dvh - 130px));
+  /* Rows become cards so every field and action is readable without sideways scrolling. */
+  .deliveryModule .deliveryTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
   }
 
-  .deliveryModule .deliveryPartnerDetailHeader {
-    align-items: start;
+  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable),
+  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .deliveryModule .deliveryTableShell [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .deliveryModule .deliveryTableShell :is(thead, tbody) {
+    display: block;
+  }
+
+  /* Plain column headings stay available to assistive tech but take no space. */
+  .deliveryModule :is(.deliveryPartnerTableShell, .deliveryAssignmentTableShell) thead {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  /* The bulk table keeps its "select page" checkbox as a slim bar above the cards. */
+  .deliveryModule .deliveryBulkTableShell thead tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+  }
+
+  .deliveryModule .deliveryBulkTableShell thead th {
+    display: none;
+  }
+
+  .deliveryModule .deliveryBulkTableShell thead th:is(.bulkCheckboxCell, .deliveryBulkOrderCell) {
+    background: transparent;
+    display: block;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0;
+    position: static;
+    width: auto !important;
+  }
+
+  .deliveryModule .deliveryTableShell tbody {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
   }
 
-  .deliveryModule .deliveryPartnerDetailHeader .adminPageActions {
+  .deliveryModule .deliveryTableShell tbody tr {
+    align-items: start;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    padding: 12px;
+    row-gap: 8px;
+  }
+
+  .deliveryModule .deliveryTableShell tbody tr.deliveryBulkEmptyRow {
+    display: block;
+  }
+
+  .deliveryModule .deliveryTableShell tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .deliveryModule .deliveryTableShell tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .deliveryModule .deliveryTableShell tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .deliveryModule .deliveryTableShell tbody td.deliveryStatusCell {
+    grid-area: status;
     justify-self: end;
   }
 
-  .deliveryModule .deliveryPartnerDetailHeader .adminPageActions > * {
+  .deliveryModule .deliveryPartnerTableShell tbody tr {
+    grid-template-areas:
+      "partner status"
+      "availability documents";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryPartnerCell {
+    grid-area: partner;
+  }
+
+  /* View and the approve/reject buttons share a full-width last row, so they never squeeze the name. */
+  .deliveryModule .deliveryPartnerTableShell tbody td:is(.deliveryDetailCell, .deliveryActionsCell) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody :is(.deliveryDetailCell, .deliveryActionsCell) :is(a, button) {
+    font-size: 12px;
     min-height: 34px;
-    width: auto;
+    padding-inline: 9px;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryPartnerCell strong {
+    font-size: 14px;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryAvailabilityCell {
+    align-self: center;
+    grid-area: availability;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryDocumentsCell {
+    color: var(--text);
+    grid-area: documents;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryDetailCell {
+    justify-self: start;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryActionsCell {
+    justify-self: end;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody tr {
+    grid-template-areas:
+      "order status"
+      "partner partner"
+      "pickup pickup"
+      "timeline timeline"
+      "proof proof";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryOrderCell {
+    grid-area: order;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryOrderCell strong {
+    font-size: 14px;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryAssigneeCell {
+    grid-area: partner;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryPickupCell {
+    grid-area: pickup;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryTimelineCell {
+    grid-area: timeline;
+  }
+
+  .deliveryModule .deliveryAssignmentTableShell tbody td.deliveryProofCell {
+    color: var(--text);
+    grid-area: proof;
+  }
+
+  .deliveryModule .deliveryBulkTableShell tbody tr {
+    grid-template-areas:
+      "check order status"
+      "check customer warehouse";
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .deliveryModule .deliveryBulkTableShell tbody td.bulkCheckboxCell {
+    grid-area: check;
+    padding-top: 2px;
+  }
+
+  .deliveryModule .deliveryBulkTableShell tbody td.deliveryBulkOrderCell {
+    grid-area: order;
+  }
+
+  .deliveryModule .deliveryBulkTableShell tbody td.deliveryBulkCustomerCell {
+    color: var(--text);
+    grid-area: customer;
+  }
+
+  .deliveryModule .deliveryBulkTableShell tbody td.deliveryBulkWarehouseCell {
+    color: var(--text);
+    grid-area: warehouse;
   }
 
   .deliveryModule .deliveryAssignmentFormGrid,
   .deliveryModule .deliveryDetailPanel .detailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .deliveryModule .deliveryDetailPanel .detailGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .deliveryModule .deliveryAssignmentForm > button {
@@ -409,7 +882,6 @@
   }
 
   .deliveryModule .deliveryDetailPanel .detailItem {
-    min-height: 62px;
     padding: 10px;
   }
 
@@ -428,12 +900,14 @@
   }
 
   .deliveryModule .bulkDeliverySection {
-    margin-top: 12px;
     padding-top: 12px;
   }
 
+  .deliveryModule .bulkDeliverySection > label {
+    max-width: none;
+  }
+
   .deliveryModule .bulkDeliverySection .bulkActions {
-    margin: 6px 0;
     padding: 8px;
   }
 
@@ -467,20 +941,5 @@
     grid-column: 1;
     grid-row: auto;
     width: 100%;
-  }
-
-  .deliveryBulkTableShell .deliveryBulkOrderTable tr > .bulkCheckboxCell {
-    left: 0;
-    position: sticky;
-  }
-
-  .deliveryBulkTableShell .deliveryBulkOrderTable th.bulkCheckboxCell {
-    background: #e4efed;
-    z-index: 4;
-  }
-
-  .deliveryBulkTableShell .deliveryBulkOrderTable td.bulkCheckboxCell {
-    background: var(--surface-muted);
-    z-index: 3;
   }
 }

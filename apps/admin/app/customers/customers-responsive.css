@@ -1,3 +1,8 @@
+/*
+ * Customer pages are scoped under .customersModule so they outrank the shared single-class rules in
+ * globals.css. Layout follows the settings, coupon, and delivery modules: compact headers, tables
+ * that only pin columns while they scroll sideways, and labelled cards on phones.
+ */
 .customersModule,
 .customersModule > *,
 .customersModule .customerTableShell,
@@ -9,40 +14,94 @@
   min-width: 0;
 }
 
+.customersModule {
+  display: grid;
+  gap: 12px;
+}
+
+.customersModule > *,
+.customersModule .customerProfileGrid,
+.customersModule .customerDetailPanel {
+  margin: 0;
+}
+
 .customersModule .customerOverviewPanel,
 .customersModule .customerListPanel,
 .customersModule .customerDetailHeroContent,
 .customersModule .customerDetailPanel {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   padding: 18px;
 }
 
-.customersModule .customerPageHeader,
-.customersModule .customerDetailPageHeader {
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 14px;
+.customersModule :is(.customerOverviewPanel, .customerDetailHeroContent) > :is(.formSuccess, .formError) {
+  margin: 0;
 }
 
-.customersModule :is(.customerPageHeader, .customerDetailPageHeader) .adminPageActions {
+.customersModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
+}
+
+.customersModule .customerDetailPanel > .panelHeader {
+  margin: 0;
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.customersModule .adminPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+  margin: 0;
+}
+
+.customersModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.customersModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   margin-left: auto;
   width: auto;
 }
 
 .customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) {
+  flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  width: auto;
 }
 
 .customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) > * {
   min-height: 38px;
   min-width: 0;
-  padding-inline: 11px;
+  padding-inline: 12px;
+  white-space: nowrap;
+  width: auto;
+}
+
+.customersModule .customerFilterCount {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 18px;
+  padding: 0 5px;
 }
 
 .customersModule .customerMetricGrid,
 .customersModule .customerDetailMetricGrid {
-  gap: 10px;
-  margin-top: 14px;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
 }
 
 .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) > [data-slot="card"] {
@@ -60,8 +119,16 @@
   overflow-wrap: anywhere;
 }
 
+.customersModule .customerListPanel {
+  gap: 12px;
+}
+
+.customersModule .customerListPanel .paginationControls {
+  margin-top: 0;
+}
+
 .customerBulkActions .bulkActions {
-  margin: 8px 0;
+  margin: 0;
   padding: 10px 12px;
 }
 
@@ -114,6 +181,7 @@
   gap: 8px;
 }
 
+/* Table shells: border and hint strip wrap the shared viewport, which owns scrolling. */
 .customerTableShell,
 .customerOrderTableShell {
   border: 1px solid var(--border);
@@ -125,9 +193,9 @@
   background: #effaf8;
   border-bottom: 1px solid #c5e7e3;
   color: #0f6f68;
-  display: none;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.4;
   margin: 0;
   padding: 8px 10px;
 }
@@ -136,13 +204,13 @@
 .customerOrderTableShell .customerOrdersTable {
   border: 0;
   border-radius: 0;
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: none;
   overflow: hidden;
 }
 
 .customerTableShell .customerTable .adminTableViewport,
 .customerOrderTableShell .customerOrdersTable .adminTableViewport {
-  max-height: min(560px, calc(100dvh - 180px));
+  max-height: min(620px, calc(100dvh - 180px));
   overscroll-behavior-inline: contain;
   touch-action: pan-x pan-y;
 }
@@ -150,12 +218,87 @@
 .customersModule :is(.customerTable, .customerOrdersTable) th,
 .customersModule :is(.customerTable, .customerOrdersTable) td {
   padding-inline: 10px;
-  vertical-align: top;
+}
+
+/* Names, contacts, and businesses wrap instead of being cut off with an ellipsis. */
+.customersModule .customerTable td:is(.customerNameCell, .customerContactCell, .customerBusinessCell),
+.customersModule .customerTable td:is(.customerNameCell, .customerContactCell, .customerBusinessCell) > *,
+.customersModule .customerOrdersTable td.customerOrderCell,
+.customersModule .customerOrdersTable td.customerOrderCell > * {
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+.customersModule .customerTable td :is(.tablePrimaryLink, strong) {
+  display: block;
+}
+
+.customersModule .customerOrdersTable td.customerOrderCell em {
+  font-size: 11px;
+}
+
+/* Column widths only apply to the table layout; phone cards size cells from their grid areas. */
+@media (min-width: 641px) {
+  .customersModule .customerTable td.customerNameCell {
+    line-height: 1.35;
+    max-width: 240px !important;
+    min-width: 170px !important;
+  }
+
+  .customersModule .customerTable td:is(.customerContactCell, .customerBusinessCell) {
+    line-height: 1.35;
+    max-width: 230px !important;
+    min-width: 160px !important;
+  }
+
+  .customersModule .customerOrdersTable td.customerOrderCell {
+    line-height: 1.35;
+    max-width: 220px !important;
+    min-width: 140px !important;
+  }
+
+  /* Selection and the view action stay pinned only while the columns scroll sideways. */
+  .customersModule .customerTable tr > .bulkCheckboxCell {
+    left: 0;
+    max-width: 44px !important;
+    min-width: 44px !important;
+    position: sticky;
+    width: 44px !important;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child,
+  .customersModule :is(.customerTable, .customerOrdersTable) td:last-child {
+    position: sticky;
+    right: 0;
+  }
+
+  .customersModule .customerTable th.bulkCheckboxCell,
+  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+
+  .customersModule .customerTable td.bulkCheckboxCell,
+  .customersModule :is(.customerTable, .customerOrdersTable) td:last-child {
+    background: var(--surface);
+    z-index: 2;
+  }
+
+  .customersModule .customerTableShell[data-overflowing="true"] tr > .bulkCheckboxCell {
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
+
+  .customersModule :is(.customerTableShell, .customerOrderTableShell)[data-overflowing="true"] :is(th, td):last-child {
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
 }
 
 .customersModule .customerProfileGrid,
 .customersModule .customerSupportGrid {
   align-items: start;
+  gap: 12px;
   grid-auto-rows: auto;
 }
 
@@ -165,18 +308,36 @@
   min-height: 0;
 }
 
-.customersModule .customerAddressGrid {
+.customersModule .detailGrid {
   gap: 10px;
 }
 
+/* The shared order-detail grid forces 76px equal rows; customer facts size to their content. */
+.customersModule .customerProfileGrid > .panel > .detailGrid {
+  flex: 0 0 auto;
+  grid-auto-rows: auto;
+}
+
 .customersModule .detailItem {
-  min-height: 68px;
+  align-content: start;
+  min-height: 0;
   overflow-wrap: anywhere;
   padding: 12px;
 }
 
+/* Saved addresses sit side by side instead of each taking a full-width row. */
+.customersModule .customerAddressGrid {
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+.customersModule .customerAddressGrid > .detailItem[data-wide="true"] {
+  grid-column: auto;
+}
+
 .customersModule :is(.customerStatusForm, .customerSupportForm) {
   gap: 10px;
+  margin-top: 0;
 }
 
 .customersModule :is(.customerStatusForm, .customerSupportForm) [data-slot="textarea"] {
@@ -187,123 +348,72 @@
   gap: 10px;
 }
 
-@media (max-width: 1440px) {
-  .customersModule .customerTableHint {
-    display: block;
-  }
-
-  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child,
-  .customersModule :is(.customerTable, .customerOrdersTable) td:last-child {
-    background: var(--surface);
-    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    position: sticky;
-    right: 0;
-    z-index: 2;
-  }
-
-  .customersModule :is(.customerTable, .customerOrdersTable) th:last-child {
-    background: var(--surface-muted);
-    z-index: 3;
-  }
-
-  .customersModule .customerTable :is(th, td):last-child {
-    min-width: 116px;
-    width: 116px;
-  }
-
-  .customersModule .customerOrdersTable :is(th, td):last-child {
-    min-width: 92px;
-    width: 92px;
-  }
-}
-
 @media (max-width: 980px) {
   .customersModule .customerMetricGrid,
   .customersModule .customerDetailMetricGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .customerTableShell .customerTable tr > .bulkCheckboxCell {
-    left: 0;
-    position: sticky;
-  }
-
-  .customerTableShell .customerTable th.bulkCheckboxCell {
-    background: #e4efed;
-    z-index: 4;
-  }
-
-  .customerTableShell .customerTable td.bulkCheckboxCell {
-    background: var(--surface-muted);
-    z-index: 3;
-  }
-
-  .customersModule .customerAddressGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .customerTableShell .customerTable .adminTableViewport,
+  .customerOrderTableShell .customerOrdersTable .adminTableViewport {
+    max-height: min(560px, calc(100dvh - 150px));
   }
 }
 
 @media (max-width: 640px) {
+  .customersModule {
+    gap: 10px;
+  }
+
   .customersModule .customerOverviewPanel,
   .customersModule .customerListPanel,
   .customersModule .customerDetailHeroContent,
   .customersModule .customerDetailPanel {
+    gap: 12px;
     padding: 12px;
   }
 
-  .customersModule .customerPageHeader,
-  .customersModule .customerDetailPageHeader {
-    gap: 10px;
-    margin-bottom: 12px;
+  .customersModule .adminPageHeader {
+    gap: 8px;
   }
 
-  .customersModule :is(.customerPageHeader, .customerDetailPageHeader) .adminPageActions {
-    width: 100%;
-  }
-
-  .customersModule .customerHeaderActions,
-  .customersModule .customerDetailHeaderActions {
-    display: grid;
+  .customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) {
     gap: 6px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
   }
 
   .customersModule :is(.customerHeaderActions, .customerDetailHeaderActions) > * {
     font-size: 12px;
     gap: 5px;
-    min-height: 36px;
-    min-width: 0;
-    padding-inline: 7px;
-    width: 100%;
+    min-height: 34px;
+    padding-inline: 10px;
   }
 
   .customersModule .customerMetricGrid,
   .customersModule .customerDetailMetricGrid {
+    gap: 8px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) > [data-slot="card"] {
-    min-height: 80px;
+    min-height: 78px;
   }
 
   .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent {
-    padding: 9px 10px;
+    padding: 10px 12px;
   }
 
   .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent span {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .customersModule :is(.customerMetricGrid, .customerDetailMetricGrid) .metricCardContent strong {
-    font-size: 19px;
-    line-height: 1.05;
-    margin-top: 5px;
+    font-size: clamp(20px, 6vw, 24px);
+    line-height: 1;
+    margin-top: 6px;
   }
 
   .customerBulkActions .bulkActions {
-    margin: 6px 0;
     padding: 8px;
   }
 
@@ -339,10 +449,231 @@
     width: 100%;
   }
 
+  /* Rows become cards so contacts, businesses, orders, and status are readable without swiping. */
+  .customersModule :is(.customerTableShell, .customerOrderTableShell) {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable),
+  .customersModule :is(.customerTable, .customerOrdersTable) .adminTableViewport {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) :is(thead, tbody) {
+    display: block;
+  }
+
+  /* Order history headings stay available to assistive tech but take no space. */
+  .customersModule .customerOrdersTable thead {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+
+  /* The customer list keeps its "select page" checkbox as a slim bar, like the category dialog. */
+  .customersModule .customerTable thead tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+  }
+
+  .customersModule .customerTable thead th {
+    display: none;
+  }
+
+  .customersModule .customerTable thead th:is(.bulkCheckboxCell, .customerNameCell) {
+    background: transparent;
+    display: block;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0;
+    position: static;
+    width: auto !important;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) tbody tr {
+    align-items: start;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    padding: 12px;
+    row-gap: 8px;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .customersModule :is(.customerTable, .customerOrdersTable) tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .customersModule .customerTable tbody tr {
+    grid-template-areas:
+      "check customer status"
+      "check contact contact"
+      "check business business"
+      "check orders action"
+      "check created action";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  /* Without bulk permission there is no checkbox column, so the card starts at the name. */
+  .customersModule .customerTable tbody tr:not(:has(> .bulkCheckboxCell)) {
+    grid-template-areas:
+      "customer status"
+      "contact contact"
+      "business business"
+      "orders action"
+      "created action";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .customersModule .customerTable tbody td.bulkCheckboxCell {
+    grid-area: check;
+    padding-top: 2px;
+  }
+
+  .customersModule .customerTable tbody td.customerNameCell {
+    grid-area: customer;
+  }
+
+  .customersModule .customerTable tbody td.customerNameCell .tablePrimaryLink {
+    font-size: 14px;
+  }
+
+  .customersModule .customerTable tbody td.customerStatusCell {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .customersModule .customerTable tbody td.customerContactCell {
+    grid-area: contact;
+  }
+
+  .customersModule .customerTable tbody td.customerBusinessCell {
+    grid-area: business;
+  }
+
+  .customersModule .customerTable tbody td:is(.customerOrdersCell, .customerCreatedCell) {
+    color: var(--text);
+  }
+
+  .customersModule .customerTable tbody td.customerOrdersCell {
+    grid-area: orders;
+  }
+
+  .customersModule .customerTable tbody td.customerCreatedCell {
+    grid-area: created;
+  }
+
+  .customersModule .customerTable tbody td.customerActionCell {
+    align-self: end;
+    grid-area: action;
+    justify-self: end;
+  }
+
+  .customersModule .customerOrdersTable tbody tr {
+    grid-template-areas:
+      "order status"
+      "payment total"
+      "placed action";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderCell {
+    grid-area: order;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderCell strong {
+    font-size: 14px;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderStatusCell {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderPaymentCell {
+    grid-area: payment;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderTotalCell {
+    color: var(--text);
+    font-weight: 800;
+    grid-area: total;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderPlacedCell {
+    color: var(--text);
+    grid-area: placed;
+  }
+
+  .customersModule .customerOrdersTable tbody td.customerOrderActionCell {
+    align-self: end;
+    grid-area: action;
+    justify-self: end;
+  }
+
   .customersModule .customerProfileGrid,
   .customersModule .customerSupportGrid,
-  .customersModule .detailGrid,
-  .customersModule .customerAddressGrid {
+  .customersModule .detailGrid {
     grid-template-columns: 1fr;
   }
 
@@ -352,28 +683,11 @@
   }
 
   .customersModule .detailItem {
-    min-height: 62px;
+    gap: 4px;
     padding: 10px;
   }
 
   .customersModule :is(.customerStatusForm, .customerSupportForm) [data-slot="textarea"] {
     min-height: 62px;
-  }
-
-  .customerTableShell .customerTable,
-  .customerTableShell .customerTable .adminTableViewport,
-  .customerOrderTableShell .customerOrdersTable,
-  .customerOrderTableShell .customerOrdersTable .adminTableViewport {
-    max-height: min(440px, calc(100dvh - 130px));
-  }
-
-  .customersModule .customerTable :is(th, td):last-child {
-    min-width: 108px;
-    width: 108px;
-  }
-
-  .customersModule .customerOrdersTable :is(th, td):last-child {
-    min-width: 86px;
-    width: 86px;
   }
 }

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import {
   buildCustomerQuery,
   CUSTOMER_STATUSES,
@@ -99,6 +100,8 @@ function CustomersContent() {
   }, [page, pagination]);
   const activeVisibleCount = customers.filter((customer) => customer.isActive).length;
   const inactiveVisibleCount = customers.length - activeVisibleCount;
+  const activeFilterCount = [appliedFilters.search.trim(), appliedFilters.status].filter(Boolean)
+    .length;
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,12 +124,20 @@ function CustomersContent() {
           actions={
             <div className="actionRow customerHeaderActions">
               <Button
+                aria-label={
+                  activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : "Add filter"
+                }
                 className="iconTextButton"
                 onClick={() => setIsFilterDrawerOpen(true)}
                 type="button"
               >
                 <SlidersHorizontal aria-hidden size={16} />
-                <span>Add filter</span>
+                <span>{activeFilterCount > 0 ? "Filters" : "Add filter"}</span>
+                {activeFilterCount > 0 ? (
+                  <span aria-hidden className="customerFilterCount">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
               </Button>
               <Button
                 className="iconTextButton"
@@ -254,19 +265,26 @@ function CustomerFilterFields({
 }
 
 function CustomerTable({ customers, bulk, canUpdate }: { customers: AdminCustomer[]; bulk: BulkSelection<AdminCustomer>; canUpdate: boolean }) {
+  const { isOverflowing, shellRef } = useTableOverflow();
+
   return (
-    <div className="customerTableShell">
-      <p className="customerTableHint">
-        Swipe sideways to view every customer option.
-      </p>
+    <div
+      className="customerTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="customerTableHint" id="customer-table-hint">
+          Swipe sideways to view every customer option.
+        </p>
+      ) : null}
       <div className="resourceTable customerTable">
-        <Table>
+        <Table aria-describedby="customer-table-hint" aria-label="Customers">
         <TableHeader>
           <TableRow>
             {canUpdate ? <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead> : null}
-            <TableHead>Customer</TableHead>
-            <TableHead>Mobile</TableHead>
-            <TableHead>Email</TableHead>
+            <TableHead className="customerNameCell">Customer</TableHead>
+            <TableHead>Contact</TableHead>
             <TableHead>Business</TableHead>
             <TableHead>Orders</TableHead>
             <TableHead>Status</TableHead>
@@ -281,24 +299,30 @@ function CustomerTable({ customers, bulk, canUpdate }: { customers: AdminCustome
             return (
               <TableRow key={customer.id}>
                 {canUpdate ? <TableCell className="bulkCheckboxCell"><BulkRowCheckbox selection={bulk} item={customer} label={customer.name} /></TableCell> : null}
-                <TableCell>
+                <TableCell className="customerNameCell">
                   <Link className="tablePrimaryLink" href={`/customers/${customer.id}`}>
                     {customer.name}
                   </Link>
                   <em>{customer.addressCount} addresses</em>
                 </TableCell>
-                <TableCell>{customer.mobileNumber}</TableCell>
-                <TableCell>{customer.email ?? "-"}</TableCell>
-                <TableCell>
+                <TableCell className="customerContactCell">
+                  <strong>{customer.mobileNumber}</strong>
+                  <em>{customer.email ?? "No email"}</em>
+                </TableCell>
+                <TableCell className="customerBusinessCell" data-label="Business">
                   <strong>{customer.businessName ?? "-"}</strong>
                   <em>{customer.gstNumber ?? "No GSTIN"}</em>
                 </TableCell>
-                <TableCell>{customer.orderCount}</TableCell>
-                <TableCell>
+                <TableCell className="customerOrdersCell" data-label="Orders">
+                  {customer.orderCount}
+                </TableCell>
+                <TableCell className="customerStatusCell">
                   <StatusBadge status={getCustomerStatusTone(status)} />
                 </TableCell>
-                <TableCell>{formatCustomerDate(customer.createdAt)}</TableCell>
-                <TableCell>
+                <TableCell className="customerCreatedCell" data-label="Created">
+                  {formatCustomerDate(customer.createdAt)}
+                </TableCell>
+                <TableCell className="customerActionCell">
                   <Button asChild className="iconTextButton" size="sm" variant="outline">
                     <Link href={`/customers/${customer.id}`}>
                       <Eye aria-hidden size={14} />

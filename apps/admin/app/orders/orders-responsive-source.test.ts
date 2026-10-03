@@ -33,4 +33,36 @@ describe("Orders responsive layout", () => {
     expect(responsiveStyles).toContain(".ordersBulkActions .bulkActionForm");
     expect(responsiveStyles).toContain(".ordersTableHint");
   });
+
+  it("shows the swipe hint and pinned columns only while a table scrolls sideways", () => {
+    expect(listSource).toContain("useTableOverflow(orders.length > 0)");
+    expect(detailSource).toContain("useTableOverflow(order.items.length > 0)");
+    expect(listSource).toContain('aria-describedby="orders-table-hint"');
+    expect(responsiveStyles).toContain(
+      '.ordersTableShell[data-overflowing="true"] .ordersTable tr > .bulkCheckboxCell'
+    );
+    expect(responsiveStyles).toContain("touch-action: pan-x pan-y");
+  });
+
+  it("turns order and item rows into labelled cards on phones", () => {
+    expect(listSource).toContain('data-label="Delivery partner"');
+    expect(listSource).toContain("ordersStatusStack");
+    expect(listSource).toContain("ordersFilterCount");
+    expect(detailSource).toContain('data-label="Warehouse"');
+    expect(responsiveStyles).toContain('"check warehouse partner"');
+    expect(responsiveStyles).toContain('"item item total"');
+    expect(responsiveStyles).toContain(
+      ".ordersModule .ordersTable thead th:is(.bulkCheckboxCell, .ordersOrderCell)"
+    );
+  });
+
+  it("keeps the order detail page compact at every width", () => {
+    expect(detailSource).toContain('backHref="/orders"');
+    expect(detailSource).not.toContain("my-3");
+    expect(responsiveStyles).toContain("container: order-detail / inline-size");
+    expect(responsiveStyles).toContain("@container order-detail (max-width: 820px)");
+    expect(responsiveStyles).toMatch(
+      /\.ordersModule \.orderDetailPageHeader \.adminPageHeaderTitle\s*{[^}]*display:\s*block/s
+    );
+  });
 });

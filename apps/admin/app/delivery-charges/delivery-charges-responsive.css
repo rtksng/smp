@@ -1,7 +1,7 @@
 /*
  * Delivery charge rules are scoped under .deliveryChargeModule so they outrank the shared single-class
- * rules in globals.css. Layout follows the catalog modules: compact header actions, 2-column KPIs on
- * phones, and one shared table viewport with pinned selection and action columns while scrolling.
+ * rules in globals.css. Layout follows the settings and catalog modules: compact header actions,
+ * one-row KPIs, a table that only pins columns when it scrolls sideways, and labelled cards on phones.
  */
 .deliveryChargeModule,
 .deliveryChargeModule > *,
@@ -18,6 +18,7 @@
 .deliveryChargeModule .deliveryChargeFormPanel {
   display: grid;
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   padding: 18px;
 }
 
@@ -26,25 +27,49 @@
   margin: 0;
 }
 
+.deliveryChargeModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
+}
+
+/* Section tabs mirror the settings and product feedback modules. */
 .deliveryChargeModule .deliveryChargeSectionNav {
+  display: grid;
   gap: 4px;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  justify-self: start;
   padding: 4px;
 }
 
 .deliveryChargeModule .deliveryChargeSectionNav a {
-  min-height: 34px;
-  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 750;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  padding: 8px 14px;
+  text-align: center;
 }
 
-.deliveryChargeModule .deliveryChargePageHeader {
-  align-items: flex-start;
+.deliveryChargeModule .deliveryChargeSectionNav a[aria-current="page"] {
+  box-shadow: 0 2px 8px rgba(15, 111, 104, 0.18);
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.deliveryChargeModule .adminPageHeader {
+  align-items: center;
   flex-direction: row;
   gap: 12px;
   margin: 0;
 }
 
-.deliveryChargeModule .deliveryChargePageHeader .adminPageActions {
+.deliveryChargeModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.deliveryChargeModule .adminPageHeader .adminPageActions {
   flex: 0 0 auto;
+  justify-content: flex-end;
   margin-left: auto;
   width: auto;
 }
@@ -53,9 +78,11 @@
   flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  width: auto;
 }
 
 .deliveryChargeModule .deliveryChargeHeaderActions > * {
+  min-height: 38px;
   padding-inline: 12px;
   white-space: nowrap;
   width: auto;
@@ -65,6 +92,7 @@
   display: none;
 }
 
+/* Five KPIs stay on one row until phones, so tablets never leave an empty slot. */
 .deliveryChargeModule .deliveryChargeMetricGrid {
   gap: 12px;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -72,16 +100,17 @@
 }
 
 .deliveryChargeModule .deliveryChargeMetricGrid > [data-slot="card"] {
-  min-height: 94px !important;
+  min-height: 90px !important;
 }
 
 .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent {
-  padding: 13px 14px !important;
+  padding: 12px 14px !important;
 }
 
 .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent strong {
-  font-size: 26px;
-  margin-top: 9px !important;
+  font-size: 24px;
+  line-height: 1.05;
+  margin-top: 8px !important;
 }
 
 .deliveryChargeModule .deliveryChargeRulesPanel {
@@ -155,18 +184,19 @@
   background: #effaf8;
   border-bottom: 1px solid #c5e7e3;
   color: #0f6f68;
-  display: none;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.4;
   margin: 0;
   padding: 8px 10px;
 }
 
 .deliveryChargeModule .deliveryChargeTableViewport {
-  /* Nine dense columns: cap long rule and scope text so status and dates stay in view on desktop. */
+  /* Nine dense columns: cap text columns so status and dates stay in view on desktop. */
   --admin-table-column-max-width: 200px;
   max-height: min(620px, calc(100dvh - 180px));
   overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
 }
 
 .deliveryChargeModule .deliveryChargeRulesTable :is(th, td) {
@@ -178,14 +208,25 @@
   display: block;
 }
 
-.deliveryChargeModule .deliveryChargeDataTable {
-  min-width: 1040px !important;
+/* Rule names and scopes wrap onto a second line instead of being cut off with an ellipsis. */
+.deliveryChargeModule .deliveryChargeRulesTable td:is(.deliveryChargeRuleCell, .deliveryChargeScopeCell),
+.deliveryChargeModule .deliveryChargeRulesTable td:is(.deliveryChargeRuleCell, .deliveryChargeScopeCell) > * {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
-.deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell {
-  max-width: 44px !important;
-  min-width: 44px !important;
-  width: 44px !important;
+.deliveryChargeModule .deliveryChargeRulesTable td.deliveryChargeRuleCell {
+  line-height: 1.35;
+  max-width: 240px !important;
+  min-width: 170px !important;
+}
+
+/* Wide enough that "PIN 110011 / WH-DEL-02" stays on one line instead of breaking at its hyphens. */
+.deliveryChargeModule .deliveryChargeRulesTable td.deliveryChargeScopeCell {
+  line-height: 1.35;
+  max-width: 220px !important;
+  min-width: 190px !important;
 }
 
 .deliveryChargeModule .deliveryChargeRulesTable tr > .deliveryChargeActionsCell {
@@ -195,32 +236,6 @@
 .deliveryChargeModule .deliveryChargeRulesTable .tableActions {
   flex-wrap: nowrap;
   gap: 6px;
-}
-
-/* Selection and actions stay pinned whenever the rule columns scroll sideways. */
-.deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell,
-.deliveryChargeModule .deliveryChargeRulesTable th:last-child,
-.deliveryChargeModule .deliveryChargeRulesTable td:last-child {
-  position: sticky;
-}
-
-.deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell {
-  left: 0;
-}
-
-.deliveryChargeModule .deliveryChargeRulesTable th:last-child,
-.deliveryChargeModule .deliveryChargeRulesTable td:last-child {
-  right: 0;
-}
-
-.deliveryChargeModule .deliveryChargeRulesTable th:is(.bulkCheckboxCell, :last-child) {
-  background: var(--surface-muted);
-  z-index: 4;
-}
-
-.deliveryChargeModule .deliveryChargeRulesTable td:is(.bulkCheckboxCell, :last-child) {
-  background: var(--surface);
-  z-index: 2;
 }
 
 .deliveryChargeModule .deliveryChargeFormOnlyPanel {
@@ -243,10 +258,18 @@
   width: 100%;
 }
 
+/* The active toggle and the save buttons share one row instead of two half-empty ones. */
+.deliveryChargeModule .deliveryChargeFormFooter {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .deliveryChargeModule .deliveryChargeActiveField {
-  justify-self: start;
   margin: 0;
-  padding: 11px 12px;
+  padding: 10px 12px;
 }
 
 .deliveryChargeModule .deliveryChargeFormActions {
@@ -254,6 +277,7 @@
   flex-wrap: nowrap;
   gap: 8px;
   justify-content: flex-end;
+  margin-left: auto;
 }
 
 .deliveryChargeModule .deliveryChargeFormActions button {
@@ -261,24 +285,42 @@
   width: auto;
 }
 
-@media (max-width: 1280px) {
-  .deliveryChargeModule .deliveryChargeTableHint {
-    display: block;
-  }
-
-  .deliveryChargeModule .deliveryChargeMetricGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-
+/* Selection and actions stay pinned only while the rule columns scroll sideways. */
+@media (min-width: 641px) {
   .deliveryChargeModule .deliveryChargeRulesTable tr > .bulkCheckboxCell {
-    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    left: 0;
+    max-width: 44px !important;
+    min-width: 44px !important;
+    position: sticky;
+    width: 44px !important;
   }
 
   .deliveryChargeModule .deliveryChargeRulesTable th:last-child,
   .deliveryChargeModule .deliveryChargeRulesTable td:last-child {
-    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+    position: sticky;
+    right: 0;
   }
 
+  .deliveryChargeModule .deliveryChargeRulesTable th:is(.bulkCheckboxCell, :last-child) {
+    background: var(--surface-muted);
+    z-index: 4;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable td:is(.bulkCheckboxCell, :last-child) {
+    background: var(--surface);
+    z-index: 2;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable[data-overflowing="true"] tr > .bulkCheckboxCell {
+    box-shadow: 8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable[data-overflowing="true"] :is(th, td):last-child {
+    box-shadow: -8px 0 12px -12px rgba(15, 53, 50, 0.75);
+  }
+}
+
+@media (max-width: 1280px) {
   .deliveryChargeModule .deliveryChargeFormPanel .deliveryChargeFormGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
@@ -299,31 +341,24 @@
   .deliveryChargeModule .deliveryChargeRulesPanel,
   .deliveryChargeModule .deliveryChargeFormPanel {
     gap: 12px;
-    padding: 14px;
+    padding: 12px;
   }
 
   .deliveryChargeModule .deliveryChargeSectionNav {
-    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
     width: 100%;
   }
 
   .deliveryChargeModule .deliveryChargeSectionNav a {
-    justify-content: center;
-    padding-inline: 6px;
-    text-align: center;
+    padding-inline: 8px;
     width: 100%;
   }
 
   .deliveryChargeModule .deliveryChargePageHeader {
     display: grid;
     gap: 10px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .deliveryChargeModule .deliveryChargePageHeader .adminPageActions {
-    margin-left: 0;
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .deliveryChargeActionLabelFull {
@@ -335,18 +370,33 @@
   }
 
   .deliveryChargeModule .deliveryChargeHeaderActions {
-    display: grid;
     gap: 6px;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    width: 100%;
   }
 
   .deliveryChargeModule .deliveryChargeHeaderActions > * {
+    font-size: 12px;
     gap: 5px;
     justify-content: center;
-    min-height: 38px;
+    min-height: 34px;
     min-width: 0;
-    padding-inline: 7px;
+    padding-inline: 10px;
+  }
+
+  /* The rules list has three actions, so they take a full-width row under the eyebrow. */
+  .deliveryChargeModule[data-delivery-charge-view="rules"] .deliveryChargePageHeader .adminPageActions {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .deliveryChargeModule[data-delivery-charge-view="rules"] .deliveryChargeHeaderActions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .deliveryChargeModule[data-delivery-charge-view="rules"] .deliveryChargeHeaderActions > * {
+    padding-inline: 6px;
     width: 100%;
   }
 
@@ -361,12 +411,12 @@
   }
 
   .deliveryChargeModule .deliveryChargeMetricGrid > [data-slot="card"] {
-    min-height: 80px !important;
+    min-height: 78px !important;
   }
 
   .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent {
     justify-content: space-between;
-    padding: 10px 11px !important;
+    padding: 10px 12px !important;
   }
 
   .deliveryChargeModule .deliveryChargeMetricGrid .metricCardContent span {
@@ -420,16 +470,182 @@
     width: 100%;
   }
 
-  .deliveryChargeModule .deliveryChargeTableViewport {
-    max-height: min(460px, calc(100dvh - 130px));
+  /* Rows become cards so charge, status, scope, and actions are readable without sideways scrolling. */
+  .deliveryChargeModule .deliveryChargeRulesTable.deliveryChargeTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
   }
 
-  .deliveryChargeModule .deliveryChargeDataTable {
-    min-width: 980px !important;
+  .deliveryChargeModule .deliveryChargeTableViewport {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable :is(thead, tbody) {
+    display: block;
+  }
+
+  /* The header shrinks to a "select page" bar, like the category child dialog on phones. */
+  .deliveryChargeModule .deliveryChargeRulesTable thead tr {
+    align-items: center;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable thead th {
+    display: none;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable thead th:is(.bulkCheckboxCell, .deliveryChargeRuleCell) {
+    background: transparent;
+    display: block;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0;
+    position: static;
+    width: auto !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody tr {
+    align-items: start;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    column-gap: 10px;
+    display: grid;
+    grid-template-areas:
+      "check rule status"
+      "check charge free"
+      "check scope scope"
+      "check range range"
+      "check updated actions";
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+    padding: 12px;
+    row-gap: 8px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.bulkCheckboxCell {
+    grid-area: check;
+    padding-top: 2px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeRuleCell {
+    grid-area: rule;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeRuleCell strong {
+    font-size: 14px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeStatusCell {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeChargeCell {
+    grid-area: charge;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeChargeCell strong {
+    font-size: 16px;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeFreeCell {
+    color: var(--text);
+    grid-area: free;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeScopeCell {
+    grid-area: scope;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeRangeCell {
+    color: var(--text);
+    grid-area: range;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeUpdatedCell {
+    align-self: end;
+    grid-area: updated;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeUpdatedCell :is(span, em) {
+    display: inline;
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeUpdatedCell em::before {
+    content: ", ";
+  }
+
+  .deliveryChargeModule .deliveryChargeRulesTable tbody td.deliveryChargeActionsCell {
+    align-self: end;
+    grid-area: actions;
+    justify-self: end;
   }
 
   .deliveryChargeModule .deliveryChargeFormPanel .deliveryChargeFormGrid {
     grid-template-columns: 1fr !important;
+  }
+
+  .deliveryChargeModule .deliveryChargeFormFooter {
+    align-items: stretch;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .deliveryChargeModule .deliveryChargeActiveField {
@@ -440,6 +656,7 @@
   .deliveryChargeModule .deliveryChargeFormActions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 0;
   }
 
   .deliveryChargeModule .deliveryChargeFormActions button {

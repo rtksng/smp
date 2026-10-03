@@ -1,8 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Ban, CheckCircle2, FileText, RefreshCw, Truck } from "lucide-react";
-import Link from "next/link";
+import { Ban, CheckCircle2, FileText, RefreshCw, Truck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { AdminShell } from "../../admin-shell";
@@ -38,6 +37,7 @@ import {
   useAdminSession
 } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import type { WarehouseListResponse } from "../../../lib/warehouse-management";
 import {
   buildAssignDeliveryPayload,
@@ -264,16 +264,10 @@ export function OrderDetailContent() {
   return (
     <div className="ordersModule orderDetailModule">
       <Card className="orderDetailHero">
-        <CardContent className="p-6 orderDetailHeroContent">
+        <CardContent className="orderDetailHeroContent">
           <PageHeader
             actions={
               <div className="actionRow orderDetailHeaderActions">
-                <Button asChild className="iconTextButton" variant="outline">
-                  <Link href="/orders">
-                    <ArrowLeft aria-hidden size={16} />
-                    <span>Back</span>
-                  </Link>
-                </Button>
                 <Button
                   className="iconTextButton"
                   onClick={() => void orderQuery.refetch()}
@@ -285,6 +279,8 @@ export function OrderDetailContent() {
                 </Button>
               </div>
             }
+            backHref="/orders"
+            backLabel="Back to orders"
             className="orderDetailPageHeader"
             eyebrow="Order detail"
             summary="Customer, fulfillment, payment, invoice, and timeline details for this order."
@@ -335,7 +331,7 @@ export function OrderDetailContent() {
 
       {order ? (
         <>
-          <div className="orderDetailGrid my-3">
+          <div className="orderDetailGrid">
             <section className="panel">
               <div className="panelHeader">
                 <div>
@@ -349,13 +345,13 @@ export function OrderDetailContent() {
                   value={`${order.customer.firstName} ${order.customer.lastName ?? ""}`}
                 />
                 <DetailItem label="Mobile" value={order.customer.mobileNumber} />
-                <DetailItem label="Email" value={order.customer.email ?? "-"} />
+                <DetailItem label="Email" value={order.customer.email ?? "-"} wide />
                 <DetailItem
                   label="Business"
                   value={order.customer.businessName ?? "-"}
                 />
                 <DetailItem label="GSTIN" value={order.customer.gstNumber ?? "-"} />
-                <DetailItem label="Customer ID" value={order.customer.id} />
+                <DetailItem label="Customer ID" value={order.customer.id} wide />
               </div>
             </section>
 
@@ -383,7 +379,7 @@ export function OrderDetailContent() {
             <OrderItemsTable order={order} />
           </section>
 
-          <div className="orderDetailGrid my-3">
+          <div className="orderDetailGrid">
             <section className="panel">
               <div className="panelHeader">
                 <div>
@@ -457,7 +453,7 @@ export function OrderDetailContent() {
             </section>
           </div>
 
-          <section className="panel my-3">
+          <section className="panel">
             <div className="panelHeader">
               <div>
                 <p className="eyebrow">Timeline</p>
@@ -719,15 +715,25 @@ function AddressDetail({
 }
 
 function OrderItemsTable({ order }: { order: AdminOrder }) {
+  const { isOverflowing, shellRef } = useTableOverflow(order.items.length > 0);
+
   if (order.items.length === 0) {
     return <EmptyState body="No order items found." title="No items found" />;
   }
 
   return (
-    <div className="ordersTableShell orderItemsTableShell">
-      <p className="ordersTableHint">Swipe sideways to view every item column.</p>
+    <div
+      className="ordersTableShell orderItemsTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="ordersTableHint" id="order-items-table-hint">
+          Swipe sideways to view every item column.
+        </p>
+      ) : null}
       <div className="resourceTable orderItemsTable">
-        <Table>
+        <Table aria-describedby="order-items-table-hint" aria-label="Order items">
         <TableHeader>
           <TableRow>
             <TableHead>Item</TableHead>
@@ -742,18 +748,31 @@ function OrderItemsTable({ order }: { order: AdminOrder }) {
         <TableBody>
           {order.items.map((item) => (
             <TableRow key={item.id}>
-              <TableCell>
+              <TableCell className="orderItemNameCell">
                 <strong>{item.name}</strong>
                 <em>{item.productId ?? "Custom quote line"}</em>
               </TableCell>
-              <TableCell>{item.sku}</TableCell>
-              <TableCell>{item.quantity}</TableCell>
-              <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
-              <TableCell>
+              <TableCell className="orderItemSkuCell" data-label="SKU">
+                {item.sku}
+              </TableCell>
+              <TableCell className="orderItemQtyCell" data-label="Qty">
+                {item.quantity}
+              </TableCell>
+              <TableCell className="orderItemUnitCell" data-label="Unit">
+                {formatCurrency(item.unitPrice)}
+              </TableCell>
+              <TableCell className="orderItemTaxCell" data-label="Tax">
                 {formatCurrency(item.taxAmount)} ({item.taxRate}%)
               </TableCell>
-              <TableCell>{formatCurrency(item.total)}</TableCell>
-              <TableCell>{item.warehouseId ?? "-"}</TableCell>
+              <TableCell className="orderItemTotalCell" data-label="Total">
+                {formatCurrency(item.total)}
+              </TableCell>
+              {/* Items fulfilled from the order warehouse show its name instead of a raw id. */}
+              <TableCell className="orderItemWarehouseCell" data-label="Warehouse">
+                {item.warehouseId && item.warehouseId === order.warehouse?.id
+                  ? order.warehouse.name
+                  : item.warehouseId ?? "-"}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

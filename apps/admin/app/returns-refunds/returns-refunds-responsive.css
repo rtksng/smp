@@ -1,3 +1,8 @@
+/*
+ * Return pages are scoped under .returnsRefundsModule so they outrank the shared single-class rules
+ * in globals.css. Each request renders as a summary row plus a full-width workflow row, so the
+ * decision and stock-disposition forms are never hidden behind sideways scrolling.
+ */
 .returnsRefundsModule,
 .returnsRefundsModule > *,
 .returnsRefundsModule .returnsRefundsTableShell,
@@ -7,36 +12,83 @@
   min-width: 0;
 }
 
+.returnsRefundsModule {
+  display: grid;
+  gap: 12px;
+}
+
 .returnsRefundsModule .returnsRefundsOverviewPanel,
 .returnsRefundsModule .returnsRefundsRequestsPanel {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
   padding: 18px;
 }
 
-.returnsRefundsModule .returnsRefundsPageHeader {
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 14px;
+.returnsRefundsModule .returnsRefundsOverviewPanel > :is(.formSuccess, .formError) {
+  margin: 0;
 }
 
-.returnsRefundsModule .returnsRefundsPageHeader .adminPageActions {
+.returnsRefundsModule :is(.adminEmptyState, .adminLoadingState) {
+  margin-top: 0;
+}
+
+/* Headers keep their actions on the same row instead of stacking at tablet widths. */
+.returnsRefundsModule .adminPageHeader {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+  margin: 0;
+}
+
+.returnsRefundsModule .adminPageHeader > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.returnsRefundsModule .adminPageHeader .adminPageActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
   margin-left: auto;
   width: auto;
 }
 
 .returnsRefundsModule .returnsRefundsHeaderActions {
+  flex-direction: row;
   flex-wrap: nowrap;
   gap: 8px;
+  width: auto;
 }
 
 .returnsRefundsModule .returnsRefundsHeaderActions > button {
   min-height: 38px;
   min-width: 0;
-  padding-inline: 11px;
+  padding-inline: 12px;
+  white-space: nowrap;
+  width: auto;
 }
 
+.returnsRefundsModule .returnsRefundsFilterCount {
+  align-items: center;
+  background: #ffffff;
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 18px;
+  padding: 0 5px;
+}
+
+/* Five KPIs stay on one row until phones, so tablets never leave an empty slot. */
 .returnsRefundsModule .returnsRefundsMetricGrid {
-  gap: 10px;
-  margin-top: 14px;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
 }
 
 .returnsRefundsModule .returnsRefundsMetricGrid > [data-slot="card"] {
@@ -53,6 +105,16 @@
   margin-top: 8px;
 }
 
+/* The request list switches to cards whenever its panel is narrower than the summary table. */
+.returnsRefundsModule .returnsRefundsRequestsPanel {
+  container: returns-queue / inline-size;
+  gap: 12px;
+}
+
+.returnsRefundsModule .returnsRefundsRequestsPanel .paginationControls {
+  margin-top: 0;
+}
+
 .returnsRefundsModule .returnsRefundsTableShell {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -63,9 +125,9 @@
   background: #effaf8;
   border-bottom: 1px solid #c5e7e3;
   color: #0f6f68;
-  display: none;
   font-size: 12px;
   font-weight: 750;
+  line-height: 1.4;
   margin: 0;
   padding: 8px 10px;
 }
@@ -73,12 +135,12 @@
 .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable {
   border: 0;
   border-radius: 0;
-  max-height: min(620px, calc(100dvh - 170px));
+  max-height: none;
   overflow: hidden;
 }
 
 .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable .adminTableViewport {
-  max-height: min(620px, calc(100dvh - 170px));
+  max-height: none;
   overscroll-behavior-inline: contain;
   touch-action: pan-x pan-y;
 }
@@ -86,73 +148,400 @@
 .returnsRefundsModule .returnsRefundsTable th,
 .returnsRefundsModule .returnsRefundsTable td {
   padding-inline: 10px;
+}
+
+.returnsRefundsModule .returnsRefundsTable td {
   vertical-align: top;
 }
 
-.returnsRefundsModule .returnsRefundsTable th:last-child,
-.returnsRefundsModule .returnsRefundsTable td:last-child {
-  min-width: 210px;
-  width: 210px;
+/* Customers, payment IDs, refund details, and reasons wrap instead of being cut off. */
+.returnsRefundsModule .returnsRefundsTable td:is(
+    .returnsRefundsOrderCell,
+    .returnsRefundsCustomerCell,
+    .returnsRefundsPaymentCell,
+    .returnsRefundsRefundCell,
+    .returnsRefundsReasonCell,
+    .returnsRefundsWorkflowCell
+  ),
+.returnsRefundsModule .returnsRefundsTable td:is(
+    .returnsRefundsOrderCell,
+    .returnsRefundsCustomerCell,
+    .returnsRefundsPaymentCell,
+    .returnsRefundsRefundCell,
+    .returnsRefundsReasonCell,
+    .returnsRefundsWorkflowCell
+  )
+  > * {
+  overflow: visible !important;
+  overflow-wrap: anywhere;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
-.returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) {
+.returnsRefundsModule .returnsRefundsTable td :is(strong, em, .statusBadge) {
+  display: block;
+}
+
+.returnsRefundsModule .returnsRefundsTable td .statusBadge {
+  justify-self: start;
+  margin-block: 2px;
+  width: max-content;
+}
+
+/* Column widths only apply to the table layout; cards size cells from their grid areas. */
+@container returns-queue (min-width: 1041px) {
+  .returnsRefundsModule .returnsRefundsTable td.returnsRefundsOrderCell {
+    max-width: 200px !important;
+    min-width: 150px !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable td:is(.returnsRefundsCustomerCell, .returnsRefundsRefundCell) {
+    line-height: 1.35;
+    max-width: 240px !important;
+    min-width: 170px !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable td.returnsRefundsPaymentCell {
+    line-height: 1.35;
+    max-width: 200px !important;
+    min-width: 150px !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable td.returnsRefundsReasonCell {
+    line-height: 1.45;
+    max-width: 300px !important;
+    min-width: 170px !important;
+  }
+}
+
+.returnsRefundsModule .returnsRefundsTable td.returnsRefundsReasonCell {
+  color: var(--text);
+}
+
+.returnsRefundsModule .returnsRefundsTable td.returnsRefundsDetailCell {
+  width: 1%;
+}
+
+/* The workflow row sits directly under its summary row, tinted so the pair reads as one request. */
+.returnsRefundsModule .returnsRefundsTable tr.returnsRefundsSummaryRow[data-has-workflow="true"] {
+  border-bottom: 0;
+}
+
+.returnsRefundsModule .returnsRefundsTable td.returnsRefundsWorkflowCell {
+  background: var(--surface-muted);
+  max-width: none !important;
+  padding: 10px 12px 14px;
+}
+
+.returnsRefundsModule .returnsRefundsWorkflow {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+}
+
+.returnsRefundsModule .returnsRefundsWorkflow > :only-child {
+  grid-column: 1 / -1;
+}
+
+.returnsRefundsModule .returnsRefundsWorkflowSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.returnsRefundsModule .returnsRefundsWorkflowSection h3 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.returnsRefundsModule .returnsRefundsWorkflowNote {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+}
+
+.returnsRefundsModule .returnsRefundsActionGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.returnsRefundsModule .returnsRefundsDecisionButtons {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  width: 210px;
 }
 
-.returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) button,
-.returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) a {
-  min-height: 32px;
-  padding: 6px 8px;
-}
-
-.returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) [data-slot="input"],
-.returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) [data-slot="select"] {
+/* Only the action buttons: select triggers are buttons too and need their own chevron padding. */
+.returnsRefundsModule .returnsRefundsDecisionButtons > button,
+.returnsRefundsModule .returnsRefundsRecordButton,
+.returnsRefundsModule .returnsRefundsDetailCell a {
   min-height: 34px;
+  padding: 6px 10px;
 }
 
 .returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) [data-slot="textarea"] {
-  min-height: 58px;
+  min-height: 60px;
 }
 
-@media (max-width: 1440px) {
-  .returnsRefundsModule .returnsRefundsTableHint {
+.returnsRefundsModule .returnsRefundsDispositionForm {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-areas:
+    "item qty disposition"
+    "note note button"
+    "error error error";
+  grid-template-columns: minmax(0, 2fr) minmax(70px, 0.5fr) minmax(0, 1fr);
+}
+
+.returnsRefundsModule .returnsRefundsField {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 4px;
+  min-width: 0;
+}
+
+.returnsRefundsModule .returnsRefundsItemField {
+  grid-area: item;
+}
+
+.returnsRefundsModule .returnsRefundsQuantityField {
+  grid-area: qty;
+}
+
+.returnsRefundsModule .returnsRefundsDispositionField {
+  grid-area: disposition;
+}
+
+.returnsRefundsModule .returnsRefundsNoteField {
+  grid-area: note;
+}
+
+.returnsRefundsModule .returnsRefundsRecordButton {
+  grid-area: button;
+}
+
+.returnsRefundsModule .returnsRefundsDispositionError {
+  grid-area: error;
+  margin: 0;
+}
+
+/* Narrower panels: each request becomes a labelled card with its workflow underneath. */
+@container returns-queue (max-width: 1040px) {
+  .returnsRefundsModule .returnsRefundsTableShell {
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable,
+  .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable .adminTableViewport {
+    overflow: visible;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable [data-slot="table"] {
+    display: block;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable :is(thead, tbody) {
     display: block;
   }
 
-  .returnsRefundsModule .returnsRefundsTable th:last-child,
-  .returnsRefundsModule .returnsRefundsTable td:last-child {
-    background: var(--surface);
-    box-shadow: -8px 0 12px -12px rgba(15, 23, 42, 0.45);
-    position: sticky;
-    right: 0;
-    z-index: 2;
+  /* Column headings stay available to assistive tech but take no space. */
+  .returnsRefundsModule .returnsRefundsTable thead {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 
-  .returnsRefundsModule .returnsRefundsTable th:last-child {
+  .returnsRefundsModule .returnsRefundsTable tbody tr {
+    border: 1px solid var(--border);
+    display: block;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsSummaryRow {
+    align-items: start;
+    background: var(--surface);
+    border-radius: 8px;
+    column-gap: 14px;
+    display: grid;
+    grid-template-areas:
+      "order customer payment refund detail"
+      "reason reason reason reason reason";
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    padding: 12px;
+    row-gap: 10px;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsSummaryRow + tr {
+    margin-top: 0;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsSummaryRow:not(:first-child) {
+    margin-top: 10px;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsSummaryRow[data-has-workflow="true"] {
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsWorkflowRow {
     background: var(--surface-muted);
-    z-index: 3;
+    border-radius: 0 0 8px 8px;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    font-size: 13px;
+    height: auto;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    padding: 0;
+    position: static;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td > * {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td[data-label]::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsOrderCell {
+    grid-area: order;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsOrderCell strong {
+    font-size: 14px;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsCustomerCell {
+    grid-area: customer;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsPaymentCell {
+    grid-area: payment;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsRefundCell {
+    grid-area: refund;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsReasonCell {
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    grid-area: reason;
+    padding-top: 10px;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsDetailCell {
+    grid-area: detail;
+    justify-self: end;
+  }
+
+  .returnsRefundsModule .returnsRefundsTable tbody td.returnsRefundsWorkflowCell {
+    background: transparent;
+    padding: 10px 12px 12px;
   }
 }
 
-@media (max-width: 980px) {
-  .returnsRefundsModule .returnsRefundsMetricGrid {
+@container returns-queue (max-width: 760px) {
+  .returnsRefundsModule .returnsRefundsTable tbody tr.returnsRefundsSummaryRow {
+    grid-template-areas:
+      "order detail"
+      "customer customer"
+      "payment refund"
+      "reason reason";
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .returnsRefundsModule .returnsRefundsWorkflow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container returns-queue (max-width: 460px) {
+  .returnsRefundsModule .returnsRefundsDispositionForm {
+    grid-template-areas:
+      "item item"
+      "qty disposition"
+      "note note"
+      "error error"
+      "button button";
+    grid-template-columns: minmax(70px, 0.6fr) minmax(0, 1fr);
+  }
+
+  .returnsRefundsModule .returnsRefundsDecisionButtons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .returnsRefundsModule .returnsRefundsDecisionButtons > button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .returnsRefundsModule :is(.returnsRefundsDecisionButtons > button, .returnsRefundsRecordButton) {
+    justify-content: center;
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
+  .returnsRefundsModule {
+    gap: 10px;
+  }
+
   .returnsRefundsModule .returnsRefundsOverviewPanel,
   .returnsRefundsModule .returnsRefundsRequestsPanel {
+    gap: 12px;
     padding: 12px;
   }
 
   .returnsRefundsModule .returnsRefundsPageHeader {
+    display: grid;
     gap: 10px;
-    margin-bottom: 12px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .returnsRefundsModule .returnsRefundsPageHeader .adminPageActions {
+    margin-left: 0;
     width: 100%;
   }
 
@@ -166,6 +555,7 @@
   .returnsRefundsModule .returnsRefundsHeaderActions > * {
     font-size: 12px;
     gap: 5px;
+    justify-content: center;
     min-height: 36px;
     min-width: 0;
     padding-inline: 7px;
@@ -173,7 +563,13 @@
   }
 
   .returnsRefundsModule .returnsRefundsMetricGrid {
+    gap: 8px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Five KPIs: let the last card fill the row instead of leaving half of it empty. */
+  .returnsRefundsModule .returnsRefundsMetricGrid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .returnsRefundsModule .returnsRefundsMetricGrid > [data-slot="card"] {
@@ -181,32 +577,17 @@
   }
 
   .returnsRefundsModule .returnsRefundsMetricGrid .metricCardContent {
-    padding: 9px 10px;
+    padding: 10px 12px;
   }
 
   .returnsRefundsModule .returnsRefundsMetricGrid .metricCardContent span {
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1.25;
   }
 
   .returnsRefundsModule .returnsRefundsMetricGrid .metricCardContent strong {
-    font-size: 20px;
+    font-size: clamp(20px, 6vw, 24px);
     line-height: 1;
-    margin-top: 5px;
-  }
-
-  .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable,
-  .returnsRefundsModule .returnsRefundsTableShell .returnsRefundsTable .adminTableViewport {
-    max-height: min(470px, calc(100dvh - 130px));
-  }
-
-  .returnsRefundsModule .returnsRefundsTable th:last-child,
-  .returnsRefundsModule .returnsRefundsTable td:last-child {
-    min-width: 196px;
-    width: 196px;
-  }
-
-  .returnsRefundsModule :is(.returnsRefundsActionGroup, .returnsRefundsDispositionForm) {
-    width: 196px;
+    margin-top: 6px;
   }
 }

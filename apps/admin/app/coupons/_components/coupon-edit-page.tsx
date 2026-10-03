@@ -1,8 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -52,16 +50,10 @@ export function CouponEditPage({ couponId }: { couponId: string }) {
       <section className="panel couponOverviewPanel">
         <CouponSectionNav active="coupons" />
         <PageHeader
-          actions={
-            <Button asChild className="iconTextButton" variant="outline">
-              <Link href="/coupons/list">
-                <ArrowLeft aria-hidden size={16} />
-                <span>Back to coupons</span>
-              </Link>
-            </Button>
-          }
+          backHref="/coupons/list"
+          backLabel="Back to coupons"
           className="couponPageHeader couponEditPageHeader"
-          eyebrow="Coupons"
+          eyebrow="Edit coupon"
           title="Edit coupon"
         />
       </section>

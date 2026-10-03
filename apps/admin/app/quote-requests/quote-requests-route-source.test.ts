@@ -30,8 +30,8 @@ describe("quote requests routes", () => {
   it("opens quote requests on a dedicated edit page", () => {
     expect(sectionsSource).toContain('href={`/quote-requests/${quoteRequest.id}`}');
     expect(sectionsSource).toContain("QuoteRequestDetailPage");
-    expect(sectionsSource).toContain('href="/quote-requests"');
-    expect(sectionsSource).toContain("<span>Back</span>");
+    expect(sectionsSource).toContain('backHref="/quote-requests"');
+    expect(sectionsSource).toContain('backLabel="Back to quote requests"');
     expect(detailPageSource).toContain("<QuoteRequestDetailPage />");
   });
 });

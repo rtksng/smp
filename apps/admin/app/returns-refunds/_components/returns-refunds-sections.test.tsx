@@ -175,7 +175,8 @@ describe("Returns and refunds admin flow", () => {
       ).toBeNull()
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    // With filters applied the button reports how many are active.
+    fireEvent.click(screen.getByRole("button", { name: "Filters, 2 active" }));
     drawer = await screen.findByRole("dialog", { name: "Return request filters" });
     expect(within(drawer).getByLabelText("Customer mobile")).toHaveValue(
       " 9876543210 "

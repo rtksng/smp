@@ -7,11 +7,9 @@ import { quoteBulkActions } from "@/lib/bulk-resource-actions";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   MessageSquare,
   Plus,
   RefreshCw,
-  Search,
   Send,
   Trash2
 } from "lucide-react";
@@ -45,6 +43,7 @@ import {
 import { AdminShell } from "../../admin-shell";
 import { ProtectedRoute, useAdminSession } from "../../../lib/admin-session";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
+import { useTableOverflow } from "../../../lib/use-table-overflow";
 import {
   QUOTE_REQUEST_STATUSES,
   buildQuoteRequestQuery,
@@ -200,18 +199,19 @@ function QuoteRequestsContent({ view }: { view: QuoteRequestView }) {
       <div className="quoteRequestWorkspaceGrid quoteRequestWorkspaceGrid--single">
         <section className="panel quoteRequestListPanel mt-3">
           <PageHeader
-            className="settingsSectionHeader quoteRequestSectionHeader"
+            actions={
+              <QuoteRequestFiltersForm
+                filters={draftFilters}
+                onChange={setDraftFilters}
+                onReset={resetFilters}
+                onSubmit={applyFilters}
+              />
+            }
+            className="settingsSectionHeader quoteRequestSectionHeader quoteRequestListHeader"
             eyebrow="Requests"
             level={2}
             summary="Filter the queue, then open one enquiry to update status or send a quotation."
             title="Customer enquiries"
-          />
-
-          <QuoteRequestFiltersForm
-            filters={draftFilters}
-            onChange={setDraftFilters}
-            onReset={resetFilters}
-            onSubmit={applyFilters}
           />
 
           {quoteRequestsQuery.isLoading ? (
@@ -364,12 +364,6 @@ export function QuoteRequestDetailPage() {
         <PageHeader
           actions={
             <div className="actionRow quoteRequestHeaderActions quoteRequestDetailHeaderActions">
-              <Button asChild className="iconTextButton" variant="outline">
-                <Link href="/quote-requests">
-                  <ArrowLeft aria-hidden size={16} />
-                  <span>Back</span>
-                </Link>
-              </Button>
               <Button
                 className="iconTextButton"
                 onClick={() => void refreshQuoteRequest()}
@@ -381,6 +375,8 @@ export function QuoteRequestDetailPage() {
               </Button>
             </div>
           }
+          backHref="/quote-requests"
+          backLabel="Back to quote requests"
           className="quoteRequestPageHeader quoteRequestDetailHeader"
           eyebrow="Quote request"
           summary={
@@ -470,17 +466,27 @@ function QuoteRequestsTable({
   bulk: BulkSelection<AdminQuoteRequest>;
   quoteRequests: AdminQuoteRequest[];
 }) {
+  const { isOverflowing, shellRef } = useTableOverflow();
+
   return (
-    <div className="quoteRequestTableShell">
-      <p className="quoteRequestTableHint">Swipe sideways to view every quote request option.</p>
+    <div
+      className="quoteRequestTableShell"
+      data-overflowing={isOverflowing ? "true" : undefined}
+      ref={shellRef}
+    >
+      {isOverflowing ? (
+        <p className="quoteRequestTableHint" id="quote-request-table-hint">
+          Swipe sideways to view every quote request option.
+        </p>
+      ) : null}
       <div className="resourceTable quoteRequestTable">
-        <Table>
+        <Table aria-describedby="quote-request-table-hint" aria-label="Quote requests">
           <TableHeader>
             <TableRow>
               <TableHead className="bulkCheckboxCell">
                 <BulkPageCheckbox selection={bulk} />
               </TableHead>
-              <TableHead>Customer</TableHead>
+              <TableHead className="quoteRequestCustomerCell">Customer</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Request</TableHead>
               <TableHead>Status</TableHead>
@@ -499,30 +505,34 @@ function QuoteRequestsTable({
                     selection={bulk}
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell className="quoteRequestCustomerCell">
                   <strong>{quoteRequest.name}</strong>
                   <em>{quoteRequest.organization ?? "Individual customer"}</em>
                 </TableCell>
-                <TableCell>
+                <TableCell className="quoteRequestContactCell">
                   <strong>{quoteRequest.mobileNumber}</strong>
                   <em>{quoteRequest.email}</em>
                 </TableCell>
-                <TableCell>
-                  <MessageSquare aria-hidden className="mr-2 inline-block" size={16} />
-                  {quoteRequest.message}
+                <TableCell className="quoteRequestMessageCell" title={quoteRequest.message}>
+                  <span className="quoteRequestMessageText">
+                    <MessageSquare aria-hidden className="mr-2 inline-block" size={16} />
+                    {quoteRequest.message}
+                  </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="quoteRequestStatusCell">
                   <StatusBadge status={quoteRequest.status} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="quoteRequestQuotationCell" data-label="Quotation">
                   {quoteRequest.quotation ? (
                     <strong>{formatCurrency(quoteRequest.quotation.totals.grandTotal)}</strong>
                   ) : (
                     <em>Not sent</em>
                   )}
                 </TableCell>
-                <TableCell>{formatSupportDateTime(quoteRequest.createdAt)}</TableCell>
-                <TableCell>
+                <TableCell className="quoteRequestCreatedCell" data-label="Created">
+                  {formatSupportDateTime(quoteRequest.createdAt)}
+                </TableCell>
+                <TableCell className="quoteRequestActionCell">
                   <Button
                     asChild
                     className="iconTextButton"
@@ -555,8 +565,9 @@ function QuoteRequestFiltersForm({
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  // A single status filter, so it sits in the list header like the coupon and catalog search.
   return (
-    <form className="productFilters quoteRequestFilters" onSubmit={onSubmit}>
+    <form className="quoteRequestFilters" onSubmit={onSubmit}>
       <Select
         aria-label="Status"
         onValueChange={(value) =>
@@ -578,11 +589,8 @@ function QuoteRequestFiltersForm({
           ))}
         </SelectContent>
       </Select>
-      <div className="productFilterActions">
-        <Button className="iconTextButton" type="submit">
-          <Search aria-hidden size={16} />
-          <span>Apply</span>
-        </Button>
+      <div className="quoteRequestFilterActions">
+        <Button type="submit">Apply</Button>
         <Button onClick={onReset} type="button" variant="outline">
           Reset
         </Button>
@@ -617,10 +625,6 @@ function QuoteRequestResponsePanel({
         summary="Update status and prepare the itemized quotation response."
         title="Edit quotation"
       />
-      <div className="quoteRequestPanelMeta">
-        <StatusBadge status={quoteRequest.status} />
-        <span>{formatSupportDateTime(quoteRequest.createdAt)}</span>
-      </div>
       <Select
         aria-label={`Update ${quoteRequest.name} status`}
         disabled={isUpdating || isSending || getQuoteRequestStatusOptions(quoteRequest).length === 1}
@@ -721,42 +725,48 @@ function QuoteResponseEditor({
       </Button>
 
       <div className="quoteRequestSupplementGrid grid gap-3 sm:grid-cols-2">
-        <Input
-          aria-label="Shipping total"
-          inputMode="decimal"
-          onChange={(event) =>
-            onChange({
-              ...draft,
-              shippingTotal: event.target.value
-            })
-          }
-          placeholder="Shipping"
-          value={draft.shippingTotal}
-        />
-        <Input
-          aria-label="Valid until"
-          onChange={(event) =>
-            onChange({
-              ...draft,
-              validUntil: event.target.value
-            })
-          }
-          type="date"
-          value={draft.validUntil}
-        />
+        <QuoteField label="Shipping">
+          <Input
+            aria-label="Shipping total"
+            inputMode="decimal"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                shippingTotal: event.target.value
+              })
+            }
+            placeholder="Shipping"
+            value={draft.shippingTotal}
+          />
+        </QuoteField>
+        <QuoteField label="Valid until">
+          <Input
+            aria-label="Valid until"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                validUntil: event.target.value
+              })
+            }
+            type="date"
+            value={draft.validUntil}
+          />
+        </QuoteField>
       </div>
 
-      <Textarea
-        aria-label="Quotation notes"
-        onChange={(event) =>
-          onChange({
-            ...draft,
-            notes: event.target.value
-          })
-        }
-        placeholder="Notes for the customer"
-        value={draft.notes}
-      />
+      <QuoteField label="Notes for the customer">
+        <Textarea
+          aria-label="Quotation notes"
+          onChange={(event) =>
+            onChange({
+              ...draft,
+              notes: event.target.value
+            })
+          }
+          placeholder="Notes for the customer"
+          value={draft.notes}
+        />
+      </QuoteField>
 
       <div className="quoteRequestTotals grid gap-2 rounded-lg border border-border bg-background p-3 text-sm">
         <div className="flex items-center justify-between gap-3">
@@ -824,58 +834,82 @@ function QuoteLineEditor({
           <Trash2 aria-hidden size={16} />
         </Button>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          aria-label={`Line ${index + 1} SKU`}
-          onChange={(event) => updateField("sku", event.target.value)}
-          placeholder="SKU"
-          value={item.sku}
-        />
-        <Input
-          aria-label={`Line ${index + 1} item name`}
-          onChange={(event) => updateField("name", event.target.value)}
-          placeholder="Item name"
-          value={item.name}
-        />
+      <div className="quoteRequestLineIdentity grid gap-2 sm:grid-cols-2">
+        <QuoteField label="SKU">
+          <Input
+            aria-label={`Line ${index + 1} SKU`}
+            onChange={(event) => updateField("sku", event.target.value)}
+            placeholder="SKU"
+            value={item.sku}
+          />
+        </QuoteField>
+        <QuoteField label="Item name">
+          <Input
+            aria-label={`Line ${index + 1} item name`}
+            onChange={(event) => updateField("name", event.target.value)}
+            placeholder="Item name"
+            value={item.name}
+          />
+        </QuoteField>
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Input
-          aria-label={`Line ${index + 1} quantity`}
-          inputMode="numeric"
-          onChange={(event) => updateField("quantity", event.target.value)}
-          placeholder="Qty"
-          value={item.quantity}
-        />
-        <Input
-          aria-label={`Line ${index + 1} unit price`}
-          inputMode="decimal"
-          onChange={(event) => updateField("unitPrice", event.target.value)}
-          placeholder="Unit price"
-          value={item.unitPrice}
-        />
-        <Input
-          aria-label={`Line ${index + 1} tax rate`}
-          inputMode="decimal"
-          onChange={(event) => updateField("taxRate", event.target.value)}
-          placeholder="Tax %"
-          value={item.taxRate}
-        />
+      <div className="quoteRequestLineAmounts grid gap-2 sm:grid-cols-3">
+        <QuoteField label="Qty">
+          <Input
+            aria-label={`Line ${index + 1} quantity`}
+            inputMode="numeric"
+            onChange={(event) => updateField("quantity", event.target.value)}
+            placeholder="Qty"
+            value={item.quantity}
+          />
+        </QuoteField>
+        <QuoteField label="Unit price">
+          <Input
+            aria-label={`Line ${index + 1} unit price`}
+            inputMode="decimal"
+            onChange={(event) => updateField("unitPrice", event.target.value)}
+            placeholder="Unit price"
+            value={item.unitPrice}
+          />
+        </QuoteField>
+        <QuoteField label="Tax %">
+          <Input
+            aria-label={`Line ${index + 1} tax rate`}
+            inputMode="decimal"
+            onChange={(event) => updateField("taxRate", event.target.value)}
+            placeholder="Tax %"
+            value={item.taxRate}
+          />
+        </QuoteField>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Input
-          aria-label={`Line ${index + 1} product id`}
-          onChange={(event) => updateField("productId", event.target.value)}
-          placeholder="Product ID for cart"
-          value={item.productId}
-        />
-        <Input
-          aria-label={`Line ${index + 1} variant id`}
-          onChange={(event) => updateField("variantId", event.target.value)}
-          placeholder="Variant ID"
-          value={item.variantId}
-        />
+      <div className="quoteRequestLineRefs grid gap-2 sm:grid-cols-2">
+        <QuoteField label="Product ID">
+          <Input
+            aria-label={`Line ${index + 1} product id`}
+            onChange={(event) => updateField("productId", event.target.value)}
+            placeholder="Product ID for cart"
+            value={item.productId}
+          />
+        </QuoteField>
+        <QuoteField label="Variant ID">
+          <Input
+            aria-label={`Line ${index + 1} variant id`}
+            onChange={(event) => updateField("variantId", event.target.value)}
+            placeholder="Variant ID"
+            value={item.variantId}
+          />
+        </QuoteField>
       </div>
     </div>
+  );
+}
+
+// Filled inputs lose their placeholder, so every quotation field keeps a small visible label.
+function QuoteField({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <label className="quoteRequestField">
+      <span>{label}</span>
+      {children}
+    </label>
   );
 }
 
