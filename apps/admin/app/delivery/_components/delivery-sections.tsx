@@ -1,12 +1,15 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   CheckCircle2,
   Eye,
   FileText,
+  Pencil,
   RefreshCw,
   Search,
   Truck,
+  UserPlus,
   XCircle
 } from "lucide-react";
 import Link from "next/link";
@@ -33,6 +36,8 @@ import {
 } from "recharts";
 import { AdminShell } from "../../admin-shell";
 import { DeliveryBulkAssignment } from "./delivery-bulk-assignment";
+import { DeliveryPartnerEarningsPanel } from "./delivery-partner-earnings";
+import { DeliveryWarehouseList } from "./delivery-partner-form";
 import {
   ConfirmationDialog,
   type ConfirmationState
@@ -85,8 +90,15 @@ import {
   buildDeliveryPartnerQuery,
   createEmptyDeliveryAssignmentFilters,
   createEmptyDeliveryPartnerFilters,
+  DELIVERY_PARTNER_SEARCH_MAX_LENGTH,
+  filterPartnersForWarehouse,
   formatDeliveryDateTime,
   formatDeliveryLabel,
+  formatDeliveryPartnerPay,
+  formatDeliveryPartnerWarehouses,
+  formatDeliveryWarehouseName,
+  getEffectivePickupWarehouseId,
+  isPartnerAssignedToWarehouse,
   loadDeliveryOptions,
   type AdminDeliveryAssignment,
   type AdminDeliveryPartner,
@@ -126,7 +138,7 @@ const deliverySections: Array<{
     title: "Overview"
   },
   {
-    description: "Approve, reject, inspect, and verify delivery partner documents.",
+    description: "Add, approve, and review delivery partners, their warehouses, pay, and documents.",
     href: "/delivery/partners",
     id: "partners",
     title: "Partners"
@@ -159,7 +171,7 @@ const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
     title: "Delivery operations"
   },
   partners: {
-    summary: "Search delivery partners, review verification status, and open document details.",
+    summary: "Search delivery partners, review warehouses and pay, and open partner profiles.",
     title: "Delivery partners"
   }
 };
@@ -183,12 +195,13 @@ export function DeliveryPartnersPage() {
 }
 
 export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) {
-  const { api } = useAdminSession();
+  const { api, hasPermission } = useAdminSession();
   const partnerQuery = useQuery({
     queryFn: () =>
       api.request<AdminDeliveryPartner>(`/admin/delivery-partners/${partnerId}`),
     queryKey: ["admin", "delivery", "partner", partnerId]
   });
+  const canManagePartners = hasPermission(ADMIN_PERMISSION.DeliveryPartnersManage);
 
   return (
     <div className="deliveryModule deliveryPartnerDetailModule">
@@ -196,7 +209,17 @@ export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) 
         <PageHeader
           actions={
             partnerQuery.data ? (
-              <AvailabilityBadge isOnline={partnerQuery.data.isOnline} />
+              <div className="actionRow deliveryHeaderActions deliveryPartnerDetailActions">
+                <AvailabilityBadge isOnline={partnerQuery.data.isOnline} />
+                {canManagePartners ? (
+                  <Button asChild className="iconTextButton" variant="outline">
+                    <Link href={`/delivery/partners/${partnerQuery.data.id}/edit`}>
+                      <Pencil aria-hidden size={16} />
+                      <span>Edit partner</span>
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
             ) : undefined
           }
           backHref="/delivery/partners"
@@ -211,6 +234,7 @@ export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) 
           queryError={partnerQuery.error}
         />
       </section>
+      {partnerQuery.data ? <DeliveryPartnerEarningsPanel partner={partnerQuery.data} /> : null}
     </div>
   );
 }
@@ -355,6 +379,23 @@ function DeliveryContent({
     () => orders.filter((order) => canAssignDelivery(order.status)),
     [orders]
   );
+  const selectedAssignmentOrder =
+    assignableOrders.find((order) => order.id === assignmentForm.orderId) ?? null;
+  const assignmentWarehouseId = getEffectivePickupWarehouseId(
+    assignmentForm.pickupWarehouseId,
+    selectedAssignmentOrder
+  );
+  // The API dispatches only partners linked to the pickup warehouse, so the form offers just those.
+  const assignmentPartners = useMemo(
+    () => filterPartnersForWarehouse(activePartners, assignmentWarehouseId),
+    [activePartners, assignmentWarehouseId]
+  );
+  const assignmentWarehouseName = getAssignmentWarehouseName(
+    assignmentWarehouseId,
+    warehouses,
+    selectedAssignmentOrder
+  );
+  const canManagePartners = hasPermission(ADMIN_PERMISSION.DeliveryPartnersManage);
   const approveMutation = useMutation({
     mutationFn: (partnerId: string) =>
       api.request<AdminDeliveryPartner>(
@@ -447,16 +488,29 @@ function DeliveryContent({
     });
   }
 
+  function changeAssignmentForm(nextValues: AssignDeliveryValues) {
+    const order = assignableOrders.find((item) => item.id === nextValues.orderId) ?? null;
+    const warehouseId = getEffectivePickupWarehouseId(nextValues.pickupWarehouseId, order);
+    const partner = activePartners.find((item) => item.id === nextValues.deliveryPartnerId);
+    // Changing the order or pickup warehouse clears a partner who does not serve the new warehouse.
+    const keepsPartner =
+      !partner || !warehouseId || isPartnerAssignedToWarehouse(partner, warehouseId);
+
+    setAssignmentForm(keepsPartner ? nextValues : { ...nextValues, deliveryPartnerId: "" });
+  }
+
   function requestAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const order = assignableOrders.find((item) => item.id === assignmentForm.orderId);
-    const partner = activePartners.find(
+    const partner = assignmentPartners.find(
       (item) => item.id === assignmentForm.deliveryPartnerId
     );
 
     if (!order || !partner) {
-      setAssignmentError("Select an order and active delivery partner before assigning delivery.");
+      setAssignmentError(
+        "Select an order and an active delivery partner assigned to its pickup warehouse before assigning delivery."
+      );
       return;
     }
 
@@ -537,18 +591,26 @@ function DeliveryContent({
         <section className="panel deliveryPartnersPanel mt-3">
           <PageHeader
             actions={
-              <PartnerFilterForm
-                filters={partnerDraftFilters}
-                onChange={setPartnerDraftFilters}
-                onReset={resetPartnerFilters}
-                onSubmit={applyPartnerFilters}
-              />
+              canManagePartners ? (
+                <Button asChild className="iconTextButton">
+                  <Link href="/delivery/partners/new">
+                    <UserPlus aria-hidden size={16} />
+                    <span>Add partner</span>
+                  </Link>
+                </Button>
+              ) : undefined
             }
             className="settingsSectionHeader deliverySectionHeader deliveryListHeader"
             eyebrow="Partners"
             level={2}
-            summary="Filter partner records, approve verification, and open one profile for document review."
-            title="Partner approvals"
+            summary="Search partner records, approve verification, and open one profile for warehouses, pay, and documents."
+            title="Partner directory"
+          />
+          <PartnerFilterForm
+            filters={partnerDraftFilters}
+            onChange={setPartnerDraftFilters}
+            onReset={resetPartnerFilters}
+            onSubmit={applyPartnerFilters}
           />
           {partnersQuery.isLoading ? (
             <LoadingState label="Loading delivery partners..." />
@@ -660,13 +722,20 @@ function DeliveryContent({
               </p>
             ) : null}
             <AssignmentForm
-              activePartners={activePartners}
+              activePartnerCount={activePartners.length}
               assignableOrders={assignableOrders}
+              canManagePartners={canManagePartners}
               isPending={assignMutation.isPending}
               error={assignmentError}
-              onChange={setAssignmentForm}
+              onChange={changeAssignmentForm}
               onValidationReset={() => setAssignmentError(null)}
               onSubmit={requestAssignment}
+              partners={assignmentPartners}
+              pickupWarehouse={
+                assignmentWarehouseId
+                  ? { id: assignmentWarehouseId, name: assignmentWarehouseName }
+                  : null
+              }
               showEmptyStates={
                 !ordersQuery.isLoading &&
                 !ordersQuery.isError &&
@@ -1053,13 +1122,21 @@ function PartnerFilterForm({
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  // A single status filter, so it sits in the list header like the coupon and quote request filters.
+  // Search and status sit under the list header, which keeps the add action on the heading row.
   return (
-    <form className="deliveryPartnerFilters" onSubmit={onSubmit}>
+    <form className="deliveryFilters deliveryPartnerFilters" onSubmit={onSubmit} role="search">
+      <Input
+        aria-label="Search delivery partners"
+        maxLength={DELIVERY_PARTNER_SEARCH_MAX_LENGTH}
+        onChange={(event) => onChange({ ...filters, search: event.target.value })}
+        placeholder="Search name, mobile, or vehicle"
+        value={filters.search}
+      />
       <Select
         aria-label="Partner status"
         onValueChange={(value) =>
           onChange({
+            ...filters,
             status: value as DeliveryPartnerFilters["status"]
           })
         }
@@ -1078,7 +1155,10 @@ function PartnerFilterForm({
         </SelectContent>
       </Select>
       <div className="deliveryPartnerFilterActions">
-        <Button type="submit">Apply</Button>
+        <Button className="iconTextButton" type="submit">
+          <Search aria-hidden size={16} />
+          <span>Apply</span>
+        </Button>
         <Button onClick={onReset} type="button" variant="outline">
           Reset
         </Button>
@@ -1231,6 +1311,8 @@ function PartnerList({
               <TableHead>Partner</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Availability</TableHead>
+              <TableHead>Warehouses</TableHead>
+              <TableHead>Pay</TableHead>
               <TableHead>Documents</TableHead>
               <TableHead>Detail</TableHead>
               <TableHead>Actions</TableHead>
@@ -1248,6 +1330,16 @@ function PartnerList({
                 </TableCell>
                 <TableCell className="deliveryAvailabilityCell">
                   <AvailabilityBadge isOnline={partner.isOnline} />
+                </TableCell>
+                <TableCell
+                  className="deliveryWarehousesCell"
+                  data-empty={partner.warehouses.length === 0 ? "true" : undefined}
+                  data-label="Warehouses"
+                >
+                  {formatDeliveryPartnerWarehouses(partner.warehouses)}
+                </TableCell>
+                <TableCell className="deliveryPayCell" data-label="Pay">
+                  {formatDeliveryPartnerPay(partner.payment)}
                 </TableCell>
                 <TableCell className="deliveryDocumentsCell" data-label="Documents">
                   {partner.documents.length} files
@@ -1328,6 +1420,7 @@ function PartnerDetail({
   }
 
   // The page header already shows the partner name and availability, so the detail starts with facts.
+  // Wallet figures live in the earnings panel below.
   return (
     <div className="deliveryDetailPanel">
       <div className="detailGrid">
@@ -1335,10 +1428,22 @@ function PartnerDetail({
         <DetailItem label="Email" value={partner.email ?? "-"} wide />
         <DetailItem label="Status" value={formatDeliveryLabel(partner.status)} />
         <DetailItem label="Vehicle" value={partner.vehicleNumber ?? "-"} />
-        <DetailItem label="Wallet" value={formatCurrency(partner.wallet.balance)} />
-        <DetailItem label="Earnings" value={formatCurrency(partner.wallet.totalEarnings)} />
+        <DetailItem label="Pay" value={formatDeliveryPartnerPay(partner.payment)} wide />
         <DetailItem label="Last seen" value={formatDeliveryDateTime(partner.lastSeenAt)} />
         <DetailItem label="Created" value={formatDeliveryDateTime(partner.createdAt)} />
+      </div>
+      <div className="deliveryPartnerWarehouses">
+        <div className="sectionTitleRow">
+          <h3>Warehouses</h3>
+        </div>
+        {partner.warehouses.length === 0 ? (
+          <p className="deliveryNotice">
+            <AlertTriangle aria-hidden size={16} />
+            <span>Assign at least one warehouse before dispatching orders to this partner.</span>
+          </p>
+        ) : (
+          <DeliveryWarehouseList warehouses={partner.warehouses} />
+        )}
       </div>
       <div className="documentList">
         <div className="sectionTitleRow">
@@ -1421,6 +1526,9 @@ function AssignmentsTable({
                 <TableCell className="deliveryAssigneeCell" data-label="Partner">
                   <strong>{assignment.deliveryPartner?.fullName ?? "Unassigned"}</strong>
                   <em>{assignment.deliveryPartner?.mobileNumber ?? assignment.deliveryPartnerId}</em>
+                  {typeof assignment.earning === "number" ? (
+                    <em>Earned {formatCurrency(assignment.earning)}</em>
+                  ) : null}
                 </TableCell>
                 <TableCell className="deliveryStatusCell">
                   <StatusBadge status={assignment.status} />
@@ -1494,24 +1602,31 @@ function AssignmentTimeline({
 }
 
 function AssignmentForm({
-  activePartners,
+  activePartnerCount,
   assignableOrders,
+  canManagePartners,
   error,
   isPending,
   onChange,
   onValidationReset,
   onSubmit,
+  partners,
+  pickupWarehouse,
   showEmptyStates,
   values,
   warehouses
 }: {
-  activePartners: AdminDeliveryPartner[];
+  activePartnerCount: number;
   assignableOrders: AdminOrder[];
+  canManagePartners: boolean;
   error: string | null;
   isPending: boolean;
   onChange: (values: AssignDeliveryValues) => void;
   onValidationReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  /** Active partners assigned to the pickup warehouse, or every active partner when it is unknown. */
+  partners: AdminDeliveryPartner[];
+  pickupWarehouse: { id: string; name: string } | null;
   showEmptyStates: boolean;
   values: AssignDeliveryValues;
   warehouses: WarehouseListResponse["items"];
@@ -1519,7 +1634,7 @@ function AssignmentForm({
   const canSubmit =
     !isPending &&
     assignableOrders.length > 0 &&
-    activePartners.length > 0 &&
+    partners.length > 0 &&
     Boolean(values.orderId) &&
     Boolean(values.deliveryPartnerId);
 
@@ -1569,13 +1684,18 @@ function AssignmentForm({
               <SelectValue placeholder="Select partner" />
             </SelectTrigger>
             <SelectContent>
-              {activePartners.map((partner) => (
+              {partners.map((partner) => (
                 <SelectItem key={partner.id} value={partner.id}>
                   {partner.fullName} ({partner.mobileNumber})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {pickupWarehouse ? (
+            <span className="deliveryFieldHint">
+              Showing partners assigned to {pickupWarehouse.name}.
+            </span>
+          ) : null}
         </div>
         <div className="deliveryField">
           <span aria-hidden="true">Pickup warehouse</span>
@@ -1627,10 +1747,28 @@ function AssignmentForm({
           title="No assignable orders"
         />
       ) : null}
-      {showEmptyStates && activePartners.length === 0 ? (
+      {showEmptyStates && activePartnerCount === 0 ? (
         <EmptyState
           body="No active delivery partners are available for assignment."
           title="No active partners"
+        />
+      ) : null}
+      {showEmptyStates && activePartnerCount > 0 && partners.length === 0 && pickupWarehouse ? (
+        <EmptyState
+          action={
+            canManagePartners ? (
+              <Button asChild className="iconTextButton" variant="outline">
+                <Link
+                  href={`/delivery/partners/new?warehouseId=${encodeURIComponent(pickupWarehouse.id)}`}
+                >
+                  <UserPlus aria-hidden size={16} />
+                  <span>Add partner</span>
+                </Link>
+              </Button>
+            ) : undefined
+          }
+          body={`No active delivery partner is assigned to ${pickupWarehouse.name}. Choose another pickup warehouse, or assign a partner to this warehouse first.`}
+          title="No partners for this warehouse"
         />
       ) : null}
       <Button
@@ -1672,6 +1810,19 @@ function DetailItem({
       <strong>{value}</strong>
     </div>
   );
+}
+
+/** Names the pickup warehouse from the warehouse list, falling back to the order's own warehouse. */
+function getAssignmentWarehouseName(
+  warehouseId: string | null,
+  warehouses: WarehouseListResponse["items"],
+  order: AdminOrder | null
+) {
+  const warehouse =
+    warehouses.find((item) => item.id === warehouseId) ??
+    (order?.warehouse?.id === warehouseId ? order?.warehouse : null);
+
+  return warehouse ? formatDeliveryWarehouseName(warehouse) : "this warehouse";
 }
 
 function getErrorMessage(error: unknown) {

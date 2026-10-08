@@ -38,6 +38,8 @@ test("default RBAC seed defines the required role and permission codes", () => {
     PermissionCode.WarehouseStaffManage,
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
+    PermissionCode.DeliveryPartnersManage,
+    PermissionCode.DeliveryPayoutsManage,
     PermissionCode.UsersRead,
     PermissionCode.UsersUpdate,
     PermissionCode.ReportsRead,
@@ -90,6 +92,8 @@ test("predefined non-super-admin roles keep their intended permission sets", () 
     PermissionCode.WarehouseManage,
     PermissionCode.WarehouseStaffManage,
     PermissionCode.DeliveryRead,
+    PermissionCode.DeliveryAssign,
+    PermissionCode.DeliveryPartnersManage,
     PermissionCode.ReportsRead
   ]);
   assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.OrderManager], [
@@ -106,6 +110,8 @@ test("predefined non-super-admin roles keep their intended permission sets", () 
     PermissionCode.WarehouseRead,
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
+    PermissionCode.DeliveryPartnersManage,
+    PermissionCode.DeliveryPayoutsManage,
     PermissionCode.ReportsRead
   ]);
   assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.Support], [

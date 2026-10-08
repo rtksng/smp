@@ -13,6 +13,8 @@ export enum PermissionCode {
   WarehouseStaffManage = "warehouse.staff.manage",
   DeliveryRead = "delivery.read",
   DeliveryAssign = "delivery.assign",
+  DeliveryPartnersManage = "delivery.partners.manage",
+  DeliveryPayoutsManage = "delivery.payouts.manage",
   UsersRead = "users.read",
   UsersUpdate = "users.update",
   ReportsRead = "reports.read",
@@ -95,6 +97,16 @@ export const DEFAULT_PERMISSIONS: PermissionSeed[] = [
     code: PermissionCode.DeliveryAssign,
     description: "Assign delivery partners to orders.",
     name: "Assign delivery"
+  },
+  {
+    code: PermissionCode.DeliveryPartnersManage,
+    description: "Create and update delivery partner profiles for accessible warehouses.",
+    name: "Manage delivery partners"
+  },
+  {
+    code: PermissionCode.DeliveryPayoutsManage,
+    description: "Configure delivery partner salary or commission and record payouts.",
+    name: "Manage delivery partner pay"
   },
   {
     code: PermissionCode.UsersRead,

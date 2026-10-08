@@ -68,4 +68,13 @@ describe("Delivery responsive layout", () => {
       /\.deliveryModule \.deliveryMetricGrid\s*{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/s
     );
   });
+
+  it("lays out partner forms, warehouse and pay columns, and payment history on every width", () => {
+    expect(responsiveStyles).toContain(".deliveryModule .deliveryPartnerFormPanel");
+    expect(responsiveStyles).toContain(".deliveryModule .deliveryEarningsPanel");
+    expect(responsiveStyles).toContain(".deliveryModule .deliveryNotice");
+    expect(responsiveStyles).toContain('"warehouses warehouses"');
+    expect(responsiveStyles).toContain('"type amount"');
+    expect(responsiveStyles).toContain(".deliveryLedgerTableShell");
+  });
 });

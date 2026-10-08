@@ -113,6 +113,17 @@ enum DeliveryIncidentStatus {
 enum DeliveryLedgerEntryType {
   DELIVERY_EARNING
   PAYOUT
+  SALARY
+}
+
+enum DeliveryPartnerPaymentType {
+  SALARY
+  COMMISSION
+}
+
+enum DeliveryCommissionType {
+  PERCENTAGE
+  FIXED
 }
 
 enum WarehouseStatus {
@@ -486,20 +497,20 @@ model ProductDocument {
 }
 
 model Warehouse {
-  id                  String               @id @default(uuid())
+  id                  String                     @id @default(uuid())
   name                String
-  code                String               @unique
+  code                String                     @unique
   address             String
   city                String
   state               String
   pincode             String
-  latitude            Decimal?             @db.Decimal(10, 7)
-  longitude           Decimal?             @db.Decimal(10, 7)
+  latitude            Decimal?                   @db.Decimal(10, 7)
+  longitude           Decimal?                   @db.Decimal(10, 7)
   contactPerson       String
   contactNumber       String
-  status              WarehouseStatus      @default(ACTIVE)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  status              WarehouseStatus            @default(ACTIVE)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   deletedAt           DateTime?
   inventoryStocks     InventoryStock[]
   staff               WarehouseStaff[]
@@ -507,8 +518,9 @@ model Warehouse {
   stockMovements      StockMovement[]
   orderItems          OrderItem[]
   orders              Order[]
-  deliveryPickups     DeliveryAssignment[] @relation("DeliveryPickupWarehouse")
+  deliveryPickups     DeliveryAssignment[]       @relation("DeliveryPickupWarehouse")
   deliveryChargeRules DeliveryChargeRule[]
+  deliveryPartners    DeliveryPartnerWarehouse[]
 
   @@index([code])
   @@index([status])
@@ -855,34 +867,53 @@ model DeliveryChargeRule {
 }
 
 model DeliveryPartner {
-  id             String                       @id @default(uuid())
-  mobileNumber   String                       @unique
-  email          String?                      @unique
-  passwordHash   String?
-  fullName       String
-  status         DeliveryPartnerStatus        @default(PENDING_VERIFICATION)
-  isOnline       Boolean                      @default(false)
-  lastLatitude   Decimal?                     @db.Decimal(10, 7)
-  lastLongitude  Decimal?                     @db.Decimal(10, 7)
-  lastLocationAt DateTime?
-  lastSeenAt     DateTime?
-  vehicleNumber  String?
-  walletBalance  Decimal                      @default(0) @db.Decimal(12, 2)
-  totalEarnings  Decimal                      @default(0) @db.Decimal(12, 2)
-  statusReason   String?
-  createdAt      DateTime                     @default(now())
-  updatedAt      DateTime                     @updatedAt
-  deletedAt      DateTime?
-  assignments    DeliveryAssignment[]
-  devices        DeliveryPartnerDevice[]
-  documents      DeliveryPartnerDocument[]
-  incidents      DeliveryIncident[]
-  ledgerEntries  DeliveryPartnerLedgerEntry[]
-  sessions       DeliveryPartnerSession[]
+  id              String                       @id @default(uuid())
+  mobileNumber    String                       @unique
+  email           String?                      @unique
+  passwordHash    String?
+  fullName        String
+  status          DeliveryPartnerStatus        @default(PENDING_VERIFICATION)
+  isOnline        Boolean                      @default(false)
+  lastLatitude    Decimal?                     @db.Decimal(10, 7)
+  lastLongitude   Decimal?                     @db.Decimal(10, 7)
+  lastLocationAt  DateTime?
+  lastSeenAt      DateTime?
+  vehicleNumber   String?
+  walletBalance   Decimal                      @default(0) @db.Decimal(12, 2)
+  totalEarnings   Decimal                      @default(0) @db.Decimal(12, 2)
+  statusReason    String?
+  // Null until an admin configures pay, for example on self-registered applications.
+  paymentType     DeliveryPartnerPaymentType?
+  commissionType  DeliveryCommissionType?
+  commissionValue Decimal?                     @db.Decimal(12, 2)
+  monthlySalary   Decimal?                     @db.Decimal(12, 2)
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  deletedAt       DateTime?
+  assignments     DeliveryAssignment[]
+  devices         DeliveryPartnerDevice[]
+  documents       DeliveryPartnerDocument[]
+  incidents       DeliveryIncident[]
+  ledgerEntries   DeliveryPartnerLedgerEntry[]
+  sessions        DeliveryPartnerSession[]
+  warehouses      DeliveryPartnerWarehouse[]
 
   @@index([mobileNumber])
   @@index([status])
   @@index([deletedAt])
+}
+
+model DeliveryPartnerWarehouse {
+  id                String          @id @default(uuid())
+  deliveryPartnerId String
+  warehouseId       String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  warehouse         Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryPartnerId, warehouseId])
+  @@index([warehouseId])
 }
 
 model DeliveryPartnerSession {
@@ -936,26 +967,27 @@ model DeliveryPartnerDocument {
 }
 
 model DeliveryAssignment {
-  id                   String                  @id @default(uuid())
+  id                   String                      @id @default(uuid())
   orderId              String
   deliveryPartnerId    String
   pickupWarehouseId    String?
-  status               DeliveryStatus          @default(ASSIGNED)
-  assignedAt           DateTime                @default(now())
+  status               DeliveryStatus              @default(ASSIGNED)
+  assignedAt           DateTime                    @default(now())
   pickedUpAt           DateTime?
   deliveredAt          DateTime?
   proofOfDeliveryUrl   String?
   proofOfDeliveryKey   String?
   failureReason        String?
   receiverName         String?
-  cashCollectedAmount  Decimal?                @db.Decimal(12, 2)
+  cashCollectedAmount  Decimal?                    @db.Decimal(12, 2)
   cashCollectedAt      DateTime?
-  cashSettlementStatus CashCollectionStatus    @default(NOT_REQUIRED)
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
-  deliveryPartner      DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id])
-  order                Order                   @relation(fields: [orderId], references: [id])
-  pickupWarehouse      Warehouse?              @relation("DeliveryPickupWarehouse", fields: [pickupWarehouseId], references: [id])
+  cashSettlementStatus CashCollectionStatus        @default(NOT_REQUIRED)
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  deliveryPartner      DeliveryPartner             @relation(fields: [deliveryPartnerId], references: [id])
+  order                Order                       @relation(fields: [orderId], references: [id])
+  pickupWarehouse      Warehouse?                  @relation("DeliveryPickupWarehouse", fields: [pickupWarehouseId], references: [id])
+  earningEntry         DeliveryPartnerLedgerEntry?
   incidents            DeliveryIncident[]
   statusHistory        DeliveryStatusHistory[]
 
@@ -989,16 +1021,22 @@ model DeliveryIncident {
 }
 
 model DeliveryPartnerLedgerEntry {
-  id                String                  @id @default(uuid())
-  deliveryPartnerId String
-  type              DeliveryLedgerEntryType
-  amount            Decimal                 @db.Decimal(12, 2)
-  description       String
-  reference         String?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  deliveryPartner   DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  id                   String                  @id @default(uuid())
+  deliveryPartnerId    String
+  type                 DeliveryLedgerEntryType
+  amount               Decimal                 @db.Decimal(12, 2)
+  description          String
+  reference            String?
+  // Set on automatic commission entries so a delivery is credited at most once.
+  deliveryAssignmentId String?                 @unique
+  // YYYY-MM on salary entries so a month is credited at most once.
+  salaryPeriod         String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  deliveryAssignment   DeliveryAssignment?     @relation(fields: [deliveryAssignmentId], references: [id], onDelete: SetNull)
+  deliveryPartner      DeliveryPartner         @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
 
+  @@unique([deliveryPartnerId, salaryPeriod])
   @@index([deliveryPartnerId, createdAt])
   @@index([type])
 }

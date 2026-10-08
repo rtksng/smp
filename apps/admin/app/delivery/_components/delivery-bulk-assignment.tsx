@@ -20,7 +20,11 @@ import {
 } from "@/components/ui/table";
 import { useAdminSession } from "@/lib/admin-session";
 import { deliveryBulkAction } from "@/lib/bulk-module-actions";
-import type { AdminDeliveryPartner } from "@/lib/delivery-management";
+import {
+  filterPartnersForWarehouse,
+  isPartnerAssignedToWarehouse,
+  type AdminDeliveryPartner
+} from "@/lib/delivery-management";
 import type { AdminOrder } from "@/lib/order-management";
 import { useBulkSelection } from "@/lib/use-bulk-selection";
 import { useTableOverflow } from "@/lib/use-table-overflow";
@@ -59,7 +63,9 @@ export function DeliveryBulkAssignment({
   const visible = filtered.slice((currentPage - 1) * 20, currentPage * 20);
   const bulk = useBulkSelection(search, visible);
   const { isOverflowing, shellRef } = useTableOverflow();
-  const partner = partners.find((item) => item.id === values.deliveryPartnerId);
+  // With a pickup warehouse chosen, only partners assigned to it can be dispatched from it.
+  const partnerOptions = filterPartnersForWarehouse(partners, values.pickupWarehouseId);
+  const partner = partnerOptions.find((item) => item.id === values.deliveryPartnerId);
   const warehouse = warehouses.find((item) => item.id === values.pickupWarehouseId);
   const action = deliveryBulkAction(
     api,
@@ -72,7 +78,7 @@ export function DeliveryBulkAssignment({
       <BulkSelectField
         label="Bulk delivery partner"
         value={values.deliveryPartnerId}
-        options={partners.map((item) => ({
+        options={partnerOptions.map((item) => ({
           id: item.id,
           name: `${item.fullName} (${item.mobileNumber})`
         }))}
@@ -83,8 +89,31 @@ export function DeliveryBulkAssignment({
         value={values.pickupWarehouseId}
         options={warehouses}
         placeholder="Use each order's warehouse"
-        onChange={(pickupWarehouseId) => setValues({ ...values, pickupWarehouseId })}
+        onChange={(pickupWarehouseId) => {
+          const selected = partners.find((item) => item.id === values.deliveryPartnerId);
+          // Clear a partner who does not serve the newly chosen pickup warehouse.
+          const keepsPartner =
+            !selected || !pickupWarehouseId || isPartnerAssignedToWarehouse(selected, pickupWarehouseId);
+
+          setValues({
+            ...values,
+            deliveryPartnerId: keepsPartner ? values.deliveryPartnerId : "",
+            pickupWarehouseId
+          });
+        }}
       />
+      {values.pickupWarehouseId && partnerOptions.length === 0 ? (
+        <p className="bulkFieldHint" role="status">
+          No active delivery partner is assigned to {warehouse?.name ?? "this warehouse"}. Choose
+          another pickup warehouse or assign a partner to it first.
+        </p>
+      ) : (
+        <p className="bulkFieldHint">
+          {values.pickupWarehouseId
+            ? `Showing partners assigned to ${warehouse?.name ?? "this warehouse"}.`
+            : "Without a pickup warehouse, the partner must be assigned to each order's warehouse."}
+        </p>
+      )}
       <label>
         Dispatch note (optional)
         <Input

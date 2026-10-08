@@ -11,6 +11,7 @@ import {
   deliveryAssignmentSchema,
   deliveryCashSummarySchema,
   deliveryDashboardSchema,
+  deliveryEarningsSummarySchema,
   deliveryIncidentListSchema,
   deliveryIncidentSchema,
   deliveryNotificationListSchema,
@@ -111,6 +112,12 @@ export function getDeliveryDashboard(accessToken: string) {
 
 export function getCashSummary(accessToken: string) {
   return apiRequest("/delivery/cash", deliveryCashSummarySchema, { accessToken });
+}
+
+export function getEarnings(accessToken: string) {
+  return apiRequest("/delivery/earnings", deliveryEarningsSummarySchema, {
+    accessToken
+  });
 }
 
 export function listNotifications(accessToken: string) {

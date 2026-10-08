@@ -12,6 +12,7 @@ import {
 import { DeliveryBulkAssignment } from "./delivery/_components/delivery-bulk-assignment";
 import type { AdminOrder } from "@/lib/order-management";
 import type { AdminDeliveryPartner } from "@/lib/delivery-management";
+import type { WarehouseListResponse } from "@/lib/warehouse-management";
 
 const mocks = vi.hoisted(() => ({
   request: vi.fn(),
@@ -299,7 +300,9 @@ describe("bulk flows through admin pages and API contracts", () => {
             id: "d1",
             fullName: "QA partner",
             mobileNumber: "9000000000",
-            status: "ACTIVE"
+            payment: { commissionType: null, commissionValue: null, monthlySalary: null, paymentType: null },
+            status: "ACTIVE",
+            warehouses: [{ code: "W1", id: "w1", name: "QA warehouse" }]
           } as AdminDeliveryPartner
         ]}
         warehouses={[]}
@@ -319,6 +322,47 @@ describe("bulk flows through admin pages and API contracts", () => {
     expect(
       mocks.request.mock.calls.filter(([path]) => path === "/admin/delivery/assign")
     ).toHaveLength(2);
+  });
+
+  it("offers only bulk partners assigned to the chosen pickup warehouse", async () => {
+    const north = { code: "N", id: "w1", name: "North" };
+    const south = { code: "S", id: "w2", name: "South" };
+    const partner = (id: string, fullName: string, warehouses: Array<typeof north>) =>
+      ({
+        fullName,
+        id,
+        mobileNumber: "9000000000",
+        payment: { commissionType: null, commissionValue: null, monthlySalary: null, paymentType: null },
+        status: "ACTIVE",
+        warehouses
+      }) as AdminDeliveryPartner;
+    const partnerOptions = () =>
+      Array.from(
+        (screen.getByRole("combobox", { name: "Bulk delivery partner" }) as HTMLSelectElement).options
+      )
+        .filter((option) => option.value)
+        .map((option) => option.textContent);
+    mount(
+      <DeliveryBulkAssignment
+        orders={[makeOrder("1", "PACKED")] as AdminOrder[]}
+        partners={[partner("d1", "North rider", [north]), partner("d2", "South rider", [south])]}
+        warehouses={[north, south] as WarehouseListResponse["items"]}
+        disabled={false}
+        onComplete={vi.fn(async () => undefined)}
+      />
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select current page" }));
+    chooseAction("assign");
+    expect(partnerOptions()).toEqual(["North rider (9000000000)", "South rider (9000000000)"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Bulk delivery partner" }), {
+      target: { value: "d1" }
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Bulk pickup warehouse" }), {
+      target: { value: "w2" }
+    });
+    expect(screen.getByRole("combobox", { name: "Bulk delivery partner" })).toHaveValue("");
+    expect(partnerOptions()).toEqual(["South rider (9000000000)"]);
+    expect(screen.getByText("Showing partners assigned to South.")).toBeInTheDocument();
   });
 
   it("does not expose product write selection to a read-only admin", async () => {

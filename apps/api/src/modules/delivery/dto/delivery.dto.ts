@@ -1,15 +1,21 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min
@@ -17,9 +23,11 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   CashCollectionStatus,
+  DeliveryCommissionType,
   DeliveryIncidentStatus,
   DeliveryIncidentType,
   DeliveryLedgerEntryType,
+  DeliveryPartnerPaymentType,
   DeliveryPartnerStatus,
   DeliveryStatus
 } from "../../../generated/prisma/enums";
@@ -53,13 +61,21 @@ export class DeliveryPartnerListQueryDto {
   status?: DeliveryPartnerStatus;
 
   @ApiPropertyOptional({
-    description:
-      "Only partners with at least one assignment for this warehouse (its pickup warehouse, or the order warehouse when no pickup warehouse is linked).",
+    description: "Only partners assigned to this warehouse.",
     example: "2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"
   })
   @IsOptional()
   @IsUUID()
   warehouseId?: string;
+
+  @ApiPropertyOptional({
+    description: "Match partner name, mobile number, or vehicle number.",
+    example: "Asha"
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 }
 
 export class DeliveryAssignmentListQueryDto {
@@ -258,6 +274,141 @@ export class RejectDeliveryPartnerDto {
   reason?: string;
 }
 
+const E164_MOBILE_PATTERN = /^\+[1-9]\d{7,14}$/;
+const E164_MOBILE_MESSAGE =
+  "mobileNumber must be in E.164 format, for example +919876543210.";
+
+const trimString = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim() : value;
+const normalizeOptionalEmail = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim().toLowerCase() || null : value;
+const normalizeOptionalVehicle = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim().toUpperCase() || null : value;
+
+/**
+ * Pay fields are validated together in the service: salary partners need a
+ * monthly salary, commission partners need a commission type and value.
+ */
+class DeliveryPartnerPaymentFieldsDto {
+  @ApiPropertyOptional({
+    description: "Requires delivery.payouts.manage. Send with the fields for that type.",
+    enum: DeliveryPartnerPaymentType
+  })
+  @IsOptional()
+  @IsEnum(DeliveryPartnerPaymentType)
+  paymentType?: DeliveryPartnerPaymentType;
+
+  @ApiPropertyOptional({ enum: DeliveryCommissionType })
+  @IsOptional()
+  @IsEnum(DeliveryCommissionType)
+  commissionType?: DeliveryCommissionType;
+
+  @ApiPropertyOptional({
+    description: "Percent of the order total for PERCENTAGE, or INR per delivery for FIXED.",
+    example: 5
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(9_999_999_999.99)
+  commissionValue?: number;
+
+  @ApiPropertyOptional({ example: 18000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(9_999_999_999.99)
+  monthlySalary?: number;
+}
+
+export class CreateDeliveryPartnerDto extends DeliveryPartnerPaymentFieldsDto {
+  @ApiProperty({ example: "Asha Driver" })
+  @Transform(trimString)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  fullName!: string;
+
+  @ApiProperty({ example: "+919876543210" })
+  @Transform(trimString)
+  @IsString()
+  @Matches(E164_MOBILE_PATTERN, { message: E164_MOBILE_MESSAGE })
+  mobileNumber!: string;
+
+  @ApiPropertyOptional({ example: "driver@example.com", nullable: true })
+  @Transform(normalizeOptionalEmail)
+  @IsOptional()
+  @IsEmail()
+  email?: string | null;
+
+  @ApiPropertyOptional({ example: "DL01AB1234", nullable: true })
+  @Transform(normalizeOptionalVehicle)
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  vehicleNumber?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Warehouses the partner works with. Warehouse-scoped staff may pass only one of their own warehouses; it defaults to their warehouse when they have exactly one.",
+    example: ["2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"],
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ArrayUnique()
+  @IsUUID("all", { each: true })
+  warehouseIds?: string[];
+}
+
+export class UpdateDeliveryPartnerDto extends DeliveryPartnerPaymentFieldsDto {
+  @ApiPropertyOptional({ example: "Asha Driver" })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: "+919876543210" })
+  @Transform(trimString)
+  @IsOptional()
+  @IsString()
+  @Matches(E164_MOBILE_PATTERN, { message: E164_MOBILE_MESSAGE })
+  mobileNumber?: string;
+
+  @ApiPropertyOptional({ example: "driver@example.com", nullable: true })
+  @Transform(normalizeOptionalEmail)
+  @IsOptional()
+  @IsEmail()
+  email?: string | null;
+
+  @ApiPropertyOptional({ example: "DL01AB1234", nullable: true })
+  @Transform(normalizeOptionalVehicle)
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  vehicleNumber?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      "Replaces the partner's warehouses. Only admins with access to every warehouse may change this.",
+    example: ["2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"],
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ArrayUnique()
+  @IsUUID("all", { each: true })
+  warehouseIds?: string[];
+}
+
 export class CreateDeliveryIncidentDto {
   @ApiProperty({ enum: DeliveryIncidentType })
   @IsEnum(DeliveryIncidentType)
@@ -310,6 +461,14 @@ export class CreateDeliveryLedgerEntryDto {
   @IsString()
   @MaxLength(120)
   reference?: string;
+
+  @ApiPropertyOptional({
+    description: "Required for SALARY entries. A month can be credited only once.",
+    example: "2026-10"
+  })
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: "salaryPeriod must use the YYYY-MM format." })
+  salaryPeriod?: string;
 }
 
 export class UpdateDeliveryAssignmentStatusDto {
@@ -431,6 +590,49 @@ export class DeliveryPartnerLocationResponseDto {
   updatedAt!: Date | null;
 }
 
+export class DeliveryPartnerWarehouseResponseDto {
+  @ApiProperty({ example: "warehouse-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Delhi warehouse" })
+  name!: string;
+
+  @ApiProperty({ example: "DEL-01" })
+  code!: string;
+
+  @ApiProperty({ example: "Warehouse Road" })
+  address!: string;
+
+  @ApiProperty({ example: "Delhi" })
+  city!: string;
+
+  @ApiProperty({ example: "Delhi" })
+  state!: string;
+
+  @ApiProperty({ example: "110001" })
+  pincode!: string;
+
+  @ApiProperty({ example: "Dispatch Desk" })
+  contactPerson!: string;
+
+  @ApiProperty({ example: "+911145678900" })
+  contactNumber!: string;
+}
+
+export class DeliveryPartnerPaymentResponseDto {
+  @ApiProperty({ enum: DeliveryPartnerPaymentType, nullable: true })
+  paymentType!: DeliveryPartnerPaymentType | null;
+
+  @ApiProperty({ enum: DeliveryCommissionType, nullable: true })
+  commissionType!: DeliveryCommissionType | null;
+
+  @ApiProperty({ example: 5, nullable: true })
+  commissionValue!: number | null;
+
+  @ApiProperty({ example: 18000, nullable: true })
+  monthlySalary!: number | null;
+}
+
 export class DeliveryPartnerResponseDto {
   @ApiProperty({ example: "partner-id" })
   id!: string;
@@ -464,6 +666,12 @@ export class DeliveryPartnerResponseDto {
 
   @ApiProperty({ type: DeliveryWalletResponseDto })
   wallet!: DeliveryWalletResponseDto;
+
+  @ApiProperty({ type: DeliveryPartnerPaymentResponseDto })
+  payment!: DeliveryPartnerPaymentResponseDto;
+
+  @ApiProperty({ type: [DeliveryPartnerWarehouseResponseDto] })
+  warehouses!: DeliveryPartnerWarehouseResponseDto[];
 
   @ApiProperty({ type: [DeliveryPartnerDocumentResponseDto] })
   documents!: DeliveryPartnerDocumentResponseDto[];
@@ -705,6 +913,13 @@ export class DeliveryAssignmentResponseDto {
   @ApiProperty({ example: "Dr. Nisha Rao", nullable: true })
   receiverName!: string | null;
 
+  @ApiProperty({
+    description: "Commission credited to the partner for this delivery.",
+    example: 61.25,
+    nullable: true
+  })
+  earning!: number | null;
+
   @ApiProperty({ type: [DeliveryAssignmentHistoryResponseDto] })
   statusHistory!: DeliveryAssignmentHistoryResponseDto[];
 
@@ -793,8 +1008,45 @@ export class DeliveryLedgerEntryResponseDto {
   @ApiProperty({ example: "PAYOUT-20260806-001", nullable: true })
   reference!: string | null;
 
+  @ApiProperty({ example: "2026-10", nullable: true })
+  salaryPeriod!: string | null;
+
+  @ApiProperty({ example: "assignment-id", nullable: true })
+  deliveryAssignmentId!: string | null;
+
   @ApiProperty({ example: "2026-08-06T10:00:00.000Z" })
   createdAt!: Date;
+}
+
+export class DeliveryEarningsTotalsResponseDto {
+  @ApiProperty({ description: "Delivery earnings, including automatic commission.", example: 1840 })
+  commissionEarnings!: number;
+
+  @ApiProperty({ example: 18000 })
+  salaryEarnings!: number;
+
+  @ApiProperty({ example: 15000 })
+  paidOut!: number;
+
+  @ApiProperty({ example: 42 })
+  completedDeliveries!: number;
+}
+
+export class DeliveryEarningsSummaryResponseDto {
+  @ApiProperty({ type: DeliveryPartnerPaymentResponseDto })
+  payment!: DeliveryPartnerPaymentResponseDto;
+
+  @ApiProperty({ type: DeliveryWalletResponseDto })
+  wallet!: DeliveryWalletResponseDto;
+
+  @ApiProperty({ type: DeliveryEarningsTotalsResponseDto })
+  totals!: DeliveryEarningsTotalsResponseDto;
+
+  @ApiProperty({ description: "Payouts, newest first.", type: () => [DeliveryLedgerEntryResponseDto] })
+  payouts!: DeliveryLedgerEntryResponseDto[];
+
+  @ApiProperty({ description: "Recent ledger entries of every type, newest first.", type: () => [DeliveryLedgerEntryResponseDto] })
+  entries!: DeliveryLedgerEntryResponseDto[];
 }
 
 export class DeliveryNotificationResponseDto {

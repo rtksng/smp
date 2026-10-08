@@ -7,6 +7,7 @@ export const WAREHOUSE_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 export const WAREHOUSES_PATH = "/warehouses";
 export const WAREHOUSE_CREATE_PATH = "/warehouses/create";
 export const WAREHOUSE_STAFF_PATH = "/warehouses/staff";
+const DELIVERY_PARTNER_CREATE_PATH = "/delivery/partners/new";
 export const WAREHOUSE_DETAIL_PRODUCTS_PAGE_SIZE = 20;
 export const WAREHOUSE_DETAIL_PARTNERS_PAGE_SIZE = 10;
 export const WAREHOUSE_NEAR_EXPIRY_DAYS = 30;
@@ -328,6 +329,11 @@ export function buildWarehouseScopedHref(
 
 export function buildWarehouseStaffPath(warehouseId: string) {
   return buildWarehouseScopedHref(WAREHOUSE_STAFF_PATH, warehouseId);
+}
+
+/** Opens the add partner form with this warehouse already chosen. */
+export function buildWarehousePartnerCreatePath(warehouseId: string) {
+  return buildWarehouseScopedHref(DELIVERY_PARTNER_CREATE_PATH, warehouseId);
 }
 
 const WAREHOUSE_QUICK_LINKS: Array<{

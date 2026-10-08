@@ -4,15 +4,25 @@ import type {
   DeliveryAssignmentList,
   DeliveryCashSummary,
   DeliveryDashboard,
+  DeliveryEarningsSummary,
   DeliveryIncident,
+  DeliveryLedgerEntry,
   DeliveryNotification,
+  DeliveryPartnerPayment,
   DeliveryPartnerProfile,
+  DeliveryPartnerWarehouse,
   DeliverySession,
   TokenPair
 } from "./types";
 
 const nullableNumberSchema = z.number().nullable();
 const nullableStringSchema = z.string().nullable();
+
+const deliveryWalletSchema = z.object({
+  balance: z.number(),
+  currency: z.literal("INR"),
+  totalEarnings: z.number()
+}) satisfies z.ZodType<DeliveryPartnerProfile["wallet"]>;
 
 export const tokenPairSchema = z.object({
   accessToken: z.string(),
@@ -34,6 +44,25 @@ export const deliverySessionSchema = z.object({
   tokens: tokenPairSchema
 }) satisfies z.ZodType<DeliverySession>;
 
+export const deliveryPartnerPaymentSchema = z.object({
+  paymentType: z.enum(["SALARY", "COMMISSION"]).nullable(),
+  commissionType: z.enum(["PERCENTAGE", "FIXED"]).nullable(),
+  commissionValue: nullableNumberSchema,
+  monthlySalary: nullableNumberSchema
+}) satisfies z.ZodType<DeliveryPartnerPayment>;
+
+export const deliveryPartnerWarehouseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+  address: z.string(),
+  city: z.string(),
+  state: z.string(),
+  pincode: z.string(),
+  contactPerson: z.string(),
+  contactNumber: z.string()
+}) satisfies z.ZodType<DeliveryPartnerWarehouse>;
+
 export const deliveryPartnerProfileSchema = z.object({
   id: z.string(),
   fullName: z.string(),
@@ -51,11 +80,11 @@ export const deliveryPartnerProfileSchema = z.object({
       updatedAt: nullableStringSchema
     })
     .nullable(),
-  wallet: z.object({
-    balance: z.number(),
-    currency: z.literal("INR"),
-    totalEarnings: z.number()
-  }),
+  wallet: deliveryWalletSchema,
+  // Pay and warehouses arrived with partner pay management. They stay tolerant
+  // so profile data from an older API or app build still parses.
+  payment: deliveryPartnerPaymentSchema.optional(),
+  warehouses: z.array(deliveryPartnerWarehouseSchema).default([]),
   documents: z.array(
     z.object({
       id: z.string(),
@@ -174,6 +203,8 @@ export const deliveryAssignmentSchema = z.object({
       createdAt: z.string()
     })
   ),
+  // Missing in assignment data from before automatic commission; treat as unknown.
+  earning: nullableNumberSchema.default(null),
   createdAt: z.string(),
   updatedAt: z.string()
 }) satisfies z.ZodType<DeliveryAssignment>;
@@ -198,16 +229,24 @@ export const deliveryDashboardSchema = z.object({
   statusCounts: z.record(deliveryStatusSchema, z.number())
 }) satisfies z.ZodType<DeliveryDashboard>;
 
+export const deliveryLedgerEntrySchema = z.object({
+  id: z.string(),
+  type: z.enum(["DELIVERY_EARNING", "SALARY", "PAYOUT"]),
+  amount: z.number(),
+  description: z.string(),
+  reference: nullableStringSchema,
+  // Defaulted so ledger entries from an API that predates these fields still parse.
+  salaryPeriod: nullableStringSchema.default(null),
+  deliveryAssignmentId: nullableStringSchema.default(null),
+  createdAt: z.string()
+}) satisfies z.ZodType<DeliveryLedgerEntry>;
+
 export const deliveryCashSummarySchema = z.object({
   cashInHand: z.number(),
   submittedAmount: z.number(),
   settledAmount: z.number(),
   pendingCount: z.number(),
-  wallet: z.object({
-    balance: z.number(),
-    currency: z.literal("INR"),
-    totalEarnings: z.number()
-  }),
+  wallet: deliveryWalletSchema,
   items: z.array(
     z.object({
       assignmentId: z.string(),
@@ -222,17 +261,21 @@ export const deliveryCashSummarySchema = z.object({
       collectedAt: nullableStringSchema
     })
   ),
-  ledgerEntries: z.array(
-    z.object({
-      id: z.string(),
-      type: z.enum(["DELIVERY_EARNING", "PAYOUT"]),
-      amount: z.number(),
-      description: z.string(),
-      reference: nullableStringSchema,
-      createdAt: z.string()
-    })
-  )
+  ledgerEntries: z.array(deliveryLedgerEntrySchema)
 }) satisfies z.ZodType<DeliveryCashSummary>;
+
+export const deliveryEarningsSummarySchema = z.object({
+  payment: deliveryPartnerPaymentSchema,
+  wallet: deliveryWalletSchema,
+  totals: z.object({
+    commissionEarnings: z.number(),
+    salaryEarnings: z.number(),
+    paidOut: z.number(),
+    completedDeliveries: z.number()
+  }),
+  payouts: z.array(deliveryLedgerEntrySchema),
+  entries: z.array(deliveryLedgerEntrySchema)
+}) satisfies z.ZodType<DeliveryEarningsSummary>;
 
 export const deliveryNotificationSchema = z.object({
   id: z.string(),

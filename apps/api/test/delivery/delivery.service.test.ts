@@ -23,7 +23,7 @@ test("listAdminDeliveryPartners returns profiles with documents, online state, a
     new FakeWarehouseAccess() as unknown as WarehouseAccessService
   );
 
-  const result = await service.listAdminDeliveryPartners({});
+  const result = await service.listAdminDeliveryPartners({}, adminAuth());
 
   assert.equal(result.items[0]?.id, "partner-1");
   assert.equal(result.items[0]?.documents[0]?.title, "Driving license");
@@ -35,7 +35,7 @@ test("listAdminDeliveryPartners returns profiles with documents, online state, a
   });
 });
 
-test("listAdminDeliveryPartners narrows to partners with assignments for a warehouse using the assignment rule", async () => {
+test("listAdminDeliveryPartners narrows to partners linked to a warehouse; assignments keep the pickup rule", async () => {
   const prisma = createDeliveryPrismaMock();
   const service = new DeliveryService(
     prisma as unknown as PrismaService,
@@ -49,12 +49,12 @@ test("listAdminDeliveryPartners narrows to partners with assignments for a wareh
   };
 
   assert.deepEqual(buildDeliveryAssignmentWarehouseFilter("warehouse-1"), rule);
-  await service.listAdminDeliveryPartners({ limit: 5, page: 1, status: "ACTIVE", warehouseId: "warehouse-1" });
-  await service.listAdminDeliveryPartners({});
-  await service.listAdminDeliveryAssignments({ warehouseId: "warehouse-1" });
+  await service.listAdminDeliveryPartners({ limit: 5, page: 1, status: "ACTIVE", warehouseId: "warehouse-1" }, adminAuth());
+  await service.listAdminDeliveryPartners({}, adminAuth());
+  await service.listAdminDeliveryAssignments({ warehouseId: "warehouse-1" }, adminAuth());
 
   const partnerCalls = prisma.calls.deliveryPartnerFindMany as Array<{ skip: number; take: number; where: unknown }>;
-  const warehouseWhere = { assignments: { some: rule }, deletedAt: null, status: "ACTIVE" };
+  const warehouseWhere = { deletedAt: null, status: "ACTIVE", warehouses: { some: { warehouseId: "warehouse-1" } } };
   assert.deepEqual(partnerCalls[0]?.where, warehouseWhere);
   assert.equal(partnerCalls[0]?.skip, 0);
   assert.equal(partnerCalls[0]?.take, 5);
@@ -88,7 +88,7 @@ test("getAdminDeliveryPartner returns one partner with document detail", async (
     new FakeWarehouseAccess() as unknown as WarehouseAccessService
   );
 
-  const result = await service.getAdminDeliveryPartner("partner-1");
+  const result = await service.getAdminDeliveryPartner("partner-1", adminAuth());
 
   assert.equal(result.id, "partner-1");
   assert.equal(result.documents[0]?.fileUrl, "http://localhost/uploads/license.pdf");
@@ -232,7 +232,7 @@ test("listAdminDeliveryAssignments filters assignments by status, warehouse, and
     page: 2,
     status: "ASSIGNED",
     warehouseId: "warehouse-1"
-  });
+  }, adminAuth());
 
   assert.equal(result.items[0]?.id, "assignment-1");
   assert.equal(result.items[0]?.pickupWarehouse?.code, "DEL-01");
@@ -617,4 +617,12 @@ test("delivery controllers declare required guards and permissions", () => {
     ),
     [PermissionCode.DeliveryAssign]
   );
+  for (const [method, permission] of [
+    [AdminDeliveryPartnersController.prototype.createPartner, PermissionCode.DeliveryPartnersManage],
+    [AdminDeliveryPartnersController.prototype.updatePartner, PermissionCode.DeliveryPartnersManage],
+    [AdminDeliveryPartnersController.prototype.getPartnerEarnings, PermissionCode.DeliveryRead],
+    [AdminDeliveryPartnersController.prototype.createLedgerEntry, PermissionCode.DeliveryPayoutsManage]
+  ] as const) {
+    assert.deepEqual(Reflect.getMetadata("admin:required-permissions", method), [permission]);
+  }
 });

@@ -5,7 +5,8 @@ import {
   dashboardMetrics,
   deliveryFilterOptions,
   formatDateTime,
-  nextActionLabel
+  nextActionLabel,
+  parseDeliveryStatusFilter
 } from "./dashboard";
 
 function assignment(
@@ -23,6 +24,7 @@ function assignment(
     },
     deliveredAt: null,
     deliveryPartnerId: "partner-1",
+    earning: null,
     failureReason: null,
     id: `assignment-${status}`,
     items: [
@@ -112,6 +114,14 @@ describe("delivery dashboard helpers", () => {
       "Failed:0",
       "Cancelled:0"
     ]);
+  });
+
+  test("reads a status filter from route params", () => {
+    expect(parseDeliveryStatusFilter("DELIVERED")).toBe("DELIVERED");
+    expect(parseDeliveryStatusFilter(["FAILED", "DELIVERED"])).toBe("FAILED");
+    expect(parseDeliveryStatusFilter("delivered")).toBe("ALL");
+    expect(parseDeliveryStatusFilter("UNKNOWN")).toBe("ALL");
+    expect(parseDeliveryStatusFilter(undefined)).toBe("ALL");
   });
 
   test("returns the next useful action label for each assignment status", () => {

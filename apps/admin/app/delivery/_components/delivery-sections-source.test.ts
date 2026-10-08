@@ -7,6 +7,14 @@ const partnerRouteSource = readFileSync(
   join(__dirname, "../partners/[id]/page.tsx"),
   "utf8"
 );
+const partnerCreateRouteSource = readFileSync(
+  join(__dirname, "../partners/new/page.tsx"),
+  "utf8"
+);
+const partnerEditRouteSource = readFileSync(
+  join(__dirname, "../partners/[id]/edit/page.tsx"),
+  "utf8"
+);
 const partnersViewSource = source.slice(
   source.indexOf('{view === "partners" ? ('),
   source.indexOf('{view === "assignments" ? (')
@@ -51,5 +59,17 @@ describe("delivery partner pages source", () => {
     expect(partnersViewSource).not.toContain("selectedPartnerId");
     expect(partnerListSource).not.toContain("plainTableButton");
     expect(partnerListSource).not.toContain("onSelect");
+  });
+
+  it("lists partner warehouses and pay and routes add and edit through gated delivery pages", () => {
+    expect(partnerListSource).toContain("<TableHead>Warehouses</TableHead>");
+    expect(partnerListSource).toContain("<TableHead>Pay</TableHead>");
+    expect(partnersViewSource).toContain('href="/delivery/partners/new"');
+    expect(partnersViewSource).toContain("canManagePartners ?");
+    expect(source).toContain("<DeliveryPartnerEarningsPanel partner={partnerQuery.data} />");
+    expect(partnerCreateRouteSource).toContain("<DeliveryRoute>");
+    expect(partnerCreateRouteSource).toContain("<DeliveryPartnerCreatePage />");
+    expect(partnerEditRouteSource).toContain("<DeliveryRoute>");
+    expect(partnerEditRouteSource).toContain("<DeliveryPartnerEditPage key={id} partnerId={id} />");
   });
 });

@@ -11,11 +11,23 @@ import {
 import { errorMessage } from "../../components/ui/feedback";
 import {
   getCashSummary,
-  getDeliveryDashboard
+  getDeliveryDashboard,
+  getEarnings
 } from "../../lib/api/delivery";
 import { formatCurrency } from "../../lib/api/status";
+import type {
+  DeliveryEarningsSummary,
+  DeliveryLedgerEntry
+} from "../../lib/api/types";
 import { useAuth } from "../../lib/auth/auth-context";
 import { formatDateTime } from "../../lib/delivery/dashboard";
+import {
+  formatLedgerAmount,
+  formatPayStructure,
+  isLedgerCredit,
+  ledgerEntryTitle,
+  payCreditNote
+} from "../../lib/delivery/earnings";
 import { fonts } from "../../lib/theme";
 
 export default function CashScreen() {
@@ -30,6 +42,12 @@ export default function CashScreen() {
     enabled: Boolean(accessToken),
     queryFn: () => getDeliveryDashboard(accessToken ?? ""),
     queryKey: ["delivery-dashboard"],
+    refetchInterval: 30_000
+  });
+  const earningsQuery = useQuery({
+    enabled: Boolean(accessToken),
+    queryFn: () => getEarnings(accessToken ?? ""),
+    queryKey: ["delivery-earnings"],
     refetchInterval: 30_000
   });
 
@@ -99,6 +117,7 @@ export default function CashScreen() {
         />
       </View>
 
+      {/* Completed deliveries are shown with earnings below, so they are not repeated here. */}
       <SectionCard title="Delivery summary">
         <View style={styles.metrics}>
           <MetricCard label="Active" value={String(dashboard.activeCount)} />
@@ -108,11 +127,6 @@ export default function CashScreen() {
             value={formatCurrency(dashboard.codToCollect)}
           />
           <MetricCard
-            label="Completed"
-            tone="success"
-            value={String(dashboard.completedCount)}
-          />
-          <MetricCard
             label="Issues"
             tone={dashboard.issueCount > 0 ? "danger" : "default"}
             value={String(dashboard.issueCount)}
@@ -120,37 +134,31 @@ export default function CashScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title="Earnings">
-        <MoneyRow label="Available balance" value={summary.wallet.balance} />
-        <MoneyRow label="Lifetime earnings" value={summary.wallet.totalEarnings} />
-        <Text selectable style={styles.helper}>
-          Payouts are controlled by delivery operations. COD settlement is tracked separately below.
-        </Text>
-      </SectionCard>
-
-      <SectionCard title="Earnings and payouts">
-        {summary.ledgerEntries.length === 0 ? (
-          <Text style={styles.emptyText}>No earning or payout entries posted yet.</Text>
-        ) : (
-          summary.ledgerEntries.map((entry) => (
-            <View key={entry.id} style={styles.cashRow}>
-              <View style={styles.cashMain}>
-                <Text selectable style={styles.orderNumber}>{entry.description}</Text>
-                <Text selectable style={styles.meta}>
-                  {formatDateTime(entry.createdAt)}
-                  {entry.reference ? ` · ${entry.reference}` : ""}
-                </Text>
-              </View>
-              <Text
-                selectable
-                style={entry.type === "PAYOUT" ? styles.payoutAmount : styles.earningAmount}
-              >
-                {entry.type === "PAYOUT" ? "−" : "+"}{formatCurrency(entry.amount)}
-              </Text>
-            </View>
-          ))
-        )}
-      </SectionCard>
+      {earningsQuery.data ? (
+        <EarningsSections earnings={earningsQuery.data} />
+      ) : (
+        <SectionCard title="Earnings">
+          {earningsQuery.isLoading ? (
+            <EmptyState icon="wallet-outline" title="Loading earnings" />
+          ) : (
+            <>
+              <EmptyState
+                icon="warning-outline"
+                message={
+                  earningsQuery.isError ? errorMessage(earningsQuery.error) : undefined
+                }
+                title="Earnings unavailable"
+              />
+              <ActionButton
+                icon="refresh-outline"
+                label="Try again"
+                onPress={() => void earningsQuery.refetch()}
+                tone="secondary"
+              />
+            </>
+          )}
+        </SectionCard>
+      )}
 
       <SectionCard title="COD collection history">
         {summary.items.length === 0 ? (
@@ -160,12 +168,7 @@ export default function CashScreen() {
             <Pressable
               accessibilityRole="button"
               key={item.assignmentId}
-              onPress={() =>
-                router.push({
-                  params: { id: item.assignmentId },
-                  pathname: "/(app)/assignments/[id]"
-                })
-              }
+              onPress={() => openAssignment(item.assignmentId)}
               style={({ pressed }) => [
                 styles.cashRow,
                 pressed && styles.pressed
@@ -186,13 +189,137 @@ export default function CashScreen() {
   );
 }
 
-function MoneyRow({ label, value }: { label: string; value: number }) {
+function EarningsSections({ earnings }: { earnings: DeliveryEarningsSummary }) {
+  const creditNote = payCreditNote(earnings.payment);
+
   return (
-    <View style={styles.moneyRow}>
-      <Text style={styles.moneyLabel}>{label}</Text>
-      <Text selectable style={styles.moneyValue}>{formatCurrency(value)}</Text>
-    </View>
+    <>
+      <SectionCard title="Your pay">
+        <Text selectable style={creditNote ? styles.payValue : styles.payNotSet}>
+          {formatPayStructure(earnings.payment)}
+        </Text>
+        {creditNote ? (
+          <Text selectable style={styles.helper}>{creditNote}</Text>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="Earnings">
+        <View style={styles.metrics}>
+          <MetricCard
+            label="Available balance"
+            tone="success"
+            value={formatCurrency(earnings.wallet.balance)}
+          />
+          <MetricCard
+            label="Total earned"
+            value={formatCurrency(earnings.wallet.totalEarnings)}
+          />
+          <MetricCard
+            label="Commission earned"
+            value={formatCurrency(earnings.totals.commissionEarnings)}
+          />
+          <MetricCard
+            label="Salary credited"
+            value={formatCurrency(earnings.totals.salaryEarnings)}
+          />
+          <MetricCard
+            label="Paid out"
+            value={formatCurrency(earnings.totals.paidOut)}
+          />
+          <MetricCard
+            accessibilityHint="Opens your delivered orders"
+            label="Completed deliveries"
+            onPress={() =>
+              router.push({
+                params: { status: "DELIVERED" },
+                pathname: "/(app)/assignments"
+              })
+            }
+            tone="success"
+            value={String(earnings.totals.completedDeliveries)}
+          />
+        </View>
+        <Text selectable style={styles.helper}>
+          Earnings are calculated automatically. Payouts are controlled by delivery operations. COD settlement is tracked separately below.
+        </Text>
+      </SectionCard>
+
+      <SectionCard title="Payment history">
+        {earnings.payouts.length === 0 ? (
+          <Text style={styles.emptyText}>No payouts recorded yet.</Text>
+        ) : (
+          earnings.payouts.map((payout) => (
+            <View key={payout.id} style={styles.cashRow}>
+              <View style={styles.cashMain}>
+                <Text selectable style={styles.orderNumber}>{payout.description}</Text>
+                <Text selectable style={styles.ledgerMeta}>{ledgerMeta(payout)}</Text>
+              </View>
+              <Text selectable style={styles.amount}>{formatCurrency(payout.amount)}</Text>
+            </View>
+          ))
+        )}
+      </SectionCard>
+
+      <SectionCard title="Earnings activity">
+        {earnings.entries.length === 0 ? (
+          <Text style={styles.emptyText}>No earnings recorded yet.</Text>
+        ) : (
+          earnings.entries.map((entry) => <LedgerRow entry={entry} key={entry.id} />)
+        )}
+      </SectionCard>
+    </>
   );
+}
+
+function LedgerRow({ entry }: { entry: DeliveryLedgerEntry }) {
+  const assignmentId = entry.deliveryAssignmentId;
+  const content = (
+    <>
+      <View style={styles.cashMain}>
+        <Text selectable style={styles.orderNumber}>{ledgerEntryTitle(entry)}</Text>
+        <Text selectable style={styles.ledgerMeta}>{ledgerMeta(entry)}</Text>
+      </View>
+      <Text
+        selectable
+        style={isLedgerCredit(entry) ? styles.earningAmount : styles.payoutAmount}
+      >
+        {formatLedgerAmount(entry)}
+      </Text>
+    </>
+  );
+
+  if (!assignmentId) {
+    return <View style={styles.cashRow}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityHint="Opens the delivery for this earning"
+      accessibilityRole="button"
+      onPress={() => openAssignment(assignmentId)}
+      style={({ pressed }) => [styles.cashRow, pressed && styles.pressed]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+function openAssignment(id: string) {
+  router.push({
+    params: { id },
+    pathname: "/(app)/assignments/[id]"
+  });
+}
+
+function ledgerMeta(entry: DeliveryLedgerEntry) {
+  return [
+    formatDateTime(entry.createdAt),
+    // Salary rows are titled by month, so keep the operations note visible here.
+    entry.type === "SALARY" ? entry.description : null,
+    entry.reference
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function settlementLabel(status: string) {
@@ -235,6 +362,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19
   },
+  ledgerMeta: {
+    color: "#55716E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 12,
+    fontWeight: "700"
+  },
   meta: {
     color: "#55716E",
     fontFamily: fonts.bodySemiBold,
@@ -243,29 +376,29 @@ const styles = StyleSheet.create({
     textTransform: "capitalize"
   },
   metrics: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  moneyLabel: {
-    color: "#55716E",
-    fontFamily: fonts.bodySemiBold,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  moneyRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  moneyValue: {
-    color: "#123432",
-    fontFamily: fonts.headingBold,
-    fontSize: 16,
-    fontWeight: "900"
-  },
   orderNumber: {
     color: "#123432",
     fontFamily: fonts.headingBold,
     fontSize: 14,
     fontWeight: "900"
   },
+  payNotSet: {
+    color: "#92400E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20
+  },
   payoutAmount: {
     color: "#9A3412",
     fontFamily: fonts.headingBold,
     fontSize: 15,
+    fontWeight: "900"
+  },
+  payValue: {
+    color: "#123432",
+    fontFamily: fonts.headingBold,
+    fontSize: 18,
     fontWeight: "900"
   },
   pressed: { opacity: 0.72 }

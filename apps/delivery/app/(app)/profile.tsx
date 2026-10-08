@@ -19,8 +19,11 @@ import {
   revokeMyDevices,
   updateOnlineStatus
 } from "../../lib/api/delivery";
+import type { DeliveryPartnerWarehouse } from "../../lib/api/types";
 import { formatDateTime } from "../../lib/delivery/dashboard";
+import { formatPayStructure } from "../../lib/delivery/earnings";
 import { useAuth } from "../../lib/auth/auth-context";
+import { openPhoneNumber } from "../../lib/device/native";
 import { fonts } from "../../lib/theme";
 
 export default function ProfileScreen() {
@@ -89,6 +92,9 @@ export default function ProfileScreen() {
           label="Documents"
           value={`${profile.documents.filter((document) => document.verifiedAt).length}/${profile.documents.length} verified`}
         />
+        {profile.payment ? (
+          <Info label="Pay" value={formatPayStructure(profile.payment)} />
+        ) : null}
         {profile.statusReason ? (
           <Info label="Review note" value={profile.statusReason} />
         ) : null}
@@ -107,6 +113,24 @@ export default function ProfileScreen() {
             onSelectedChange={(value) => onlineMutation.mutate(value)}
           />
         </View>
+      </SectionCard>
+
+      <SectionCard title="Assigned warehouses">
+        {profile.warehouses.length === 0 ? (
+          <Text style={styles.emptyText}>No warehouse assigned yet.</Text>
+        ) : (
+          profile.warehouses.map((warehouse) => (
+            <WarehouseRow
+              key={warehouse.id}
+              onCall={() => {
+                void openPhoneNumber(warehouse.contactNumber).catch((error) =>
+                  feedback.error(errorMessage(error))
+                );
+              }}
+              warehouse={warehouse}
+            />
+          ))
+        )}
       </SectionCard>
 
       <SectionCard title="Location">
@@ -189,6 +213,38 @@ export default function ProfileScreen() {
   );
 }
 
+function WarehouseRow({
+  onCall,
+  warehouse
+}: {
+  onCall: () => void;
+  warehouse: DeliveryPartnerWarehouse;
+}) {
+  return (
+    <View style={styles.warehouseRow}>
+      <Text selectable style={styles.warehouseName}>
+        {warehouse.name} · {warehouse.code}
+      </Text>
+      <Text selectable style={styles.warehouseText}>
+        {[warehouse.address, warehouse.city, warehouse.state, warehouse.pincode]
+          .filter(Boolean)
+          .join(", ")}
+      </Text>
+      <Text selectable style={styles.warehouseMeta}>
+        {warehouse.contactPerson} · {warehouse.contactNumber}
+      </Text>
+      <ActionButton
+        accessibilityLabel={`Call ${warehouse.name}`}
+        icon="call-outline"
+        label="Call warehouse"
+        onPress={onCall}
+        style={styles.warehouseCall}
+        tone="secondary"
+      />
+    </View>
+  );
+}
+
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
@@ -203,6 +259,13 @@ function Info({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   actions: {
     gap: 8
+  },
+  emptyText: {
+    color: "#55716E",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    paddingVertical: 10,
+    textAlign: "center"
   },
   infoLabel: {
     color: "#55716E",
@@ -260,5 +323,32 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headingBold,
     fontSize: 16,
     fontWeight: "900"
+  },
+  warehouseCall: {
+    marginTop: 4
+  },
+  warehouseMeta: {
+    color: "#55716E",
+    fontFamily: fonts.bodySemiBold,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  warehouseName: {
+    color: "#123432",
+    fontFamily: fonts.headingBold,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  warehouseRow: {
+    borderTopColor: "#CBDEDB",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+    paddingTop: 10
+  },
+  warehouseText: {
+    color: "#2B4946",
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20
   }
 });

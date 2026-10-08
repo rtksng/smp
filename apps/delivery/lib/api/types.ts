@@ -93,6 +93,8 @@ export type DeliveryAssignment = {
     longitude: number | null;
     createdAt: string;
   }>;
+  /** Commission credited for this delivery. Null for salary partners, undelivered orders, or older data. */
+  earning: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -129,9 +131,36 @@ export type DeliveryPartnerProfile = {
     currency: "INR";
     totalEarnings: number;
   };
+  /** Missing only in profile data served before partner pay management existed. */
+  payment?: DeliveryPartnerPayment;
+  warehouses: DeliveryPartnerWarehouse[];
   documents: DeliveryPartnerDocument[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type DeliveryPaymentType = "SALARY" | "COMMISSION";
+
+export type DeliveryCommissionType = "PERCENTAGE" | "FIXED";
+
+/** A null paymentType means delivery operations have not set this partner's pay yet. */
+export type DeliveryPartnerPayment = {
+  paymentType: DeliveryPaymentType | null;
+  commissionType: DeliveryCommissionType | null;
+  commissionValue: number | null;
+  monthlySalary: number | null;
+};
+
+export type DeliveryPartnerWarehouse = {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contactPerson: string;
+  contactNumber: string;
 };
 
 export type DeliveryPartnerDocument = {
@@ -175,14 +204,37 @@ export type DeliveryCashSummary = {
     settlementStatus: CashSettlementStatus;
     collectedAt: string | null;
   }>;
-  ledgerEntries: Array<{
-    id: string;
-    type: "DELIVERY_EARNING" | "PAYOUT";
-    amount: number;
-    description: string;
-    reference: string | null;
-    createdAt: string;
-  }>;
+  ledgerEntries: DeliveryLedgerEntry[];
+};
+
+export type DeliveryLedgerEntryType = "DELIVERY_EARNING" | "SALARY" | "PAYOUT";
+
+export type DeliveryLedgerEntry = {
+  id: string;
+  type: DeliveryLedgerEntryType;
+  amount: number;
+  description: string;
+  reference: string | null;
+  /** Salary month as "YYYY-MM" for SALARY entries. */
+  salaryPeriod: string | null;
+  /** Delivery that earned this commission, for DELIVERY_EARNING entries. */
+  deliveryAssignmentId: string | null;
+  createdAt: string;
+};
+
+export type DeliveryEarningsSummary = {
+  payment: DeliveryPartnerPayment;
+  wallet: DeliveryPartnerProfile["wallet"];
+  totals: {
+    commissionEarnings: number;
+    salaryEarnings: number;
+    paidOut: number;
+    completedDeliveries: number;
+  };
+  /** PAYOUT entries only, newest first. */
+  payouts: DeliveryLedgerEntry[];
+  /** Ledger entries of every type, newest first. */
+  entries: DeliveryLedgerEntry[];
 };
 
 export type DeliveryNotification = {

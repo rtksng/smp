@@ -9,6 +9,8 @@ export const ADMIN_ROLE = {
 
 export const ADMIN_PERMISSION = {
   DeliveryAssign: "delivery.assign",
+  DeliveryPartnersManage: "delivery.partners.manage",
+  DeliveryPayoutsManage: "delivery.payouts.manage",
   DeliveryRead: "delivery.read",
   InventoryRead: "inventory.read",
   InventoryUpdate: "inventory.update",

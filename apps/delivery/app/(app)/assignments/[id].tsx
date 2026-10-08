@@ -55,6 +55,7 @@ import { useStatusQueue } from "../../../lib/offline/status-queue-context";
 import { MAX_STATUS_UPDATE_ATTEMPTS } from "../../../lib/offline/status-queue";
 import { validateDeliveryStatusForm } from "../../../lib/delivery/forms";
 import { formatDateTime } from "../../../lib/delivery/dashboard";
+import { completedDeliveryEarning } from "../../../lib/delivery/earnings";
 import { useAuth } from "../../../lib/auth/auth-context";
 import { fonts } from "../../../lib/theme";
 
@@ -108,6 +109,7 @@ export default function AssignmentDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ["delivery-assignments"] });
       await queryClient.invalidateQueries({ queryKey: ["delivery-dashboard"] });
       await queryClient.invalidateQueries({ queryKey: ["delivery-cash"] });
+      await queryClient.invalidateQueries({ queryKey: ["delivery-earnings"] });
     }
   });
 
@@ -134,6 +136,7 @@ export default function AssignmentDetailScreen() {
   }
 
   const isCod = isCodAssignment(assignment);
+  const earning = completedDeliveryEarning(assignment);
   const transitions = nextStatuses(assignment.status);
   const canDeliver = transitions.includes("DELIVERED");
   const canFail = transitions.includes("FAILED");
@@ -435,6 +438,9 @@ export default function AssignmentDetailScreen() {
         <Info label="Subtotal" value={formatCurrency(assignment.totals.subtotal)} />
         <Info label="Tax" value={formatCurrency(assignment.totals.taxTotal)} />
         <Info label="Grand total" value={formatCurrency(assignment.totals.grandTotal)} />
+        {earning !== null ? (
+          <Info label="Earned" value={formatCurrency(earning)} />
+        ) : null}
         {isCod ? (
           <Info
             label="Settlement"

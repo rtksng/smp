@@ -72,10 +72,24 @@ const partner = {
   isOnline: true,
   lastSeenAt: null,
   mobileNumber: "+919111111111",
+  payment: { commissionType: "FIXED", commissionValue: 50, monthlySalary: null, paymentType: "COMMISSION" },
   status: "ACTIVE",
   updatedAt: "2026-09-01T10:00:00.000Z",
   vehicleNumber: "MH12AB1234",
-  wallet: { balance: 0, currency: "INR", totalEarnings: 0 }
+  wallet: { balance: 0, currency: "INR", totalEarnings: 0 },
+  warehouses: [
+    {
+      address: "Plot 1, Surgical Park",
+      city: "Pune",
+      code: "PUN-01",
+      contactNumber: "9000000000",
+      contactPerson: "QA Contact",
+      id: warehouseId,
+      name: "Pune Central",
+      pincode: "411001",
+      state: "Maharashtra"
+    }
+  ]
 };
 const clients: QueryClient[] = [];
 
@@ -119,6 +133,37 @@ describe("Warehouse detail", () => {
     expect(await within(partners).findByText("Ravi Driver")).toBeInTheDocument();
     expect(within(partners).getByText("Online")).toBeInTheDocument();
     expect(within(partners).getByText("MH12AB1234")).toBeInTheDocument();
+    expect(
+      within(partners).getByText(
+        "Partners assigned to this warehouse. Only they can be dispatched with orders picked up here."
+      )
+    ).toBeInTheDocument();
+    expect(access.request).toHaveBeenCalledWith(
+      "/admin/delivery-partners",
+      expect.objectContaining({ query: { limit: 10, page: 1, warehouseId } })
+    );
+  });
+
+  it("links admins who manage partners to add a partner for this warehouse", async () => {
+    grant(["warehouse.read", "delivery.read", "delivery.partners.manage"]);
+    mockApi();
+    renderDetail();
+
+    const partners = await screen.findByRole("region", { name: "Delivery partners" });
+    expect(within(partners).getByRole("link", { name: "Add partner" })).toHaveAttribute(
+      "href",
+      `/delivery/partners/new?warehouseId=${warehouseId}`
+    );
+  });
+
+  it("hides the add partner link without the partner management permission", async () => {
+    grant(["warehouse.read", "delivery.read"]);
+    mockApi();
+    renderDetail();
+
+    const partners = await screen.findByRole("region", { name: "Delivery partners" });
+    expect(await within(partners).findByText("Ravi Driver")).toBeInTheDocument();
+    expect(within(partners).queryByRole("link", { name: "Add partner" })).not.toBeInTheDocument();
   });
 
   it("links products, partners, shortcuts and edit to the right filtered screens", async () => {
@@ -281,7 +326,7 @@ describe("Warehouse detail", () => {
     expect(await within(screen.getByRole("region", { name: "Staff" })).findByText("Asha Rao")).toBeInTheDocument();
     expect(
       await within(screen.getByRole("region", { name: "Delivery partners" })).findByText(
-        "No delivery partners yet"
+        "No delivery partners assigned"
       )
     ).toBeInTheDocument();
     await waitFor(() => expect(metricValue("Products")).toBe("-"));

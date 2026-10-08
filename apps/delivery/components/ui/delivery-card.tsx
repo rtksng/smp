@@ -14,17 +14,40 @@ import {
 } from "../../lib/api/status";
 import type { DeliveryAssignment } from "../../lib/api/types";
 import { formatDateTime, nextActionLabel } from "../../lib/delivery/dashboard";
+import { deliveryEarningLabel } from "../../lib/delivery/earnings";
 import { fonts } from "../../lib/theme";
 
 export function MetricCard({
+  accessibilityHint,
   label,
+  onPress,
   tone = "default",
   value
 }: {
+  accessibilityHint?: string;
   label: string;
+  onPress?: () => void;
   tone?: "default" | "success" | "warning" | "danger";
   value: string;
 }) {
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityHint={accessibilityHint}
+        accessibilityLabel={`${label} ${value}`}
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.metricCard, pressed && styles.pressed]}
+      >
+        <View style={styles.metricLabelRow}>
+          <Text style={[styles.metricLabel, styles.metricLabelShrink]}>{label}</Text>
+          <Ionicons color="#55716E" name="chevron-forward" size={14} />
+        </View>
+        <Text style={[styles.metricValue, toneStyles[tone]]}>{value}</Text>
+      </Pressable>
+    );
+  }
+
   return (
     <View style={styles.metricCard}>
       <Text style={styles.metricLabel}>{label}</Text>
@@ -56,6 +79,7 @@ export function AssignmentCard({
   assignment: DeliveryAssignment;
 }) {
   const customer = assignment.customer.businessName ?? assignment.customer.fullName;
+  const earningLabel = deliveryEarningLabel(assignment);
 
   return (
     <Pressable
@@ -104,6 +128,7 @@ export function AssignmentCard({
             assignment.items.length === 1 ? "" : "s"
           }`}
         />
+        {earningLabel ? <InfoLine icon="wallet-outline" value={earningLabel} /> : null}
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>
             Assigned {formatDateTime(assignment.assignedAt)}
@@ -269,6 +294,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
+  },
+  metricLabelShrink: {
+    flexShrink: 1
+  },
+  metricLabelRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    justifyContent: "space-between"
   },
   metricValue: {
     fontFamily: fonts.headingBold,

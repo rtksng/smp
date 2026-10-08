@@ -35,6 +35,7 @@ import {
   DeliveryAssignmentResponseDto,
   DeliveryCashSummaryResponseDto,
   DeliveryDashboardResponseDto,
+  DeliveryEarningsSummaryResponseDto,
   DeliveryIncidentResponseDto,
   DeliveryNotificationListResponseDto,
   DeliveryNotificationResponseDto,
@@ -162,6 +163,15 @@ export class DeliveryController {
   @ApiOkResponse({ type: DeliveryCashSummaryResponseDto })
   getCashSummary(@Req() request: AuthenticatedRequest) {
     return this.deliveryService.getMyCashSummary(getDeliveryPartnerId(request));
+  }
+
+  @Get("earnings")
+  @ApiOperation({
+    summary: "Get pay structure, earnings totals, completed delivery count, and payment history."
+  })
+  @ApiOkResponse({ type: DeliveryEarningsSummaryResponseDto })
+  getEarnings(@Req() request: AuthenticatedRequest) {
+    return this.deliveryService.getMyEarnings(getDeliveryPartnerId(request));
   }
 
   @Get("notifications")

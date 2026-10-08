@@ -1,18 +1,22 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import {
   CashCollectionStatus,
+  DeliveryCommissionType,
   DeliveryIncidentStatus,
   DeliveryIncidentType,
   DeliveryLedgerEntryType,
+  DeliveryPartnerPaymentType,
   DeliveryPartnerStatus,
   DeliveryStatus,
   OrderStatus,
@@ -22,6 +26,8 @@ import {
 } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
+import type { AuthJwtPayload } from "../auth/common/auth-token.service";
+import { PermissionCode } from "../permissions/permissions.constants";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
 import type {
@@ -30,12 +36,14 @@ import type {
   AssignDeliveryDto,
   CreateDeliveryLedgerEntryDto,
   CreateDeliveryIncidentDto,
+  CreateDeliveryPartnerDto,
   DeliveryAssignmentListQueryDto,
   DeliveryPartnerDeviceDto,
   DeliveryPartnerLocationDto,
   DeliveryPartnerListQueryDto,
   DeliveryPartnerOnlineStatusDto,
   UpdateCashSettlementDto,
+  UpdateDeliveryPartnerDto,
   UpdateDeliveryPartnerProfileDto,
   UpdateDeliveryAssignmentStatusDto
 } from "./dto/delivery.dto";
@@ -50,6 +58,25 @@ const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
 const PARTNER_INCLUDE = {
   documents: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
+  },
+  warehouses: {
+    include: {
+      warehouse: {
+        select: {
+          address: true,
+          city: true,
+          code: true,
+          contactNumber: true,
+          contactPerson: true,
+          id: true,
+          name: true,
+          pincode: true,
+          state: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
+    where: { warehouse: { deletedAt: null } }
   }
 } as const satisfies Prisma.DeliveryPartnerInclude;
 
@@ -97,11 +124,21 @@ const ASSIGNMENT_INCLUDE = {
       }
     }
   },
+  earningEntry: {
+    select: { amount: true }
+  },
   pickupWarehouse: true,
   statusHistory: {
     orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }]
   }
 } as const satisfies Prisma.DeliveryAssignmentInclude;
+
+// Older delivery app builds validate ledger types strictly, so the cash summary
+// keeps returning only the types those builds know. The earnings summary has all.
+const LEGACY_CASH_LEDGER_TYPES: DeliveryLedgerEntryType[] = [
+  DeliveryLedgerEntryType.DELIVERY_EARNING,
+  DeliveryLedgerEntryType.PAYOUT
+];
 
 const ASSIGNMENT_STATUS_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   [DeliveryStatus.ACCEPTED]: [DeliveryStatus.PICKED_UP, DeliveryStatus.CANCELLED],
@@ -127,6 +164,7 @@ type DeliveryClient =
       | "deliveryPartnerDevice"
       | "deliveryPartnerDocument"
       | "deliveryPartnerLedgerEntry"
+      | "deliveryPartnerWarehouse"
       | "deliveryStatusHistory"
       | "inventoryStock"
       | "order"
@@ -141,6 +179,28 @@ type DeliveryPartnerRecord = Prisma.DeliveryPartnerGetPayload<{
 type DeliveryAssignmentRecord = Prisma.DeliveryAssignmentGetPayload<{
   include: typeof ASSIGNMENT_INCLUDE;
 }>;
+type DeliveryPartnerPaymentInput = {
+  commissionType?: DeliveryCommissionType;
+  commissionValue?: number;
+  monthlySalary?: number;
+  paymentType?: DeliveryPartnerPaymentType;
+};
+type DeliveryPartnerPaymentStructure = {
+  commissionType: DeliveryCommissionType | null;
+  commissionValue: DecimalValue | null;
+  monthlySalary: DecimalValue | null;
+  paymentType: DeliveryPartnerPaymentType | null;
+};
+type DeliveryLedgerEntryRecord = {
+  amount: DecimalValue;
+  createdAt: Date;
+  deliveryAssignmentId?: string | null;
+  description: string;
+  id: string;
+  reference: string | null;
+  salaryPeriod?: string | null;
+  type: DeliveryLedgerEntryType;
+};
 
 @Injectable()
 export class DeliveryService {
@@ -151,15 +211,24 @@ export class DeliveryService {
     @Optional() private readonly configService?: ConfigService
   ) {}
 
-  async listAdminDeliveryPartners(query: DeliveryPartnerListQueryDto) {
+  async listAdminDeliveryPartners(
+    query: DeliveryPartnerListQueryDto,
+    auth: AuthJwtPayload
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const search = query.search?.trim();
     const where: Prisma.DeliveryPartnerWhereInput = {
-      assignments: query.warehouseId
-        ? { some: buildDeliveryAssignmentWarehouseFilter(query.warehouseId) }
-        : undefined,
       deletedAt: null,
-      status: query.status
+      OR: search
+        ? [
+            { fullName: { contains: search, mode: "insensitive" } },
+            { mobileNumber: { contains: search } },
+            { vehicleNumber: { contains: search, mode: "insensitive" } }
+          ]
+        : undefined,
+      status: query.status,
+      warehouses: await this.buildPartnerWarehouseFilter(auth, query.warehouseId)
     };
     const [items, total] = await Promise.all([
       this.prisma.deliveryPartner.findMany({
@@ -182,18 +251,121 @@ export class DeliveryService {
     );
   }
 
-  async getAdminDeliveryPartner(id: string) {
-    const partner = await this.findPartnerById(this.prisma, id, {
-      requireActive: false
-    });
+  async getAdminDeliveryPartner(id: string, auth: AuthJwtPayload) {
+    const partner = await this.findAdminPartner(this.prisma, id, auth);
 
     return this.serializePartner(partner);
   }
 
+  async getAdminDeliveryPartnerEarnings(id: string, auth: AuthJwtPayload) {
+    const partner = await this.findAdminPartner(this.prisma, id, auth);
+
+    return this.buildEarningsSummary(partner);
+  }
+
+  async createDeliveryPartner(
+    input: CreateDeliveryPartnerDto,
+    context: AdminActionContext
+  ) {
+    const warehouseIds = await this.resolveNewPartnerWarehouseIds(
+      context.auth,
+      input.warehouseIds
+    );
+    const payment = this.resolvePaymentChange(context.auth, input);
+
+    try {
+      const partner = await this.prisma.$transaction(async (tx) => {
+        await this.assertWarehousesExist(tx, warehouseIds);
+        const createdPartner = await tx.deliveryPartner.create({
+          data: {
+            ...payment,
+            email: normalizeOptionalEmail(input.email) ?? null,
+            fullName: input.fullName.trim(),
+            mobileNumber: input.mobileNumber.trim(),
+            // Staff-created partners are already vetted, so they can sign in immediately.
+            status: DeliveryPartnerStatus.ACTIVE,
+            vehicleNumber: normalizeOptionalVehicle(input.vehicleNumber) ?? null,
+            warehouses: {
+              create: warehouseIds.map((warehouseId) => ({ warehouseId }))
+            }
+          },
+          include: PARTNER_INCLUDE
+        });
+
+        await this.writeAuditLog(tx, context, {
+          action: "delivery_partner.create",
+          after: createdPartner,
+          entityId: createdPartner.id,
+          entityType: "DeliveryPartner"
+        });
+
+        return createdPartner;
+      });
+
+      return this.serializePartner(partner);
+    } catch (error: unknown) {
+      throwIfDuplicatePartner(error);
+      throw error;
+    }
+  }
+
+  async updateDeliveryPartner(
+    id: string,
+    input: UpdateDeliveryPartnerDto,
+    context: AdminActionContext
+  ) {
+    const existingPartner = await this.findAdminPartner(this.prisma, id, context.auth);
+    const payment = this.resolvePaymentChange(context.auth, input);
+    const warehouseIds =
+      input.warehouseIds === undefined
+        ? undefined
+        : await this.resolveReplacementWarehouseIds(context.auth, input.warehouseIds);
+
+    try {
+      const partner = await this.prisma.$transaction(async (tx) => {
+        if (warehouseIds) {
+          await this.assertWarehousesExist(tx, warehouseIds);
+          await tx.deliveryPartnerWarehouse.deleteMany({
+            where: { deliveryPartnerId: id, warehouseId: { notIn: warehouseIds } }
+          });
+          await tx.deliveryPartnerWarehouse.createMany({
+            data: warehouseIds.map((warehouseId) => ({ deliveryPartnerId: id, warehouseId })),
+            skipDuplicates: true
+          });
+        }
+
+        const updatedPartner = await tx.deliveryPartner.update({
+          data: {
+            ...payment,
+            email: normalizeOptionalEmail(input.email),
+            fullName: input.fullName?.trim() || undefined,
+            mobileNumber: input.mobileNumber?.trim() || undefined,
+            vehicleNumber: normalizeOptionalVehicle(input.vehicleNumber)
+          },
+          include: PARTNER_INCLUDE,
+          where: { id }
+        });
+
+        await this.writeAuditLog(tx, context, {
+          action: "delivery_partner.update",
+          after: updatedPartner,
+          before: existingPartner,
+          entityId: id,
+          entityType: "DeliveryPartner"
+        });
+
+        return updatedPartner;
+      });
+
+      return this.serializePartner(partner);
+    } catch (error: unknown) {
+      throwIfDuplicatePartner(error);
+      throw error;
+    }
+  }
+
   async approveDeliveryPartner(id: string, context: AdminActionContext) {
-    const existingPartner = await this.findPartnerById(this.prisma, id, {
-      requireActive: false
-    });
+    const existingPartner = await this.findAdminPartner(this.prisma, id, context.auth);
     const partner = await this.prisma.$transaction(async (tx) => {
       const updatedPartner = await tx.deliveryPartner.update({
         data: {
@@ -225,9 +397,7 @@ export class DeliveryService {
     context: AdminActionContext,
     reason?: string
   ) {
-    const existingPartner = await this.findPartnerById(this.prisma, id, {
-      requireActive: false
-    });
+    const existingPartner = await this.findAdminPartner(this.prisma, id, context.auth);
     const partner = await this.prisma.$transaction(async (tx) => {
       const updatedPartner = await tx.deliveryPartner.update({
         data: {
@@ -291,6 +461,16 @@ export class DeliveryService {
           pickupWarehouseId
         );
         await this.findActiveWarehouse(tx, pickupWarehouseId);
+
+        if (
+          !deliveryPartner.warehouses.some(
+            (link) => link.warehouseId === pickupWarehouseId
+          )
+        ) {
+          throw new BadRequestException(
+            "Delivery partner is not assigned to the pickup warehouse."
+          );
+        }
       }
 
       const orderClaim = await tx.order.updateMany({
@@ -395,12 +575,16 @@ export class DeliveryService {
     return result.assignment;
   }
 
-  async listAdminDeliveryAssignments(query: AdminDeliveryAssignmentListQueryDto = {}) {
+  async listAdminDeliveryAssignments(
+    query: AdminDeliveryAssignmentListQueryDto,
+    auth: AuthJwtPayload
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const warehouseFilter = query.warehouseId
-      ? buildDeliveryAssignmentWarehouseFilter(query.warehouseId)
-      : undefined;
+    const warehouseFilter = await this.buildAssignmentWarehouseScopeFilter(
+      auth,
+      query.warehouseId
+    );
     const assignmentFilters = stripUndefined(buildAssignmentFilters(query));
     const where: Prisma.DeliveryAssignmentWhereInput = {
       ...(query.search && warehouseFilter
@@ -698,7 +882,7 @@ export class DeliveryService {
       this.prisma.deliveryPartnerLedgerEntry.findMany({
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         take: 100,
-        where: { deliveryPartnerId }
+        where: { deliveryPartnerId, type: { in: LEGACY_CASH_LEDGER_TYPES } }
       }),
       this.prisma.deliveryAssignment.groupBy({
         by: ["cashSettlementStatus"],
@@ -741,23 +925,20 @@ export class DeliveryService {
     return {
       cashInHand,
       items,
-      ledgerEntries: ledgerEntries.map((entry) => ({
-        amount: decimalToNumber(entry.amount),
-        createdAt: entry.createdAt,
-        description: entry.description,
-        id: entry.id,
-        reference: entry.reference,
-        type: entry.type
-      })),
+      ledgerEntries: ledgerEntries.map((entry) => serializeLedgerEntry(entry)),
       pendingCount,
       settledAmount,
       submittedAmount,
-      wallet: {
-        balance: decimalToNumber(partner.walletBalance),
-        currency: "INR" as const,
-        totalEarnings: decimalToNumber(partner.totalEarnings)
-      }
+      wallet: serializeWallet(partner)
     };
+  }
+
+  async getMyEarnings(deliveryPartnerId: string) {
+    const partner = await this.findPartnerById(this.prisma, deliveryPartnerId, {
+      requireActive: true
+    });
+
+    return this.buildEarningsSummary(partner);
   }
 
   async listMyNotifications(deliveryPartnerId: string) {
@@ -894,6 +1075,8 @@ export class DeliveryService {
   ) {
     const existing = await this.findAssignmentById(this.prisma, assignmentId);
 
+    await this.assertCanManageAssignment(context.auth, existing);
+
     if (existing.cashCollectedAmount === null) {
       throw new BadRequestException("No collected COD cash exists for this delivery.");
     }
@@ -985,63 +1168,87 @@ export class DeliveryService {
     input: CreateDeliveryLedgerEntryDto,
     context: AdminActionContext
   ) {
-    const existingPartner = await this.findPartnerById(
+    const existingPartner = await this.findAdminPartner(
       this.prisma,
       deliveryPartnerId,
-      { requireActive: true }
+      context.auth
     );
     const amount = input.amount;
+    const isPayout = input.type === DeliveryLedgerEntryType.PAYOUT;
+    const isSalary = input.type === DeliveryLedgerEntryType.SALARY;
+    const salaryPeriod = isSalary ? input.salaryPeriod : undefined;
 
-    if (
-      input.type === DeliveryLedgerEntryType.PAYOUT &&
-      decimalToNumber(existingPartner.walletBalance) < amount
-    ) {
+    if (existingPartner.status !== DeliveryPartnerStatus.ACTIVE) {
+      throw new BadRequestException("Delivery partner is not active.");
+    }
+
+    if (isSalary) {
+      if (existingPartner.paymentType !== DeliveryPartnerPaymentType.SALARY) {
+        throw new BadRequestException(
+          "Salary can be credited only to salary-based delivery partners."
+        );
+      }
+
+      if (!salaryPeriod) {
+        throw new BadRequestException("Choose the salary month to credit.");
+      }
+    }
+
+    if (isPayout && decimalToNumber(existingPartner.walletBalance) < amount) {
       throw new BadRequestException("Payout exceeds the partner wallet balance.");
     }
 
-    const entry = await this.prisma.$transaction(async (tx) => {
-      const balanceUpdate = await tx.deliveryPartner.updateMany({
-        data: {
-          totalEarnings:
-            input.type === DeliveryLedgerEntryType.DELIVERY_EARNING
-              ? { increment: amount }
-              : undefined,
-          walletBalance:
-            input.type === DeliveryLedgerEntryType.PAYOUT
-              ? { decrement: amount }
-              : { increment: amount }
-        },
-        where: {
-          id: deliveryPartnerId,
-          deletedAt: null,
-          status: DeliveryPartnerStatus.ACTIVE,
-          walletBalance: input.type === DeliveryLedgerEntryType.PAYOUT ? { gte: amount } : undefined
-        }
-      });
-      if (balanceUpdate.count !== 1) throw new ConflictException("Partner status or wallet balance changed. Refresh before recording this entry.");
-      const created = await tx.deliveryPartnerLedgerEntry.create({
-        data: {
-          amount,
-          deliveryPartnerId,
-          description: input.description.trim(),
-          reference: input.reference?.trim() || null,
-          type: input.type
-        }
-      });
-      await this.writeAuditLog(tx, context, {
-        action: "delivery_partner.ledger.create",
-        after: created,
-        before: existingPartner,
-        entityId: created.id,
-        entityType: "DeliveryPartnerLedgerEntry"
-      });
+    const entry = await this.prisma
+      .$transaction(async (tx) => {
+        const balanceUpdate = await tx.deliveryPartner.updateMany({
+          data: {
+            totalEarnings: isPayout ? undefined : { increment: amount },
+            walletBalance: isPayout ? { decrement: amount } : { increment: amount }
+          },
+          where: {
+            id: deliveryPartnerId,
+            deletedAt: null,
+            status: DeliveryPartnerStatus.ACTIVE,
+            walletBalance: isPayout ? { gte: amount } : undefined
+          }
+        });
+        if (balanceUpdate.count !== 1) throw new ConflictException("Partner status or wallet balance changed. Refresh before recording this entry.");
+        const created = await tx.deliveryPartnerLedgerEntry.create({
+          data: {
+            amount,
+            deliveryPartnerId,
+            description: input.description.trim(),
+            reference: input.reference?.trim() || null,
+            salaryPeriod: salaryPeriod ?? null,
+            type: input.type
+          }
+        });
+        await this.writeAuditLog(tx, context, {
+          action: "delivery_partner.ledger.create",
+          after: created,
+          before: existingPartner,
+          entityId: created.id,
+          entityType: "DeliveryPartnerLedgerEntry"
+        });
 
-      return created;
-    });
+        return created;
+      })
+      .catch((error: unknown) => {
+        if (isSalary && isUniqueConstraintError(error)) {
+          throw new ConflictException(
+            `Salary for ${salaryPeriod} has already been credited.`
+          );
+        }
+
+        throw error;
+      });
 
     if (this.apiQueueService) {
-      const isPayout = input.type === DeliveryLedgerEntryType.PAYOUT;
-      const title = isPayout ? "Payout recorded" : "Delivery earning added";
+      const title = isPayout
+        ? "Payout recorded"
+        : isSalary
+          ? "Salary credited"
+          : "Delivery earning added";
       const body = `${amount.toFixed(2)} INR ${isPayout ? "paid out" : "added to your wallet"}.`;
       const notification = await this.prisma.notificationLog.create({
         data: {
@@ -1071,14 +1278,7 @@ export class DeliveryService {
         });
     }
 
-    return {
-      amount: decimalToNumber(entry.amount),
-      createdAt: entry.createdAt,
-      description: entry.description,
-      id: entry.id,
-      reference: entry.reference,
-      type: entry.type
-    };
+    return serializeLedgerEntry(entry);
   }
 
   async resolveIncident(incidentId: string, context: AdminActionContext) {
@@ -1089,6 +1289,11 @@ export class DeliveryService {
     if (!existing) {
       throw new NotFoundException("Delivery incident was not found.");
     }
+
+    await this.assertCanManageAssignment(
+      context.auth,
+      await this.findAssignmentById(this.prisma, existing.deliveryAssignmentId)
+    );
 
     const incident = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.deliveryIncident.update({
@@ -1119,7 +1324,7 @@ export class DeliveryService {
     input: UpdateDeliveryAssignmentStatusDto
   ) {
     return this.prisma.$transaction(async (tx) => {
-      await this.findPartnerById(tx, deliveryPartnerId, {
+      const partner = await this.findPartnerById(tx, deliveryPartnerId, {
         requireActive: true
       });
       const assignment = await this.findPartnerAssignment(
@@ -1172,8 +1377,262 @@ export class DeliveryService {
       });
       await this.syncOrderForDeliveryStatus(tx, assignment, input);
 
+      if (input.status === DeliveryStatus.DELIVERED) {
+        await this.creditDeliveryCommission(tx, partner, assignment);
+      }
+
       return this.serializeAssignment(await this.findAssignmentById(tx, assignment.id));
     });
+  }
+
+  /** Credits commission-based partners for a completed delivery, using their pay at delivery time. */
+  private async creditDeliveryCommission(
+    tx: Prisma.TransactionClient,
+    partner: DeliveryPartnerRecord,
+    assignment: DeliveryAssignmentRecord
+  ) {
+    const amount = calculateDeliveryCommission(partner, assignment.order.grandTotal);
+
+    if (amount <= 0) {
+      return;
+    }
+
+    await tx.deliveryPartnerLedgerEntry.create({
+      data: {
+        amount,
+        deliveryAssignmentId: assignment.id,
+        deliveryPartnerId: partner.id,
+        description: `Commission for ${assignment.order.orderNumber}`,
+        reference: assignment.order.orderNumber,
+        type: DeliveryLedgerEntryType.DELIVERY_EARNING
+      }
+    });
+    await tx.deliveryPartner.updateMany({
+      data: {
+        totalEarnings: { increment: amount },
+        walletBalance: { increment: amount }
+      },
+      where: { id: partner.id }
+    });
+  }
+
+  private async buildEarningsSummary(partner: DeliveryPartnerRecord) {
+    const ledgerOrder = [{ createdAt: "desc" as const }, { id: "asc" as const }];
+    const [ledgerTotals, completedDeliveries, payouts, entries] = await Promise.all([
+      this.prisma.deliveryPartnerLedgerEntry.groupBy({
+        _sum: { amount: true },
+        by: ["type"],
+        where: { deliveryPartnerId: partner.id }
+      }),
+      this.prisma.deliveryAssignment.count({
+        where: { deliveryPartnerId: partner.id, status: DeliveryStatus.DELIVERED }
+      }),
+      this.prisma.deliveryPartnerLedgerEntry.findMany({
+        orderBy: ledgerOrder,
+        take: 50,
+        where: { deliveryPartnerId: partner.id, type: DeliveryLedgerEntryType.PAYOUT }
+      }),
+      this.prisma.deliveryPartnerLedgerEntry.findMany({
+        orderBy: ledgerOrder,
+        take: 100,
+        where: { deliveryPartnerId: partner.id }
+      })
+    ]);
+    const totalFor = (type: DeliveryLedgerEntryType) =>
+      decimalToNumberOrNull(
+        ledgerTotals.find((total) => total.type === type)?._sum.amount ?? null
+      ) ?? 0;
+
+    return {
+      entries: entries.map((entry) => serializeLedgerEntry(entry)),
+      payment: serializePaymentStructure(partner),
+      payouts: payouts.map((entry) => serializeLedgerEntry(entry)),
+      totals: {
+        commissionEarnings: totalFor(DeliveryLedgerEntryType.DELIVERY_EARNING),
+        completedDeliveries,
+        paidOut: totalFor(DeliveryLedgerEntryType.PAYOUT),
+        salaryEarnings: totalFor(DeliveryLedgerEntryType.SALARY)
+      },
+      wallet: serializeWallet(partner)
+    };
+  }
+
+  /** Limits admin partner reads and writes to partners linked to the admin's warehouses. */
+  private async buildPartnerWarehouseFilter(
+    auth: AuthJwtPayload,
+    warehouseId?: string
+  ): Promise<Prisma.DeliveryPartnerWarehouseListRelationFilter | undefined> {
+    if (warehouseId) {
+      await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+
+      return { some: { warehouseId } };
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+
+    return scope.allWarehouses
+      ? undefined
+      : { some: { warehouseId: { in: scope.warehouseIds } } };
+  }
+
+  private async buildAssignmentWarehouseScopeFilter(
+    auth: AuthJwtPayload,
+    warehouseId?: string
+  ) {
+    if (warehouseId) {
+      await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+
+      return buildDeliveryAssignmentWarehouseFilter(warehouseId);
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+
+    return scope.allWarehouses
+      ? undefined
+      : buildDeliveryAssignmentWarehouseFilter({ in: scope.warehouseIds });
+  }
+
+  private async findAdminPartner(
+    client: DeliveryClient,
+    id: string,
+    auth: AuthJwtPayload
+  ) {
+    const partner = await client.deliveryPartner.findFirst({
+      include: PARTNER_INCLUDE,
+      where: stripUndefined({
+        deletedAt: null,
+        id,
+        warehouses: await this.buildPartnerWarehouseFilter(auth)
+      })
+    });
+
+    if (!partner) {
+      throw new NotFoundException("Delivery partner was not found.");
+    }
+
+    return partner;
+  }
+
+  private async assertCanManageAssignment(
+    auth: AuthJwtPayload,
+    assignment: { order: { warehouseId: string | null }; pickupWarehouseId: string | null }
+  ) {
+    const warehouseId = assignment.pickupWarehouseId ?? assignment.order.warehouseId;
+
+    if (warehouseId) {
+      await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+      return;
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+
+    if (!scope.allWarehouses) {
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
+    }
+  }
+
+  /**
+   * Admins with every warehouse in scope pick one or more warehouses. Warehouse
+   * staff add partners to a single warehouse of their own.
+   */
+  private async resolveNewPartnerWarehouseIds(
+    auth: AuthJwtPayload,
+    requestedWarehouseIds: string[] | undefined
+  ) {
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+    const warehouseIds = [...new Set(requestedWarehouseIds ?? [])];
+
+    if (scope.allWarehouses) {
+      if (warehouseIds.length === 0) {
+        throw new BadRequestException(
+          "Select at least one warehouse for this delivery partner."
+        );
+      }
+
+      return warehouseIds;
+    }
+
+    if (warehouseIds.length === 0) {
+      if (scope.warehouseIds.length === 1) {
+        return [scope.warehouseIds[0]!];
+      }
+
+      throw scope.warehouseIds.length === 0
+        ? new ForbiddenException("Admin is not assigned to any warehouse.")
+        : new BadRequestException(
+            "Select which of your warehouses this delivery partner works with."
+          );
+    }
+
+    if (warehouseIds.length > 1) {
+      throw new ForbiddenException(
+        "Only admins can assign a delivery partner to more than one warehouse."
+      );
+    }
+
+    if (!scope.warehouseIds.includes(warehouseIds[0]!)) {
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
+    }
+
+    return warehouseIds;
+  }
+
+  private async resolveReplacementWarehouseIds(
+    auth: AuthJwtPayload,
+    requestedWarehouseIds: string[]
+  ) {
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+
+    if (!scope.allWarehouses) {
+      throw new ForbiddenException(
+        "Only admins can change a delivery partner's warehouses."
+      );
+    }
+
+    const warehouseIds = [...new Set(requestedWarehouseIds)];
+
+    if (warehouseIds.length === 0) {
+      throw new BadRequestException(
+        "Select at least one warehouse for this delivery partner."
+      );
+    }
+
+    return warehouseIds;
+  }
+
+  private async assertWarehousesExist(client: DeliveryClient, warehouseIds: string[]) {
+    const found = await client.warehouse.count({
+      where: { deletedAt: null, id: { in: warehouseIds } }
+    });
+
+    if (found !== warehouseIds.length) {
+      throw new NotFoundException("One or more warehouses were not found.");
+    }
+  }
+
+  /** Returns the pay columns to write, or undefined when the request leaves pay unchanged. */
+  private resolvePaymentChange(
+    auth: AuthJwtPayload,
+    input: DeliveryPartnerPaymentInput
+  ) {
+    const isChangingPay = [
+      input.paymentType,
+      input.commissionType,
+      input.commissionValue,
+      input.monthlySalary
+    ].some((value) => value !== undefined);
+
+    if (!isChangingPay) {
+      return undefined;
+    }
+
+    if (!auth.permissions?.includes(PermissionCode.DeliveryPayoutsManage)) {
+      throw new ForbiddenException(
+        "Changing delivery partner pay requires the delivery.payouts.manage permission."
+      );
+    }
+
+    return normalizeDeliveryPartnerPayment(input);
   }
 
   private async findPartnerById(
@@ -1493,15 +1952,23 @@ export class DeliveryService {
             },
       lastSeenAt: partner.lastSeenAt,
       mobileNumber: partner.mobileNumber,
+      payment: serializePaymentStructure(partner),
       status: partner.status,
       statusReason: partner.statusReason,
       updatedAt: partner.updatedAt,
       vehicleNumber: partner.vehicleNumber,
-      wallet: {
-        balance: decimalToNumber(partner.walletBalance),
-        currency: "INR" as const,
-        totalEarnings: decimalToNumber(partner.totalEarnings)
-      }
+      wallet: serializeWallet(partner),
+      warehouses: partner.warehouses.map(({ warehouse }) => ({
+        address: warehouse.address,
+        city: warehouse.city,
+        code: warehouse.code,
+        contactNumber: warehouse.contactNumber,
+        contactPerson: warehouse.contactPerson,
+        id: warehouse.id,
+        name: warehouse.name,
+        pincode: warehouse.pincode,
+        state: warehouse.state
+      }))
     };
   }
 
@@ -1548,6 +2015,9 @@ export class DeliveryService {
         ? this.serializePartner(assignment.deliveryPartner)
         : null,
       deliveryPartnerId: assignment.deliveryPartnerId,
+      earning: assignment.earningEntry
+        ? decimalToNumber(assignment.earningEntry.amount)
+        : null,
       failureReason: assignment.failureReason,
       id: assignment.id,
       items: assignment.order.items.map((item) => ({
@@ -1637,7 +2107,7 @@ export class DeliveryService {
  * for an order fulfilled from it. Shared by the assignment list and the warehouse partner filter.
  */
 export function buildDeliveryAssignmentWarehouseFilter(
-  warehouseId: string
+  warehouseId: string | { in: string[] }
 ): Prisma.DeliveryAssignmentWhereInput {
   return {
     OR: [
@@ -1645,6 +2115,134 @@ export function buildDeliveryAssignmentWarehouseFilter(
       { order: { warehouseId }, pickupWarehouseId: null }
     ]
   };
+}
+
+/**
+ * Commission for one delivery, rounded to the nearest paisa. Percentage
+ * commission applies to the order grand total. Salary-based partners earn none.
+ */
+export function calculateDeliveryCommission(
+  structure: Pick<
+    DeliveryPartnerPaymentStructure,
+    "commissionType" | "commissionValue" | "paymentType"
+  >,
+  orderTotal: DecimalValue
+) {
+  if (
+    structure.paymentType !== DeliveryPartnerPaymentType.COMMISSION ||
+    structure.commissionType === null ||
+    structure.commissionValue === null
+  ) {
+    return 0;
+  }
+
+  // Integer paise and hundredths of a percent avoid floating point drift.
+  const valueInHundredths = Math.round(decimalToNumber(structure.commissionValue) * 100);
+
+  if (structure.commissionType === DeliveryCommissionType.FIXED) {
+    return valueInHundredths / 100;
+  }
+
+  const orderTotalInPaise = Math.round(decimalToNumber(orderTotal) * 100);
+
+  return Math.round((orderTotalInPaise * valueInHundredths) / 10_000) / 100;
+}
+
+/** Validates a requested pay structure and clears the columns the other type uses. */
+export function normalizeDeliveryPartnerPayment(input: DeliveryPartnerPaymentInput) {
+  if (input.paymentType === DeliveryPartnerPaymentType.SALARY) {
+    if (input.monthlySalary === undefined) {
+      throw new BadRequestException(
+        "Monthly salary is required for salary-based delivery partners."
+      );
+    }
+
+    return {
+      commissionType: null,
+      commissionValue: null,
+      monthlySalary: input.monthlySalary,
+      paymentType: DeliveryPartnerPaymentType.SALARY
+    };
+  }
+
+  if (input.paymentType === DeliveryPartnerPaymentType.COMMISSION) {
+    if (!input.commissionType || input.commissionValue === undefined) {
+      throw new BadRequestException(
+        "Commission type and value are required for commission-based delivery partners."
+      );
+    }
+
+    if (
+      input.commissionType === DeliveryCommissionType.PERCENTAGE &&
+      input.commissionValue > 100
+    ) {
+      throw new BadRequestException("Percentage commission cannot exceed 100%.");
+    }
+
+    return {
+      commissionType: input.commissionType,
+      commissionValue: input.commissionValue,
+      monthlySalary: null,
+      paymentType: DeliveryPartnerPaymentType.COMMISSION
+    };
+  }
+
+  throw new BadRequestException(
+    "Choose whether the delivery partner is salary-based or commission-based."
+  );
+}
+
+function serializePaymentStructure(partner: DeliveryPartnerPaymentStructure) {
+  return {
+    commissionType: partner.commissionType,
+    commissionValue: decimalToNumberOrNull(partner.commissionValue),
+    monthlySalary: decimalToNumberOrNull(partner.monthlySalary),
+    paymentType: partner.paymentType
+  };
+}
+
+function serializeWallet(partner: {
+  totalEarnings: DecimalValue;
+  walletBalance: DecimalValue;
+}) {
+  return {
+    balance: decimalToNumber(partner.walletBalance),
+    currency: "INR" as const,
+    totalEarnings: decimalToNumber(partner.totalEarnings)
+  };
+}
+
+function serializeLedgerEntry(entry: DeliveryLedgerEntryRecord) {
+  return {
+    amount: decimalToNumber(entry.amount),
+    createdAt: entry.createdAt,
+    deliveryAssignmentId: entry.deliveryAssignmentId ?? null,
+    description: entry.description,
+    id: entry.id,
+    reference: entry.reference,
+    salaryPeriod: entry.salaryPeriod ?? null,
+    type: entry.type
+  };
+}
+
+function normalizeOptionalEmail(value: string | null | undefined) {
+  return value === undefined || value === null
+    ? value
+    : value.trim().toLowerCase() || null;
+}
+
+function normalizeOptionalVehicle(value: string | null | undefined) {
+  return value === undefined || value === null
+    ? value
+    : value.trim().toUpperCase() || null;
+}
+
+function throwIfDuplicatePartner(error: unknown) {
+  if (isUniqueConstraintError(error)) {
+    throw new ConflictException(
+      "A delivery partner with this mobile number or email already exists."
+    );
+  }
 }
 
 function buildAssignmentFilters(

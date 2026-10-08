@@ -10,9 +10,13 @@
 .deliveryPartnerDataTable,
 .deliveryAssignmentDataTable,
 .deliveryBulkOrderTable,
+.deliveryLedgerDataTable,
 .deliveryDetailPanel,
 .deliveryAssignmentForm,
 .deliveryAssignmentFormGrid,
+.deliveryPartnerForm,
+.deliveryPartnerFormFieldset,
+.deliveryLedgerForm,
 .bulkDeliverySection {
   min-width: 0;
 }
@@ -26,7 +30,9 @@
 .deliveryModule .deliveryPartnersPanel,
 .deliveryModule .deliveryAssignmentsPanel,
 .deliveryModule .deliveryAssignPanel,
-.deliveryModule .deliveryPartnerDetailPagePanel {
+.deliveryModule .deliveryPartnerDetailPagePanel,
+.deliveryModule .deliveryPartnerFormPanel,
+.deliveryModule .deliveryEarningsPanel {
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr);
@@ -140,33 +146,33 @@
   margin-top: 0;
 }
 
-/* The single partner status filter lives in the list header, like the coupon search. */
+/* The add action keeps the heading row; partner search and status sit in one row beneath it. */
 .deliveryModule .deliveryListHeader .adminPageActions {
-  flex: 0 1 400px;
-  min-width: min(100%, 280px);
+  flex: 0 0 auto;
+}
+
+.deliveryModule .deliveryListHeader .adminPageActions > a {
+  min-height: 38px;
+  white-space: nowrap;
 }
 
 .deliveryModule .deliveryPartnerFilters {
   align-items: center;
-  display: flex;
   gap: 8px;
-  width: 100%;
-}
-
-.deliveryModule .deliveryPartnerFilters > [data-slot="select"] {
-  flex: 1 1 auto;
-  min-width: 0;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  margin: 0;
 }
 
 .deliveryModule .deliveryPartnerFilterActions {
-  display: flex;
-  flex: 0 0 auto;
+  display: grid;
   gap: 6px;
+  grid-template-columns: repeat(2, auto);
 }
 
 .deliveryModule .deliveryPartnerFilterActions button {
   min-height: 40px;
   padding-inline: 14px;
+  white-space: nowrap;
 }
 
 /* Assignment filters stay visible because notifications open this page with filters applied. */
@@ -208,17 +214,26 @@
   padding: 8px 10px;
 }
 
-.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) {
+.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable, .deliveryLedgerDataTable) {
   border: 0;
   border-radius: 0;
   max-height: none;
   overflow: hidden;
 }
 
-.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+.deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable, .deliveryLedgerDataTable) .adminTableViewport {
   max-height: min(620px, calc(100dvh - 180px));
   overscroll-behavior-inline: contain;
   touch-action: pan-x pan-y;
+}
+
+/* Warehouses and pay add two columns to the partner table. */
+.deliveryModule .deliveryPartnerDataTable [data-slot="table"] {
+  min-width: 1320px;
+}
+
+.deliveryModule .deliveryLedgerDataTable [data-slot="table"] {
+  min-width: 820px;
 }
 
 /* Long names, addresses, IDs, and issue notes wrap instead of being cut off with an ellipsis. */
@@ -229,7 +244,11 @@
     .deliveryPickupCell,
     .deliveryTimelineCell,
     .deliveryProofCell,
-    .deliveryBulkWarehouseCell
+    .deliveryBulkWarehouseCell,
+    .deliveryWarehousesCell,
+    .deliveryPayCell,
+    .deliveryLedgerDescriptionCell,
+    .deliveryLedgerReferenceCell
   ),
 .deliveryModule .deliveryTableShell td:is(
     .deliveryPartnerCell,
@@ -238,7 +257,11 @@
     .deliveryPickupCell,
     .deliveryTimelineCell,
     .deliveryProofCell,
-    .deliveryBulkWarehouseCell
+    .deliveryBulkWarehouseCell,
+    .deliveryWarehousesCell,
+    .deliveryPayCell,
+    .deliveryLedgerDescriptionCell,
+    .deliveryLedgerReferenceCell
   )
   > * {
   overflow: visible !important;
@@ -249,6 +272,35 @@
 
 .deliveryModule .deliveryTableShell td.deliveryOrderCell em {
   font-size: 11px;
+}
+
+/* A partner without warehouses cannot be dispatched, so the gap stands out in the list. */
+.deliveryModule .deliveryTableShell td.deliveryWarehousesCell[data-empty="true"] {
+  color: var(--warning);
+  font-weight: 750;
+}
+
+.deliveryModule .deliveryTableShell td.deliveryLedgerDescriptionCell :is(strong, em) {
+  display: block;
+}
+
+.deliveryModule .deliveryTableShell td.deliveryLedgerDescriptionCell em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.deliveryModule .deliveryTableShell td.deliveryLedgerAmountCell {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.deliveryModule .deliveryTableShell td.deliveryLedgerAmountCell[data-direction="credit"] {
+  color: var(--primary);
+}
+
+.deliveryModule .deliveryTableShell td.deliveryLedgerAmountCell[data-direction="debit"] {
+  color: #9f1239;
 }
 
 /* Column widths only apply to the table layout; phone cards size cells from their grid areas. */
@@ -281,6 +333,18 @@
     line-height: 1.35;
     max-width: 280px !important;
     min-width: 170px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td:is(.deliveryWarehousesCell, .deliveryPayCell) {
+    line-height: 1.35;
+    max-width: 240px !important;
+    min-width: 160px !important;
+  }
+
+  .deliveryModule .deliveryTableShell td.deliveryLedgerDescriptionCell {
+    line-height: 1.35;
+    max-width: 320px !important;
+    min-width: 200px !important;
   }
 }
 
@@ -444,9 +508,193 @@
   gap: 8px;
 }
 
+.deliveryModule .bulkDeliverySection .bulkFieldHint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.deliveryModule .bulkDeliverySection .bulkFieldHint[role="status"] {
+  color: var(--warning);
+}
+
+/* Shared hints, read-only values, and the warning shown when dispatch is blocked. */
+.deliveryModule :is(.deliveryFormHint, .deliveryFieldHint) {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.deliveryModule .deliveryFormHint {
+  font-size: 13px;
+}
+
+.deliveryModule .deliveryReadOnlyValue {
+  color: var(--text);
+  font-size: var(--admin-text-label);
+  font-weight: 750;
+  margin: 0;
+}
+
+.deliveryModule .deliveryNotice {
+  align-items: center;
+  background: var(--admin-warning-soft);
+  border: 1px solid #f3d38b;
+  border-radius: 8px;
+  color: var(--warning);
+  display: flex;
+  font-size: 13px;
+  font-weight: 750;
+  gap: 8px;
+  line-height: 1.4;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.deliveryModule .deliveryNotice svg {
+  flex: 0 0 auto;
+}
+
+/* Add and edit partner forms: grouped sections with visible labels, like the coupon form. */
+.deliveryModule .deliveryPartnerFormPanel {
+  max-width: 980px;
+}
+
+.deliveryModule .deliveryPartnerForm {
+  gap: 16px;
+  margin-top: 0;
+}
+
+.deliveryModule .deliveryPartnerFormFieldset {
+  display: grid;
+  gap: 16px;
+}
+
+.deliveryModule .deliveryFormSection {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.deliveryModule .deliveryFormSection:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.deliveryModule .deliveryFormSection h2,
+.deliveryModule :is(.deliveryPartnerWarehouses, .deliveryLedgerSection, .deliveryLedgerForm) h3 {
+  color: var(--text);
+  font-size: var(--admin-text-md);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.deliveryModule .deliveryPartnerFormGrid {
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deliveryModule :is(.deliveryWarehouseChoices, .deliveryWarehouseList) {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+
+.deliveryModule .deliveryWarehouseChoice {
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.deliveryModule .deliveryWarehouseList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.deliveryModule .deliveryWarehouseList li {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.deliveryModule :is(.deliveryWarehouseChoice > span, .deliveryWarehouseList li) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.deliveryModule :is(.deliveryWarehouseChoice, .deliveryWarehouseList) strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.deliveryModule :is(.deliveryWarehouseChoice, .deliveryWarehouseList) em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.deliveryModule .deliveryWarehouseSelect {
+  max-width: 420px;
+}
+
+.deliveryModule .deliveryPartnerFormActions {
+  justify-content: flex-end;
+}
+
+.deliveryModule .deliveryPartnerFormActions > * {
+  min-height: 38px;
+}
+
+.deliveryModule .deliveryPartnerDetailActions {
+  align-items: center;
+}
+
+.deliveryModule .deliveryPartnerWarehouses {
+  display: grid;
+  gap: 8px;
+}
+
+/* Earnings: KPIs reuse the delivery metric grid; the payment form sits in a muted card. */
+.deliveryModule .deliveryLedgerForm {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  gap: 12px;
+  margin-top: 0;
+  padding: 14px;
+}
+
+.deliveryModule .deliveryLedgerFormGrid {
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.deliveryModule .deliveryLedgerForm > button {
+  justify-self: end;
+  min-height: 38px;
+}
+
+.deliveryModule .deliveryLedgerSection {
+  display: grid;
+  gap: 10px;
+}
+
+.deliveryModule .deliveryEarningsPanel > :is(.formSuccess, .formError) {
+  margin: 0;
+}
+
 /*
- * Partner detail: eight facts with a double-width email fill a three-column grid exactly;
- * dense packing keeps narrower grids from leaving holes beside the email.
+ * Partner detail: seven facts with a double-width email and pay fill a three-column grid exactly;
+ * dense packing keeps narrower grids from leaving holes beside them.
  */
 .deliveryModule .deliveryDetailPanel {
   gap: 12px;
@@ -498,6 +746,10 @@
   .deliveryModule .deliveryDetailPanel .detailGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .deliveryModule .deliveryLedgerFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1180px) {
@@ -521,17 +773,17 @@
 }
 
 @media (max-width: 760px) {
-  /* The partner filter needs the full width once it no longer fits beside the heading. */
-  .deliveryModule .deliveryListHeader {
-    align-items: stretch;
-    flex-direction: column;
+  /* Search takes the full first row once the filters no longer fit on one line. */
+  .deliveryModule .deliveryPartnerFilters {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .deliveryModule .deliveryListHeader .adminPageActions {
-    flex-basis: auto;
-    margin-left: 0;
-    min-width: 0;
-    width: 100%;
+  .deliveryModule .deliveryPartnerFilters > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .deliveryModule .deliveryPartnerFormGrid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -545,6 +797,8 @@
   .deliveryModule .deliveryAssignmentsPanel,
   .deliveryModule .deliveryAssignPanel,
   .deliveryModule .deliveryPartnerDetailPagePanel,
+  .deliveryModule .deliveryPartnerFormPanel,
+  .deliveryModule .deliveryEarningsPanel,
   .deliveryModule .deliveryChartPanel {
     gap: 12px;
     padding: 12px;
@@ -581,6 +835,12 @@
 
   .deliveryModule .deliveryPartnerFilterActions button {
     font-size: 12px;
+    padding-inline: 10px;
+  }
+
+  .deliveryModule .deliveryListHeader .adminPageActions > a {
+    font-size: 12px;
+    min-height: 34px;
     padding-inline: 10px;
   }
 
@@ -644,8 +904,8 @@
     overflow: visible;
   }
 
-  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable),
-  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable) .adminTableViewport {
+  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable, .deliveryLedgerDataTable),
+  .deliveryModule .deliveryTableShell :is(.deliveryPartnerDataTable, .deliveryAssignmentDataTable, .deliveryBulkOrderTable, .deliveryLedgerDataTable) .adminTableViewport {
     max-height: none;
     overflow: visible;
   }
@@ -661,7 +921,7 @@
   }
 
   /* Plain column headings stay available to assistive tech but take no space. */
-  .deliveryModule :is(.deliveryPartnerTableShell, .deliveryAssignmentTableShell) thead {
+  .deliveryModule :is(.deliveryPartnerTableShell, .deliveryAssignmentTableShell, .deliveryLedgerTableShell) thead {
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     height: 1px;
@@ -762,8 +1022,19 @@
   .deliveryModule .deliveryPartnerTableShell tbody tr {
     grid-template-areas:
       "partner status"
-      "availability documents";
+      "availability documents"
+      "warehouses warehouses"
+      "pay pay";
     grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryWarehousesCell {
+    grid-area: warehouses;
+  }
+
+  .deliveryModule .deliveryPartnerTableShell tbody td.deliveryPayCell {
+    color: var(--text);
+    grid-area: pay;
   }
 
   .deliveryModule .deliveryPartnerTableShell tbody td.deliveryPartnerCell {
@@ -773,7 +1044,7 @@
   /* View and the approve/reject buttons share a full-width last row, so they never squeeze the name. */
   .deliveryModule .deliveryPartnerTableShell tbody td:is(.deliveryDetailCell, .deliveryActionsCell) {
     grid-column: 1 / -1;
-    grid-row: 3;
+    grid-row: 5;
   }
 
   .deliveryModule .deliveryPartnerTableShell tbody :is(.deliveryDetailCell, .deliveryActionsCell) :is(a, button) {
@@ -848,6 +1119,41 @@
     grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   }
 
+  .deliveryModule .deliveryLedgerTableShell tbody tr {
+    grid-template-areas:
+      "type amount"
+      "description description"
+      "date reference";
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deliveryModule .deliveryLedgerTableShell tbody td.deliveryLedgerTypeCell {
+    font-weight: 800;
+    grid-area: type;
+  }
+
+  .deliveryModule .deliveryLedgerTableShell tbody td.deliveryLedgerAmountCell {
+    grid-area: amount;
+    justify-self: end;
+  }
+
+  .deliveryModule .deliveryLedgerTableShell tbody td.deliveryLedgerDescriptionCell {
+    grid-area: description;
+  }
+
+  .deliveryModule .deliveryLedgerTableShell tbody td.deliveryLedgerDateCell {
+    grid-area: date;
+  }
+
+  .deliveryModule .deliveryLedgerTableShell tbody td.deliveryLedgerReferenceCell {
+    grid-area: reference;
+  }
+
+  /* Type and amount already read clearly on the card, so only the other cells keep labels. */
+  .deliveryModule .deliveryLedgerTableShell tbody td:is(.deliveryLedgerTypeCell, .deliveryLedgerAmountCell)::before {
+    content: none;
+  }
+
   .deliveryModule .deliveryBulkTableShell tbody td.bulkCheckboxCell {
     grid-area: check;
     padding-top: 2px;
@@ -876,9 +1182,35 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .deliveryModule .deliveryAssignmentForm > button {
+  .deliveryModule .deliveryAssignmentForm > button,
+  .deliveryModule .deliveryLedgerForm > button {
     justify-self: stretch;
     width: 100%;
+  }
+
+  .deliveryModule .deliveryLedgerFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .deliveryModule .deliveryLedgerForm {
+    padding: 12px;
+  }
+
+  .deliveryModule .deliveryPartnerFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .deliveryModule .deliveryPartnerFilterActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryPartnerFormActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deliveryModule .deliveryPartnerDetailActions > * {
+    font-size: 12px;
   }
 
   .deliveryModule .deliveryDetailPanel .detailItem {

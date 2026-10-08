@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Truck,
+  UserPlus,
   Users,
   X
 } from "lucide-react";
@@ -54,6 +55,7 @@ import {
   WAREHOUSE_NEAR_EXPIRY_DAYS,
   buildWarehouseDetailPath,
   buildWarehouseEditPath,
+  buildWarehousePartnerCreatePath,
   buildWarehousePartnerQuery,
   buildWarehouseQuickLinks,
   buildWarehouseScopedHref,
@@ -95,6 +97,7 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
   const canManage = hasPermission(ADMIN_PERMISSION.WarehouseManage);
   const canManageStaff = hasPermission(ADMIN_PERMISSION.WarehouseStaffManage);
   const canReadDelivery = hasPermission(ADMIN_PERMISSION.DeliveryRead);
+  const canManagePartners = hasPermission(ADMIN_PERMISSION.DeliveryPartnersManage);
   const canReadInventory = hasPermission(ADMIN_PERMISSION.InventoryRead);
   const canReadProducts = hasPermission(ADMIN_PERMISSION.ProductsRead);
   const warehousePath = `/admin/warehouses/${encodeURIComponent(warehouseId)}`;
@@ -151,6 +154,7 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
     queryKey: ["admin", "warehouses", warehouseId, "staff"]
   });
 
+  // Partners linked to this warehouse; only they can be dispatched with orders picked up here.
   const partnersQuery = useQuery<DeliveryPaginatedResponse<AdminDeliveryPartner>>({
     enabled: isWarehouseLoaded && canReadDelivery,
     placeholderData: (previous) => previous,
@@ -450,11 +454,20 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
                 <p className="eyebrow">Delivery</p>
                 <h2 id="warehouse-detail-partners-title">Delivery partners</h2>
               </div>
+              {canManagePartners ? (
+                <Button asChild className="iconTextButton" variant="outline">
+                  <Link href={buildWarehousePartnerCreatePath(warehouseId)}>
+                    <UserPlus aria-hidden size={16} />
+                    <span>Add partner</span>
+                  </Link>
+                </Button>
+              ) : null}
             </div>
             {canReadDelivery ? (
               <>
                 <p className="warehouseDetailNote">
-                  Partners with at least one delivery picked up from this warehouse.
+                  Partners assigned to this warehouse. Only they can be dispatched with orders picked
+                  up here.
                 </p>
                 {partnersQuery.isLoading ? <LoadingState label="Loading delivery partners..." /> : null}
                 {partnersQuery.isError ? (
@@ -464,8 +477,8 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
                 ) : null}
                 {partnerResults && partnerResults.items.length === 0 ? (
                   <EmptyState
-                    body="Partners appear here after they are assigned a delivery from this warehouse."
-                    title="No delivery partners yet"
+                    body="Add a delivery partner to this warehouse, or ask an admin to assign an existing partner to it."
+                    title="No delivery partners assigned"
                   />
                 ) : null}
                 {partnerResults && partnerResults.items.length > 0 ? (

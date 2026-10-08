@@ -77,6 +77,8 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<AdminRoleCode, PermissionCode
     PermissionCode.WarehouseManage,
     PermissionCode.WarehouseStaffManage,
     PermissionCode.DeliveryRead,
+    PermissionCode.DeliveryAssign,
+    PermissionCode.DeliveryPartnersManage,
     PermissionCode.ReportsRead
   ],
   [AdminRoleCode.OrderManager]: [
@@ -93,6 +95,8 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<AdminRoleCode, PermissionCode
     PermissionCode.WarehouseRead,
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
+    PermissionCode.DeliveryPartnersManage,
+    PermissionCode.DeliveryPayoutsManage,
     PermissionCode.ReportsRead
   ],
   [AdminRoleCode.Support]: [

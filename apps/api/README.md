@@ -142,7 +142,12 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `PATCH /api/v1/admin/orders/:id/status`
   - `POST /api/v1/admin/orders/:id/cancel`
 - Admin delivery partners:
-  - `GET /api/v1/admin/delivery-partners` (optional `warehouseId`: partners with at least one assignment for that warehouse)
+  - `GET /api/v1/admin/delivery-partners` (optional `warehouseId`: partners assigned to that warehouse; optional `search`)
+  - `POST /api/v1/admin/delivery-partners`
+  - `GET /api/v1/admin/delivery-partners/:id`
+  - `PATCH /api/v1/admin/delivery-partners/:id`
+  - `GET /api/v1/admin/delivery-partners/:id/earnings`
+  - `POST /api/v1/admin/delivery-partners/:id/ledger`
   - `PATCH /api/v1/admin/delivery-partners/:id/approve`
 - Admin delivery:
   - `POST /api/v1/admin/delivery/assign`
@@ -150,6 +155,7 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `GET /api/v1/delivery/me`
   - `PATCH /api/v1/delivery/me/status`
   - `POST /api/v1/delivery/me/documents`
+  - `GET /api/v1/delivery/earnings`
   - `GET /api/v1/delivery/assignments`
   - `PATCH /api/v1/delivery/assignments/:id/status`
 - Uploads:
@@ -240,9 +246,11 @@ NestJS backend for the Surgical Medical Equipment Platform.
 - Admin order lists and details include customer info, shipping and billing addresses, order items, linked warehouse, totals, payment details, invoice summary, and status history. Non-super-admin staff remain warehouse-scoped when an order has a warehouse link.
 - Admin cancellation is allowed only before out-for-delivery and releases reserved inventory back to the selected batch and warehouse stock
 - Delivered orders clear reserved inventory; returns are tracked as order status history and do not automatically place stock back into saleable inventory
-- Admin delivery partner reads require `delivery.read`; approving partners and assigning orders require `delivery.assign`
-- Admin delivery assignment accepts only `CONFIRMED` or `PACKED` orders and applies the same warehouse access checks as delivery operations.
-- Delivery partner profiles expose approval status, document metadata, online/offline state, and wallet/earnings placeholders
+- Admin delivery partner reads require `delivery.read`; approving partners, assigning orders, and settling COD cash require `delivery.assign`; adding and editing partners requires `delivery.partners.manage`; pay settings, salary credits, and payouts require `delivery.payouts.manage`
+- Delivery partners are linked to one or more warehouses. Non-super-admin staff see and manage only partners, assignments, cash settlements, and incidents for their own warehouses. Partners they add are linked to their own single warehouse; only super admins link a partner to several warehouses or change an existing partner's warehouses.
+- Admin delivery assignment accepts only `CONFIRMED` or `PACKED` orders, applies the same warehouse access checks as delivery operations, and requires the partner to be linked to the pickup warehouse.
+- Delivery partner pay is either `SALARY` (monthly salary) or `COMMISSION` (`PERCENTAGE` of the order grand total, or a `FIXED` amount per delivery). Commission is credited to the partner wallet automatically, once, when a delivery is marked `DELIVERED`, using the partner's pay at that time. Salary is credited through a `SALARY` ledger entry with a `salaryPeriod` (`YYYY-MM`), at most once per month.
+- Delivery partner profiles expose approval status, assigned warehouses, pay structure, document metadata, online/offline state, and wallet balance and earnings
 - Delivery assignment writes create `DeliveryStatusHistory` records for `ASSIGNED`, `ACCEPTED`, `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED`, and `CANCELLED`
 - Delivery assignment pickup and delivered timestamps are stored on the assignment, proof of delivery is represented by optional URL/key placeholders, and pickup can optionally link to a warehouse
 - Delivery partner status updates are scoped to the token partner and keep order status aligned for `OUT_FOR_DELIVERY` and `DELIVERED`

@@ -1,24 +1,42 @@
+import { ForbiddenException } from "@nestjs/common";
 import { AuthTokenAudience, type AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
+import type { WarehouseScope } from "../../src/modules/warehouses/warehouse-access.service";
 export const now = new Date("2026-05-25T10:00:00.000Z");
 
-export function adminAuth(): AuthJwtPayload {
+export function adminAuth(overrides: Partial<AuthJwtPayload> = {}): AuthJwtPayload {
   return {
     audience: AuthTokenAudience.Admin,
-    permissions: [PermissionCode.DeliveryRead, PermissionCode.DeliveryAssign],
+    permissions: [
+      PermissionCode.DeliveryRead,
+      PermissionCode.DeliveryAssign,
+      PermissionCode.DeliveryPartnersManage,
+      PermissionCode.DeliveryPayoutsManage
+    ],
     role: AdminRoleCode.DeliveryManager,
     sessionId: "admin-session-1",
     sub: "admin-1",
-    tokenType: "access"
+    tokenType: "access",
+    ...overrides
   };
 }
 
+/** Warehouse access with every warehouse in scope unless a staff scope is given. */
 export class FakeWarehouseAccess {
   readonly assertedWarehouseIds: string[] = [];
 
+  constructor(private readonly scope: WarehouseScope = { allWarehouses: true }) {}
+
   async assertCanManageWarehouse(_auth: AuthJwtPayload, warehouseId: string) {
     this.assertedWarehouseIds.push(warehouseId);
+    if (!this.scope.allWarehouses && !this.scope.warehouseIds.includes(warehouseId)) {
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
+    }
+  }
+
+  async getWarehouseScope(): Promise<WarehouseScope> {
+    return this.scope;
   }
 }
 
@@ -46,18 +64,37 @@ export function createDeliveryPrismaMock(input?: {
     deliveryPartnerDeviceUpsert: [],
     deliveryPartnerDocumentCreate: [],
     deliveryPartnerCount: [],
+    deliveryPartnerCreate: [],
     deliveryPartnerFindFirst: [],
     deliveryPartnerFindMany: [],
     deliveryPartnerUpdate: [],
+    deliveryPartnerWarehouseCreateMany: [],
+    deliveryPartnerWarehouseDeleteMany: [],
     deliveryStatusHistoryCreate: [],
     inventoryStockUpdateMany: [],
     orderFindFirst: [],
     orderStatusHistoryCreate: [],
     orderUpdate: [],
     orderUpdateMany: [],
+    warehouseCount: [],
     warehouseFindFirst: []
   };
+  const pickupWarehouse = {
+    address: "Warehouse Road",
+    city: "Delhi",
+    code: "DEL-01",
+    contactNumber: "+911145678900",
+    contactPerson: "Dispatch Desk",
+    id: warehouseId,
+    latitude: "28.6139390",
+    longitude: "77.2090230",
+    name: "Delhi warehouse",
+    pincode: "110001",
+    state: "Delhi"
+  };
   const deliveryPartner = {
+    commissionType: null as string | null,
+    commissionValue: null as string | null,
     createdAt: now,
     deletedAt: null,
     documents: [
@@ -82,25 +119,18 @@ export function createDeliveryPrismaMock(input?: {
     lastLongitude: null,
     lastSeenAt: null,
     mobileNumber: "+919876543210",
+    monthlySalary: null as string | null,
+    paymentType: null as string | null,
     status: "ACTIVE",
     statusReason: null,
     totalEarnings: "0.00",
     updatedAt: now,
     vehicleNumber: "DL01AB1234",
-    walletBalance: "0.00"
-  };
-  const pickupWarehouse = {
-    address: "Warehouse Road",
-    city: "Delhi",
-    code: "DEL-01",
-    contactNumber: "+911145678900",
-    contactPerson: "Dispatch Desk",
-    id: warehouseId,
-    latitude: "28.6139390",
-    longitude: "77.2090230",
-    name: "Delhi warehouse",
-    pincode: "110001",
-    state: "Delhi"
+    walletBalance: "0.00",
+    warehouses: [{ warehouse: pickupWarehouse, warehouseId }] as Array<{
+      warehouse: typeof pickupWarehouse;
+      warehouseId: string;
+    }>
   };
   const shippingAddress = {
     city: "Delhi",
@@ -269,6 +299,26 @@ export function createDeliveryPrismaMock(input?: {
         calls.deliveryPartnerCount.push(args);
         return 1;
       },
+      create: async (args: { data: Record<string, unknown> & { warehouses?: { create: Array<{ warehouseId: string }> } } }) => {
+        calls.deliveryPartnerCreate.push(args);
+        const { warehouses, ...data } = args.data;
+        return {
+          ...deliveryPartner,
+          commissionType: null,
+          commissionValue: null,
+          documents: [],
+          id: "partner-new",
+          monthlySalary: null,
+          paymentType: null,
+          totalEarnings: "0.00",
+          walletBalance: "0.00",
+          ...data,
+          warehouses: (warehouses?.create ?? []).map(({ warehouseId: id }) => ({
+            warehouse: { ...pickupWarehouse, id },
+            warehouseId: id
+          }))
+        };
+      },
       findFirst: async (args: unknown) => {
         calls.deliveryPartnerFindFirst.push(args);
         return deliveryPartner;
@@ -281,6 +331,24 @@ export function createDeliveryPrismaMock(input?: {
         calls.deliveryPartnerUpdate.push(args);
         Object.assign(deliveryPartner, args.data);
         return deliveryPartner;
+      }
+    },
+    deliveryPartnerWarehouse: {
+      createMany: async (args: { data: Array<{ warehouseId: string }> }) => {
+        calls.deliveryPartnerWarehouseCreateMany.push(args);
+        for (const { warehouseId: id } of args.data) {
+          if (!deliveryPartner.warehouses.some((link) => link.warehouseId === id)) {
+            deliveryPartner.warehouses.push({ warehouse: { ...pickupWarehouse, id }, warehouseId: id });
+          }
+        }
+        return { count: args.data.length };
+      },
+      deleteMany: async (args: { where: { warehouseId: { notIn: string[] } } }) => {
+        calls.deliveryPartnerWarehouseDeleteMany.push(args);
+        const kept = deliveryPartner.warehouses.filter((link) => args.where.warehouseId.notIn.includes(link.warehouseId));
+        const count = deliveryPartner.warehouses.length - kept.length;
+        deliveryPartner.warehouses = kept;
+        return { count };
       }
     },
     deliveryPartnerDevice: {
@@ -364,8 +432,24 @@ export function createDeliveryPrismaMock(input?: {
       }
     },
     deliveryPartnerLedgerEntry: {
-      findMany: async () => ledgerEntries,
+      findMany: async ({ where }: { where?: { type?: string | { in: string[] } } } = {}) =>
+        ledgerEntries.filter((entry) => {
+          const type = where?.type;
+          if (type === undefined) return true;
+          return typeof type === "string" ? entry.type === type : type.in.includes(entry.type as string);
+        }),
+      groupBy: async () => {
+        const sums = new Map<string, number>();
+        for (const entry of ledgerEntries) sums.set(entry.type as string, (sums.get(entry.type as string) ?? 0) + Number(entry.amount));
+        return [...sums].map(([type, amount]) => ({ _sum: { amount: amount.toFixed(2) }, type }));
+      },
       create: async ({ data }: { data: Record<string, unknown> }) => {
+        // Mirror the unique indexes on deliveryAssignmentId and (deliveryPartnerId, salaryPeriod).
+        const duplicate = ledgerEntries.some((entry) =>
+          (data.deliveryAssignmentId && entry.deliveryAssignmentId === data.deliveryAssignmentId) ||
+          (data.salaryPeriod && entry.deliveryPartnerId === data.deliveryPartnerId && entry.salaryPeriod === data.salaryPeriod)
+        );
+        if (duplicate) throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
         const entry = { ...data, id: `ledger-${ledgerEntries.length + 1}`, createdAt: now };
         ledgerEntries.push(entry);
         return entry;
@@ -400,6 +484,10 @@ export function createDeliveryPrismaMock(input?: {
       }
     },
     warehouse: {
+      count: async (args: { where: { id: { in: string[] } } }) => {
+        calls.warehouseCount.push(args);
+        return args.where.id.in.filter((id) => !id.startsWith("missing-")).length;
+      },
       findFirst: async (args: unknown) => {
         calls.warehouseFindFirst.push(args);
         return pickupWarehouse;

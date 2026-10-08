@@ -12,7 +12,7 @@ import {
   useWindowDimensions
 } from "react-native";
 import { Switch } from "heroui-native/switch";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   useInfiniteQuery,
@@ -43,7 +43,7 @@ import {
 } from "../../lib/api/delivery";
 import {
   deliveryFilterOptionsFromCounts,
-  type DeliveryStatusFilter
+  parseDeliveryStatusFilter
 } from "../../lib/delivery/dashboard";
 import { useAuth } from "../../lib/auth/auth-context";
 import { useStatusQueue } from "../../lib/offline/status-queue-context";
@@ -57,8 +57,10 @@ export default function AssignmentsScreen() {
   const netInfo = useNetInfo();
   const { width } = useWindowDimensions();
   const { queuedUpdates } = useStatusQueue();
-  const [selectedStatus, setSelectedStatus] =
-    useState<DeliveryStatusFilter>("ALL");
+  // The status filter lives in the route so other screens can open a filtered
+  // list, e.g. completed deliveries from Cash & Earnings.
+  const { status: statusParam } = useLocalSearchParams<{ status?: string }>();
+  const selectedStatus = parseDeliveryStatusFilter(statusParam);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"NEWEST" | "OLDEST">("NEWEST");
@@ -318,7 +320,11 @@ export default function AssignmentsScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     key={option.status}
-                    onPress={() => setSelectedStatus(option.status)}
+                    onPress={() =>
+                      router.setParams({
+                        status: option.status === "ALL" ? undefined : option.status
+                      })
+                    }
                     style={[styles.filterPill, selected && styles.filterPillSelected]}
                   >
                     <Text style={selected ? styles.selectedFilterText : styles.filterText}>

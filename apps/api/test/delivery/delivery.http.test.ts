@@ -79,18 +79,44 @@ test("HTTP admin partner list narrows to one warehouse and rejects a malformed w
     await request(server).get("/admin/delivery-partners?warehouseId=not-a-uuid").expect(400);
     const listed = await request(server).get(`/admin/delivery-partners?warehouseId=${ids.warehouse}&limit=5`).expect(200);
     assert.equal(listed.body.data.items[0].id, ids.partner);
+    assert.deepEqual(listed.body.data.items[0].warehouses.map((warehouse: { id: string }) => warehouse.id), [ids.warehouse]);
+    assert.equal(listed.body.data.items[0].payment.paymentType, null);
     const lastQuery = fixture.prisma.calls.deliveryPartnerFindMany.at(-1) as { take: number; where: unknown };
     assert.equal(lastQuery.take, 5);
     assert.deepEqual(lastQuery.where, {
-      assignments: {
-        some: {
-          OR: [
-            { pickupWarehouseId: ids.warehouse },
-            { order: { warehouseId: ids.warehouse }, pickupWarehouseId: null }
-          ]
-        }
-      },
-      deletedAt: null
+      deletedAt: null,
+      warehouses: { some: { warehouseId: ids.warehouse } }
     });
+  } finally { await fixture.app.close(); }
+});
+
+test("HTTP admin partner create validates input and rejects unknown or malformed fields", async () => {
+  const fixture = await createDeliveryHttpFixture();
+  const server = fixture.app.getHttpServer();
+  try {
+    const base = { fullName: " Ravi Rider ", mobileNumber: "+919812345678", warehouseIds: [ids.warehouse] };
+    await request(server).post("/admin/delivery-partners").send({ ...base, mobileNumber: "9812345678" }).expect(400);
+    await request(server).post("/admin/delivery-partners").send({ ...base, warehouseIds: ["not-a-uuid"] }).expect(400);
+    await request(server).post("/admin/delivery-partners").send({ ...base, isAdmin: true }).expect(400);
+    await request(server).post("/admin/delivery-partners").send({ ...base, paymentType: "COMMISSION", commissionType: "FIXED", commissionValue: 50.555 }).expect(400);
+    const created = await request(server)
+      .post("/admin/delivery-partners")
+      .send({ ...base, email: " Ravi@Example.com ", paymentType: "COMMISSION", commissionType: "FIXED", commissionValue: 50 })
+      .expect(201);
+    assert.equal(created.body.data.fullName, "Ravi Rider");
+    assert.equal(created.body.data.email, "ravi@example.com");
+    assert.equal(created.body.data.status, "ACTIVE");
+    assert.deepEqual(created.body.data.payment, { commissionType: "FIXED", commissionValue: 50, monthlySalary: null, paymentType: "COMMISSION" });
+  } finally { await fixture.app.close(); }
+});
+
+test("HTTP salary ledger entries require a YYYY-MM salary period format", async () => {
+  const fixture = await createDeliveryHttpFixture();
+  const server = fixture.app.getHttpServer();
+  try {
+    await request(server)
+      .post(`/admin/delivery-partners/${ids.partner}/ledger`)
+      .send({ type: "SALARY", amount: 18000, description: "October salary", salaryPeriod: "2026-13" })
+      .expect(400);
   } finally { await fixture.app.close(); }
 });

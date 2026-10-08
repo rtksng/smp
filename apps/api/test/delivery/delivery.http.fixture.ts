@@ -14,7 +14,7 @@ import { AdminDeliveryController } from "../../src/modules/delivery/admin-delive
 import { AdminDeliveryPartnersController } from "../../src/modules/delivery/admin-delivery-partners.controller";
 import { DeliveryController } from "../../src/modules/delivery/delivery.controller";
 import { DeliveryService } from "../../src/modules/delivery/delivery.service";
-import { AdminDeliveryAssignmentListQueryDto, AssignDeliveryDto, CreateDeliveryIncidentDto, DeliveryAssignmentListQueryDto, DeliveryPartnerListQueryDto, UpdateCashSettlementDto, UpdateDeliveryAssignmentStatusDto } from "../../src/modules/delivery/dto/delivery.dto";
+import { AdminDeliveryAssignmentListQueryDto, AssignDeliveryDto, CreateDeliveryIncidentDto, CreateDeliveryLedgerEntryDto, CreateDeliveryPartnerDto, DeliveryAssignmentListQueryDto, DeliveryPartnerListQueryDto, UpdateCashSettlementDto, UpdateDeliveryAssignmentStatusDto, UpdateDeliveryPartnerDto } from "../../src/modules/delivery/dto/delivery.dto";
 import { InvoicesService } from "../../src/modules/invoices/invoices.service";
 import { OrdersController } from "../../src/modules/orders/orders.controller";
 import { OrdersService } from "../../src/modules/orders/orders.service";
@@ -43,9 +43,12 @@ export async function createDeliveryHttpFixture(configureApp?: (app: INestApplic
   // tsx omits decorator type metadata emitted by the production TypeScript compiler.
   for (const [controller, method, types] of [
     [AdminDeliveryController, "assignOrder", [AssignDeliveryDto, Object]],
-    [AdminDeliveryController, "listAssignments", [AdminDeliveryAssignmentListQueryDto]],
+    [AdminDeliveryController, "listAssignments", [AdminDeliveryAssignmentListQueryDto, Object]],
     [AdminDeliveryController, "updateCashSettlement", [String, UpdateCashSettlementDto, Object]],
-    [AdminDeliveryPartnersController, "listPartners", [DeliveryPartnerListQueryDto]],
+    [AdminDeliveryPartnersController, "listPartners", [DeliveryPartnerListQueryDto, Object]],
+    [AdminDeliveryPartnersController, "createPartner", [CreateDeliveryPartnerDto, Object]],
+    [AdminDeliveryPartnersController, "updatePartner", [String, UpdateDeliveryPartnerDto, Object]],
+    [AdminDeliveryPartnersController, "createLedgerEntry", [String, CreateDeliveryLedgerEntryDto, Object]],
     [DeliveryController, "listAssignments", [DeliveryAssignmentListQueryDto, Object]],
     [DeliveryController, "updateAssignmentStatus", [String, UpdateDeliveryAssignmentStatusDto, Object]],
     [DeliveryController, "createIncident", [String, CreateDeliveryIncidentDto, Object]]

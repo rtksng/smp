@@ -14,6 +14,15 @@ const FILTER_STATUSES: DeliveryStatusFilter[] = [
   "CANCELLED"
 ];
 
+/** Reads a status filter from a route param, falling back to "ALL" for missing or unknown values. */
+export function parseDeliveryStatusFilter(
+  value: string | string[] | undefined
+): DeliveryStatusFilter {
+  const candidate = Array.isArray(value) ? value[0] : value;
+
+  return FILTER_STATUSES.find((status) => status === candidate) ?? "ALL";
+}
+
 export function countAssignmentsByStatus(assignments: DeliveryAssignment[]) {
   const counts = Object.fromEntries(
     FILTER_STATUSES.filter((status) => status !== "ALL").map((status) => [

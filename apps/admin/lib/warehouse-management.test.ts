@@ -6,6 +6,7 @@ import {
   buildWarehouseCreatePath,
   buildWarehouseDetailPath,
   buildWarehouseEditPath,
+  buildWarehousePartnerCreatePath,
   buildWarehousePartnerQuery,
   buildWarehousePayload,
   buildWarehouseQuery,
@@ -278,6 +279,9 @@ describe("warehouse management helpers", () => {
       page: 3,
       warehouseId: "warehouse-1"
     });
+    expect(buildWarehousePartnerCreatePath("warehouse 1")).toBe(
+      "/delivery/partners/new?warehouseId=warehouse+1"
+    );
   });
 
   it("explains why a warehouse cannot be shown", () => {

@@ -56,9 +56,12 @@ export class AdminDeliveryController {
     type: DeliveryAssignmentListResponseDto
   })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks delivery.read permission." })
-  listAssignments(@Query() query: AdminDeliveryAssignmentListQueryDto) {
-    return this.deliveryService.listAdminDeliveryAssignments(query);
+  @ApiForbiddenResponse({ description: "Admin lacks delivery.read permission or warehouse access." })
+  listAssignments(
+    @Query() query: AdminDeliveryAssignmentListQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.listAdminDeliveryAssignments(query, getAuth(request));
   }
 
   @Post("assign")

@@ -162,6 +162,7 @@ export function StatusQueueProvider({ children }: PropsWithChildren) {
         });
         await queryClient.invalidateQueries({ queryKey: ["delivery-dashboard"] });
         await queryClient.invalidateQueries({ queryKey: ["delivery-cash"] });
+        await queryClient.invalidateQueries({ queryKey: ["delivery-earnings"] });
       })
       .catch(async (error) => {
         const status = error instanceof ApiError ? error.status : undefined;
