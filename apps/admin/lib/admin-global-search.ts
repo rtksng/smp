@@ -99,6 +99,12 @@ const additionalPages: readonly Page[] = [
     keywords: "drivers applications"
   },
   {
+    title: "Delivery partner requests",
+    href: "/delivery/requests",
+    permission: P.DeliveryRead,
+    keywords: "drivers applications approvals verification"
+  },
+  {
     title: "Delivery assignments",
     href: "/delivery/assignments",
     permission: P.DeliveryRead,

@@ -14,7 +14,7 @@ import { DeliveryController } from "../../src/modules/delivery/delivery.controll
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
-import { adminAuth, FakeWarehouseAccess, createDeliveryPrismaMock } from "./delivery.fixture";
+import { adminAuth, FakeWarehouseAccess, createDeliveryPrismaMock, now } from "./delivery.fixture";
 
 test("listAdminDeliveryPartners returns profiles with documents, online state, and wallet placeholders", async () => {
   const prisma = createDeliveryPrismaMock();
@@ -92,6 +92,8 @@ test("getAdminDeliveryPartner returns one partner with document detail", async (
 
   assert.equal(result.id, "partner-1");
   assert.equal(result.documents[0]?.fileUrl, "http://localhost/uploads/license.pdf");
+  assert.equal(result.warehouses[0]?.code, "DEL-01");
+  assert.equal(result.warehouses[0]?.associatedAt, now);
   assert.equal(prisma.calls.deliveryPartnerFindFirst.length, 1);
 });
 

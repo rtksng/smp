@@ -746,6 +746,24 @@ button {
   white-space: nowrap;
 }
 
+.sidebarNavToggle {
+  text-align: left;
+  width: 100%;
+}
+
+.sidebarNavToggle[data-active="true"] {
+  color: #ffffff;
+}
+
+.sidebarNavToggle .sidebarNavToggleIcon {
+  margin-left: auto;
+  opacity: 0.72;
+}
+
+.sidebarNavToggle[aria-expanded="true"] .sidebarNavToggleIcon {
+  transform: rotate(180deg);
+}
+
 .sidebarSubnav {
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   display: grid;

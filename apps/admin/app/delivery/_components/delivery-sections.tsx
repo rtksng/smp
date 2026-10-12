@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  Fragment,
   Suspense,
   useEffect,
   useMemo,
@@ -92,6 +93,7 @@ import {
   createEmptyDeliveryPartnerFilters,
   DELIVERY_PARTNER_SEARCH_MAX_LENGTH,
   filterPartnersForWarehouse,
+  formatDeliveryDate,
   formatDeliveryDateTime,
   formatDeliveryLabel,
   formatDeliveryPartnerPay,
@@ -122,9 +124,10 @@ const emptyAssignmentForm: AssignDeliveryValues = {
   pickupWarehouseId: ""
 };
 
-type DeliveryView = "overview" | "partners" | "assignments" | "assign";
+type DeliveryView = "analytics" | "partners" | "requests" | "assignments" | "assign";
 type AssignmentFilters = DeliveryAssignmentFilters & { search: string };
 
+// Follows the order of the Delivery dropdown in the sidebar, plus the assign form.
 const deliverySections: Array<{
   description: string;
   href: string;
@@ -132,22 +135,28 @@ const deliverySections: Array<{
   title: string;
 }> = [
   {
-    description: "Delivery metrics and shortcuts into focused operation pages.",
-    href: "/delivery",
-    id: "overview",
-    title: "Overview"
-  },
-  {
     description: "Add, approve, and review delivery partners, their warehouses, pay, and documents.",
     href: "/delivery/partners",
     id: "partners",
     title: "Partners"
   },
   {
+    description: "Approve or reject delivery partner applications awaiting verification.",
+    href: "/delivery/requests",
+    id: "requests",
+    title: "Requests"
+  },
+  {
     description: "Track assigned orders, pickup locations, proof, and issues.",
     href: "/delivery/assignments",
     id: "assignments",
     title: "Assignments"
+  },
+  {
+    description: "Delivery metrics and charts across partners and assignments.",
+    href: "/delivery",
+    id: "analytics",
+    title: "Analytics"
   },
   {
     description: "Assign ready orders to active delivery partners.",
@@ -158,6 +167,10 @@ const deliverySections: Array<{
 ];
 
 const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
+  analytics: {
+    summary: "Review delivery coverage, partner availability, and assignment trends.",
+    title: "Delivery analytics"
+  },
   assign: {
     summary: "Create a delivery assignment from one focused order-to-partner form.",
     title: "Assign delivery"
@@ -166,13 +179,13 @@ const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
     summary: "Filter and inspect delivery assignments in a table-first operations view.",
     title: "Delivery assignments"
   },
-  overview: {
-    summary: "Review delivery coverage and jump into focused partner, assignment, and dispatch pages.",
-    title: "Delivery operations"
-  },
   partners: {
     summary: "Search delivery partners, review warehouses and pay, and open partner profiles.",
     title: "Delivery partners"
+  },
+  requests: {
+    summary: "Review partner applications from the delivery app and approve or reject them.",
+    title: "Partner requests"
   }
 };
 
@@ -187,11 +200,15 @@ export function DeliveryRoute({ children }: { children: ReactNode }) {
 }
 
 export function DeliveryLandingPage() {
-  return <DeliveryContent view="overview" />;
+  return <DeliveryContent view="analytics" />;
 }
 
 export function DeliveryPartnersPage() {
   return <DeliveryContent view="partners" />;
+}
+
+export function DeliveryRequestsPage() {
+  return <DeliveryContent view="requests" />;
 }
 
 export function DeliveryPartnerDetailPage({ partnerId }: { partnerId: string }) {
@@ -284,9 +301,9 @@ function DeliveryContent({
   const [partnerPage, setPartnerPage] = useState(1);
   const [assignmentPage, setAssignmentPage] = useState(1);
   const [partnerDraftFilters, setPartnerDraftFilters] =
-    useState<DeliveryPartnerFilters>(createEmptyDeliveryPartnerFilters());
+    useState<DeliveryPartnerFilters>(() => createPartnerFilters(view));
   const [partnerFilters, setPartnerFilters] = useState<DeliveryPartnerFilters>(
-    createEmptyDeliveryPartnerFilters()
+    () => createPartnerFilters(view)
   );
   const [assignmentDraftFilters, setAssignmentDraftFilters] =
     useState<AssignmentFilters>(initialAssignmentFilters);
@@ -446,7 +463,7 @@ function DeliveryContent({
   }
 
   function resetPartnerFilters() {
-    const emptyFilters = createEmptyDeliveryPartnerFilters();
+    const emptyFilters = createPartnerFilters(view);
     setPartnerPage(1);
     setPartnerDraftFilters(emptyFilters);
     setPartnerFilters(emptyFilters);
@@ -571,7 +588,7 @@ function DeliveryContent({
           </p>
         ) : null}
 
-        {view === "overview" ? (
+        {view === "analytics" ? (
           <div className="metricGrid resourceMetrics deliveryMetricGrid">
             <MetricCard label="Partners" tone="primary" value={totalPartners} />
             <MetricCard label="Active visible" value={activeVisibleCount} />
@@ -583,34 +600,45 @@ function DeliveryContent({
         ) : null}
       </section>
 
-      {view === "overview" ? (
+      {view === "analytics" ? (
         <DeliveryOverviewCharts assignments={assignments} partners={partners} />
       ) : null}
 
-      {view === "partners" ? (
+      {view === "partners" || view === "requests" ? (
         <section className="panel deliveryPartnersPanel mt-3">
-          <PageHeader
-            actions={
-              canManagePartners ? (
-                <Button asChild className="iconTextButton">
-                  <Link href="/delivery/partners/new">
-                    <UserPlus aria-hidden size={16} />
-                    <span>Add partner</span>
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-            className="settingsSectionHeader deliverySectionHeader deliveryListHeader"
-            eyebrow="Partners"
-            level={2}
-            summary="Search partner records, approve verification, and open one profile for warehouses, pay, and documents."
-            title="Partner directory"
-          />
+          {view === "requests" ? (
+            <PageHeader
+              className="settingsSectionHeader deliverySectionHeader deliveryListHeader"
+              eyebrow="Requests"
+              level={2}
+              summary="Partners who registered from the delivery app wait here until they are approved or rejected."
+              title="Pending applications"
+            />
+          ) : (
+            <PageHeader
+              actions={
+                canManagePartners ? (
+                  <Button asChild className="iconTextButton">
+                    <Link href="/delivery/partners/new">
+                      <UserPlus aria-hidden size={16} />
+                      <span>Add partner</span>
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+              className="settingsSectionHeader deliverySectionHeader deliveryListHeader"
+              eyebrow="Partners"
+              level={2}
+              summary="Search partner records, approve verification, and open one profile for warehouses, pay, and documents."
+              title="Partner directory"
+            />
+          )}
           <PartnerFilterForm
             filters={partnerDraftFilters}
             onChange={setPartnerDraftFilters}
             onReset={resetPartnerFilters}
             onSubmit={applyPartnerFilters}
+            showStatus={view === "partners"}
           />
           {partnersQuery.isLoading ? (
             <LoadingState label="Loading delivery partners..." />
@@ -623,6 +651,14 @@ function DeliveryContent({
           ) : null}
           {!partnersQuery.isLoading && !partnersQuery.isError ? (
             <PartnerList
+              emptyState={
+                view === "requests"
+                  ? {
+                      body: "New partner applications from the delivery app will appear here.",
+                      title: "No pending requests"
+                    }
+                  : undefined
+              }
               isMutating={isMutating}
               onAction={requestPartnerAction}
               partners={partners}
@@ -761,6 +797,13 @@ function DeliveryContent({
       />
     </div>
   );
+}
+
+/** Requests are partner applications, so that view always lists partners awaiting verification. */
+function createPartnerFilters(view: DeliveryView): DeliveryPartnerFilters {
+  return view === "requests"
+    ? { ...createEmptyDeliveryPartnerFilters(), status: "PENDING_VERIFICATION" }
+    : createEmptyDeliveryPartnerFilters();
 }
 
 function DeliverySectionNav({ active }: { active: DeliveryView }) {
@@ -1115,16 +1158,23 @@ function PartnerFilterForm({
   filters,
   onChange,
   onReset,
-  onSubmit
+  onSubmit,
+  showStatus = true
 }: {
   filters: DeliveryPartnerFilters;
   onChange: (filters: DeliveryPartnerFilters) => void;
   onReset: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  showStatus?: boolean;
 }) {
   // Search and status sit under the list header, which keeps the add action on the heading row.
   return (
-    <form className="deliveryFilters deliveryPartnerFilters" onSubmit={onSubmit} role="search">
+    <form
+      className="deliveryFilters deliveryPartnerFilters"
+      data-status-filter={showStatus ? undefined : "hidden"}
+      onSubmit={onSubmit}
+      role="search"
+    >
       <Input
         aria-label="Search delivery partners"
         maxLength={DELIVERY_PARTNER_SEARCH_MAX_LENGTH}
@@ -1132,28 +1182,30 @@ function PartnerFilterForm({
         placeholder="Search name, mobile, or vehicle"
         value={filters.search}
       />
-      <Select
-        aria-label="Partner status"
-        onValueChange={(value) =>
-          onChange({
-            ...filters,
-            status: value as DeliveryPartnerFilters["status"]
-          })
-        }
-        value={filters.status}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Any status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="">Any status</SelectItem>
-          {DELIVERY_PARTNER_STATUSES.map((status) => (
-            <SelectItem key={status} value={status}>
-              {formatDeliveryLabel(status)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {showStatus ? (
+        <Select
+          aria-label="Partner status"
+          onValueChange={(value) =>
+            onChange({
+              ...filters,
+              status: value as DeliveryPartnerFilters["status"]
+            })
+          }
+          value={filters.status}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Any status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Any status</SelectItem>
+            {DELIVERY_PARTNER_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {formatDeliveryLabel(status)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
       <div className="deliveryPartnerFilterActions">
         <Button className="iconTextButton" type="submit">
           <Search aria-hidden size={16} />
@@ -1274,10 +1326,15 @@ function AssignmentFilterForm({
 }
 
 function PartnerList({
+  emptyState = {
+    body: "No delivery partners match the selected filters.",
+    title: "No delivery partners found"
+  },
   isMutating,
   onAction,
   partners
 }: {
+  emptyState?: { body: string; title: string };
   isMutating: boolean;
   onAction: (action: "approve" | "reject", partner: AdminDeliveryPartner) => void;
   partners: AdminDeliveryPartner[];
@@ -1285,12 +1342,7 @@ function PartnerList({
   const { isOverflowing, shellRef } = useTableOverflow(partners.length > 0);
 
   if (partners.length === 0) {
-    return (
-      <EmptyState
-        body="No delivery partners match the selected filters."
-        title="No delivery partners found"
-      />
-    );
+    return <EmptyState body={emptyState.body} title={emptyState.title} />;
   }
 
   return (
@@ -1431,6 +1483,27 @@ function PartnerDetail({
         <DetailItem label="Pay" value={formatDeliveryPartnerPay(partner.payment)} wide />
         <DetailItem label="Last seen" value={formatDeliveryDateTime(partner.lastSeenAt)} />
         <DetailItem label="Created" value={formatDeliveryDateTime(partner.createdAt)} />
+        {/* Each warehouse gets its own pair so the date is never read against the wrong warehouse. */}
+        {partner.warehouses.length === 0 ? (
+          <>
+            <DetailItem label="Associated warehouse" value="Not assigned" wide />
+            <DetailItem label="Association date" value="-" />
+          </>
+        ) : (
+          partner.warehouses.map((warehouse) => (
+            <Fragment key={warehouse.id}>
+              <DetailItem
+                label="Associated warehouse"
+                value={formatDeliveryWarehouseName(warehouse)}
+                wide
+              />
+              <DetailItem
+                label="Association date"
+                value={formatDeliveryDate(warehouse.associatedAt)}
+              />
+            </Fragment>
+          ))
+        )}
       </div>
       <div className="deliveryPartnerWarehouses">
         <div className="sectionTitleRow">

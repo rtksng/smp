@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,6 +8,7 @@ import {
   Badge,
   BarChart3,
   Boxes,
+  ChevronDown,
   Circle,
   CircleDollarSign,
   ClipboardList,
@@ -392,25 +393,46 @@ function NavigationGroup({
   pathname: string;
 }) {
   const Icon = navIconMap[item.label] ?? Circle;
+  const isSectionActive = isActivePath(pathname, item.href);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(isSectionActive);
+  const subnavId = useId();
+  // A collapsed sidebar has no room for the menu, so a dropdown falls back to its section link.
+  const isDropdown = Boolean(item.dropdown) && !isCollapsed;
+  const activeChildHref = getActiveChildHref(item.children, pathname);
 
   return (
     <div className="sidebarNavGroup">
-      <Link
-        aria-label={isCollapsed ? item.label : undefined}
-        aria-current={pathname === item.href ? "page" : undefined}
-        className="sidebarNavLink"
-        href={item.href}
-        onClick={onNavigate}
-        title={isCollapsed ? item.label : undefined}
-      >
-        <Icon aria-hidden size={17} />
-        <span>{item.label}</span>
-      </Link>
-      {item.children?.length && isActivePath(pathname, item.href) ? (
-        <div className="sidebarSubnav">
+      {isDropdown ? (
+        <button
+          aria-controls={subnavId}
+          aria-expanded={isDropdownOpen}
+          className="sidebarNavLink sidebarNavToggle"
+          data-active={isSectionActive ? "true" : undefined}
+          onClick={() => setIsDropdownOpen((isOpen) => !isOpen)}
+          type="button"
+        >
+          <Icon aria-hidden size={17} />
+          <span>{item.label}</span>
+          <ChevronDown aria-hidden className="sidebarNavToggleIcon" size={15} />
+        </button>
+      ) : (
+        <Link
+          aria-label={isCollapsed ? item.label : undefined}
+          aria-current={pathname === item.href ? "page" : undefined}
+          className="sidebarNavLink"
+          href={item.href}
+          onClick={onNavigate}
+          title={isCollapsed ? item.label : undefined}
+        >
+          <Icon aria-hidden size={17} />
+          <span>{item.label}</span>
+        </Link>
+      )}
+      {item.children?.length && (isDropdown ? isDropdownOpen : isSectionActive) ? (
+        <div className="sidebarSubnav" id={subnavId}>
           {item.children.map((child) => (
             <Link
-              aria-current={isActivePath(pathname, child.href) ? "page" : undefined}
+              aria-current={child.href === activeChildHref ? "page" : undefined}
               className="sidebarNavLink sidebarSubnavLink"
               href={child.href}
               key={child.href}
@@ -428,4 +450,15 @@ function NavigationGroup({
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The most specific match wins, so a child at the section root stays inactive on its sibling pages. */
+function getActiveChildHref(
+  children: AdminNavigationItem["children"],
+  pathname: string
+) {
+  return children
+    ?.map((child) => child.href)
+    .filter((href) => isActivePath(pathname, href))
+    .sort((first, second) => second.length - first.length)[0];
 }

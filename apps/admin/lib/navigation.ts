@@ -25,6 +25,8 @@ export type AdminNavigationChild = {
 export type AdminNavigationItem = {
   category: AdminNavigationCategory;
   children?: readonly AdminNavigationChild[];
+  /** Shows the children as a dropdown the item toggles, instead of only inside the active section. */
+  dropdown?: boolean;
   href: string;
   label: string;
   permissions?: readonly AdminPermission[];
@@ -118,6 +120,13 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     category: "Fulfilment",
     href: "/delivery",
     label: "Delivery",
+    dropdown: true,
+    children: [
+      { href: "/delivery/partners", label: "All Delivery Partners" },
+      { href: "/delivery/requests", label: "All Requests" },
+      { href: "/delivery/assignments", label: "All Assignments" },
+      { href: "/delivery", label: "Analytics" }
+    ],
     permissions: [ADMIN_PERMISSION.DeliveryRead]
   },
   {

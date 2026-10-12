@@ -16,7 +16,7 @@ const partnerEditRouteSource = readFileSync(
   "utf8"
 );
 const partnersViewSource = source.slice(
-  source.indexOf('{view === "partners" ? ('),
+  source.indexOf('{view === "partners" || view === "requests" ? ('),
   source.indexOf('{view === "assignments" ? (')
 );
 const partnerListSource = source.slice(
@@ -25,8 +25,8 @@ const partnerListSource = source.slice(
 );
 
 describe("delivery partner pages source", () => {
-  it("keeps delivery KPI cards only on the overview page", () => {
-    expect(source).toContain('{view === "overview" ? (');
+  it("keeps delivery KPI cards only on the analytics page", () => {
+    expect(source).toContain('{view === "analytics" ? (');
     expect(source).toContain('className="metricGrid resourceMetrics deliveryMetricGrid"');
     expect(partnersViewSource).not.toContain("deliveryMetricGrid");
   });

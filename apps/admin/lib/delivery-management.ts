@@ -77,6 +77,8 @@ export type DeliveryPartnerPayment = {
 
 export type DeliveryPartnerWarehouse = {
   address: string;
+  /** When the partner was linked to this warehouse. */
+  associatedAt: string;
   city: string;
   code: string;
   contactNumber: string;
@@ -290,6 +292,14 @@ export function formatDeliveryDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short"
   });
+}
+
+export function formatDeliveryDate(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Date(value).toLocaleDateString("en-IN", { dateStyle: "medium" });
 }
 
 /** Dispatch picks up from the chosen pickup warehouse, or the order's own warehouse when none is chosen. */

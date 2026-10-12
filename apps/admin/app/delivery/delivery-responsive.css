@@ -163,6 +163,11 @@
   margin: 0;
 }
 
+/* The requests page locks the status, so search and the actions share the row. */
+.deliveryModule .deliveryPartnerFilters[data-status-filter="hidden"] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .deliveryModule .deliveryPartnerFilterActions {
   display: grid;
   gap: 6px;
@@ -782,6 +787,10 @@
     grid-column: 1 / -1;
   }
 
+  .deliveryModule .deliveryPartnerFilters[data-status-filter="hidden"] > :first-child {
+    grid-column: auto;
+  }
+
   .deliveryModule .deliveryPartnerFormGrid {
     grid-template-columns: 1fr;
   }
@@ -1196,7 +1205,8 @@
     padding: 12px;
   }
 
-  .deliveryModule .deliveryPartnerFilters {
+  .deliveryModule .deliveryPartnerFilters,
+  .deliveryModule .deliveryPartnerFilters[data-status-filter="hidden"] {
     grid-template-columns: 1fr;
   }
 

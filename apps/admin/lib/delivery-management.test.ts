@@ -45,6 +45,7 @@ const salaryPay: DeliveryPartnerPayment = {
 };
 const warehouse = (id: string, name = `Warehouse ${id}`) => ({
   address: "Plot 1",
+  associatedAt: "2026-09-01T10:00:00.000Z",
   city: "Pune",
   code: id.toUpperCase(),
   contactNumber: "+919000000000",

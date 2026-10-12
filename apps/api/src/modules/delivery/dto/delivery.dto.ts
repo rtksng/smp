@@ -617,6 +617,12 @@ export class DeliveryPartnerWarehouseResponseDto {
 
   @ApiProperty({ example: "+911145678900" })
   contactNumber!: string;
+
+  @ApiProperty({
+    description: "When the delivery partner was associated with this warehouse.",
+    example: "2026-10-01T09:30:00.000Z"
+  })
+  associatedAt!: Date;
 }
 
 export class DeliveryPartnerPaymentResponseDto {

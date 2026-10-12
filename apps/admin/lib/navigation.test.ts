@@ -101,6 +101,22 @@ describe("admin navigation", () => {
     ]);
   });
 
+  it("shows delivery pages as a dropdown under delivery for delivery readers", () => {
+    const deliveryItem = getVisibleNavigationItems([ADMIN_PERMISSION.DeliveryRead]).find(
+      (item) => item.label === "Delivery"
+    );
+
+    expect(deliveryItem?.dropdown).toBe(true);
+    expect(
+      deliveryItem?.children?.map(({ href, label }) => ({ href, label }))
+    ).toEqual([
+      { href: "/delivery/partners", label: "All Delivery Partners" },
+      { href: "/delivery/requests", label: "All Requests" },
+      { href: "/delivery/assignments", label: "All Assignments" },
+      { href: "/delivery", label: "Analytics" }
+    ]);
+  });
+
   it("keeps warehouse child tabs permission-aware", () => {
     const warehousesItem = getVisibleNavigationItems([
       ADMIN_PERMISSION.WarehouseRead

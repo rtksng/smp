@@ -127,7 +127,8 @@ export function createDeliveryPrismaMock(input?: {
     updatedAt: now,
     vehicleNumber: "DL01AB1234",
     walletBalance: "0.00",
-    warehouses: [{ warehouse: pickupWarehouse, warehouseId }] as Array<{
+    warehouses: [{ createdAt: now, warehouse: pickupWarehouse, warehouseId }] as Array<{
+      createdAt: Date;
       warehouse: typeof pickupWarehouse;
       warehouseId: string;
     }>
@@ -338,7 +339,7 @@ export function createDeliveryPrismaMock(input?: {
         calls.deliveryPartnerWarehouseCreateMany.push(args);
         for (const { warehouseId: id } of args.data) {
           if (!deliveryPartner.warehouses.some((link) => link.warehouseId === id)) {
-            deliveryPartner.warehouses.push({ warehouse: { ...pickupWarehouse, id }, warehouseId: id });
+            deliveryPartner.warehouses.push({ createdAt: new Date(), warehouse: { ...pickupWarehouse, id }, warehouseId: id });
           }
         }
         return { count: args.data.length };

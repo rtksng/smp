@@ -1958,8 +1958,10 @@ export class DeliveryService {
       updatedAt: partner.updatedAt,
       vehicleNumber: partner.vehicleNumber,
       wallet: serializeWallet(partner),
-      warehouses: partner.warehouses.map(({ warehouse }) => ({
+      // Warehouse edits keep existing links, so the link's createdAt is when the partner joined that warehouse.
+      warehouses: partner.warehouses.map(({ createdAt, warehouse }) => ({
         address: warehouse.address,
+        associatedAt: createdAt,
         city: warehouse.city,
         code: warehouse.code,
         contactNumber: warehouse.contactNumber,

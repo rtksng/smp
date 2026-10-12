@@ -2,8 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatSalaryPeriod, getCurrentSalaryPeriod } from "../../../lib/delivery-management";
-import { DeliveryPartnerDetailPage, DeliveryPartnersPage } from "./delivery-sections";
+import {
+  formatDeliveryDate,
+  formatSalaryPeriod,
+  getCurrentSalaryPeriod
+} from "../../../lib/delivery-management";
+import {
+  DeliveryPartnerDetailPage,
+  DeliveryPartnersPage,
+  DeliveryRequestsPage
+} from "./delivery-sections";
 
 const access = vi.hoisted(() => ({
   permissions: new Set<string>(),
@@ -36,6 +44,7 @@ vi.mock("@/components/ui/select", () => ({
 
 const alpha = {
   address: "Plot 1",
+  associatedAt: "2026-09-02T10:00:00.000Z",
   city: "Pune",
   code: "ALP",
   contactNumber: "+919000000000",
@@ -125,6 +134,10 @@ function renderPage(page: ReactNode) {
   render(<QueryClientProvider client={client}>{page}</QueryClientProvider>);
 }
 
+function detailValue(label: string) {
+  return screen.getByText(label, { selector: ".detailItem span" }).nextElementSibling?.textContent;
+}
+
 function metricValue(label: string) {
   return screen.getByText(label, { selector: ".metricCardContent span" }).nextElementSibling?.textContent;
 }
@@ -169,6 +182,64 @@ describe("Delivery partners list", () => {
   });
 });
 
+describe("Delivery partner requests", () => {
+  it("lists pending applications only and approves one after confirmation", async () => {
+    grant(["delivery.read", "delivery.partners.manage", "delivery.assign"]);
+    const approvals: Array<string | undefined> = [];
+    mockApi({
+      "/admin/delivery/assignments": () => list([]),
+      "/admin/delivery-partners": () => list([applicant]),
+      "/admin/delivery-partners/partner-2/approve": ({ method }) => {
+        approvals.push(method);
+        return { ...applicant, status: "ACTIVE" };
+      }
+    });
+    renderPage(<DeliveryRequestsPage />);
+
+    const table = await screen.findByRole("table", { name: "Delivery partners" });
+    expect(within(table).getByText("New Applicant")).toBeInTheDocument();
+    expect(access.request).toHaveBeenCalledWith("/admin/delivery-partners", {
+      query: { limit: 20, page: 1, search: undefined, status: "PENDING_VERIFICATION" }
+    });
+    expect(screen.getByRole("heading", { name: "Pending applications" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Partner status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Add partner" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(table).getByRole("button", { name: "Approve" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Approve partner" }));
+
+    expect(await screen.findByText("Delivery partner approved.")).toBeInTheDocument();
+    expect(approvals).toEqual(["PATCH"]);
+  });
+
+  it("keeps the pending filter through search and reset", async () => {
+    grant(["delivery.read"]);
+    mockApi({
+      "/admin/delivery/assignments": () => list([]),
+      "/admin/delivery-partners": () => list([])
+    });
+    renderPage(<DeliveryRequestsPage />);
+
+    expect(await screen.findByText("No pending requests")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search delivery partners"), { target: { value: "Ravi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(access.request).toHaveBeenCalledWith("/admin/delivery-partners", {
+        query: { limit: 20, page: 1, search: "Ravi", status: "PENDING_VERIFICATION" }
+      })
+    );
+
+    access.request.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await waitFor(() =>
+      expect(access.request).toHaveBeenCalledWith("/admin/delivery-partners", {
+        query: { limit: 20, page: 1, search: undefined, status: "PENDING_VERIFICATION" }
+      })
+    );
+  });
+});
+
 describe("Delivery partner detail", () => {
   it("shows warehouses, pay, earnings, and records a salary credit after confirmation", async () => {
     grant(["delivery.read", "delivery.partners.manage", "delivery.payouts.manage"]);
@@ -184,7 +255,9 @@ describe("Delivery partner detail", () => {
     });
     renderPage(<DeliveryPartnerDetailPage partnerId="partner-1" />);
 
-    expect(await screen.findByText("Alpha Store (ALP)")).toBeInTheDocument();
+    expect(await screen.findAllByText("Alpha Store (ALP)")).toHaveLength(2);
+    expect(detailValue("Associated warehouse")).toBe("Alpha Store (ALP)");
+    expect(detailValue("Association date")).toBe(formatDeliveryDate(alpha.associatedAt));
     expect(screen.getAllByText("₹18,000 / month salary").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Edit partner" })).toHaveAttribute("href", "/delivery/partners/partner-1/edit");
 
@@ -246,6 +319,8 @@ describe("Delivery partner detail", () => {
     expect(
       await screen.findByText("Assign at least one warehouse before dispatching orders to this partner.")
     ).toBeInTheDocument();
+    expect(detailValue("Associated warehouse")).toBe("Not assigned");
+    expect(detailValue("Association date")).toBe("-");
     expect(screen.getByText("Pay not set")).toBeInTheDocument();
     expect(await screen.findByText("No payments yet")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Edit partner" })).not.toBeInTheDocument();

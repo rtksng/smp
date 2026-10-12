@@ -10,7 +10,7 @@ import type { AnchorHTMLAttributes, ReactNode, Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminShell } from "./admin-shell";
 
-const mocks = vi.hoisted(() => ({ pathname: "/dashboard" }));
+const mocks = vi.hoisted(() => ({ pathname: "/dashboard", permissions: [] as string[] }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => mocks.pathname }));
 vi.mock("next/link", () => ({
@@ -57,11 +57,13 @@ vi.mock("@/components/admin/admin-topbar", () => ({
 }));
 vi.mock("../lib/admin-session", () => ({
   ProtectedRoute: ({ children }: { children: ReactNode }) => children,
-  useAdminSession: () => ({ admin: { permissions: [] } })
+  useAdminSession: () => ({ admin: { permissions: mocks.permissions } })
 }));
 
 describe("AdminShell navigation", () => {
   beforeEach(() => {
+    mocks.pathname = "/dashboard";
+    mocks.permissions = [];
     window.localStorage.clear();
     document.body.style.overflow = "";
   });
@@ -139,6 +141,66 @@ describe("AdminShell navigation", () => {
     );
     expect(window.localStorage.getItem("surgical.admin.sidebarCollapsed")).toBe(
       "false"
+    );
+  });
+
+  it("lists delivery pages in a dropdown that highlights only the current page", () => {
+    mocks.pathname = "/delivery/requests";
+    mocks.permissions = ["delivery.read"];
+    render(
+      <AdminShell>
+        <p>Delivery content</p>
+      </AdminShell>
+    );
+    const sidebar = within(document.getElementById("admin-sidebar")!);
+    const toggle = sidebar.getByRole("button", { name: "Delivery" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const menu = within(document.getElementById(toggle.getAttribute("aria-controls")!)!);
+    expect(
+      menu.getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])
+    ).toEqual([
+      ["All Delivery Partners", "/delivery/partners"],
+      ["All Requests", "/delivery/requests"],
+      ["All Assignments", "/delivery/assignments"],
+      ["Analytics", "/delivery"]
+    ]);
+    expect(menu.getByRole("link", { name: "All Requests" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(menu.getByRole("link", { name: "Analytics" })).not.toHaveAttribute(
+      "aria-current"
+    );
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(sidebar.queryByRole("link", { name: "All Requests" })).not.toBeInTheDocument();
+  });
+
+  it("opens the delivery dropdown from another section without leaving the page", () => {
+    mocks.permissions = ["delivery.read"];
+    render(
+      <AdminShell>
+        <p>Dashboard content</p>
+      </AdminShell>
+    );
+    const sidebar = within(document.getElementById("admin-sidebar")!);
+    const toggle = sidebar.getByRole("button", { name: "Delivery" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(sidebar.queryByRole("link", { name: "Analytics" })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(sidebar.getByRole("link", { name: "Analytics" })).toHaveAttribute(
+      "href",
+      "/delivery"
+    );
+    expect(sidebar.getByRole("link", { name: "Analytics" })).not.toHaveAttribute(
+      "aria-current"
     );
   });
 });
