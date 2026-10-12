@@ -125,7 +125,12 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
       { href: "/delivery/partners", label: "All Delivery Partners" },
       { href: "/delivery/requests", label: "All Requests" },
       { href: "/delivery/assignments", label: "All Assignments" },
-      { href: "/delivery", label: "Analytics" }
+      { href: "/delivery", label: "Analytics" },
+      {
+        href: "/delivery/assign",
+        label: "Assign Order",
+        permissions: [ADMIN_PERMISSION.DeliveryAssign]
+      }
     ],
     permissions: [ADMIN_PERMISSION.DeliveryRead]
   },

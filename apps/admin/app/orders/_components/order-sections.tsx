@@ -20,7 +20,7 @@ import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { PaymentStatusBadge, StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -463,7 +463,8 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
             <TableHead className="bulkCheckboxCell"><BulkPageCheckbox selection={bulk} /></TableHead>
             <TableHead className="ordersOrderCell">Order</TableHead>
             <TableHead>Customer</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>Order status</TableHead>
+            <TableHead>Payment</TableHead>
             <TableHead>Warehouse</TableHead>
             <TableHead>Delivery partner</TableHead>
             <TableHead>Total</TableHead>
@@ -484,11 +485,11 @@ function OrdersTable({ orders, bulk }: { orders: AdminOrder[]; bulk: BulkSelecti
             </strong>
             <em>{order.customer.mobileNumber}</em>
           </TableCell>
-          <TableCell className="ordersStatusCell">
-            <span className="ordersStatusStack">
-              <StatusBadge status={order.status} />
-              <StatusBadge status={order.paymentStatus} />
-            </span>
+          <TableCell className="ordersStatusCell" data-label="Order status">
+            <StatusBadge status={order.status} />
+          </TableCell>
+          <TableCell className="ordersPaymentCell" data-label="Payment">
+            <PaymentStatusBadge status={order.paymentStatus} />
           </TableCell>
           <TableCell className="ordersWarehouseCell" data-label="Warehouse">
             {order.warehouse?.name ?? order.warehouseId ?? "Unassigned"}

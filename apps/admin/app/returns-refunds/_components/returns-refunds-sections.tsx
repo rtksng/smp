@@ -18,7 +18,7 @@ import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { PaymentStatusBadge, StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -677,7 +677,7 @@ function ReturnRequestsTable({
                     ) : null}
                   </TableCell>
                   <TableCell className="returnsRefundsPaymentCell" data-label="Payment">
-                    <StatusBadge status={order.paymentStatus} />
+                    <PaymentStatusBadge status={order.paymentStatus} />
                     <em>{payment ? formatCurrency(payment.amount) : "No payment row"}</em>
                     {payment?.providerPaymentId ? (
                       <em>{payment.providerPaymentId}</em>

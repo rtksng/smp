@@ -146,7 +146,7 @@ describe("AdminShell navigation", () => {
 
   it("lists delivery pages in a dropdown that highlights only the current page", () => {
     mocks.pathname = "/delivery/requests";
-    mocks.permissions = ["delivery.read"];
+    mocks.permissions = ["delivery.read", "delivery.assign"];
     render(
       <AdminShell>
         <p>Delivery content</p>
@@ -163,7 +163,8 @@ describe("AdminShell navigation", () => {
       ["All Delivery Partners", "/delivery/partners"],
       ["All Requests", "/delivery/requests"],
       ["All Assignments", "/delivery/assignments"],
-      ["Analytics", "/delivery"]
+      ["Analytics", "/delivery"],
+      ["Assign Order", "/delivery/assign"]
     ]);
     expect(menu.getByRole("link", { name: "All Requests" })).toHaveAttribute(
       "aria-current",

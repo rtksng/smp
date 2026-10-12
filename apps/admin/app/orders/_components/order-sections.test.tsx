@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OrdersLandingPage } from "./order-sections";
 
@@ -35,7 +35,7 @@ describe("Orders report destination", () => {
     client.clear();
   });
 
-  it("shows the assigned delivery partner in the orders table", async () => {
+  it("shows order status, payment, and the assigned delivery partner in their own columns", async () => {
     request.mockResolvedValue({
       items: [
         {
@@ -84,6 +84,12 @@ describe("Orders report destination", () => {
       await screen.findByRole("columnheader", { name: "Delivery partner" })
     ).toBeInTheDocument();
     expect(screen.getByText("Asha Driver")).toBeInTheDocument();
+    const headers = screen.getAllByRole("columnheader").map((header) => header.textContent);
+    const cells = within(screen.getAllByRole("row")[1]!)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent);
+    expect(cells[headers.indexOf("Order status")]).toBe("assigned");
+    expect(cells[headers.indexOf("Payment")]).toBe("paid");
     client.clear();
   });
 

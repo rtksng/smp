@@ -37,7 +37,8 @@ describe("Delivery responsive layout", () => {
     expect(responsiveStyles).toContain(
       "grid-template-columns: repeat(2, minmax(0, 1fr))"
     );
-    expect(responsiveStyles).toContain(".deliverySectionNav");
+    expect(source).not.toContain("deliverySectionNav");
+    expect(responsiveStyles).not.toContain(".deliverySectionNav");
     expect(responsiveStyles).toContain(".bulkDeliverySection .bulkActionForm");
     expect(responsiveStyles).toContain(".deliveryTableHint");
   });

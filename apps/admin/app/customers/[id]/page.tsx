@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/admin/empty-state";
 import { LoadingState } from "@/components/admin/loading-state";
 import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { PaymentStatusBadge, StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -437,7 +437,7 @@ function CustomerOrdersTable({
                 <StatusBadge status={order.status} />
               </TableCell>
               <TableCell className="customerOrderPaymentCell" data-label="Payment">
-                <StatusBadge status={order.paymentStatus} />
+                <PaymentStatusBadge status={order.paymentStatus} />
               </TableCell>
               <TableCell className="customerOrderTotalCell" data-label="Total">
                 {formatCurrency(order.grandTotal)}

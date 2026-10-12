@@ -46,7 +46,9 @@ describe("Orders responsive layout", () => {
 
   it("turns order and item rows into labelled cards on phones", () => {
     expect(listSource).toContain('data-label="Delivery partner"');
-    expect(listSource).toContain("ordersStatusStack");
+    expect(listSource).toContain('data-label="Order status"');
+    expect(listSource).toContain('data-label="Payment"');
+    expect(responsiveStyles).toContain('"check status payment"');
     expect(listSource).toContain("ordersFilterCount");
     expect(detailSource).toContain('data-label="Warehouse"');
     expect(responsiveStyles).toContain('"check warehouse partner"');

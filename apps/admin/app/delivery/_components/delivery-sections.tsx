@@ -127,45 +127,6 @@ const emptyAssignmentForm: AssignDeliveryValues = {
 type DeliveryView = "analytics" | "partners" | "requests" | "assignments" | "assign";
 type AssignmentFilters = DeliveryAssignmentFilters & { search: string };
 
-// Follows the order of the Delivery dropdown in the sidebar, plus the assign form.
-const deliverySections: Array<{
-  description: string;
-  href: string;
-  id: DeliveryView;
-  title: string;
-}> = [
-  {
-    description: "Add, approve, and review delivery partners, their warehouses, pay, and documents.",
-    href: "/delivery/partners",
-    id: "partners",
-    title: "Partners"
-  },
-  {
-    description: "Approve or reject delivery partner applications awaiting verification.",
-    href: "/delivery/requests",
-    id: "requests",
-    title: "Requests"
-  },
-  {
-    description: "Track assigned orders, pickup locations, proof, and issues.",
-    href: "/delivery/assignments",
-    id: "assignments",
-    title: "Assignments"
-  },
-  {
-    description: "Delivery metrics and charts across partners and assignments.",
-    href: "/delivery",
-    id: "analytics",
-    title: "Analytics"
-  },
-  {
-    description: "Assign ready orders to active delivery partners.",
-    href: "/delivery/assign",
-    id: "assign",
-    title: "Assign order"
-  }
-];
-
 const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
   analytics: {
     summary: "Review delivery coverage, partner availability, and assignment trends.",
@@ -560,7 +521,6 @@ function DeliveryContent({
   return (
     <div className="deliveryModule" data-delivery-view={view}>
       <section className="panel deliveryOverviewPanel">
-        <DeliverySectionNav active={view} />
         <PageHeader
           actions={
             <div className="actionRow deliveryHeaderActions">
@@ -804,22 +764,6 @@ function createPartnerFilters(view: DeliveryView): DeliveryPartnerFilters {
   return view === "requests"
     ? { ...createEmptyDeliveryPartnerFilters(), status: "PENDING_VERIFICATION" }
     : createEmptyDeliveryPartnerFilters();
-}
-
-function DeliverySectionNav({ active }: { active: DeliveryView }) {
-  return (
-    <nav className="deliverySectionNav" aria-label="Delivery sections">
-      {deliverySections.map((section) => (
-        <Link
-          aria-current={active === section.id ? "page" : undefined}
-          href={section.href}
-          key={section.id}
-        >
-          {section.title}
-        </Link>
-      ))}
-    </nav>
-  );
 }
 
 type DeliveryStatusChartRow = {

@@ -2376,7 +2376,6 @@ h2 {
 .couponSectionNav,
 .quoteRequestSectionNav,
 .productFeedbackSectionNav,
-.deliverySectionNav,
 .returnsRefundsSectionNav {
   align-items: center;
   background: var(--surface-muted);
@@ -2396,7 +2395,6 @@ h2 {
 .couponSectionNav a,
 .quoteRequestSectionNav a,
 .productFeedbackSectionNav a,
-.deliverySectionNav a,
 .returnsRefundsSectionNav a {
   align-items: center;
   background: transparent;
@@ -2421,7 +2419,6 @@ h2 {
 .couponSectionNav a:hover,
 .quoteRequestSectionNav a:hover,
 .productFeedbackSectionNav a:hover,
-.deliverySectionNav a:hover,
 .returnsRefundsSectionNav a:hover {
   background: var(--surface);
   border-color: var(--border);
@@ -2434,7 +2431,6 @@ h2 {
 .couponSectionNav a[aria-current="page"],
 .quoteRequestSectionNav a[aria-current="page"],
 .productFeedbackSectionNav a[aria-current="page"],
-.deliverySectionNav a[aria-current="page"],
 .returnsRefundsSectionNav a[aria-current="page"] {
   background: var(--primary);
   border-color: var(--primary);
@@ -5209,7 +5205,6 @@ h2 {
   .deliveryChargeSectionNav,
   .couponSectionNav,
   .quoteRequestSectionNav,
-  .deliverySectionNav,
   .returnsRefundsSectionNav {
     align-items: stretch;
     flex-direction: column;
@@ -5263,7 +5258,6 @@ h2 {
   .deliveryChargeSectionNav,
   .couponSectionNav,
   .quoteRequestSectionNav,
-  .deliverySectionNav,
   .returnsRefundsSectionNav {
     width: 100%;
   }
@@ -5275,7 +5269,6 @@ h2 {
   .deliveryChargeSectionNav a,
   .couponSectionNav a,
   .quoteRequestSectionNav a,
-  .deliverySectionNav a,
   .returnsRefundsSectionNav a,
   .fileUploadButton {
     width: 100%;

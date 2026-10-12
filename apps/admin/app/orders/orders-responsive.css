@@ -240,13 +240,6 @@
   font-size: 11px;
 }
 
-.ordersModule .ordersStatusStack {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .ordersModule .ordersTable td.ordersTotalCell,
 .ordersModule .orderItemsTable td.orderItemTotalCell {
   color: var(--text);
@@ -661,7 +654,7 @@
   .ordersModule .ordersTable tbody tr {
     grid-template-areas:
       "check order order"
-      "check status status"
+      "check status payment"
       "check customer customer"
       "check warehouse partner"
       "check total action";
@@ -685,10 +678,8 @@
     grid-area: status;
   }
 
-  .ordersModule .ordersStatusStack {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
+  .ordersModule .ordersTable tbody td.ordersPaymentCell {
+    grid-area: payment;
   }
 
   .ordersModule .ordersTable tbody td.ordersCustomerCell {

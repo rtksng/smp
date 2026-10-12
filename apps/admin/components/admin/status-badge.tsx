@@ -33,14 +33,28 @@ const statusToneClassName: Record<string, string> = {
   suspended: "bg-[#fee2e2] text-[#991b1b]"
 };
 
+// A pending payment means money is still owed, so it takes the warning tone instead of the calm "waiting" tone.
+const paymentStatusToneClassName: Record<string, string> = {
+  ...statusToneClassName,
+  pending: "bg-[#fff4dc] text-[#8a4b00]"
+};
+
 export function StatusBadge({ status }: { status: string }) {
+  return <ToneBadge status={status} tones={statusToneClassName} />;
+}
+
+export function PaymentStatusBadge({ status }: { status: string }) {
+  return <ToneBadge status={status} tones={paymentStatusToneClassName} />;
+}
+
+function ToneBadge({ status, tones }: { status: string; tones: Record<string, string> }) {
   const normalized = status.toLowerCase();
 
   return (
     <Badge
       className={cn(
         "statusBadge capitalize",
-        statusToneClassName[normalized] ?? "bg-muted text-muted-foreground"
+        tones[normalized] ?? "bg-muted text-muted-foreground"
       )}
     >
       {normalized.replaceAll("_", " ")}

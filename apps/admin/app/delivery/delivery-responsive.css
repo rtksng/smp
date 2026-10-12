@@ -49,30 +49,6 @@
   margin-top: 0;
 }
 
-/* Section tabs mirror the settings, coupon, and delivery charge modules. */
-.deliveryModule .deliverySectionNav {
-  display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(4, minmax(96px, 1fr));
-  justify-self: start;
-  margin: 0;
-  padding: 4px;
-}
-
-.deliveryModule .deliverySectionNav a {
-  border-radius: 6px;
-  font-weight: 750;
-  justify-content: center;
-  min-height: 36px;
-  min-width: 0;
-  padding: 8px 14px;
-  text-align: center;
-}
-
-.deliveryModule .deliverySectionNav a[aria-current="page"] {
-  box-shadow: 0 2px 8px rgba(15, 111, 104, 0.18);
-}
-
 /* Headers keep their actions on the same row instead of stacking at tablet widths. */
 .deliveryModule .adminPageHeader {
   align-items: center;
@@ -811,19 +787,6 @@
   .deliveryModule .deliveryChartPanel {
     gap: 12px;
     padding: 12px;
-  }
-
-  /* Four tabs sit two by two at a readable size instead of shrinking to 10px text. */
-  .deliveryModule .deliverySectionNav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-self: stretch;
-    width: 100%;
-  }
-
-  .deliveryModule .deliverySectionNav a {
-    font-size: 12px;
-    padding-inline: 6px;
-    width: 100%;
   }
 
   .deliveryModule .adminPageHeader {
