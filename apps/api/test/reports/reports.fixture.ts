@@ -51,8 +51,14 @@ export function fixtureAuth(permissions: string[] = [PermissionCode.ReportsRead]
 }
 
 export function createReportsServiceFixture(assignedWarehouseIds: string[] = []) {
-  const calls: { rawSql: string[]; orderWhere: OrderWhere[]; warehouseWhere: unknown[] } = {
-    rawSql: [], orderWhere: [], warehouseWhere: []
+  const calls: {
+    deliveryPartnerWhere: unknown[];
+    orderWhere: OrderWhere[];
+    rawSql: string[];
+    userWhere: unknown[];
+    warehouseWhere: unknown[];
+  } = {
+    deliveryPartnerWhere: [], orderWhere: [], rawSql: [], userWhere: [], warehouseWhere: []
   };
   const matchValue = (value: string, filter: string | { in: string[] } | undefined) =>
     !filter || (typeof filter === "string" ? value === filter : filter.in.includes(value));
@@ -71,8 +77,18 @@ export function createReportsServiceFixture(assignedWarehouseIds: string[] = [])
         _sum: { grandTotal: filterOrders(where).reduce((total, order) => total + order.grandTotal, 0) }
       })
     },
-    user: { count: async () => 12 },
-    deliveryPartner: { count: async () => 4 },
+    user: {
+      count: async ({ where }: { where: unknown }) => {
+        calls.userWhere.push(where);
+        return 12;
+      }
+    },
+    deliveryPartner: {
+      count: async ({ where }: { where: unknown }) => {
+        calls.deliveryPartnerWhere.push(where);
+        return 4;
+      }
+    },
     inventoryStock: {
       fields: { reorderLevel: "reorderLevel" },
       count: async ({ where }: { where: { warehouseId?: OrderWhere["warehouseId"] } }) =>

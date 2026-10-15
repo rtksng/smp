@@ -1,22 +1,30 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import { AdminStatus, WarehouseStatus } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
+import { PasswordService } from "../auth/common/password.service";
 import { AdminRoleCode } from "../roles/roles.constants";
 import type {
   AssignWarehouseStaffDto,
   CreateWarehouseDto,
+  CreateWarehouseStaffAccountDto,
   UpdateWarehouseDto,
   WarehouseListQueryDto
 } from "./dto/warehouse.dto";
-import { WarehouseAccessService } from "./warehouse-access.service";
+import {
+  assertSuperAdmin,
+  isSuperAdmin,
+  WarehouseAccessService
+} from "./warehouse-access.service";
 
 type DecimalValue = number | string | { toNumber?: () => number; toString: () => string };
 type WarehouseRecord = {
@@ -44,6 +52,14 @@ const STAFF_ADMIN_USER_SELECT = {
   role: { select: { code: true, id: true, name: true } }
 } as const satisfies Prisma.AdminUserSelect;
 
+// Super admins reach every warehouse without a staff row, so staff lists and
+// pickers leave them out.
+const NOT_SUPER_ADMIN = {
+  role: { code: { not: AdminRoleCode.SuperAdmin } }
+} as const satisfies Prisma.AdminUserWhereInput;
+
+const SUPER_ADMIN_ONLY_MESSAGE = "Only the super admin can create or configure warehouses.";
+
 export type AdminActionContext = {
   auth: AuthJwtPayload;
   ipAddress?: string;
@@ -54,10 +70,13 @@ export type AdminActionContext = {
 export class WarehousesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly warehouseAccessService: WarehouseAccessService
+    private readonly warehouseAccessService: WarehouseAccessService,
+    @Optional() private readonly passwordService?: PasswordService
   ) {}
 
   async createWarehouse(input: CreateWarehouseDto, context: AdminActionContext) {
+    assertSuperAdmin(context.auth, SUPER_ADMIN_ONLY_MESSAGE);
+
     try {
       const warehouse = await this.prisma.$transaction(async (tx) => {
         const createdWarehouse = await tx.warehouse.create({
@@ -76,26 +95,11 @@ export class WarehousesService {
           }
         });
 
-        await tx.warehouseStaff.create({
-          data: {
-            adminUserId: context.auth.sub,
-            warehouseId: createdWarehouse.id
-          }
-        });
         await this.writeAuditLog(tx, context, {
           action: "warehouse.create",
           after: createdWarehouse,
           entityId: createdWarehouse.id,
           entityType: "Warehouse"
-        });
-        await this.writeAuditLog(tx, context, {
-          action: "warehouse_staff.assign",
-          after: {
-            adminUserId: context.auth.sub,
-            warehouseId: createdWarehouse.id
-          },
-          entityId: createdWarehouse.id,
-          entityType: "WarehouseStaff"
         });
 
         return createdWarehouse;
@@ -151,7 +155,7 @@ export class WarehousesService {
     input: UpdateWarehouseDto,
     context: AdminActionContext
   ) {
-    await this.warehouseAccessService.assertCanManageWarehouse(context.auth, id);
+    assertSuperAdmin(context.auth, SUPER_ADMIN_ONLY_MESSAGE);
     const existingWarehouse = await this.findExistingWarehouse(id);
 
     try {
@@ -189,7 +193,7 @@ export class WarehousesService {
   }
 
   async deleteWarehouse(id: string, context: AdminActionContext) {
-    await this.warehouseAccessService.assertCanManageWarehouse(context.auth, id);
+    assertSuperAdmin(context.auth, SUPER_ADMIN_ONLY_MESSAGE);
     const existingWarehouse = await this.findExistingWarehouse(id);
     await this.prisma.$transaction(async (tx) => {
       await this.assertWarehouseSafeToDelete(tx, id);
@@ -207,6 +211,8 @@ export class WarehousesService {
         data: { deletedAt },
         where: { warehouseId: id, deletedAt: null }
       });
+      // The warehouse holds no stock, so its product assignments can go with it.
+      await tx.productWarehouse.deleteMany({ where: { warehouseId: id } });
 
       await this.writeAuditLog(tx, context, {
         action: "warehouse.delete",
@@ -240,6 +246,12 @@ export class WarehousesService {
     if (!adminUser) {
       throw new NotFoundException("Admin user was not found.");
     }
+
+    if (adminUser.role.code === AdminRoleCode.SuperAdmin) {
+      throw new BadRequestException("Super admins already have access to every warehouse.");
+    }
+
+    await this.assertStaffInCallerScope(context.auth, input.adminUserId);
 
     const assignment = await this.prisma.$transaction(async (tx) => {
       const existingAssignment = await tx.warehouseStaff.findFirst({
@@ -281,6 +293,7 @@ export class WarehousesService {
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       where: {
+        adminUser: { deletedAt: null, ...NOT_SUPER_ADMIN },
         deletedAt: null,
         warehouseId
       }
@@ -289,9 +302,39 @@ export class WarehousesService {
     return assignments.map((assignment) => this.serializeStaffAssignment(assignment));
   }
 
+  /**
+   * Existing admins who can be added to this warehouse. Warehouse-level admins see
+   * only people who already work at one of their own warehouses; anyone new joins
+   * through a staff account created for the warehouse.
+   */
   async listStaffCandidates(warehouseId: string, auth: AuthJwtPayload) {
     await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
     await this.findExistingWarehouse(warehouseId);
+
+    const where: Prisma.AdminUserWhereInput = {
+      deletedAt: null,
+      ...NOT_SUPER_ADMIN,
+      status: AdminStatus.ACTIVE,
+      warehouses: {
+        none: {
+          deletedAt: null,
+          warehouseId
+        }
+      }
+    };
+
+    if (!isSuperAdmin(auth)) {
+      const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+      const warehouseIds = scope.allWarehouses ? [] : scope.warehouseIds;
+
+      where.AND = [
+        {
+          warehouses: {
+            some: { deletedAt: null, warehouseId: { in: warehouseIds } }
+          }
+        }
+      ];
+    }
 
     const adminUsers = await this.prisma.adminUser.findMany({
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { email: "asc" }],
@@ -308,22 +351,111 @@ export class WarehousesService {
           }
         }
       },
-      where: {
-        deletedAt: null,
-        status: AdminStatus.ACTIVE,
-        warehouses: {
-          none: {
-            deletedAt: null,
-            warehouseId
-          }
-        }
-      }
+      where
     });
 
     return adminUsers.map(({ id, ...adminUser }) => ({
       adminUserId: id,
       ...adminUser
     }));
+  }
+
+  /** Roles the admin may give a new staff account: never more than the admin holds. */
+  async listAssignableStaffRoles(warehouseId: string, auth: AuthJwtPayload) {
+    await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+    await this.findExistingWarehouse(warehouseId);
+
+    const roles = await this.findGrantableRoles(this.prisma, auth);
+
+    return roles.map((role) => ({
+      code: role.code,
+      description: role.description,
+      id: role.id,
+      name: role.name
+    }));
+  }
+
+  /** Creates an admin account that starts out assigned to this warehouse only. */
+  async createStaffAccount(
+    warehouseId: string,
+    input: CreateWarehouseStaffAccountDto,
+    context: AdminActionContext
+  ) {
+    await this.warehouseAccessService.assertCanManageWarehouse(
+      context.auth,
+      warehouseId
+    );
+    await this.findExistingWarehouse(warehouseId);
+
+    if (!this.passwordService) {
+      throw new Error("Password hashing is not configured.");
+    }
+
+    const role = (await this.findGrantableRoles(this.prisma, context.auth)).find(
+      (item) => item.id === input.roleId
+    );
+
+    if (!role) {
+      throw new ForbiddenException(
+        "Choose a role from the list. Staff accounts cannot have more access than you."
+      );
+    }
+
+    const email = input.email.trim().toLowerCase();
+    const emailTaken = await this.prisma.adminUser.findFirst({
+      select: { id: true },
+      where: { deletedAt: null, email }
+    });
+
+    if (emailTaken) {
+      throw new ConflictException("Admin email already exists.");
+    }
+
+    const passwordHash = await this.passwordService.hash(input.password);
+
+    try {
+      const assignment = await this.prisma.$transaction(async (tx) => {
+        const adminUser = await tx.adminUser.create({
+          data: {
+            email,
+            firstName: input.firstName.trim(),
+            lastName: input.lastName ?? null,
+            mobileNumber: input.mobileNumber ?? null,
+            passwordHash,
+            roleId: role.id,
+            status: AdminStatus.ACTIVE
+          },
+          select: { id: true, ...STAFF_ADMIN_USER_SELECT }
+        });
+        const createdAssignment = await tx.warehouseStaff.create({
+          data: { adminUserId: adminUser.id, warehouseId }
+        });
+        const { id: adminUserId, ...staffProfile } = adminUser;
+
+        await this.writeAuditLog(tx, context, {
+          action: "admin_user.create",
+          after: { adminUserId, ...staffProfile, warehouseId },
+          entityId: adminUserId,
+          entityType: "AdminUser"
+        });
+        await this.writeAuditLog(tx, context, {
+          action: "warehouse_staff.assign",
+          after: createdAssignment,
+          entityId: createdAssignment.id,
+          entityType: "WarehouseStaff"
+        });
+
+        return { ...createdAssignment, adminUser: staffProfile };
+      });
+
+      return this.serializeStaffAssignment(assignment);
+    } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        throw new ConflictException("Admin email or mobile number already exists.");
+      }
+
+      throw error;
+    }
   }
 
   async removeStaff(
@@ -336,8 +468,16 @@ export class WarehousesService {
       warehouseId
     );
     await this.findExistingWarehouse(warehouseId);
+
+    if (!isSuperAdmin(context.auth) && staffId === context.auth.sub) {
+      throw new BadRequestException(
+        "You cannot remove yourself from a warehouse. Ask the super admin instead."
+      );
+    }
+
     const existingAssignment = await this.prisma.warehouseStaff.findFirst({
       where: {
+        adminUser: NOT_SUPER_ADMIN,
         adminUserId: staffId,
         deletedAt: null,
         warehouseId
@@ -373,7 +513,7 @@ export class WarehousesService {
     status: WarehouseStatus,
     context: AdminActionContext
   ) {
-    await this.warehouseAccessService.assertCanManageWarehouse(context.auth, id);
+    assertSuperAdmin(context.auth, SUPER_ADMIN_ONLY_MESSAGE);
     const existingWarehouse = await this.findExistingWarehouse(id);
 
     const warehouse = await this.prisma.$transaction(async (tx) => {
@@ -451,11 +591,71 @@ export class WarehousesService {
   }
 
   private async assertReadableWarehouse(auth: AuthJwtPayload, warehouseId: string) {
-    if (auth.role === AdminRoleCode.SuperAdmin) {
+    if (isSuperAdmin(auth)) {
       return;
     }
 
     await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+  }
+
+  /** Warehouse-level admins can add only people who already work at one of their warehouses. */
+  private async assertStaffInCallerScope(auth: AuthJwtPayload, adminUserId: string) {
+    if (isSuperAdmin(auth)) {
+      return;
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+    const sharedAssignment = scope.allWarehouses
+      ? true
+      : await this.prisma.warehouseStaff.findFirst({
+          select: { id: true },
+          where: {
+            adminUserId,
+            deletedAt: null,
+            warehouseId: { in: scope.warehouseIds }
+          }
+        });
+
+    if (!sharedAssignment) {
+      throw new ForbiddenException(
+        "You can add only people who already work at one of your warehouses. Create a staff account for anyone new."
+      );
+    }
+  }
+
+  private async findGrantableRoles(
+    client: Pick<Prisma.TransactionClient, "role"> | PrismaService,
+    auth: AuthJwtPayload
+  ) {
+    const roles = await client.role.findMany({
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: {
+        code: true,
+        description: true,
+        id: true,
+        name: true,
+        permissions: {
+          select: { permission: { select: { code: true } } },
+          where: { permission: { deletedAt: null } }
+        }
+      },
+      where: {
+        code: { not: AdminRoleCode.SuperAdmin },
+        deletedAt: null
+      }
+    });
+
+    if (isSuperAdmin(auth)) {
+      return roles;
+    }
+
+    const heldPermissions = new Set(auth.permissions ?? []);
+
+    return roles.filter(
+      (role) =>
+        role.permissions.length > 0 &&
+        role.permissions.every(({ permission }) => heldPermissions.has(permission.code))
+    );
   }
 
   private async findExistingWarehouse(id: string) {

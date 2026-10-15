@@ -184,17 +184,24 @@ export class ReportsService {
       this.prisma.stockBatch.count({
         where: nearExpiryWhere
       }),
+      // In a warehouse view, customers and partners count only when they belong to it.
       this.prisma.user.count({
-        where: {
+        where: stripUndefined({
           deletedAt: null,
-          isActive: true
-        }
+          isActive: true,
+          orders: warehouseFilter
+            ? { some: { deletedAt: null, warehouseId: warehouseFilter } }
+            : undefined
+        })
       }),
       this.prisma.deliveryPartner.count({
-        where: {
+        where: stripUndefined({
           deletedAt: null,
-          status: DeliveryPartnerStatus.ACTIVE
-        }
+          status: DeliveryPartnerStatus.ACTIVE,
+          warehouses: warehouseFilter
+            ? { some: { warehouseId: warehouseFilter } }
+            : undefined
+        })
       }),
       this.prisma.warehouse.count({
         where: activeWarehouseWhere
@@ -525,7 +532,7 @@ function addDays(date: Date, days: number) {
   return result;
 }
 
-function buildDashboardSeriesWindow(
+export function buildDashboardSeriesWindow(
   dateFrom: string | undefined,
   dateTo: string | undefined,
   now: Date
@@ -594,7 +601,7 @@ function dateRangeSql(column: Prisma.Sql, dateRange: DateRangeFilter | undefined
   return Prisma.sql`${lowerBound} ${upperBound}`;
 }
 
-function formatDateOnly(value: Date | string) {
+export function formatDateOnly(value: Date | string) {
   if (typeof value === "string") {
     return value.slice(0, 10);
   }
@@ -615,7 +622,7 @@ function getUtcDateKeysBetween(start: Date, end: Date) {
   return dates;
 }
 
-function getUtcDayRange(date: Date) {
+export function getUtcDayRange(date: Date) {
   const start = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
   );

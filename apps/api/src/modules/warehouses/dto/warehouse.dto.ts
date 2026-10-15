@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import {
+  IsEmail,
   IsEnum,
   IsInt,
   IsOptional,
@@ -245,6 +246,60 @@ export class AssignWarehouseStaffDto {
   adminUserId!: string;
 }
 
+const trimNullableText = ({ value }: { value: unknown }) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+/** A new admin account that starts out assigned to one warehouse. */
+export class CreateWarehouseStaffAccountDto {
+  @ApiProperty({ example: "picker@example.com" })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim().toLowerCase() : value
+  )
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+
+  @ApiProperty({ example: "Asha" })
+  @IsString()
+  @Transform(trimText)
+  @MinLength(1)
+  @MaxLength(120)
+  firstName!: string;
+
+  @ApiPropertyOptional({ example: "Rao", nullable: true })
+  @Transform(trimNullableText)
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  lastName?: string | null;
+
+  @ApiPropertyOptional({ example: "+919876543210", nullable: true })
+  @Transform(trimNullableText)
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+[1-9]\d{7,14}$/)
+  mobileNumber?: string | null;
+
+  @ApiProperty({ example: "StrongPass123", minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  password!: string;
+
+  @ApiProperty({
+    description: "Role for the new account. Use a role from the assignable roles list.",
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6"
+  })
+  @IsUUID("4")
+  roleId!: string;
+}
+
 export class WarehouseResponseDto {
   @ApiProperty({ example: "Plot 1, Surgical Park" })
   address!: string;
@@ -338,6 +393,20 @@ export class WarehouseStaffResponseDto {
 
   @ApiProperty({ example: "warehouse-id" })
   warehouseId!: string;
+}
+
+export class WarehouseStaffRoleOptionResponseDto {
+  @ApiProperty({ example: "WAREHOUSE_STAFF" })
+  code!: string;
+
+  @ApiProperty({ example: "Handles stock and dispatch work at assigned warehouses.", nullable: true })
+  description!: string | null;
+
+  @ApiProperty({ example: "role-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Warehouse staff" })
+  name!: string;
 }
 
 export class WarehouseStaffCandidateResponseDto {

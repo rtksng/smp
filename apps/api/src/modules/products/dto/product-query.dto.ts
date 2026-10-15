@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min
@@ -17,6 +18,17 @@ export enum ProductSortOption {
   NameAz = "name_az",
   PriceHighToLow = "price_high_to_low",
   PriceLowToHigh = "price_low_to_high"
+}
+
+/**
+ * Stock position across the warehouses in view. Out of stock: nothing available.
+ * Low stock: something available, but a stock line is at or below its threshold.
+ * In stock: something available and every stock line is above its threshold.
+ */
+export enum ProductStockStatus {
+  InStock = "IN_STOCK",
+  LowStock = "LOW_STOCK",
+  OutOfStock = "OUT_OF_STOCK"
 }
 
 function parseOptionalBoolean(value: unknown) {
@@ -178,6 +190,33 @@ export class AdminProductListQueryDto extends ProductListQueryDto {
   @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
+
+  @ApiPropertyOptional({
+    description:
+      "Only products assigned to this warehouse. Stock figures and stock status then cover this warehouse alone.",
+    example: "7d9f8f33-d348-4a89-94e8-907be76a91c6"
+  })
+  @IsOptional()
+  @IsUUID("4")
+  warehouseId?: string;
+
+  @ApiPropertyOptional({
+    description: "Filter by stock position across the warehouses in view.",
+    enum: ProductStockStatus,
+    example: ProductStockStatus.LowStock
+  })
+  @IsOptional()
+  @IsEnum(ProductStockStatus)
+  stockStatus?: ProductStockStatus;
+
+  @ApiPropertyOptional({
+    description: "Only products not assigned to any warehouse yet.",
+    example: true
+  })
+  @Transform(({ value }: { value: unknown }) => parseOptionalBoolean(value))
+  @IsOptional()
+  @IsBoolean()
+  unassigned?: boolean;
 }
 
 export class ProductRecommendationQueryDto {

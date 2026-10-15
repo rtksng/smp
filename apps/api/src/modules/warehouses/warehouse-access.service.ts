@@ -12,12 +12,31 @@ export type WarehouseScope =
       warehouseIds: string[];
     };
 
+export function isSuperAdmin(auth: Pick<AuthJwtPayload, "role">) {
+  return auth.role === AdminRoleCode.SuperAdmin;
+}
+
+/** Warehouse creation and configuration belong to the super admin alone. */
+export function assertSuperAdmin(
+  auth: Pick<AuthJwtPayload, "role">,
+  message = "Only the super admin can do this."
+) {
+  if (!isSuperAdmin(auth)) {
+    throw new ForbiddenException(message);
+  }
+}
+
+/** Narrows a warehouse scope to the Prisma filter for a warehouseId column. */
+export function toWarehouseIdFilter(scope: WarehouseScope) {
+  return scope.allWarehouses ? undefined : { in: scope.warehouseIds };
+}
+
 @Injectable()
 export class WarehouseAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   async canManageWarehouse(auth: AuthJwtPayload, warehouseId: string) {
-    if (this.isSuperAdmin(auth)) {
+    if (isSuperAdmin(auth)) {
       return true;
     }
 
@@ -42,7 +61,7 @@ export class WarehouseAccessService {
   }
 
   async getWarehouseScope(auth: AuthJwtPayload): Promise<WarehouseScope> {
-    if (this.isSuperAdmin(auth)) {
+    if (isSuperAdmin(auth)) {
       return {
         allWarehouses: true
       };
@@ -68,7 +87,18 @@ export class WarehouseAccessService {
     };
   }
 
-  private isSuperAdmin(auth: AuthJwtPayload) {
-    return auth.role === AdminRoleCode.SuperAdmin;
+  /**
+   * Resolves an optional warehouse filter against the admin's scope: a requested
+   * warehouse must be one the admin can manage, and no request means every
+   * warehouse in scope (undefined for the super admin).
+   */
+  async resolveWarehouseFilter(auth: AuthJwtPayload, warehouseId?: string) {
+    if (warehouseId !== undefined) {
+      await this.assertCanManageWarehouse(auth, warehouseId);
+
+      return warehouseId;
+    }
+
+    return toWarehouseIdFilter(await this.getWarehouseScope(auth));
   }
 }

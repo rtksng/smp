@@ -237,3 +237,15 @@ test("nested product DTOs reject whitespace-only required text", async () => {
   assert.ok((await validate(document)).length >= 3);
   assert.ok((await validate(variant)).length >= 2);
 });
+
+test("product warehouse assignments accept unique warehouse ids only", async () => {
+  const warehouseId = "7d9f8f33-d348-4a89-94e8-907be76a91c6";
+  const errorsFor = async (warehouseIds: unknown) =>
+    (await validate(plainToInstance(UpdateProductDto, { warehouseIds }))).map((error) => error.property);
+
+  assert.deepEqual(await errorsFor([warehouseId]), []);
+  assert.deepEqual(await errorsFor([]), []);
+  assert.deepEqual(await errorsFor(["warehouse-1"]), ["warehouseIds"]);
+  assert.deepEqual(await errorsFor([warehouseId, warehouseId]), ["warehouseIds"]);
+  assert.deepEqual(await errorsFor(warehouseId), ["warehouseIds"]);
+});

@@ -29,7 +29,8 @@ import {
   DeliveryLedgerEntryType,
   DeliveryPartnerPaymentType,
   DeliveryPartnerStatus,
-  DeliveryStatus
+  DeliveryStatus,
+  OrderStatus
 } from "../../../generated/prisma/enums";
 
 export const DELIVERY_DEVICE_PLATFORMS = ["ios", "android"] as const;
@@ -144,6 +145,117 @@ export class AdminDeliveryAssignmentListQueryDto extends DeliveryAssignmentListQ
   @IsOptional()
   @IsUUID()
   warehouseId?: string;
+}
+
+export class DispatchQueueQueryDto {
+  @ApiPropertyOptional({ example: 1, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 20, maximum: 100, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({
+    description: "Search order number, customer, business, or mobile number.",
+    example: "ORD-2026"
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: "Orders fulfilled from this warehouse.",
+    example: "2a5d29bc-8dc8-4de0-87d0-e4e6042ce5cc"
+  })
+  @IsOptional()
+  @IsUUID()
+  warehouseId?: string;
+}
+
+export class DispatchQueueCustomerResponseDto {
+  @ApiProperty({ example: "Apollo Clinic", nullable: true })
+  businessName!: string | null;
+
+  @ApiProperty({ example: "Asha Rao" })
+  fullName!: string;
+
+  @ApiProperty({ example: "+919876543210" })
+  mobileNumber!: string;
+}
+
+export class DispatchQueueOrderResponseDto {
+  @ApiProperty({ description: "Earlier deliveries that failed or were cancelled.", example: 0 })
+  attempts!: number;
+
+  @ApiProperty({ example: "2026-10-01T10:00:00.000Z" })
+  createdAt!: Date;
+
+  @ApiProperty({ type: DispatchQueueCustomerResponseDto })
+  customer!: DispatchQueueCustomerResponseDto;
+
+  @ApiProperty({ example: 2450 })
+  grandTotal!: number;
+
+  @ApiProperty({ example: "order-id" })
+  id!: string;
+
+  @ApiProperty({ description: "Order lines.", example: 3 })
+  itemCount!: number;
+
+  @ApiProperty({ example: "ORD-20261001-0001" })
+  orderNumber!: string;
+
+  @ApiProperty({
+    example: { codAmount: 2450, method: "COD", status: "PENDING" }
+  })
+  payment!: { codAmount: number; method: string | null; status: string };
+
+  @ApiProperty({ example: "2026-10-01T10:00:00.000Z", nullable: true })
+  placedAt!: Date | null;
+
+  @ApiProperty({
+    example: { city: "Mumbai", pincode: "400001", state: "Maharashtra" },
+    nullable: true
+  })
+  shippingAddress!: { city: string; pincode: string; state: string } | null;
+
+  @ApiProperty({ enum: [OrderStatus.CONFIRMED, OrderStatus.PACKED], example: OrderStatus.PACKED })
+  status!: OrderStatus;
+
+  @ApiProperty({
+    example: { code: "MUM-01", id: "warehouse-id", name: "Mumbai Central Warehouse" },
+    nullable: true
+  })
+  warehouse!: { code: string; id: string; name: string } | null;
+
+  @ApiProperty({ example: "warehouse-id", nullable: true })
+  warehouseId!: string | null;
+}
+
+export class DispatchQueueResponseDto {
+  @ApiProperty({ type: [DispatchQueueOrderResponseDto] })
+  items!: DispatchQueueOrderResponseDto[];
+
+  @ApiProperty({
+    example: {
+      hasNextPage: false,
+      hasPreviousPage: false,
+      limit: 20,
+      page: 1,
+      total: 1,
+      totalPages: 1
+    }
+  })
+  pagination!: Record<string, boolean | number>;
 }
 
 export class AssignDeliveryDto {

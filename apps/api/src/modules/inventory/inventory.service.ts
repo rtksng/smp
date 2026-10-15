@@ -21,14 +21,18 @@ import type {
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
 import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
-import { ReturnStockDisposition } from "./dto/inventory.dto";
+import { InventoryStockStatus, ReturnStockDisposition } from "./dto/inventory.dto";
+import { loadInventorySummary } from "./inventory-summary";
 import type {
   AdjustStockDto,
   InventoryListQueryDto,
+  InventorySummaryQueryDto,
   NearExpiryQueryDto,
   ReturnDispositionDto,
+  StockBatchListQueryDto,
   StockInDto,
   StockMovementQueryDto,
+  StockOutDto,
   TransferStockDto
 } from "./dto/inventory.dto";
 
@@ -74,14 +78,39 @@ type PendingInventoryAlerts = {
   nearExpiry: SendNearExpiryAlertJobData[];
 };
 
-// Stock lists name the product so admins can read a warehouse's stock without a catalog lookup.
+const WAREHOUSE_REF_SELECT = { code: true, id: true, name: true } as const;
+const PRODUCT_REF_SELECT = { id: true, name: true, sku: true } as const;
+
+// Stock lists name the product and warehouse so admins can read stock without catalog lookups.
 const INVENTORY_STOCK_LIST_INCLUDE = {
-  product: { select: { id: true, name: true, sku: true, status: true } },
-  variant: { select: { id: true, name: true, sku: true } }
+  product: { select: { ...PRODUCT_REF_SELECT, status: true } },
+  variant: { select: PRODUCT_REF_SELECT },
+  warehouse: { select: WAREHOUSE_REF_SELECT }
 } as const satisfies Prisma.InventoryStockInclude;
+
+const STOCK_BATCH_LIST_INCLUDE = {
+  product: { select: PRODUCT_REF_SELECT },
+  variant: { select: PRODUCT_REF_SELECT },
+  warehouse: { select: WAREHOUSE_REF_SELECT }
+} as const satisfies Prisma.StockBatchInclude;
+
+// Movement logs also say which batch moved and who recorded it.
+const STOCK_MOVEMENT_LIST_INCLUDE = {
+  createdBy: { select: { firstName: true, id: true, lastName: true } },
+  product: { select: PRODUCT_REF_SELECT },
+  stockBatch: { select: { batchNumber: true } },
+  variant: { select: PRODUCT_REF_SELECT },
+  warehouse: { select: WAREHOUSE_REF_SELECT }
+} as const satisfies Prisma.StockMovementInclude;
 
 type InventoryStockListRecord = Prisma.InventoryStockGetPayload<{
   include: typeof INVENTORY_STOCK_LIST_INCLUDE;
+}>;
+type StockBatchListRecord = Prisma.StockBatchGetPayload<{
+  include: typeof STOCK_BATCH_LIST_INCLUDE;
+}>;
+type StockMovementListRecord = Prisma.StockMovementGetPayload<{
+  include: typeof STOCK_MOVEMENT_LIST_INCLUDE;
 }>;
 
 const NEAR_EXPIRY_ALERT_WINDOW_DAYS = 30;
@@ -107,6 +136,7 @@ export class InventoryService {
         input.productId,
         input.variantId ?? null
       );
+      await this.assertProductAssignedToWarehouse(tx, input.productId, input.warehouseId);
       const beforeStock = await this.findInventoryStock(tx, {
         productId: input.productId,
         variantId: input.variantId ?? null,
@@ -208,6 +238,7 @@ export class InventoryService {
     const result = await this.prisma.$transaction(async (tx) => {
       await this.assertActiveWarehouse(tx, input.warehouseId);
       await this.assertProductAndVariant(tx, input.productId, input.variantId ?? null);
+      await this.assertProductAssignedToWarehouse(tx, input.productId, input.warehouseId);
       const beforeStock = await this.findInventoryStock(tx, {
         productId: input.productId,
         variantId: input.variantId ?? null,
@@ -297,6 +328,92 @@ export class InventoryService {
     return this.serializeStock(result.stock);
   }
 
+  /** Removes units from one batch and logs an outward movement with the reason. */
+  async stockOut(input: StockOutDto, context: AdminActionContext) {
+    await this.warehouseAccessService.assertCanManageWarehouse(
+      context.auth,
+      input.warehouseId
+    );
+
+    const variantId = input.variantId ?? null;
+    const result = await this.prisma.$transaction(async (tx) => {
+      await this.assertActiveWarehouse(tx, input.warehouseId);
+      await this.assertProductAndVariant(tx, input.productId, variantId);
+      await this.assertProductAssignedToWarehouse(tx, input.productId, input.warehouseId);
+      const stockKey = {
+        productId: input.productId,
+        variantId,
+        warehouseId: input.warehouseId
+      };
+      const beforeStock = await this.findInventoryStock(tx, stockKey);
+
+      if (!beforeStock || beforeStock.availableQuantity < input.quantity) {
+        throw new BadRequestException(
+          `Only ${beforeStock?.availableQuantity ?? 0} units are available to remove.`
+        );
+      }
+
+      const beforeBatch = await this.findStockBatch(tx, {
+        ...stockKey,
+        batchNumber: input.batchNumber
+      });
+
+      if (!beforeBatch) {
+        throw new NotFoundException("Stock batch was not found.");
+      }
+      if (beforeBatch.quantity < input.quantity) {
+        throw new BadRequestException(
+          `Batch ${beforeBatch.batchNumber} has only ${beforeBatch.quantity} units.`
+        );
+      }
+
+      const afterBatch = await tx.stockBatch.update({
+        data: { quantity: { increment: -input.quantity } },
+        where: { id: beforeBatch.id }
+      });
+      const updatedStock = await this.incrementInventoryStock(tx, {
+        ...stockKey,
+        delta: -input.quantity
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          createdById: context.auth.sub,
+          metadata: toJsonValue({
+            batchNumber: input.batchNumber,
+            reason: input.reason
+          }),
+          notes: input.notes,
+          productId: input.productId,
+          quantity: input.quantity,
+          referenceType: "STOCK_OUT",
+          stockBatchId: afterBatch.id,
+          type: StockMovementType.OUT,
+          variantId,
+          warehouseId: input.warehouseId
+        }
+      });
+      await this.writeAuditLog(tx, context, {
+        action: "inventory.stock_out",
+        after: { batch: afterBatch, reason: input.reason, stock: updatedStock },
+        before: { batch: beforeBatch, stock: beforeStock },
+        entityId: updatedStock.id
+      });
+
+      return {
+        alerts: {
+          lowStock: this.buildLowStockAlerts(updatedStock),
+          nearExpiry: []
+        },
+        stock: updatedStock
+      };
+    });
+
+    await this.enqueueInventoryAlerts(result.alerts);
+
+    return this.serializeStock(result.stock);
+  }
+
   async transferStock(input: TransferStockDto, context: AdminActionContext) {
     if (input.fromWarehouseId === input.toWarehouseId) {
       throw new BadRequestException("Source and destination warehouses must differ.");
@@ -317,6 +434,18 @@ export class InventoryService {
       await this.assertActiveWarehouse(tx, input.fromWarehouseId);
       await this.assertActiveWarehouse(tx, input.toWarehouseId);
       await this.assertProductAndVariant(tx, input.productId, input.variantId ?? null);
+      await this.assertProductAssignedToWarehouse(
+        tx,
+        input.productId,
+        input.fromWarehouseId,
+        "source"
+      );
+      await this.assertProductAssignedToWarehouse(
+        tx,
+        input.productId,
+        input.toWarehouseId,
+        "destination"
+      );
       const sourceBefore = await this.findInventoryStock(tx, {
         productId: input.productId,
         variantId: input.variantId ?? null,
@@ -545,6 +674,7 @@ export class InventoryService {
             orderItem.productId,
             orderItem.variantId
           );
+          await this.assertProductAssignedToWarehouse(tx, orderItem.productId, warehouseId);
           const stockBatch = await tx.stockBatch.findFirst({
             where: {
               id: orderItem.stockBatchId,
@@ -709,6 +839,7 @@ export class InventoryService {
     }
     const [items, total] = await Promise.all([
       this.prisma.stockBatch.findMany({
+        include: STOCK_BATCH_LIST_INCLUDE,
         orderBy: [{ expiryDate: "asc" }, { id: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
@@ -720,10 +851,42 @@ export class InventoryService {
     ]);
 
     return paginated(
-      items.map((item) => this.serializeBatch(item)),
+      items.map((item) => this.serializeBatchListItem(item)),
       total,
       page,
       limit
+    );
+  }
+
+  /** Batches of one product line in one warehouse, soonest expiry first, for stock actions. */
+  async listBatches(query: StockBatchListQueryDto, auth: AuthJwtPayload) {
+    await this.warehouseAccessService.assertCanManageWarehouse(auth, query.warehouseId);
+
+    const batches = await this.prisma.stockBatch.findMany({
+      include: STOCK_BATCH_LIST_INCLUDE,
+      orderBy: [
+        { expiryDate: { nulls: "last", sort: "asc" } },
+        { batchNumber: "asc" },
+        { id: "asc" }
+      ],
+      take: 200,
+      where: {
+        productId: query.productId,
+        quantity: query.includeEmpty ? undefined : { gt: 0 },
+        variantId: query.variantId ?? null,
+        warehouseId: query.warehouseId
+      }
+    });
+
+    return batches.map((batch) => this.serializeBatchListItem(batch));
+  }
+
+  /** Headline stock counts for the warehouses in view. */
+  async getSummary(query: InventorySummaryQueryDto, auth: AuthJwtPayload) {
+    return loadInventorySummary(
+      this.prisma,
+      await this.buildScopedWarehouseFilter(query.warehouseId, auth),
+      query.days ?? NEAR_EXPIRY_ALERT_WINDOW_DAYS
     );
   }
 
@@ -745,6 +908,7 @@ export class InventoryService {
     }
     const [items, total] = await Promise.all([
       this.prisma.stockMovement.findMany({
+        include: STOCK_MOVEMENT_LIST_INCLUDE,
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
         skip: (page - 1) * limit,
         take: limit,
@@ -756,7 +920,7 @@ export class InventoryService {
     ]);
 
     return paginated(
-      items.map((item) => this.serializeMovement(item)),
+      items.map((item) => this.serializeMovementListItem(item)),
       total,
       page,
       limit
@@ -836,6 +1000,23 @@ export class InventoryService {
       productId: query.productId,
       warehouseId: await this.buildScopedWarehouseFilter(query.warehouseId, auth)
     };
+    const reorderLevel = this.prisma.inventoryStock.fields.reorderLevel;
+
+    switch (query.stockStatus) {
+      case InventoryStockStatus.OUT_OF_STOCK:
+        where.availableQuantity = { lte: 0 };
+        break;
+      case InventoryStockStatus.LOW_STOCK:
+        where.AND = [
+          { availableQuantity: { gt: 0 } },
+          { availableQuantity: { lte: reorderLevel } }
+        ];
+        break;
+      case InventoryStockStatus.IN_STOCK:
+        // Thresholds are never negative, so this also means some stock is available.
+        where.availableQuantity = { gt: reorderLevel };
+        break;
+    }
 
     if (query.search !== undefined && query.search.trim().length > 0) {
       const search = query.search.trim();
@@ -930,6 +1111,25 @@ export class InventoryService {
     }
 
     return product;
+  }
+
+  /** Stock moves only through warehouses that the product is assigned to. */
+  private async assertProductAssignedToWarehouse(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    warehouseId: string,
+    role?: "destination" | "source"
+  ) {
+    const assignment = await tx.productWarehouse.findUnique({
+      select: { id: true },
+      where: { productId_warehouseId: { productId, warehouseId } }
+    });
+
+    if (!assignment) {
+      throw new BadRequestException(
+        `This product is not assigned to the ${role ? `${role} ` : ""}warehouse. Ask the super admin to assign it first.`
+      );
+    }
   }
 
   private async publishProductWhenStocked(
@@ -1132,13 +1332,43 @@ export class InventoryService {
         sku: stock.product.sku,
         status: stock.product.status
       },
-      variant: stock.variant
+      stockStatus: getStockLineStatus(stock),
+      variant: serializeProductRef(stock.variant),
+      warehouse: serializeWarehouseRef(stock.warehouse)
+    };
+  }
+
+  private serializeBatchListItem(batch: StockBatchListRecord) {
+    return {
+      ...this.serializeBatch(batch),
+      product: serializeProductRef(batch.product),
+      variant: serializeProductRef(batch.variant),
+      warehouse: serializeWarehouseRef(batch.warehouse)
+    };
+  }
+
+  private serializeMovementListItem(movement: StockMovementListRecord) {
+    const metadata = jsonRecord(movement.metadata);
+    const reason = metadata.reason ?? metadata.disposition;
+
+    return {
+      ...this.serializeMovement(movement),
+      batchNumber:
+        movement.stockBatch?.batchNumber ??
+        (typeof metadata.batchNumber === "string" ? metadata.batchNumber : null),
+      createdBy: movement.createdBy
         ? {
-            id: stock.variant.id,
-            name: stock.variant.name,
-            sku: stock.variant.sku
+            id: movement.createdBy.id,
+            name: [movement.createdBy.firstName, movement.createdBy.lastName]
+              .filter(Boolean)
+              .join(" ")
           }
-        : null
+        : null,
+      netQuantity: getNetStockChange(movement.type, movement.quantity, metadata),
+      product: serializeProductRef(movement.product),
+      reason: typeof reason === "string" ? reason : null,
+      variant: serializeProductRef(movement.variant),
+      warehouse: serializeWarehouseRef(movement.warehouse)
     };
   }
 
@@ -1171,6 +1401,49 @@ export class InventoryService {
       warehouseId: movement.warehouseId
     };
   }
+}
+
+function getStockLineStatus(stock: { availableQuantity: number; reorderLevel: number }) {
+  if (stock.availableQuantity <= 0) {
+    return InventoryStockStatus.OUT_OF_STOCK;
+  }
+
+  return stock.availableQuantity <= stock.reorderLevel
+    ? InventoryStockStatus.LOW_STOCK
+    : InventoryStockStatus.IN_STOCK;
+}
+
+/**
+ * How a movement changed on-hand stock. Adjustments store a signed quantity; IN
+ * and OUT store positive quantities; returns add stock only when restocked.
+ */
+function getNetStockChange(
+  type: StockMovementType,
+  quantity: number,
+  metadata: Record<string, unknown>
+) {
+  switch (type) {
+    case StockMovementType.IN:
+      return quantity;
+    case StockMovementType.OUT:
+      return -quantity;
+    case StockMovementType.RETURN:
+      return metadata.disposition === ReturnStockDisposition.RESTOCK ? quantity : 0;
+    default:
+      return quantity;
+  }
+}
+
+function serializeProductRef(ref: { id: string; name: string; sku: string } | null) {
+  return ref ? { id: ref.id, name: ref.name, sku: ref.sku } : null;
+}
+
+function serializeWarehouseRef(ref: { code: string; id: string; name: string }) {
+  return { code: ref.code, id: ref.id, name: ref.name };
+}
+
+function jsonRecord(value: Prisma.JsonValue | null): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function productSearchWhere(search: string) {

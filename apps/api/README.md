@@ -99,10 +99,10 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `GET /api/v1/products`
   - `GET /api/v1/products/:slug`
 - Admin catalog:
-  - `GET /api/v1/admin/products`
+  - `GET /api/v1/admin/products` (optional `warehouseId`, `stockStatus` of `IN_STOCK`, `LOW_STOCK`, or `OUT_OF_STOCK`, and `unassigned=true` for the super admin; rows include a stock summary and the product's warehouses)
   - `GET /api/v1/admin/products/:id`
-  - `POST /api/v1/admin/products`
-  - `PATCH /api/v1/admin/products/:id`
+  - `POST /api/v1/admin/products` (accepts `warehouseIds`)
+  - `PATCH /api/v1/admin/products/:id` (accepts `warehouseIds`)
   - `DELETE /api/v1/admin/products/:id`
   - `GET /api/v1/admin/categories`
   - `POST /api/v1/admin/categories`
@@ -126,12 +126,17 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `POST /api/v1/admin/warehouses/:id/staff`
   - `GET /api/v1/admin/warehouses/:id/staff` (each row includes the admin's role)
   - `GET /api/v1/admin/warehouses/:id/staff/candidates` (active admins not yet assigned, with their role)
+  - `GET /api/v1/admin/warehouses/:id/staff/roles` (roles the signed-in admin may give a new staff account)
+  - `POST /api/v1/admin/warehouses/:id/staff/accounts` (creates an admin account that works only at this warehouse)
   - `DELETE /api/v1/admin/warehouses/:id/staff/:staffId`
 - Admin inventory:
   - `POST /api/v1/admin/inventory/stock-in`
+  - `POST /api/v1/admin/inventory/stock-out` (removes units from a batch with a reason such as `DAMAGED` or `EXPIRED`)
   - `POST /api/v1/admin/inventory/adjust`
   - `POST /api/v1/admin/inventory/transfer`
-  - `GET /api/v1/admin/inventory` (rows include the product and variant name and SKU)
+  - `GET /api/v1/admin/inventory` (rows include the product, variant, warehouse, and `stockStatus`; optional `stockStatus` filter)
+  - `GET /api/v1/admin/inventory/summary` (stock counts for the warehouses in view)
+  - `GET /api/v1/admin/inventory/batches` (batches of one product in one warehouse; `includeEmpty=true` adds used-up batches)
   - `GET /api/v1/admin/inventory/low-stock` (same rows, filtered and paged in the database)
   - `GET /api/v1/admin/inventory/near-expiry`
   - `GET /api/v1/admin/inventory/movements`
@@ -150,7 +155,13 @@ NestJS backend for the Surgical Medical Equipment Platform.
   - `POST /api/v1/admin/delivery-partners/:id/ledger`
   - `PATCH /api/v1/admin/delivery-partners/:id/approve`
 - Admin delivery:
+  - `GET /api/v1/admin/delivery/assignments`
+  - `GET /api/v1/admin/delivery/dispatch-queue` (confirmed and packed orders waiting for a rider, oldest first; needs `delivery.assign`, not `orders.read`)
   - `POST /api/v1/admin/delivery/assign`
+- Admin reports:
+  - `GET /api/v1/admin/reports/dashboard`
+  - `GET /api/v1/admin/reports/dashboard/export`
+  - `GET /api/v1/admin/reports/warehouse-dashboard` (stock, dispatch, rider, and fulfilment figures for the admin's warehouses, or one `warehouseId`)
 - Delivery partner mobile API:
   - `GET /api/v1/delivery/me`
   - `PATCH /api/v1/delivery/me/status`
@@ -226,10 +237,21 @@ NestJS backend for the Surgical Medical Equipment Platform.
 - Brand deletion is a soft delete that also deactivates the brand
 - Admin upload routes require an admin access token and accept multipart form data with a `file` field
 - Admin warehouse routes require `warehouse.read`, `warehouse.manage`, or `warehouse.staff.manage` depending on the action
+- Only `SUPER_ADMIN` creates, edits, activates, deactivates, or deletes warehouses, even if another role is given `warehouse.manage`
 - Warehouse codes are unique; warehouse delete is a safe soft delete and is blocked when inventory, stock batches, or stock movements exist
 - Warehouse staff assignment and removal write admin audit logs
+- Warehouse managers see and manage only the staff of their own warehouses. They can add people who already work at one of their warehouses, or create a new staff account with a role whose permissions they hold themselves. They cannot remove themselves, and super admins are never listed as warehouse staff.
+
+### Warehouse-scoped products and stock
+
+- Each product is assigned to the warehouses that carry it (`ProductWarehouse`). A warehouse sees, stocks, and fulfils only its assigned products.
+- The super admin assigns products to any warehouses and may leave a product unassigned. Other admins choose among their own warehouses; a new product they create starts in all of them, and assignments to warehouses outside their reach are kept unchanged.
+- A warehouse cannot be removed from a product while it still holds available or reserved units of it. Removing it deletes the empty stock line, so the warehouse stops listing the product.
+- Stock-in, stock-out, adjustment, transfer (both warehouses), and restocking returns are refused for products not assigned to the warehouse. Checkout only reserves stock from warehouses the product is assigned to.
+- Stock status is `OUT_OF_STOCK` when nothing is available, `LOW_STOCK` when some units are available but at or below the low-stock threshold, and `IN_STOCK` otherwise. `GET /admin/inventory/low-stock` keeps its wider meaning: every line at or below its threshold, including empty ones.
+- Orders without a linked warehouse are visible to and dispatched by the super admin only.
 - Admin inventory read routes require `inventory.read`
-- Admin inventory stock-in, adjustment, and transfer routes require `inventory.update`
+- Admin inventory stock-in, stock-out, adjustment, and transfer routes require `inventory.update`
 - Inventory writes run inside Prisma transactions and write aggregate stock, batch changes, movement records, and admin audit logs together
 - Inventory stock cannot become negative, and batch quantity cannot become negative
 - Stock transfer writes paired movement records with the same transfer reference id: source warehouse `OUT` and destination warehouse `IN`
@@ -329,6 +351,7 @@ SEED_SUPER_ADMIN_MOBILE_NUMBER=
 - GST invoice tax breakup migration: `prisma/migrations/20260525000900_gst_invoice_tax_breakup/migration.sql`
 - Delivery operations migration: `prisma/migrations/20260525001000_delivery_operations/migration.sql`
 - Production readiness indexes migration: `prisma/migrations/20260526000100_production_readiness_indexes/migration.sql`
+- Warehouse-scoped operations migration: `prisma/migrations/20261015000100_warehouse_scoped_operations/migration.sql`. It creates `ProductWarehouse` and assigns every existing product to each warehouse that already holds its stock, batches, or movements. It also removes `warehouse.manage` from every role except `SUPER_ADMIN` and adds the `WAREHOUSE_STAFF` role. Admins pick up the permission change at their next login or token refresh.
 - Seed script: `prisma/seed.ts`
 
 ## Testing
@@ -346,6 +369,7 @@ Unit examples live under `test/auth`, `test/catalog`, `test/cart`, `test/orders`
 - `SUPER_ADMIN`
 - `INVENTORY_MANAGER`
 - `WAREHOUSE_MANAGER`
+- `WAREHOUSE_STAFF` (stock and dispatch work at assigned warehouses: `products.read`, `inventory.read`, `inventory.update`, `warehouse.read`, `delivery.read`, `delivery.assign`, `reports.read`)
 - `ORDER_MANAGER`
 - `DELIVERY_MANAGER`
 - `SUPPORT`

@@ -1837,6 +1837,26 @@ test("getAdminOrder serializes customer, warehouse, payment, and invoice details
   });
 });
 
+test("getAdminOrder keeps orders with no warehouse to the super admin, like the order list", async () => {
+  const prisma = createOrdersPrismaMock();
+  const findOrder = prisma.order.findFirst;
+  prisma.order.findFirst = (async (args: never) => {
+    const order = await findOrder(args);
+    return order ? { ...order, warehouseId: null, warehouse: null } : order;
+  }) as typeof findOrder;
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () => service.getAdminOrder("order-1", adminAuth()),
+    /not assigned to this warehouse/
+  );
+  const order = await service.getAdminOrder("order-1", adminAuth(AdminRoleCode.SuperAdmin));
+  assert.equal(order.id, "order-1");
+});
+
 test("admin and customer cancellation also cancel active delivery assignments", async () => {
   for (const actor of ["admin", "customer"] as const) {
     const prisma = createOrdersPrismaMock({ orderStatus: "ASSIGNED" });

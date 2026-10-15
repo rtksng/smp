@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
@@ -29,7 +30,10 @@ import { buildFulfillmentStockQuery } from "../inventory/fulfillment-stock";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { PaymentsService } from "../payments/payments.service";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
-import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
+import {
+  isSuperAdmin,
+  WarehouseAccessService
+} from "../warehouses/warehouse-access.service";
 import { buildPendingOrderStatusFilter } from "./order-status";
 import { getCartQuotePricing, quoteLineKey, updateCartQuoteLink } from "../quote-requests/quote-cart-pricing";
 import type {
@@ -1336,6 +1340,9 @@ export class OrdersService {
         auth,
         order.warehouseId
       );
+    } else if (!isSuperAdmin(auth)) {
+      // Matches the order list, which shows warehouse staff only their warehouses' orders.
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
     }
 
     return order;

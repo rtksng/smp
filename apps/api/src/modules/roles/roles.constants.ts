@@ -7,6 +7,7 @@ export enum AdminRoleCode {
   SuperAdmin = "SUPER_ADMIN",
   InventoryManager = "INVENTORY_MANAGER",
   WarehouseManager = "WAREHOUSE_MANAGER",
+  WarehouseStaff = "WAREHOUSE_STAFF",
   OrderManager = "ORDER_MANAGER",
   DeliveryManager = "DELIVERY_MANAGER",
   Support = "SUPPORT"
@@ -39,6 +40,12 @@ export const DEFAULT_ROLES: RoleSeed[] = [
     name: "Warehouse manager"
   },
   {
+    code: AdminRoleCode.WarehouseStaff,
+    description: "Handles stock and dispatch work at assigned warehouses.",
+    isSystem: true,
+    name: "Warehouse staff"
+  },
+  {
     code: AdminRoleCode.OrderManager,
     description: "Manages customer order processing and cancellations.",
     isSystem: true,
@@ -69,16 +76,25 @@ export const DEFAULT_ROLE_PERMISSION_CODES: Record<AdminRoleCode, PermissionCode
     PermissionCode.WarehouseRead,
     PermissionCode.ReportsRead
   ],
+  // Warehouse creation and configuration stay with the super admin.
   [AdminRoleCode.WarehouseManager]: [
     PermissionCode.ProductsRead,
     PermissionCode.InventoryRead,
     PermissionCode.InventoryUpdate,
     PermissionCode.WarehouseRead,
-    PermissionCode.WarehouseManage,
     PermissionCode.WarehouseStaffManage,
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
     PermissionCode.DeliveryPartnersManage,
+    PermissionCode.ReportsRead
+  ],
+  [AdminRoleCode.WarehouseStaff]: [
+    PermissionCode.ProductsRead,
+    PermissionCode.InventoryRead,
+    PermissionCode.InventoryUpdate,
+    PermissionCode.WarehouseRead,
+    PermissionCode.DeliveryRead,
+    PermissionCode.DeliveryAssign,
     PermissionCode.ReportsRead
   ],
   [AdminRoleCode.OrderManager]: [

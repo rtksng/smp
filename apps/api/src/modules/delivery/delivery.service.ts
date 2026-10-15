@@ -28,12 +28,22 @@ import { Prisma } from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { PermissionCode } from "../permissions/permissions.constants";
+import {
+  DISPATCH_ORDER_INCLUDE,
+  DISPATCH_ORDER_ORDER_BY,
+  READY_FOR_DISPATCH_STATUSES,
+  serializeDispatchOrder
+} from "./dispatch-queue";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
-import { WarehouseAccessService } from "../warehouses/warehouse-access.service";
+import {
+  isSuperAdmin,
+  WarehouseAccessService
+} from "../warehouses/warehouse-access.service";
 import type {
   AddDeliveryPartnerDocumentDto,
   AdminDeliveryAssignmentListQueryDto,
   AssignDeliveryDto,
+  DispatchQueueQueryDto,
   CreateDeliveryLedgerEntryDto,
   CreateDeliveryIncidentDto,
   CreateDeliveryPartnerDto,
@@ -48,7 +58,7 @@ import type {
   UpdateDeliveryAssignmentStatusDto
 } from "./dto/delivery.dto";
 
-const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
+export const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
   DeliveryStatus.ASSIGNED,
   DeliveryStatus.ACCEPTED,
   DeliveryStatus.PICKED_UP,
@@ -455,11 +465,25 @@ export class DeliveryService {
       });
       const pickupWarehouseId = input.pickupWarehouseId ?? order.warehouseId;
 
-      if (pickupWarehouseId) {
+      // Warehouse staff dispatch only their own warehouse's orders, from one of their warehouses.
+      if (order.warehouseId) {
         await this.warehouseAccessService.assertCanManageWarehouse(
           context.auth,
-          pickupWarehouseId
+          order.warehouseId
         );
+      } else if (!isSuperAdmin(context.auth)) {
+        throw new ForbiddenException(
+          "Only the super admin can dispatch orders that are not linked to a warehouse."
+        );
+      }
+
+      if (pickupWarehouseId) {
+        if (pickupWarehouseId !== order.warehouseId) {
+          await this.warehouseAccessService.assertCanManageWarehouse(
+            context.auth,
+            pickupWarehouseId
+          );
+        }
         await this.findActiveWarehouse(tx, pickupWarehouseId);
 
         if (
@@ -573,6 +597,44 @@ export class DeliveryService {
       });
 
     return result.assignment;
+  }
+
+  /**
+   * Orders waiting for a delivery partner, oldest first. Confirmed and packed
+   * orders qualify; a failed or cancelled delivery puts its order back here.
+   */
+  async listDispatchQueue(query: DispatchQueueQueryDto, auth: AuthJwtPayload) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search?.trim();
+    const where: Prisma.OrderWhereInput = {
+      deletedAt: null,
+      status: { in: READY_FOR_DISPATCH_STATUSES },
+      warehouseId: await this.buildOrderWarehouseScopeFilter(auth, query.warehouseId)
+    };
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: "insensitive" } },
+        { user: { firstName: { contains: search, mode: "insensitive" } } },
+        { user: { lastName: { contains: search, mode: "insensitive" } } },
+        { user: { businessName: { contains: search, mode: "insensitive" } } },
+        { user: { mobileNumber: { contains: search } } }
+      ];
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        include: DISPATCH_ORDER_INCLUDE,
+        orderBy: DISPATCH_ORDER_ORDER_BY,
+        skip: (page - 1) * limit,
+        take: limit,
+        where: stripUndefined(where)
+      }),
+      this.prisma.order.count({ where: stripUndefined(where) })
+    ]);
+
+    return paginated(orders.map(serializeDispatchOrder), total, page, limit);
   }
 
   async listAdminDeliveryAssignments(
@@ -1473,6 +1535,19 @@ export class DeliveryService {
     return scope.allWarehouses
       ? undefined
       : { some: { warehouseId: { in: scope.warehouseIds } } };
+  }
+
+  /** Order warehouse filter: one requested warehouse, the admin's warehouses, or every order. */
+  private async buildOrderWarehouseScopeFilter(auth: AuthJwtPayload, warehouseId?: string) {
+    if (warehouseId) {
+      await this.warehouseAccessService.assertCanManageWarehouse(auth, warehouseId);
+
+      return warehouseId;
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+
+    return scope.allWarehouses ? undefined : { in: scope.warehouseIds };
   }
 
   private async buildAssignmentWarehouseScopeFilter(

@@ -418,6 +418,7 @@ model Product {
   stockBatches     StockBatch[]
   stockMovements   StockMovement[]
   variants         ProductVariant[]
+  warehouses       ProductWarehouse[]
 
   @@index([slug])
   @@index([sku])
@@ -521,12 +522,27 @@ model Warehouse {
   deliveryPickups     DeliveryAssignment[]       @relation("DeliveryPickupWarehouse")
   deliveryChargeRules DeliveryChargeRule[]
   deliveryPartners    DeliveryPartnerWarehouse[]
+  products            ProductWarehouse[]
 
   @@index([code])
   @@index([status])
   @@index([city])
   @@index([state])
   @@index([deletedAt])
+}
+
+// A warehouse sees, stocks, and fulfils only the products assigned to it.
+model ProductWarehouse {
+  id          String    @id @default(uuid())
+  productId   String
+  warehouseId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@index([warehouseId])
 }
 
 model WarehouseStaff {

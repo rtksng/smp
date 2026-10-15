@@ -213,6 +213,19 @@ export class ProductNestedInputDto {
   @IsString({ each: true })
   @MaxLength(80, { each: true })
   searchTags?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Warehouses that can see, stock, and fulfil this product. Replaces the current assignment when sent. Warehouse-level admins can change only their own warehouses.",
+    example: ["7d9f8f33-d348-4a89-94e8-907be76a91c6"],
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID("4", { each: true })
+  warehouseIds?: string[];
 }
 
 export class ProductScalarInputDto extends ProductNestedInputDto {

@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
@@ -11,7 +13,12 @@ import {
   ProductStatus,
   WarehouseStatus
 } from "../../generated/prisma/client";
+import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { resolveStoredUploadUrl } from "../uploads/upload-url";
+import {
+  isSuperAdmin,
+  WarehouseAccessService
+} from "../warehouses/warehouse-access.service";
 import type { CreateProductDto } from "./dto/create-product.dto";
 import type {
   ProductDocumentInputDto,
@@ -23,7 +30,10 @@ import type {
   ProductListQueryDto,
   ProductSortOption
 } from "./dto/product-query.dto";
-import { ProductSortOption as SortOption } from "./dto/product-query.dto";
+import {
+  ProductSortOption as SortOption,
+  ProductStockStatus
+} from "./dto/product-query.dto";
 import { sanitizeProductDescriptionHtml } from "./product-description-html";
 import type { UpdateProductDto } from "./dto/update-product.dto";
 import type { AdminActionContext } from "../warehouses/warehouses.service";
@@ -65,12 +75,58 @@ const PRODUCT_INCLUDE = {
   }
 } as const satisfies Prisma.ProductInclude;
 
+// Admin reads add warehouse assignments and per-warehouse stock lines.
+const ADMIN_PRODUCT_INCLUDE = {
+  ...PRODUCT_INCLUDE,
+  inventoryStocks: {
+    select: {
+      availableQuantity: true,
+      reorderLevel: true,
+      reservedQuantity: true,
+      warehouseId: true
+    },
+    where: {
+      warehouse: {
+        deletedAt: null,
+        status: WarehouseStatus.ACTIVE
+      }
+    }
+  },
+  warehouses: {
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
+    select: {
+      warehouse: { select: { code: true, id: true, name: true, status: true } },
+      warehouseId: true
+    },
+    where: { warehouse: { deletedAt: null } }
+  }
+} as const satisfies Prisma.ProductInclude;
+
 type ProductRecord = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
+type AdminProductRecord = Prisma.ProductGetPayload<{
+  include: typeof ADMIN_PRODUCT_INCLUDE;
+}>;
 type ProductVisibility = "admin" | "public";
 type DecimalValue =
   | number
   | string
   | { toNumber?: () => number; toString: () => string };
+
+/**
+ * What an admin may see of the product catalog. Warehouse-level admins see only
+ * products assigned to their warehouses; null means every warehouse.
+ */
+type AdminProductAccess = {
+  /** Warehouses whose assignments the admin can see and change. */
+  visibleWarehouseIds: string[] | null;
+  /** Warehouses that stock figures and stock filters cover. */
+  stockWarehouseIds: string[] | null;
+};
+
+const UNRESTRICTED_PRODUCT_ACCESS: AdminProductAccess = {
+  stockWarehouseIds: null,
+  visibleWarehouseIds: null
+};
 
 function hasOwn<T extends object>(value: T, key: keyof T) {
   return Object.prototype.hasOwnProperty.call(value, key);
@@ -78,14 +134,45 @@ function hasOwn<T extends object>(value: T, key: keyof T) {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly warehouseAccessService?: WarehouseAccessService
+  ) {}
 
   async listPublicProducts(query: ProductListQueryDto) {
     return this.listProducts(query, "public");
   }
 
-  async listAdminProducts(query: AdminProductListQueryDto) {
-    return this.listProducts(query, "admin");
+  async listAdminProducts(query: AdminProductListQueryDto, auth?: AuthJwtPayload) {
+    const access = await this.resolveAdminProductAccess(auth, query.warehouseId);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.buildAdminProductWhere(query, access);
+    const [items, total] = await Promise.all([
+      this.prisma.product.findMany({
+        include: ADMIN_PRODUCT_INCLUDE,
+        orderBy: this.buildProductOrderBy(query.sort),
+        skip: (page - 1) * limit,
+        take: limit,
+        where
+      }),
+      this.prisma.product.count({
+        where
+      })
+    ]);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items: items.map((product) => this.serializeAdminProduct(product, access)),
+      pagination: {
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+        limit,
+        page,
+        total,
+        totalPages
+      }
+    };
   }
 
   async getPublicProductBySlug(slug: string) {
@@ -258,12 +345,14 @@ export class ProductsService {
     return this.serializeRecommendationList(items, limit);
   }
 
-  async getAdminProductById(id: string) {
+  async getAdminProductById(id: string, auth?: AuthJwtPayload) {
+    const access = await this.resolveAdminProductAccess(auth);
     const product = await this.prisma.product.findFirst({
-      include: PRODUCT_INCLUDE,
+      include: ADMIN_PRODUCT_INCLUDE,
       where: {
         deletedAt: null,
-        id
+        id,
+        ...assignedToWarehouses(access.visibleWarehouseIds)
       }
     });
 
@@ -271,14 +360,19 @@ export class ProductsService {
       throw new NotFoundException("Product was not found.");
     }
 
-    return this.serializeProduct(product);
+    return this.serializeAdminProduct(product, access);
   }
 
   async createProduct(input: CreateProductDto, context?: AdminActionContext) {
+    const access = await this.resolveAdminProductAccess(context?.auth);
     await this.assertBrandExists(input.brandId);
     await this.assertCategorySelection(input.categoryId, input.subcategoryId ?? null);
     this.assertPriceFields(input);
     this.assertVariantPrices(input.variants ?? []);
+    const warehouseIds = await this.resolveNewProductWarehouseIds(
+      input.warehouseIds,
+      access
+    );
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
@@ -309,9 +403,12 @@ export class ProductsService {
             subcategoryId: input.subcategoryId ?? null,
             taxRate: input.taxRate,
             unit: input.unit,
-            variants: this.buildVariantCreate(input.variants)
+            variants: this.buildVariantCreate(input.variants),
+            ...(warehouseIds.length > 0
+              ? { warehouses: { create: warehouseIds.map((warehouseId) => ({ warehouseId })) } }
+              : {})
           },
-          include: PRODUCT_INCLUDE
+          include: ADMIN_PRODUCT_INCLUDE
         });
 
         await this.writeAuditLog(tx, context, {
@@ -324,7 +421,7 @@ export class ProductsService {
         return createdProduct;
       });
 
-      return this.serializeProduct(product);
+      return this.serializeAdminProduct(product, access);
     } catch (error: unknown) {
       this.handleProductWriteError(error);
     }
@@ -335,7 +432,8 @@ export class ProductsService {
     input: UpdateProductDto,
     context?: AdminActionContext
   ) {
-    const existingProduct = await this.findExistingProduct(id);
+    const access = await this.resolveAdminProductAccess(context?.auth);
+    const existingProduct = await this.findExistingProduct(id, access);
 
     if (input.brandId !== undefined) {
       await this.assertBrandExists(input.brandId);
@@ -358,14 +456,26 @@ export class ProductsService {
     this.assertVariantPrices(input.variants ?? []);
 
     const data = this.buildProductUpdateData(input);
+    const warehouseChange =
+      input.warehouseIds === undefined
+        ? null
+        : await this.resolveWarehouseAssignmentChange(
+            existingProduct.warehouses.map((link) => link.warehouseId),
+            input.warehouseIds,
+            access
+          );
 
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         await this.replaceNestedCollections(tx, id, input);
 
+        if (warehouseChange) {
+          await this.applyWarehouseAssignmentChange(tx, id, warehouseChange);
+        }
+
         const updatedProduct = await tx.product.update({
           data,
-          include: PRODUCT_INCLUDE,
+          include: ADMIN_PRODUCT_INCLUDE,
           where: {
             id
           }
@@ -382,14 +492,15 @@ export class ProductsService {
         return updatedProduct;
       });
 
-      return this.serializeProduct(product);
+      return this.serializeAdminProduct(product, access);
     } catch (error: unknown) {
       this.handleProductWriteError(error);
     }
   }
 
   async deleteProduct(id: string, context?: AdminActionContext) {
-    const existingProduct = await this.findExistingProduct(id);
+    const access = await this.resolveAdminProductAccess(context?.auth);
+    const existingProduct = await this.findExistingProduct(id, access);
     const deletedAt = new Date();
 
     await this.prisma.$transaction(async (tx) => {
@@ -461,9 +572,70 @@ export class ProductsService {
     };
   }
 
+  /** Admin listing: catalog filters plus warehouse visibility and stock position. */
+  private buildAdminProductWhere(
+    query: AdminProductListQueryDto,
+    access: AdminProductAccess
+  ): Prisma.ProductWhereInput {
+    const stockRows = stockRowsInView(access.stockWarehouseIds);
+    const where = this.buildProductWhere(query, "admin", stockRows);
+    const conditions: Prisma.ProductWhereInput[] = [];
+    const assignedWarehouseIds = query.warehouseId
+      ? [query.warehouseId]
+      : access.visibleWarehouseIds;
+
+    if (assignedWarehouseIds) {
+      conditions.push(assignedToWarehouses(assignedWarehouseIds));
+    }
+
+    if (query.unassigned) {
+      conditions.push({ warehouses: { none: { warehouse: { deletedAt: null } } } });
+    }
+
+    if (query.stockStatus !== undefined) {
+      conditions.push(...this.buildStockStatusConditions(query.stockStatus, stockRows));
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
+    }
+
+    return where;
+  }
+
+  private buildStockStatusConditions(
+    stockStatus: ProductStockStatus,
+    stockRows: Prisma.InventoryStockWhereInput
+  ): Prisma.ProductWhereInput[] {
+    const available: Prisma.InventoryStockWhereInput = {
+      ...stockRows,
+      availableQuantity: { gt: 0 }
+    };
+    const atOrBelowThreshold: Prisma.InventoryStockWhereInput = {
+      ...stockRows,
+      availableQuantity: { lte: this.prisma.inventoryStock.fields.reorderLevel }
+    };
+
+    switch (stockStatus) {
+      case ProductStockStatus.OutOfStock:
+        return [{ inventoryStocks: { none: available } }];
+      case ProductStockStatus.LowStock:
+        return [
+          { inventoryStocks: { some: available } },
+          { inventoryStocks: { some: atOrBelowThreshold } }
+        ];
+      case ProductStockStatus.InStock:
+        return [
+          { inventoryStocks: { some: available } },
+          { inventoryStocks: { none: atOrBelowThreshold } }
+        ];
+    }
+  }
+
   private buildProductWhere(
     query: ProductListQueryDto | AdminProductListQueryDto,
-    visibility: ProductVisibility
+    visibility: ProductVisibility,
+    stockRows: Prisma.InventoryStockWhereInput = stockRowsInView(null)
   ): Prisma.ProductWhereInput {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null
@@ -507,29 +679,14 @@ export class ProductsService {
     }
 
     if (query.inStock !== undefined) {
-      where.inventoryStocks = query.inStock
-        ? {
-            some: {
-              availableQuantity: {
-                gt: 0
-              },
-              warehouse: {
-                deletedAt: null,
-                status: WarehouseStatus.ACTIVE
-              }
-            }
-          }
-        : {
-            none: {
-              availableQuantity: {
-                gt: 0
-              },
-              warehouse: {
-                deletedAt: null,
-                status: WarehouseStatus.ACTIVE
-              }
-            }
-          };
+      const available = {
+        ...stockRows,
+        availableQuantity: {
+          gt: 0
+        }
+      };
+
+      where.inventoryStocks = query.inStock ? { some: available } : { none: available };
     }
 
     if (query.medicalSpecialty !== undefined) {
@@ -669,11 +826,21 @@ export class ProductsService {
     }
   }
 
-  private async findExistingProduct(id: string) {
+  private async findExistingProduct(
+    id: string,
+    access: AdminProductAccess = UNRESTRICTED_PRODUCT_ACCESS
+  ) {
     const product = await this.prisma.product.findFirst({
+      include: {
+        warehouses: {
+          select: { warehouseId: true },
+          where: { warehouse: { deletedAt: null } }
+        }
+      },
       where: {
         deletedAt: null,
-        id
+        id,
+        ...assignedToWarehouses(access.visibleWarehouseIds)
       }
     });
 
@@ -682,6 +849,154 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  private async resolveAdminProductAccess(
+    auth: AuthJwtPayload | undefined,
+    warehouseId?: string
+  ): Promise<AdminProductAccess> {
+    if (!auth || isSuperAdmin(auth)) {
+      return {
+        stockWarehouseIds: warehouseId ? [warehouseId] : null,
+        visibleWarehouseIds: null
+      };
+    }
+
+    if (!this.warehouseAccessService) {
+      throw new Error("Warehouse access is not configured for product reads.");
+    }
+
+    const scope = await this.warehouseAccessService.getWarehouseScope(auth);
+    const visibleWarehouseIds = scope.allWarehouses ? null : scope.warehouseIds;
+
+    if (warehouseId && visibleWarehouseIds && !visibleWarehouseIds.includes(warehouseId)) {
+      throw new ForbiddenException("Admin is not assigned to this warehouse.");
+    }
+
+    return {
+      stockWarehouseIds: warehouseId ? [warehouseId] : visibleWarehouseIds,
+      visibleWarehouseIds
+    };
+  }
+
+  /**
+   * Warehouses for a new product. Warehouse-level admins can assign only their own
+   * warehouses and, when they choose none, the product goes to all of them.
+   */
+  private async resolveNewProductWarehouseIds(
+    requested: string[] | undefined,
+    access: AdminProductAccess
+  ) {
+    const warehouseIds = [
+      ...new Set(requested ?? access.visibleWarehouseIds ?? [])
+    ];
+
+    this.assertWarehousesInView(warehouseIds, access);
+
+    if (access.visibleWarehouseIds && warehouseIds.length === 0) {
+      throw new BadRequestException(
+        "Assign the product to at least one of your warehouses."
+      );
+    }
+
+    await this.assertWarehousesExist(warehouseIds);
+
+    return warehouseIds;
+  }
+
+  /**
+   * Works out which assignments a request adds and removes. Warehouse-level admins
+   * change only their own warehouses; assignments elsewhere are kept as they are.
+   */
+  private async resolveWarehouseAssignmentChange(
+    currentWarehouseIds: string[],
+    requested: string[],
+    access: AdminProductAccess
+  ) {
+    const requestedIds = [...new Set(requested)];
+    this.assertWarehousesInView(requestedIds, access);
+
+    const visible = access.visibleWarehouseIds;
+
+    if (visible && requestedIds.length === 0) {
+      throw new BadRequestException(
+        "Keep the product in at least one of your warehouses. Ask the super admin to remove it from yours."
+      );
+    }
+
+    const keptOutsideView = visible
+      ? currentWarehouseIds.filter((warehouseId) => !visible.includes(warehouseId))
+      : [];
+    const nextIds = new Set([...keptOutsideView, ...requestedIds]);
+    const added = [...nextIds].filter((id) => !currentWarehouseIds.includes(id));
+    const removed = currentWarehouseIds.filter((id) => !nextIds.has(id));
+
+    await this.assertWarehousesExist(added);
+
+    return { added, removed };
+  }
+
+  private async applyWarehouseAssignmentChange(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    change: { added: string[]; removed: string[] }
+  ) {
+    if (change.removed.length > 0) {
+      // Stock must never sit in a warehouse that cannot see the product.
+      const stockedLines = await tx.inventoryStock.findMany({
+        select: { warehouse: { select: { name: true } } },
+        where: {
+          OR: [{ availableQuantity: { gt: 0 } }, { reservedQuantity: { gt: 0 } }],
+          productId,
+          warehouseId: { in: change.removed }
+        }
+      });
+
+      if (stockedLines.length > 0) {
+        const names = [...new Set(stockedLines.map((line) => line.warehouse.name))];
+
+        throw new BadRequestException(
+          `${names.join(", ")} still ${names.length === 1 ? "holds" : "hold"} stock of this product. Transfer or adjust it to zero before removing the warehouse.`
+        );
+      }
+
+      await tx.productWarehouse.deleteMany({
+        where: { productId, warehouseId: { in: change.removed } }
+      });
+      // The remaining lines are empty; drop them so the warehouse stops listing the product.
+      await tx.inventoryStock.deleteMany({
+        where: { productId, warehouseId: { in: change.removed } }
+      });
+    }
+
+    if (change.added.length > 0) {
+      await tx.productWarehouse.createMany({
+        data: change.added.map((warehouseId) => ({ productId, warehouseId })),
+        skipDuplicates: true
+      });
+    }
+  }
+
+  private assertWarehousesInView(warehouseIds: string[], access: AdminProductAccess) {
+    const visible = access.visibleWarehouseIds;
+
+    if (visible && warehouseIds.some((warehouseId) => !visible.includes(warehouseId))) {
+      throw new ForbiddenException("You can assign products only to your own warehouses.");
+    }
+  }
+
+  private async assertWarehousesExist(warehouseIds: string[]) {
+    if (warehouseIds.length === 0) {
+      return;
+    }
+
+    const found = await this.prisma.warehouse.count({
+      where: { deletedAt: null, id: { in: warehouseIds } }
+    });
+
+    if (found !== warehouseIds.length) {
+      throw new NotFoundException("One or more warehouses were not found.");
+    }
   }
 
   private async findPublicProductBySlugOrId(slug: string) {
@@ -994,6 +1309,30 @@ export class ProductsService {
     };
   }
 
+  private serializeAdminProduct(product: AdminProductRecord, access: AdminProductAccess) {
+    const inView = (warehouseIds: string[] | null) => (warehouseId: string) =>
+      warehouseIds === null || warehouseIds.includes(warehouseId);
+    const isVisible = inView(access.visibleWarehouseIds);
+    const isStockInView = inView(access.stockWarehouseIds);
+    const warehouses = product.warehouses
+      .filter((link) => isVisible(link.warehouseId))
+      .map((link) => ({
+        code: link.warehouse.code,
+        id: link.warehouse.id,
+        name: link.warehouse.name,
+        status: link.warehouse.status
+      }));
+
+    return {
+      ...this.serializeProduct(product),
+      stock: summarizeProductStock(
+        product.inventoryStocks.filter((line) => isStockInView(line.warehouseId))
+      ),
+      warehouseIds: warehouses.map((warehouse) => warehouse.id),
+      warehouses
+    };
+  }
+
   private serializeRecommendationList(products: ProductRecord[], limit: number) {
     return {
       items: products.map((product) => this.serializeProduct(product)),
@@ -1051,6 +1390,40 @@ export class ProductsService {
       }
     });
   }
+}
+
+/** Stock lines that count: active warehouses, narrowed to the ones in view. */
+function stockRowsInView(warehouseIds: string[] | null): Prisma.InventoryStockWhereInput {
+  return {
+    warehouse: {
+      deletedAt: null,
+      status: WarehouseStatus.ACTIVE
+    },
+    ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {})
+  };
+}
+
+function assignedToWarehouses(warehouseIds: string[] | null): Prisma.ProductWhereInput {
+  return warehouseIds
+    ? { warehouses: { some: { warehouseId: { in: warehouseIds } } } }
+    : {};
+}
+
+/** Mirrors ProductStockStatus so the list filter and each row's badge always agree. */
+function summarizeProductStock(
+  lines: Array<{ availableQuantity: number; reorderLevel: number; reservedQuantity: number }>
+) {
+  const status = !lines.some((line) => line.availableQuantity > 0)
+    ? ProductStockStatus.OutOfStock
+    : lines.some((line) => line.availableQuantity <= line.reorderLevel)
+      ? ProductStockStatus.LowStock
+      : ProductStockStatus.InStock;
+
+  return {
+    availableQuantity: lines.reduce((total, line) => total + line.availableQuantity, 0),
+    reservedQuantity: lines.reduce((total, line) => total + line.reservedQuantity, 0),
+    status
+  };
 }
 
 function normalizeSearchTags(searchTags: string[]) {

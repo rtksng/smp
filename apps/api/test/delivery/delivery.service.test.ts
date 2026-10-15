@@ -12,6 +12,7 @@ import { AdminDeliveryController } from "../../src/modules/delivery/admin-delive
 import { AdminDeliveryPartnersController } from "../../src/modules/delivery/admin-delivery-partners.controller";
 import { DeliveryController } from "../../src/modules/delivery/delivery.controller";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
+import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
 import { adminAuth, FakeWarehouseAccess, createDeliveryPrismaMock, now } from "./delivery.fixture";
@@ -623,8 +624,147 @@ test("delivery controllers declare required guards and permissions", () => {
     [AdminDeliveryPartnersController.prototype.createPartner, PermissionCode.DeliveryPartnersManage],
     [AdminDeliveryPartnersController.prototype.updatePartner, PermissionCode.DeliveryPartnersManage],
     [AdminDeliveryPartnersController.prototype.getPartnerEarnings, PermissionCode.DeliveryRead],
-    [AdminDeliveryPartnersController.prototype.createLedgerEntry, PermissionCode.DeliveryPayoutsManage]
+    [AdminDeliveryPartnersController.prototype.createLedgerEntry, PermissionCode.DeliveryPayoutsManage],
+    [AdminDeliveryController.prototype.listDispatchQueue, PermissionCode.DeliveryAssign]
   ] as const) {
     assert.deepEqual(Reflect.getMetadata("admin:required-permissions", method), [permission]);
   }
+});
+
+test("assignOrder keeps warehouse staff to their own warehouses' orders", async () => {
+  const staffContext = {
+    auth: adminAuth({ role: AdminRoleCode.WarehouseStaff }),
+    ipAddress: "127.0.0.1",
+    userAgent: "node-test"
+  };
+  const otherWarehousePrisma = createDeliveryPrismaMock({ orderStatus: "PACKED" });
+  const otherWarehouseService = new DeliveryService(
+    otherWarehousePrisma as unknown as PrismaService,
+    new FakeWarehouseAccess({
+      allWarehouses: false,
+      warehouseIds: ["warehouse-2"]
+    }) as unknown as WarehouseAccessService
+  );
+
+  // The order belongs to warehouse-1, so picking it up from the admin's own warehouse is no way in.
+  await assert.rejects(
+    () =>
+      otherWarehouseService.assignOrder(
+        { deliveryPartnerId: "partner-1", orderId: "order-1", pickupWarehouseId: "warehouse-2" },
+        staffContext
+      ),
+    /not assigned to this warehouse/
+  );
+  assert.equal(otherWarehousePrisma.calls.deliveryAssignmentCreate.length, 0);
+
+  const unlinkedPrisma = createDeliveryPrismaMock({ orderStatus: "PACKED" });
+  const findOrder = unlinkedPrisma.order.findFirst;
+  unlinkedPrisma.order.findFirst = async (args: unknown) => ({
+    ...(await findOrder(args)),
+    warehouseId: null
+  });
+  const unlinkedService = new DeliveryService(
+    unlinkedPrisma as unknown as PrismaService,
+    new FakeWarehouseAccess({
+      allWarehouses: false,
+      warehouseIds: ["warehouse-1"]
+    }) as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () =>
+      unlinkedService.assignOrder(
+        { deliveryPartnerId: "partner-1", orderId: "order-1", pickupWarehouseId: "warehouse-1" },
+        staffContext
+      ),
+    /Only the super admin can dispatch orders that are not linked to a warehouse/
+  );
+
+  const superAdminResult = await unlinkedService.assignOrder(
+    { deliveryPartnerId: "partner-1", orderId: "order-1", pickupWarehouseId: "warehouse-1" },
+    { ...staffContext, auth: adminAuth({ role: AdminRoleCode.SuperAdmin }) }
+  );
+  assert.equal(superAdminResult.status, "ASSIGNED");
+});
+
+test("listDispatchQueue lists ready orders for the admin's warehouses, oldest first", async () => {
+  const findManyCalls: unknown[] = [];
+  const countCalls: unknown[] = [];
+  const prisma = {
+    order: {
+      count: async (args: unknown) => {
+        countCalls.push(args);
+        return 1;
+      },
+      findMany: async (args: unknown) => {
+        findManyCalls.push(args);
+        return [
+          {
+            _count: { deliveryAssignments: 1, items: 2 },
+            createdAt: now,
+            grandTotal: "450.00",
+            id: "order-1",
+            orderNumber: "ORD-1",
+            paymentStatus: "PENDING",
+            payments: [{ method: "COD", status: "PENDING" }],
+            placedAt: now,
+            shippingAddress: { city: "Delhi", pincode: "110001", state: "Delhi" },
+            status: "PACKED",
+            user: {
+              businessName: "City Clinic",
+              firstName: "Nisha",
+              lastName: "Rao",
+              mobileNumber: "+919000000001"
+            },
+            warehouse: { code: "DEL-01", id: "warehouse-1", name: "Delhi warehouse" },
+            warehouseId: "warehouse-1"
+          }
+        ];
+      }
+    }
+  };
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess({
+      allWarehouses: false,
+      warehouseIds: ["warehouse-1"]
+    }) as unknown as WarehouseAccessService
+  );
+
+  const queue = await service.listDispatchQueue({ search: " ORD " }, adminAuth());
+
+  assert.deepEqual(queue.items[0], {
+    attempts: 1,
+    createdAt: now,
+    customer: { businessName: "City Clinic", fullName: "Nisha Rao", mobileNumber: "+919000000001" },
+    grandTotal: 450,
+    id: "order-1",
+    itemCount: 2,
+    orderNumber: "ORD-1",
+    payment: { codAmount: 450, method: "COD", status: "PENDING" },
+    placedAt: now,
+    shippingAddress: { city: "Delhi", pincode: "110001", state: "Delhi" },
+    status: "PACKED",
+    warehouse: { code: "DEL-01", id: "warehouse-1", name: "Delhi warehouse" },
+    warehouseId: "warehouse-1"
+  });
+  const args = findManyCalls[0] as { orderBy: unknown; where: Record<string, unknown> };
+  assert.deepEqual(args.orderBy, [{ placedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }]);
+  assert.deepEqual(
+    { deletedAt: args.where.deletedAt, status: args.where.status, warehouseId: args.where.warehouseId },
+    {
+      deletedAt: null,
+      status: { in: ["CONFIRMED", "PACKED"] },
+      warehouseId: { in: ["warehouse-1"] }
+    }
+  );
+  assert.deepEqual((args.where.OR as unknown[])[0], {
+    orderNumber: { contains: "ORD", mode: "insensitive" }
+  });
+  assert.deepEqual(countCalls, [{ where: args.where }]);
+
+  await assert.rejects(
+    () => service.listDispatchQueue({ warehouseId: "warehouse-2" }, adminAuth()),
+    /not assigned to this warehouse/
+  );
 });

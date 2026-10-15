@@ -29,12 +29,16 @@ import {
   InventoryListQueryDto,
   InventoryStockListItemResponseDto,
   InventoryStockResponseDto,
+  InventorySummaryQueryDto,
+  InventorySummaryResponseDto,
   NearExpiryQueryDto,
   ReturnDispositionDto,
-  StockBatchResponseDto,
+  StockBatchListItemResponseDto,
+  StockBatchListQueryDto,
   StockInDto,
+  StockMovementListItemResponseDto,
   StockMovementQueryDto,
-  StockMovementResponseDto,
+  StockOutDto,
   TransferStockDto
 } from "./dto/inventory.dto";
 import { InventoryService } from "./inventory.service";
@@ -48,12 +52,30 @@ export class AdminInventoryController {
 
   @Post("stock-in")
   @RequirePermission(PermissionCode.InventoryUpdate)
-  @ApiOperation({ summary: "Receive stock into a warehouse batch." })
+  @ApiOperation({
+    summary: "Receive stock into a warehouse batch. The product must be assigned to the warehouse."
+  })
   @ApiCreatedResponse({ description: "Stock received.", type: InventoryStockResponseDto })
+  @ApiBadRequestResponse({ description: "Product is not assigned to the warehouse." })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks inventory.update permission or warehouse assignment." })
   stockIn(@Body() body: StockInDto, @Req() request: AuthenticatedRequest) {
     return this.inventoryService.stockIn(body, getAdminActionContext(request));
+  }
+
+  @Post("stock-out")
+  @RequirePermission(PermissionCode.InventoryUpdate)
+  @ApiOperation({
+    summary: "Remove units from a batch, for example damaged, expired, or sample stock."
+  })
+  @ApiCreatedResponse({ description: "Stock removed.", type: InventoryStockResponseDto })
+  @ApiBadRequestResponse({
+    description: "Not enough stock, or the product is not assigned to the warehouse."
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks inventory.update permission or warehouse assignment." })
+  stockOut(@Body() body: StockOutDto, @Req() request: AuthenticatedRequest) {
+    return this.inventoryService.stockOut(body, getAdminActionContext(request));
   }
 
   @Post("adjust")
@@ -127,10 +149,36 @@ export class AdminInventoryController {
     return this.inventoryService.listLowStock(query, getAuth(request));
   }
 
+  @Get("summary")
+  @RequirePermission(PermissionCode.InventoryRead)
+  @ApiOperation({ summary: "Headline stock counts for the admin's warehouses or one of them." })
+  @ApiOkResponse({ description: "Inventory summary returned.", type: InventorySummaryResponseDto })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
+  getSummary(
+    @Query() query: InventorySummaryQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.inventoryService.getSummary(query, getAuth(request));
+  }
+
+  @Get("batches")
+  @RequirePermission(PermissionCode.InventoryRead)
+  @ApiOperation({ summary: "List batches of one product line in one warehouse, soonest expiry first." })
+  @ApiOkResponse({ description: "Batches returned.", type: [StockBatchListItemResponseDto] })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
+  listBatches(
+    @Query() query: StockBatchListQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.inventoryService.listBatches(query, getAuth(request));
+  }
+
   @Get("near-expiry")
   @RequirePermission(PermissionCode.InventoryRead)
   @ApiOperation({ summary: "List positive-quantity batches nearing expiry." })
-  @ApiOkResponse({ description: "Near-expiry batches returned.", type: [StockBatchResponseDto] })
+  @ApiOkResponse({ description: "Near-expiry batches returned.", type: [StockBatchListItemResponseDto] })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
   listNearExpiry(
@@ -143,7 +191,7 @@ export class AdminInventoryController {
   @Get("movements")
   @RequirePermission(PermissionCode.InventoryRead)
   @ApiOperation({ summary: "List stock movement audit trail." })
-  @ApiOkResponse({ description: "Stock movements returned.", type: [StockMovementResponseDto] })
+  @ApiOkResponse({ description: "Stock movements returned.", type: [StockMovementListItemResponseDto] })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
   @ApiForbiddenResponse({ description: "Admin lacks inventory.read permission or warehouse assignment." })
   listMovements(

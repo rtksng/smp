@@ -239,6 +239,37 @@ test("admin dashboard reports apply date filters and assigned warehouse scope", 
 
   const topProductsQuery = prisma.calls.queryRaw[2];
   assert.ok(rawQueryContains(topProductsQuery, PaymentStatus.PAID));
+
+  // Warehouse staff count only their warehouses' customers and delivery partners.
+  assert.deepEqual(prisma.calls.userCount, [{
+    where: {
+      deletedAt: null,
+      isActive: true,
+      orders: { some: { deletedAt: null, warehouseId: { in: ["warehouse-1"] } } }
+    }
+  }]);
+  assert.deepEqual(prisma.calls.deliveryPartnerCount, [{
+    where: {
+      deletedAt: null,
+      status: "ACTIVE",
+      warehouses: { some: { warehouseId: { in: ["warehouse-1"] } } }
+    }
+  }]);
+});
+
+test("admin dashboard customer and partner counts stay platform-wide for the super admin", async () => {
+  const prisma = createReportsPrismaMock();
+  const service = new ReportsService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService
+  );
+
+  await service.getDashboard({}, adminAuth(AdminRoleCode.SuperAdmin));
+
+  assert.deepEqual(prisma.calls.userCount, [{ where: { deletedAt: null, isActive: true } }]);
+  assert.deepEqual(prisma.calls.deliveryPartnerCount, [
+    { where: { deletedAt: null, status: "ACTIVE" } }
+  ]);
 });
 
 test("admin dashboard reports validate an explicit warehouse filter", async () => {

@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { CreateWarehouseDto, UpdateWarehouseDto, WarehouseListQueryDto } from "../../src/modules/warehouses/dto/warehouse.dto";
+import {
+  CreateWarehouseDto,
+  CreateWarehouseStaffAccountDto,
+  UpdateWarehouseDto,
+  WarehouseListQueryDto
+} from "../../src/modules/warehouses/dto/warehouse.dto";
 
 const input = {
   address: " Plot 1 ", city: " Pune ", code: " qa-1 ", contactNumber: "9000000000",
@@ -52,5 +57,32 @@ test("warehouse pagination accepts integer query strings and rejects fractions a
   }
   for (const limit of [0, 1.5, 101, false]) {
     assert.ok((await validate(plainToInstance(WarehouseListQueryDto, { limit }))).length, String(limit));
+  }
+});
+
+test("staff account input normalizes the email and rejects weak or incomplete details", async () => {
+  const account = {
+    email: " Picker@Example.TEST ",
+    firstName: " Asha ",
+    password: "Password123",
+    roleId: "7d9f8f33-d348-4a89-94e8-907be76a91c6"
+  };
+  const dto = plainToInstance(CreateWarehouseStaffAccountDto, { ...account, lastName: "  ", mobileNumber: "" });
+
+  assert.deepEqual(await validate(dto), []);
+  assert.equal(dto.email, "picker@example.test");
+  assert.equal(dto.firstName, "Asha");
+  assert.equal(dto.lastName, null);
+  assert.equal(dto.mobileNumber, null);
+
+  for (const [field, value] of [
+    ["password", "short"],
+    ["roleId", "not-a-role"],
+    ["email", "not-an-email"],
+    ["firstName", "  "],
+    ["mobileNumber", "98765"]
+  ] as const) {
+    const errors = await validate(plainToInstance(CreateWarehouseStaffAccountDto, { ...account, [field]: value }));
+    assert.ok(errors.some((error) => error.property === field), field);
   }
 });

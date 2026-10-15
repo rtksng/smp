@@ -29,14 +29,41 @@ import {
   DashboardReportQueryDto,
   DashboardReportResponseDto
 } from "./dto/reports.dto";
+import {
+  WarehouseDashboardQueryDto,
+  WarehouseDashboardResponseDto
+} from "./dto/warehouse-dashboard.dto";
 import { ReportsService } from "./reports.service";
+import { WarehouseDashboardService } from "./warehouse-dashboard.service";
 
 @ApiBearerAuth()
 @ApiTags("Admin reports")
 @Controller("admin/reports")
 @UseGuards(AdminJwtGuard, PermissionGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly warehouseDashboardService: WarehouseDashboardService
+  ) {}
+
+  @Get("warehouse-dashboard")
+  @RequirePermission(PermissionCode.ReportsRead)
+  @ApiOperation({
+    summary:
+      "Warehouse operations dashboard: stock, dispatch queue, riders, and fulfillment, limited to the admin's warehouses."
+  })
+  @ApiOkResponse({
+    description: "Warehouse dashboard returned.",
+    type: WarehouseDashboardResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks reports.read permission or warehouse assignment." })
+  getWarehouseDashboard(
+    @Query() query: WarehouseDashboardQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.warehouseDashboardService.getDashboard(query, getAuth(request));
+  }
 
   @Get("dashboard")
   @RequirePermission(PermissionCode.ReportsRead)

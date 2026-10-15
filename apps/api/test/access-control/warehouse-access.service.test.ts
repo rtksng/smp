@@ -5,7 +5,12 @@ import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.serv
 import type { AuthJwtPayload } from "../../src/modules/auth/common/auth-token.service";
 import type { PrismaService } from "../../src/database/prisma.service";
 import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
-import { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
+import {
+  assertSuperAdmin,
+  isSuperAdmin,
+  toWarehouseIdFilter,
+  WarehouseAccessService
+} from "../../src/modules/warehouses/warehouse-access.service";
 
 type FindFirstArgs = {
   where: {
@@ -123,4 +128,33 @@ test("every non-super role excludes deleted warehouses from assignment lookup an
     assert.deepEqual(prisma.findFirstCalls[0]?.where.warehouse, { deletedAt: null });
     assert.deepEqual(prisma.findManyCalls[0]?.where.warehouse, { deletedAt: null });
   }
+});
+
+test("only the super admin passes the super admin check", () => {
+  assert.equal(isSuperAdmin(adminAuth(AdminRoleCode.SuperAdmin)), true);
+  assert.doesNotThrow(() => assertSuperAdmin(adminAuth(AdminRoleCode.SuperAdmin)));
+
+  for (const role of Object.values(AdminRoleCode).filter((value) => value !== AdminRoleCode.SuperAdmin)) {
+    assert.equal(isSuperAdmin(adminAuth(role)), false, role);
+    assert.throws(() => assertSuperAdmin(adminAuth(role), "Super admin only."), {
+      message: "Super admin only.",
+      name: "ForbiddenException"
+    });
+  }
+});
+
+test("resolveWarehouseFilter checks a requested warehouse and otherwise uses the admin's scope", async () => {
+  const service = createService(new FakePrisma(["warehouse-1", "warehouse-2"]));
+  const staff = adminAuth(AdminRoleCode.WarehouseStaff);
+
+  assert.equal(await service.resolveWarehouseFilter(staff, "warehouse-2"), "warehouse-2");
+  assert.deepEqual(await service.resolveWarehouseFilter(staff), {
+    in: ["warehouse-1", "warehouse-2"]
+  });
+  assert.equal(await service.resolveWarehouseFilter(adminAuth(AdminRoleCode.SuperAdmin)), undefined);
+  await assert.rejects(
+    () => service.resolveWarehouseFilter(staff, "warehouse-3"),
+    ForbiddenException
+  );
+  assert.deepEqual(toWarehouseIdFilter({ allWarehouses: true }), undefined);
 });

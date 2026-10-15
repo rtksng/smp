@@ -2,6 +2,7 @@ import { Prisma, WarehouseStatus } from "../../generated/prisma/client";
 
 // Checkout reserves the first available warehouse in this deterministic order.
 // Cart delivery quotes use the same query without reserving any stock.
+// Only warehouses the product is assigned to can fulfil it.
 export function buildFulfillmentStockQuery(line: {
   productId: string;
   variantId: string | null;
@@ -17,7 +18,11 @@ export function buildFulfillmentStockQuery(line: {
       availableQuantity: { gt: 0 },
       productId: line.productId,
       variantId: line.variantId,
-      warehouse: { deletedAt: null, status: WarehouseStatus.ACTIVE }
+      warehouse: {
+        deletedAt: null,
+        products: { some: { productId: line.productId } },
+        status: WarehouseStatus.ACTIVE
+      }
     }
   } satisfies Prisma.InventoryStockFindManyArgs;
 }

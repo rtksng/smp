@@ -53,7 +53,14 @@ type ProductDocumentFixture = {
 
 type InventoryStockFixture = {
   availableQuantity: number;
+  reorderLevel?: number;
   reservedQuantity: number;
+  warehouseId?: string;
+};
+
+type ProductWarehouseFixture = {
+  warehouse: { code: string; id: string; name: string; status: "ACTIVE" | "INACTIVE" };
+  warehouseId: string;
 };
 
 type ProductFixture = {
@@ -91,9 +98,87 @@ type ProductFixture = {
   unit: string;
   updatedAt: Date;
   variants: ProductVariantFixture[];
+  warehouses?: ProductWarehouseFixture[];
 };
 
 const now = new Date("2026-05-25T10:00:00.000Z");
+
+function warehouseLink(id: string, name = `Warehouse ${id}`): ProductWarehouseFixture {
+  return {
+    warehouse: { code: id.toUpperCase(), id, name, status: "ACTIVE" },
+    warehouseId: id
+  };
+}
+
+const publicProductInclude = {
+  brand: true,
+  category: true,
+  subcategory: true,
+  documents: {
+    orderBy: [{ type: "asc" }, { title: "asc" }]
+  },
+  images: {
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  },
+  inventoryStocks: {
+    select: {
+      availableQuantity: true,
+      reservedQuantity: true
+    },
+    where: {
+      warehouse: {
+        deletedAt: null,
+        status: "ACTIVE"
+      }
+    }
+  },
+  variants: {
+    orderBy: [{ name: "asc" }],
+    where: {
+      deletedAt: null
+    }
+  }
+};
+
+const adminProductInclude = {
+  brand: true,
+  category: true,
+  subcategory: true,
+  documents: {
+    orderBy: [{ type: "asc" }, { title: "asc" }]
+  },
+  images: {
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+  },
+  inventoryStocks: {
+    select: {
+      availableQuantity: true,
+      reorderLevel: true,
+      reservedQuantity: true,
+      warehouseId: true
+    },
+    where: {
+      warehouse: {
+        deletedAt: null,
+        status: "ACTIVE"
+      }
+    }
+  },
+  variants: {
+    orderBy: [{ name: "asc" }],
+    where: {
+      deletedAt: null
+    }
+  },
+  warehouses: {
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      warehouse: { select: { code: true, id: true, name: true, status: true } },
+      warehouseId: true
+    },
+    where: { warehouse: { deletedAt: null } }
+  }
+};
 const adminContext: AdminActionContext = {
   auth: {
     audience: AuthTokenAudience.Admin,
@@ -170,7 +255,9 @@ function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
     inventoryStocks: [
       {
         availableQuantity: 12,
-        reservedQuantity: 2
+        reorderLevel: 3,
+        reservedQuantity: 2,
+        warehouseId: "warehouse-1"
       }
     ],
     material: "Stainless steel",
@@ -207,6 +294,7 @@ function productFixture(input: Partial<ProductFixture> = {}): ProductFixture {
         status: "ACTIVE"
       }
     ],
+    warehouses: [warehouseLink("warehouse-1", "Mumbai Central")],
     ...input
   };
 }
@@ -261,6 +349,8 @@ type ProductPrismaMock = PrismaService & {
     adminAuditLogCreate: unknown[];
     brandFindFirst: unknown[];
     categoryFindFirst: unknown[];
+    inventoryStockDeleteMany: unknown[];
+    inventoryStockFindMany: unknown[];
     productCount: unknown[];
     productCreate: unknown[];
     productDocumentCreateMany: unknown[];
@@ -272,8 +362,15 @@ type ProductPrismaMock = PrismaService & {
     productUpdate: unknown[];
     productVariantCreateMany: unknown[];
     productVariantDeleteMany: unknown[];
+    productWarehouseCreateMany: unknown[];
+    productWarehouseDeleteMany: unknown[];
     transaction: unknown[];
+    warehouseCount: unknown[];
   };
+  /** Stock lines the warehouse-removal check finds still holding units. */
+  stockedLines: Array<{ warehouse: { name: string } }>;
+  /** Warehouses that exist, for the warehouse assignment check. */
+  existingWarehouseIds: string[];
 };
 
 type ProductFindFirstArgs = {
@@ -295,6 +392,8 @@ function createProductPrismaMock(
     adminAuditLogCreate: [],
     brandFindFirst: [],
     categoryFindFirst: [],
+    inventoryStockDeleteMany: [],
+    inventoryStockFindMany: [],
     productCount: [],
     productCreate: [],
     productDocumentCreateMany: [],
@@ -306,13 +405,45 @@ function createProductPrismaMock(
     productUpdate: [],
     productVariantCreateMany: [],
     productVariantDeleteMany: [],
-    transaction: []
+    productWarehouseCreateMany: [],
+    productWarehouseDeleteMany: [],
+    transaction: [],
+    warehouseCount: []
   };
 
   const mock = {
     $transaction: async <T>(callback: (tx: ProductPrismaMock) => Promise<T>) => {
       calls.transaction.push(true);
       return callback(mock as ProductPrismaMock);
+    },
+    existingWarehouseIds: ["warehouse-1", "warehouse-2", "warehouse-3"],
+    stockedLines: [] as Array<{ warehouse: { name: string } }>,
+    inventoryStock: {
+      deleteMany: async (args: unknown) => {
+        calls.inventoryStockDeleteMany.push(args);
+        return { count: 1 };
+      },
+      fields: { reorderLevel: "reorderLevel" },
+      findMany: async (args: unknown) => {
+        calls.inventoryStockFindMany.push(args);
+        return mock.stockedLines;
+      }
+    },
+    productWarehouse: {
+      createMany: async (args: unknown) => {
+        calls.productWarehouseCreateMany.push(args);
+        return { count: 1 };
+      },
+      deleteMany: async (args: unknown) => {
+        calls.productWarehouseDeleteMany.push(args);
+        return { count: 1 };
+      }
+    },
+    warehouse: {
+      count: async (args: { where: { id: { in: string[] } } }) => {
+        calls.warehouseCount.push(args);
+        return args.where.id.in.filter((id) => mock.existingWarehouseIds.includes(id)).length;
+      }
     },
     adminAuditLog: {
       create: async (args: unknown) => {
@@ -564,35 +695,7 @@ test("listPublicProducts applies search, filters, sorting, and pagination", asyn
   );
 
   assert.deepEqual(prisma.calls.productFindMany[0], {
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    },
+    include: publicProductInclude,
     orderBy: [{ sellingPrice: "asc" }, { id: "asc" }],
     skip: 10,
     take: 10,
@@ -685,35 +788,7 @@ test("getPublicProductBySlug accepts public product ids from detail links", asyn
   assert.equal(result.id, "product-id-link");
   assert.equal(result.slug, "curved-artery-forceps");
   assert.deepEqual(prisma.calls.productFindFirst[0], {
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    },
+    include: publicProductInclude,
     where: {
       deletedAt: null,
       OR: [{ slug: "product-id-link" }, { id: "product-id-link" }],
@@ -800,35 +875,7 @@ test("getSimilarProductsBySlug returns same-subcategory products before broader 
   );
   assert.equal(result.pagination.total, 2);
   assert.deepEqual(prisma.calls.productFindMany[0], {
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    },
+    include: publicProductInclude,
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: 12,
     where: {
@@ -926,35 +973,7 @@ test("getRelatedProductsBySlug ranks tag and attribute matches ahead of loose br
   );
   assert.equal(result.pagination.total, 2);
   assert.deepEqual(prisma.calls.productFindMany[0], {
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    },
+    include: publicProductInclude,
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     take: 12,
     where: {
@@ -1126,35 +1145,7 @@ test("createProduct validates brand and category and persists nested catalogue d
         ]
       }
     },
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    }
+    include: adminProductInclude
   });
   assert.equal(prisma.calls.adminAuditLogCreate.length, 1);
   const auditCall = prisma.calls.adminAuditLogCreate[0] as {
@@ -1349,35 +1340,7 @@ test("updateProduct replaces only nested collections that are provided", async (
     data: {
       name: "Updated Forceps"
     },
-    include: {
-      brand: true,
-      category: true,
-      subcategory: true,
-      documents: {
-        orderBy: [{ type: "asc" }, { title: "asc" }]
-      },
-      images: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
-      },
-      inventoryStocks: {
-        select: {
-          availableQuantity: true,
-          reservedQuantity: true
-        },
-        where: {
-          warehouse: {
-            deletedAt: null,
-            status: "ACTIVE"
-          }
-        }
-      },
-      variants: {
-        orderBy: [{ name: "asc" }],
-        where: {
-          deletedAt: null
-        }
-      }
-    },
+    include: adminProductInclude,
     where: {
       id: product.id
     }
@@ -1502,5 +1465,218 @@ test("admin product controller methods declare product permissions", () => {
       AdminProductsController.prototype.deleteProduct
     ),
     [PermissionCode.ProductsDelete]
+  );
+});
+
+class FakeWarehouseAccess {
+  constructor(private readonly warehouseIds: string[]) {}
+
+  async getWarehouseScope(auth: { role?: string }) {
+    return auth.role === "SUPER_ADMIN"
+      ? { allWarehouses: true as const }
+      : { allWarehouses: false as const, warehouseIds: this.warehouseIds };
+  }
+}
+
+const inventoryManagerContext: AdminActionContext = {
+  ...adminContext,
+  auth: { ...adminContext.auth, role: "INVENTORY_MANAGER", sub: "admin-2" }
+};
+
+function productInTwoWarehouses() {
+  return productFixture({
+    inventoryStocks: [
+      { availableQuantity: 12, reorderLevel: 3, reservedQuantity: 2, warehouseId: "warehouse-1" },
+      { availableQuantity: 0, reorderLevel: 5, reservedQuantity: 0, warehouseId: "warehouse-3" }
+    ],
+    warehouses: [warehouseLink("warehouse-1", "Mumbai Central"), warehouseLink("warehouse-3", "Delhi Hub")]
+  });
+}
+
+test("warehouse-level admins see only products assigned to their warehouses, with their own stock", async () => {
+  const prisma = createProductPrismaMock([productInTwoWarehouses()]);
+  const service = new ProductsService(
+    prisma,
+    new FakeWarehouseAccess(["warehouse-1", "warehouse-2"]) as never
+  );
+
+  const scoped = await service.listAdminProducts({}, inventoryManagerContext.auth);
+  const everything = await service.listAdminProducts({}, adminContext.auth);
+
+  assert.deepEqual(
+    (prisma.calls.productFindMany[0] as { where: { AND: unknown } }).where.AND,
+    [{ warehouses: { some: { warehouseId: { in: ["warehouse-1", "warehouse-2"] } } } }]
+  );
+  assert.equal(
+    (prisma.calls.productFindMany[1] as { where: { AND?: unknown } }).where.AND,
+    undefined
+  );
+  assert.deepEqual(
+    { stock: scoped.items[0]?.stock, warehouseIds: scoped.items[0]?.warehouseIds },
+    {
+      stock: { availableQuantity: 12, reservedQuantity: 2, status: "IN_STOCK" },
+      warehouseIds: ["warehouse-1"]
+    }
+  );
+  // Across every warehouse, the empty Delhi line flags the product for attention.
+  assert.deepEqual(
+    {
+      stock: everything.items[0]?.stock,
+      warehouses: everything.items[0]?.warehouses.map((warehouse) => warehouse.name)
+    },
+    {
+      stock: { availableQuantity: 12, reservedQuantity: 2, status: "LOW_STOCK" },
+      warehouses: ["Mumbai Central", "Delhi Hub"]
+    }
+  );
+  await assert.rejects(
+    () => service.listAdminProducts({ warehouseId: "warehouse-3" }, inventoryManagerContext.auth),
+    /not assigned to this warehouse/
+  );
+});
+
+test("admin product filters narrow by warehouse, stock position, and missing assignments", async () => {
+  const prisma = createProductPrismaMock([productInTwoWarehouses()]);
+  const service = new ProductsService(prisma, new FakeWarehouseAccess([]) as never);
+  const stockLinesInW1 = {
+    warehouse: { deletedAt: null, status: "ACTIVE" },
+    warehouseId: { in: ["warehouse-1"] }
+  };
+
+  await service.listAdminProducts(
+    { stockStatus: "LOW_STOCK" as never, warehouseId: "warehouse-1" },
+    adminContext.auth
+  );
+  await service.listAdminProducts({ stockStatus: "OUT_OF_STOCK" as never }, adminContext.auth);
+  await service.listAdminProducts({ unassigned: true }, adminContext.auth);
+
+  const [lowStock, outOfStock, unassigned] = prisma.calls.productFindMany.map(
+    (call) => (call as { where: { AND: unknown } }).where.AND
+  );
+  assert.deepEqual(lowStock, [
+    { warehouses: { some: { warehouseId: { in: ["warehouse-1"] } } } },
+    { inventoryStocks: { some: { ...stockLinesInW1, availableQuantity: { gt: 0 } } } },
+    {
+      inventoryStocks: {
+        some: { ...stockLinesInW1, availableQuantity: { lte: "reorderLevel" } }
+      }
+    }
+  ]);
+  assert.deepEqual(outOfStock, [
+    {
+      inventoryStocks: {
+        none: { availableQuantity: { gt: 0 }, warehouse: { deletedAt: null, status: "ACTIVE" } }
+      }
+    }
+  ]);
+  assert.deepEqual(unassigned, [{ warehouses: { none: { warehouse: { deletedAt: null } } } }]);
+});
+
+test("getAdminProductById hides products outside the admin's warehouses", async () => {
+  const prisma = createProductPrismaMock([productInTwoWarehouses()]);
+  const service = new ProductsService(prisma, new FakeWarehouseAccess(["warehouse-2"]) as never);
+
+  await service.getAdminProductById("product-1", inventoryManagerContext.auth);
+
+  assert.deepEqual((prisma.calls.productFindFirst[0] as { where: unknown }).where, {
+    deletedAt: null,
+    id: "product-1",
+    warehouses: { some: { warehouseId: { in: ["warehouse-2"] } } }
+  });
+});
+
+test("createProduct assigns new products only to warehouses the admin can reach", async () => {
+  const prisma = createProductPrismaMock([]);
+  const service = new ProductsService(
+    prisma,
+    new FakeWarehouseAccess(["warehouse-1", "warehouse-2"]) as never
+  );
+  const createdWarehouses = () =>
+    (prisma.calls.productCreate.at(-1) as { data: { warehouses?: unknown } }).data.warehouses;
+
+  await service.createProduct(createProductInput(), inventoryManagerContext);
+  assert.deepEqual(createdWarehouses(), {
+    create: [{ warehouseId: "warehouse-1" }, { warehouseId: "warehouse-2" }]
+  });
+
+  await service.createProduct(createProductInput({ warehouseIds: ["warehouse-3"] }), adminContext);
+  assert.deepEqual(createdWarehouses(), { create: [{ warehouseId: "warehouse-3" }] });
+
+  await service.createProduct(createProductInput(), adminContext);
+  assert.equal(createdWarehouses(), undefined, "the super admin may leave a product unassigned");
+
+  await assert.rejects(
+    () =>
+      service.createProduct(
+        createProductInput({ warehouseIds: ["warehouse-3"] }),
+        inventoryManagerContext
+      ),
+    /only to your own warehouses/
+  );
+  await assert.rejects(
+    () => service.createProduct(createProductInput({ warehouseIds: ["warehouse-9"] }), adminContext),
+    /warehouses were not found/
+  );
+  assert.equal(prisma.calls.productCreate.length, 3);
+});
+
+test("updateProduct changes only the admin's own warehouse assignments", async () => {
+  const product = productInTwoWarehouses();
+  const prisma = createProductPrismaMock([product]);
+  const service = new ProductsService(
+    prisma,
+    new FakeWarehouseAccess(["warehouse-1", "warehouse-2"]) as never
+  );
+
+  await service.updateProduct(product.id, { warehouseIds: ["warehouse-2"] }, inventoryManagerContext);
+
+  // Delhi (warehouse-3) is outside this admin's reach, so it stays assigned.
+  assert.deepEqual(prisma.calls.productWarehouseDeleteMany, [
+    { where: { productId: product.id, warehouseId: { in: ["warehouse-1"] } } }
+  ]);
+  // The empty stock line goes too, so warehouse-1 no longer lists the product as out of stock.
+  assert.deepEqual(prisma.calls.inventoryStockDeleteMany, [
+    { where: { productId: product.id, warehouseId: { in: ["warehouse-1"] } } }
+  ]);
+  assert.deepEqual(prisma.calls.productWarehouseCreateMany, [
+    { data: [{ productId: product.id, warehouseId: "warehouse-2" }], skipDuplicates: true }
+  ]);
+  assert.deepEqual((prisma.calls.inventoryStockFindMany[0] as { where: unknown }).where, {
+    OR: [{ availableQuantity: { gt: 0 } }, { reservedQuantity: { gt: 0 } }],
+    productId: product.id,
+    warehouseId: { in: ["warehouse-1"] }
+  });
+
+  await assert.rejects(
+    () => service.updateProduct(product.id, { warehouseIds: [] }, inventoryManagerContext),
+    /Keep the product in at least one of your warehouses/
+  );
+  await assert.rejects(
+    () =>
+      service.updateProduct(product.id, { warehouseIds: ["warehouse-3"] }, inventoryManagerContext),
+    /only to your own warehouses/
+  );
+});
+
+test("updateProduct refuses to remove a warehouse that still holds the product's stock", async () => {
+  const product = productInTwoWarehouses();
+  const prisma = createProductPrismaMock([product]);
+  prisma.stockedLines = [{ warehouse: { name: "Mumbai Central" } }];
+  const service = new ProductsService(prisma);
+
+  await assert.rejects(
+    () => service.updateProduct(product.id, { warehouseIds: ["warehouse-3"] }, adminContext),
+    /Mumbai Central still holds stock of this product/
+  );
+  assert.equal(prisma.calls.productWarehouseDeleteMany.length, 0);
+  assert.equal(prisma.calls.inventoryStockDeleteMany.length, 0);
+  assert.equal(prisma.calls.productUpdate.length, 0);
+
+  prisma.stockedLines = [];
+  await service.updateProduct(product.id, { status: "INACTIVE" }, adminContext);
+  assert.equal(
+    prisma.calls.inventoryStockFindMany.length,
+    1,
+    "assignments stay untouched when warehouseIds is left out"
   );
 });

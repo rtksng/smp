@@ -35,6 +35,8 @@ import {
   DeliveryIncidentResponseDto,
   DeliveryAssignmentListResponseDto,
   DeliveryAssignmentResponseDto,
+  DispatchQueueQueryDto,
+  DispatchQueueResponseDto,
   UpdateCashSettlementDto
 } from "./dto/delivery.dto";
 
@@ -64,9 +66,31 @@ export class AdminDeliveryController {
     return this.deliveryService.listAdminDeliveryAssignments(query, getAuth(request));
   }
 
+  @Get("dispatch-queue")
+  @RequirePermission(PermissionCode.DeliveryAssign)
+  @ApiOperation({
+    summary:
+      "List confirmed and packed orders waiting for a delivery partner, oldest first. Warehouse staff see their own warehouses' orders."
+  })
+  @ApiOkResponse({
+    description: "Orders ready for dispatch returned.",
+    type: DispatchQueueResponseDto
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks delivery.assign permission or warehouse access." })
+  listDispatchQueue(
+    @Query() query: DispatchQueueQueryDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.deliveryService.listDispatchQueue(query, getAuth(request));
+  }
+
   @Post("assign")
   @RequirePermission(PermissionCode.DeliveryAssign)
-  @ApiOperation({ summary: "Assign a customer order to a delivery partner." })
+  @ApiOperation({
+    summary:
+      "Assign a customer order to a delivery partner. Warehouse staff can dispatch only their own warehouses' orders."
+  })
   @ApiCreatedResponse({
     description: "Delivery assignment created.",
     type: DeliveryAssignmentResponseDto

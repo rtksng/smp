@@ -187,6 +187,45 @@ export class ProductResponseDto {
   variants!: ProductVariantResponseDto[];
 }
 
+export class ProductWarehouseResponseDto {
+  @ApiProperty({ example: "MUM-01" })
+  code!: string;
+
+  @ApiProperty({ example: "warehouse-id" })
+  id!: string;
+
+  @ApiProperty({ example: "Mumbai Central Warehouse" })
+  name!: string;
+
+  @ApiProperty({ enum: ["ACTIVE", "INACTIVE"], example: "ACTIVE" })
+  status!: string;
+}
+
+export class ProductStockSummaryResponseDto {
+  @ApiProperty({ description: "Units available across the warehouses in view.", example: 40 })
+  availableQuantity!: number;
+
+  @ApiProperty({ description: "Units reserved for open orders.", example: 4 })
+  reservedQuantity!: number;
+
+  @ApiProperty({ enum: ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"], example: "IN_STOCK" })
+  status!: string;
+}
+
+export class AdminProductResponseDto extends ProductResponseDto {
+  @ApiProperty({ type: ProductStockSummaryResponseDto })
+  stock!: ProductStockSummaryResponseDto;
+
+  @ApiProperty({ example: ["warehouse-id"], type: [String] })
+  warehouseIds!: string[];
+
+  @ApiProperty({
+    description: "Assigned warehouses. Warehouse-level admins see only their own.",
+    type: [ProductWarehouseResponseDto]
+  })
+  warehouses!: ProductWarehouseResponseDto[];
+}
+
 export class ProductPaginationResponseDto {
   @ApiProperty({ example: true })
   hasNextPage!: boolean;
@@ -210,6 +249,14 @@ export class ProductPaginationResponseDto {
 export class ProductListResponseDto {
   @ApiProperty({ type: [ProductResponseDto] })
   items!: ProductResponseDto[];
+
+  @ApiProperty({ type: ProductPaginationResponseDto })
+  pagination!: ProductPaginationResponseDto;
+}
+
+export class AdminProductListResponseDto {
+  @ApiProperty({ type: [AdminProductResponseDto] })
+  items!: AdminProductResponseDto[];
 
   @ApiProperty({ type: ProductPaginationResponseDto })
   pagination!: ProductPaginationResponseDto;

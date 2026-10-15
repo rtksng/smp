@@ -729,7 +729,12 @@ test("cart shipping uses the first fulfillment warehouse and the real matching r
     take: 1,
     where: {
       availableQuantity: { gt: 0 }, productId: "product-1", variantId: null,
-      warehouse: { deletedAt: null, status: "ACTIVE" }
+      // Only warehouses the product is assigned to can fulfil it.
+      warehouse: {
+        deletedAt: null,
+        products: { some: { productId: "product-1" } },
+        status: "ACTIVE"
+      }
     }
   });
   assert.equal(cart.totals.deliveryCharge, (await deliveryCharges.calculateDeliveryCharge({

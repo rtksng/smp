@@ -18,6 +18,7 @@ test("default RBAC seed defines the required role and permission codes", () => {
       AdminRoleCode.SuperAdmin,
       AdminRoleCode.InventoryManager,
       AdminRoleCode.WarehouseManager,
+      AdminRoleCode.WarehouseStaff,
       AdminRoleCode.OrderManager,
       AdminRoleCode.DeliveryManager,
       AdminRoleCode.Support
@@ -89,11 +90,19 @@ test("predefined non-super-admin roles keep their intended permission sets", () 
     PermissionCode.InventoryRead,
     PermissionCode.InventoryUpdate,
     PermissionCode.WarehouseRead,
-    PermissionCode.WarehouseManage,
     PermissionCode.WarehouseStaffManage,
     PermissionCode.DeliveryRead,
     PermissionCode.DeliveryAssign,
     PermissionCode.DeliveryPartnersManage,
+    PermissionCode.ReportsRead
+  ]);
+  assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.WarehouseStaff], [
+    PermissionCode.ProductsRead,
+    PermissionCode.InventoryRead,
+    PermissionCode.InventoryUpdate,
+    PermissionCode.WarehouseRead,
+    PermissionCode.DeliveryRead,
+    PermissionCode.DeliveryAssign,
     PermissionCode.ReportsRead
   ]);
   assert.deepEqual(DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.OrderManager], [
@@ -121,6 +130,27 @@ test("predefined non-super-admin roles keep their intended permission sets", () 
     PermissionCode.UsersUpdate,
     PermissionCode.DeliveryRead
   ]);
+});
+
+test("only the super admin role can create or configure warehouses", () => {
+  const rolesWithWarehouseManage = DEFAULT_ROLES.filter((role) =>
+    DEFAULT_ROLE_PERMISSION_CODES[role.code].includes(PermissionCode.WarehouseManage)
+  ).map((role) => role.code);
+
+  assert.deepEqual(rolesWithWarehouseManage, [AdminRoleCode.SuperAdmin]);
+});
+
+test("warehouse managers can grant the warehouse staff role without widening access", () => {
+  const managerPermissions = new Set(
+    DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.WarehouseManager]
+  );
+
+  assert.equal(
+    DEFAULT_ROLE_PERMISSION_CODES[AdminRoleCode.WarehouseStaff].every((permission) =>
+      managerPermissions.has(permission)
+    ),
+    true
+  );
 });
 
 test("seed super admin input is optional but rejects partial credentials", () => {

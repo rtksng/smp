@@ -36,12 +36,14 @@ import { PermissionCode } from "../permissions/permissions.constants";
 import {
   AssignWarehouseStaffDto,
   CreateWarehouseDto,
+  CreateWarehouseStaffAccountDto,
   UpdateWarehouseDto,
   WarehouseListQueryDto,
   WarehouseListResponseDto,
   WarehouseResponseDto,
   WarehouseStaffCandidateResponseDto,
-  WarehouseStaffResponseDto
+  WarehouseStaffResponseDto,
+  WarehouseStaffRoleOptionResponseDto
 } from "./dto/warehouse.dto";
 import type { AdminActionContext } from "./warehouses.service";
 import { WarehousesService } from "./warehouses.service";
@@ -55,10 +57,10 @@ export class AdminWarehousesController {
 
   @Post()
   @RequirePermission(PermissionCode.WarehouseManage)
-  @ApiOperation({ summary: "Create a warehouse." })
+  @ApiOperation({ summary: "Create a warehouse. Super admin only." })
   @ApiCreatedResponse({ description: "Warehouse created.", type: WarehouseResponseDto })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks warehouse.manage permission." })
+  @ApiForbiddenResponse({ description: "Admin is not the super admin." })
   @ApiConflictResponse({ description: "Warehouse code already exists." })
   createWarehouse(
     @Body() body: CreateWarehouseDto,
@@ -100,11 +102,11 @@ export class AdminWarehousesController {
 
   @Patch(":id")
   @RequirePermission(PermissionCode.WarehouseManage)
-  @ApiOperation({ summary: "Update a warehouse." })
+  @ApiOperation({ summary: "Update a warehouse. Super admin only." })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
   @ApiOkResponse({ description: "Warehouse updated.", type: WarehouseResponseDto })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks warehouse.manage permission or assignment." })
+  @ApiForbiddenResponse({ description: "Admin is not the super admin." })
   @ApiConflictResponse({ description: "Warehouse code already exists." })
   @ApiNotFoundResponse({ description: "Warehouse does not exist." })
   updateWarehouse(
@@ -121,11 +123,11 @@ export class AdminWarehousesController {
 
   @Patch(":id/activate")
   @RequirePermission(PermissionCode.WarehouseManage)
-  @ApiOperation({ summary: "Activate a warehouse." })
+  @ApiOperation({ summary: "Activate a warehouse. Super admin only." })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
   @ApiOkResponse({ description: "Warehouse activated.", type: WarehouseResponseDto })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks warehouse.manage permission or assignment." })
+  @ApiForbiddenResponse({ description: "Admin is not the super admin." })
   activateWarehouse(
     @Param("id", ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest
@@ -138,11 +140,11 @@ export class AdminWarehousesController {
 
   @Patch(":id/deactivate")
   @RequirePermission(PermissionCode.WarehouseManage)
-  @ApiOperation({ summary: "Deactivate a warehouse." })
+  @ApiOperation({ summary: "Deactivate a warehouse. Super admin only." })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
   @ApiOkResponse({ description: "Warehouse deactivated.", type: WarehouseResponseDto })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks warehouse.manage permission or assignment." })
+  @ApiForbiddenResponse({ description: "Admin is not the super admin." })
   deactivateWarehouse(
     @Param("id", ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest
@@ -156,14 +158,14 @@ export class AdminWarehousesController {
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission(PermissionCode.WarehouseManage)
-  @ApiOperation({ summary: "Soft delete a warehouse only when it is safe." })
+  @ApiOperation({ summary: "Soft delete a warehouse only when it is safe. Super admin only." })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
   @ApiNoContentResponse({ description: "Warehouse soft deleted." })
   @ApiBadRequestResponse({
     description: "Warehouse has inventory, stock batches, or stock movements."
   })
   @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
-  @ApiForbiddenResponse({ description: "Admin lacks warehouse.manage permission or assignment." })
+  @ApiForbiddenResponse({ description: "Admin is not the super admin." })
   async deleteWarehouse(
     @Param("id", ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest
@@ -214,9 +216,60 @@ export class AdminWarehousesController {
     return this.warehousesService.listStaff(id, getAuth(request));
   }
 
+  @Post(":id/staff/accounts")
+  @RequirePermission(PermissionCode.WarehouseStaffManage)
+  @ApiOperation({
+    summary:
+      "Create a staff account that starts out assigned to this warehouse. The role cannot carry more access than the caller holds."
+  })
+  @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
+  @ApiCreatedResponse({
+    description: "Staff account created and assigned.",
+    type: WarehouseStaffResponseDto
+  })
+  @ApiBadRequestResponse({ description: "Staff account payload is invalid." })
+  @ApiConflictResponse({ description: "Admin email or mobile number already exists." })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({
+    description: "Admin lacks warehouse.staff.manage permission, assignment, or the chosen role."
+  })
+  @ApiNotFoundResponse({ description: "Warehouse does not exist." })
+  createStaffAccount(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: CreateWarehouseStaffAccountDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.warehousesService.createStaffAccount(
+      id,
+      body,
+      getAdminActionContext(request)
+    );
+  }
+
+  @Get(":id/staff/roles")
+  @RequirePermission(PermissionCode.WarehouseStaffManage)
+  @ApiOperation({ summary: "List roles the caller can give a new staff account." })
+  @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
+  @ApiOkResponse({
+    description: "Assignable roles returned.",
+    type: [WarehouseStaffRoleOptionResponseDto]
+  })
+  @ApiUnauthorizedResponse({ description: "Admin access token is missing or invalid." })
+  @ApiForbiddenResponse({ description: "Admin lacks warehouse.staff.manage permission or assignment." })
+  @ApiNotFoundResponse({ description: "Warehouse does not exist." })
+  listAssignableStaffRoles(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.warehousesService.listAssignableStaffRoles(id, getAuth(request));
+  }
+
   @Get(":id/staff/candidates")
   @RequirePermission(PermissionCode.WarehouseStaffManage)
-  @ApiOperation({ summary: "List active admin users that can be assigned to a warehouse." })
+  @ApiOperation({
+    summary:
+      "List active admin users that can be added to a warehouse. Warehouse-level admins see only people from their own warehouses."
+  })
   @ApiParam({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6", name: "id" })
   @ApiOkResponse({
     description: "Assignable admin users returned.",
