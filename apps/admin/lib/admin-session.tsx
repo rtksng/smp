@@ -9,7 +9,7 @@ import {
   type AdminApiRequestOptions
 } from "./admin-api";
 import { useAdminAuthStore } from "./auth-store";
-import { hasPermission } from "./permissions";
+import { hasPermission, isSuperAdminRole } from "./permissions";
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
   return children;
@@ -51,6 +51,8 @@ export function useAdminSession() {
     hasPermission: (permission: string) =>
       hasPermission(session?.admin.permissions, permission),
     isLoading: !isHydrated,
+    // Only the super admin creates or configures warehouses and sees every warehouse.
+    isSuperAdmin: isSuperAdminRole(session?.admin.role.code),
     login,
     logout,
     session

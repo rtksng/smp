@@ -100,8 +100,10 @@ describe("product management route flow", () => {
     expect(productManagementSource).toContain(
       "() => buildProductQuery(appliedFilters)"
     );
-    expect(productManagementSource).toContain("setAppliedFilters(draftFilters)");
+    // The drawer keeps its own draft until Apply; toolbar controls apply straight away.
+    expect(productManagementSource).toContain("applyFilters(draftFilters)");
     expect(productManagementSource).toContain("setIsFilterDrawerOpen(false)");
+    expect(productManagementSource).toContain("applyQuickFilter(");
     expect(productManagementSource).not.toContain(
       '<PageHeader level={2} eyebrow="Catalog filters" title="Find products" />'
     );
@@ -118,7 +120,7 @@ describe("product management route flow", () => {
     );
     expect(productManagementSource).toContain('aria-label="Core product details"');
     expect(productManagementSource).not.toContain("<h3>Core details</h3>");
-    expect(productManagementSource).toContain('aria-label="Product key metrics"');
+    expect(productManagementSource).toContain('aria-label="Product stock summary"');
     expect(productManagementSource).toContain("styles.compactBulkActions");
     expect(productManagementSource).toContain('containerClassName={styles.tableViewport}');
     expect(productManagementSource).toContain(

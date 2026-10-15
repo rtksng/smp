@@ -33,35 +33,40 @@ describe("inventory route split", () => {
   it("renders inventory sub-tabs from the shared inventory component", () => {
     expect(managementSource).toContain("InventorySubTabs");
     expect(managementSource).toContain("INVENTORY_TABS.map");
-    expect(managementSource).toContain("href={tab.href}");
     expect(managementSource).toContain("activeView === tab.value");
+    // Moving between tabs keeps the warehouse the admin is working in.
+    expect(managementSource).toContain(
+      "`${tab.href}?warehouseId=${encodeURIComponent(warehouseId)}`"
+    );
   });
 
-  it("loads stock-action product selectors from the admin products API", () => {
+  it("searches stock-action products from the admin products API within the warehouse", () => {
     expect(managementSource).toContain(
       'api.request<ProductListResponse>("/admin/products"'
     );
     expect(managementSource).not.toContain(
       'api.request<ProductListResponse>("/products"'
     );
-    expect(managementSource).toContain("loadAllPaginatedItems<AdminProduct>");
+    expect(managementSource).toContain('queryKey: ["admin", "inventory", "action-products", warehouseId');
+    expect(managementSource).toContain('"/admin/inventory/batches"');
   });
 
   it("keeps the heavy inventory sections scoped to their own pages", () => {
     expect(managementSource).toContain('view === "overview"');
     expect(managementSource).toContain('view === "actions"');
     expect(managementSource).toContain('view === "movements"');
-    expect(managementSource).toContain("showWarningFilters={isOverviewView}");
+    expect(managementSource).toContain("<StockLevelsPanel");
+    expect(managementSource).toContain("<StockActionsPanel");
+    expect(managementSource).toContain("<MovementLogPanel");
     expect(managementSource).toContain("StockTable");
     expect(managementSource).toContain("MovementTable");
     expect(managementSource).toContain("PaginationControls");
-    expect(managementSource).toContain("showMovementType={isMovementsView}");
   });
 
   it("keeps Inventory responsive without changing shared admin modules", () => {
     expect(managementSource).toContain('import "./inventory-management.css"');
     expect(managementSource).toContain('className="inventoryModule"');
-    expect(managementSource).toContain("inventoryMetricGrid");
+    expect(managementSource).toContain('className="inventoryTiles"');
     expect(managementSource).toContain("inventoryTableHint");
     expect(responsiveStylesSource).toContain("@media (max-width: 640px)");
     expect(responsiveStylesSource).toContain(

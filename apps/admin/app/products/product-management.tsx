@@ -87,7 +87,6 @@ import { EmptyState } from "@/components/admin/empty-state";
 import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { FileUploadButton } from "@/components/admin/file-upload-button";
 import { LoadingState } from "@/components/admin/loading-state";
-import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -144,12 +143,15 @@ import {
   type ProductPageSize
 } from "@/lib/product-pagination";
 import { ProtectedRoute, useAdminSession } from "../../lib/admin-session";
+import { loadAllPaginatedItems } from "../../lib/inventory-management";
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import {
   PRODUCT_DOCUMENT_TYPES,
   PRODUCT_CREATE_PATH,
   PRODUCT_LIST_PATH,
   PRODUCT_STATUSES,
+  PRODUCT_STOCK_STATUSES,
+  PRODUCT_STOCK_STATUS_LABELS,
   buildProductEditPath,
   buildProductPayload,
   createEmptyDocumentFormValue,
@@ -166,8 +168,13 @@ import {
   type ProductFormValues,
   type ProductListResponse,
   type ProductPayload,
-  type ProductStatus
+  type ProductStatus,
+  type ProductStockStatus
 } from "../../lib/product-form";
+import type {
+  AdminWarehouse,
+  WarehouseListResponse
+} from "../../lib/warehouse-management";
 import styles from "./product-management.module.css";
 
 type BooleanFilter = "" | "false" | "true";
@@ -182,7 +189,11 @@ type ProductFilters = {
   search: string;
   status: "" | ProductStatus;
   sterile: BooleanFilter;
+  stockStatus: "" | ProductStockStatus;
   subcategory: string;
+  /** Products not assigned to any warehouse yet; the super admin's clean-up view. */
+  unassigned: boolean;
+  warehouseId: string;
 };
 
 type UploadResponse = {
@@ -201,10 +212,15 @@ const emptyFilters: ProductFilters = {
   search: "",
   status: "",
   sterile: "",
-  subcategory: ""
+  stockStatus: "",
+  subcategory: "",
+  unassigned: false,
+  warehouseId: ""
 };
 
 const FILTER_ALL_VALUE = "__all_filter_values__";
+const UNASSIGNED_WAREHOUSE_VALUE = "__unassigned_warehouse__";
+const WAREHOUSE_LOOKUP_PAGE_SIZE = 100;
 const BOOLEAN_FILTER_ANY_VALUE = "__any_boolean_filter__";
 const FORM_SELECT_EMPTY_VALUE = "__empty_form_select__";
 const RICH_TEXT_FORMAT_VALUE = "__rich_text_format__";
@@ -263,11 +279,12 @@ function ProductManagementContent({
   productId: string | null;
   view: ProductView;
 }) {
-  const { api, hasPermission } = useAdminSession();
+  const { api, hasPermission, isSuperAdmin } = useAdminSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [draftFilters, setDraftFilters] = useState<ProductFilters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(emptyFilters);
+  const [searchDraft, setSearchDraft] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<ProductPageSize>(DEFAULT_PRODUCT_PAGE_SIZE);
@@ -328,6 +345,49 @@ function ProductManagementContent({
     productsQuery.isPlaceholderData,
     view
   ]);
+  // Stock counts ignore the stock filter itself, so each tile shows what choosing it would list.
+  const countQuery = useMemo(
+    () => buildProductQuery({ ...appliedFilters, stockStatus: "" }),
+    [appliedFilters]
+  );
+  const stockCountsQuery = useQuery({
+    enabled: view === "list",
+    queryFn: async ({ signal }) => {
+      const [all, ...byStatus] = await Promise.all(
+        [undefined, ...PRODUCT_STOCK_STATUSES].map((stockStatus) =>
+          api.request<ProductListResponse>("/admin/products", {
+            query: { ...countQuery, limit: 1, page: 1, stockStatus },
+            signal
+          })
+        )
+      );
+
+      return {
+        all: all?.pagination.total ?? 0,
+        ...Object.fromEntries(
+          PRODUCT_STOCK_STATUSES.map((status, index) => [
+            status,
+            byStatus[index]?.pagination.total ?? 0
+          ])
+        )
+      } as Record<"all" | ProductStockStatus, number>;
+    },
+    queryKey: ["admin", "products", "stock-counts", countQuery],
+    staleTime: PRODUCT_PAGE_STALE_TIME
+  });
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
+  // The API returns only the admin's own warehouses unless they are the super admin.
+  const warehousesQuery = useQuery({
+    enabled: canReadWarehouses,
+    queryFn: () =>
+      loadAllPaginatedItems<AdminWarehouse>((page) =>
+        api.request<WarehouseListResponse>("/admin/warehouses", {
+          query: { limit: WAREHOUSE_LOOKUP_PAGE_SIZE, page }
+        })
+      ),
+    queryKey: ["admin", "products", "warehouses"],
+    staleTime: 5 * 60_000
+  });
   const productQuery = useQuery({
     enabled: view === "edit" && Boolean(productId),
     queryFn: () =>
@@ -379,6 +439,9 @@ function ProductManagementContent({
   const editingProduct = productQuery.data ?? null;
   const brands = brandsQuery.data ?? [];
   const categoryTree = categoriesQuery.data ?? [];
+  const warehouses = warehousesQuery.data ?? [];
+  const showWarehouseFilter = canReadWarehouses && (isSuperAdmin || warehouses.length > 1);
+  const stockCounts = stockCountsQuery.data;
   const canCreate = hasPermission(ADMIN_PERMISSION.ProductsCreate);
   const canUpdate = hasPermission(ADMIN_PERMISSION.ProductsUpdate);
   const canDelete = hasPermission(ADMIN_PERMISSION.ProductsDelete);
@@ -398,17 +461,31 @@ function ProductManagementContent({
     await queryClient.invalidateQueries({ queryKey: ["admin", "products"] });
   }
 
-  function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAppliedFilters(draftFilters);
-    setIsFilterDrawerOpen(false);
+  function applyFilters(filters: ProductFilters) {
+    setDraftFilters(filters);
+    setAppliedFilters(filters);
+    setSearchDraft(filters.search);
     setPage(1);
   }
 
+  /** Toolbar controls apply straight away; the drawer keeps its own draft until Apply. */
+  function applyQuickFilter(change: Partial<ProductFilters>) {
+    applyFilters({ ...appliedFilters, ...change });
+  }
+
+  function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
+  }
+
+  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyQuickFilter({ search: searchDraft.trim() });
+  }
+
   function resetFilters() {
-    setDraftFilters(emptyFilters);
-    setAppliedFilters(emptyFilters);
-    setPage(1);
+    applyFilters(emptyFilters);
   }
 
   function handlePageChange(nextPage: number) {
@@ -433,6 +510,12 @@ function ProductManagementContent({
   async function handleSave(values: ProductFormValues) {
     setMessage(null);
     setUploadError(null);
+
+    if (!isSuperAdmin && values.warehouseIds.length === 0) {
+      setUploadError("Choose at least one of your warehouses for this product.");
+      return;
+    }
+
     const payload = buildProductPayload(values);
 
     try {
@@ -549,8 +632,14 @@ function ProductManagementContent({
               editingProduct={editingProduct}
               isLookupLoading={brandsQuery.isLoading || categoriesQuery.isLoading}
               isSaving={createMutation.isPending || updateMutation.isPending}
+              isSuperAdmin={isSuperAdmin}
               onSave={handleSave}
               onUploadError={setUploadError}
+              warehouseLookup={
+                canReadWarehouses
+                  ? { isLoading: warehousesQuery.isLoading, warehouses }
+                  : null
+              }
             />
           ) : null}
         </Card>
@@ -593,7 +682,7 @@ function ProductManagementContent({
           }
           eyebrow="Products"
           summary="Search, filter, create, edit, upload assets, and manage product lifecycle."
-          title="Product catalog management"
+          title={isSuperAdmin ? "Product catalog management" : "Warehouse products"}
         />
 
         {message ? <p className="formSuccess">{message}</p> : null}
@@ -604,26 +693,36 @@ function ProductManagementContent({
         ) : null}
 
         <div
-          aria-label="Product key metrics"
+          aria-label="Product stock summary"
           className={`metricGrid resourceMetrics ${styles.kpiGrid}`}
-          role="region"
+          role="group"
         >
-          <MetricCard
-            label="Total products"
+          <StockStatusTile
+            count={stockCounts?.all}
+            isActive={appliedFilters.stockStatus === ""}
+            label={
+              appliedFilters.warehouseId || !isSuperAdmin ? "Products in view" : "All products"
+            }
+            onSelect={() => applyQuickFilter({ stockStatus: "" })}
             tone="primary"
-            value={pagination?.total ?? products.length}
           />
-          <MetricCard label="Visible page" value={products.length} />
-          <MetricCard
-            label="Active"
-            tone="warning"
-            value={products.filter((product) => product.status === "ACTIVE").length}
-          />
-          <MetricCard
-            label="In stock"
-            value={products.filter((product) => product.inStock).length}
-          />
+          {PRODUCT_STOCK_STATUSES.map((status) => (
+            <StockStatusTile
+              count={stockCounts?.[status]}
+              isActive={appliedFilters.stockStatus === status}
+              key={status}
+              label={PRODUCT_STOCK_STATUS_LABELS[status]}
+              onSelect={() => applyQuickFilter({ stockStatus: status })}
+              tone={status === "IN_STOCK" ? "neutral" : "warning"}
+            />
+          ))}
         </div>
+        {!isSuperAdmin ? (
+          <p className={styles.scopeNote}>
+            You see the products assigned to your warehouses. Stock figures cover those
+            warehouses only.
+          </p>
+        ) : null}
       </Card>
 
       <FilterDrawer
@@ -640,7 +739,9 @@ function ProductManagementContent({
           categories={categoryTree}
           filters={draftFilters}
           isLoading={brandsQuery.isLoading || categoriesQuery.isLoading}
+          isSuperAdmin={isSuperAdmin}
           onChange={setDraftFilters}
+          warehouses={showWarehouseFilter ? warehouses : []}
         />
       </FilterDrawer>
 
@@ -656,6 +757,57 @@ function ProductManagementContent({
           level={2}
           eyebrow="Product list"
           title="Catalog table"
+        />
+
+        <div className={styles.toolbar}>
+          <form className={styles.searchForm} onSubmit={handleSearchSubmit} role="search">
+            <span className="searchInput">
+              <Search aria-hidden size={16} />
+              <Input
+                aria-label="Search products by name or SKU"
+                maxLength={160}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                placeholder="Search by name or SKU"
+                value={searchDraft}
+              />
+            </span>
+            <Button type="submit" variant="outline">
+              Search
+            </Button>
+          </form>
+          <div aria-label="Filter by stock" className={styles.stockFilter} role="group">
+            {(["", ...PRODUCT_STOCK_STATUSES] as const).map((status) => (
+              <Button
+                aria-pressed={appliedFilters.stockStatus === status}
+                className={styles.stockFilterButton}
+                key={status || "all"}
+                onClick={() => applyQuickFilter({ stockStatus: status })}
+                size="sm"
+                type="button"
+                variant={appliedFilters.stockStatus === status ? "default" : "outline"}
+              >
+                {status ? PRODUCT_STOCK_STATUS_LABELS[status] : "All stock"}
+              </Button>
+            ))}
+          </div>
+          {showWarehouseFilter ? (
+            <div className={styles.warehouseFilter}>
+              <WarehouseFilterSelect
+                filters={appliedFilters}
+                isSuperAdmin={isSuperAdmin}
+                onChange={applyQuickFilter}
+                warehouses={warehouses}
+              />
+            </div>
+          ) : null}
+        </div>
+        <ActiveProductFilters
+          brands={brands}
+          categories={categoryTree}
+          filters={appliedFilters}
+          onClear={resetFilters}
+          onRemove={applyQuickFilter}
+          warehouses={warehouses}
         />
 
         {productsQuery.isLoading ? <LoadingState label="Loading products..." /> : null}
@@ -702,6 +854,7 @@ function ProductManagementContent({
             onDeactivate={requestDeactivate}
             onDelete={requestDelete}
             products={products}
+            showWarehouses={canReadWarehouses}
           />
         ) : null}
 
@@ -730,18 +883,186 @@ function ProductManagementContent({
   );
 }
 
+function StockStatusTile({
+  count,
+  isActive,
+  label,
+  onSelect,
+  tone
+}: {
+  count: number | undefined;
+  isActive: boolean;
+  label: string;
+  onSelect: () => void;
+  tone: "neutral" | "primary" | "warning";
+}) {
+  return (
+    <button
+      aria-pressed={isActive}
+      className={styles.stockTile}
+      data-tone={tone}
+      onClick={onSelect}
+      type="button"
+    >
+      <span>{label}</span>
+      <strong>{count === undefined ? "..." : count.toLocaleString("en-IN")}</strong>
+    </button>
+  );
+}
+
+function WarehouseFilterSelect({
+  filters,
+  isSuperAdmin,
+  onChange,
+  warehouses
+}: {
+  filters: ProductFilters;
+  isSuperAdmin: boolean;
+  onChange: (change: Partial<ProductFilters>) => void;
+  warehouses: AdminWarehouse[];
+}) {
+  const value = filters.unassigned
+    ? UNASSIGNED_WAREHOUSE_VALUE
+    : filters.warehouseId || FILTER_ALL_VALUE;
+
+  return (
+    <Select
+      aria-label="Warehouse"
+      onValueChange={(nextValue) =>
+        onChange({
+          unassigned: nextValue === UNASSIGNED_WAREHOUSE_VALUE,
+          warehouseId:
+            nextValue === FILTER_ALL_VALUE || nextValue === UNASSIGNED_WAREHOUSE_VALUE
+              ? ""
+              : nextValue
+        })
+      }
+      value={value}
+    >
+      <SelectTrigger className={styles.warehouseSelect}>
+        <SelectValue placeholder="All warehouses" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={FILTER_ALL_VALUE}>
+          {isSuperAdmin ? "All warehouses" : "All my warehouses"}
+        </SelectItem>
+        {warehouses.map((warehouse) => (
+          <SelectItem key={warehouse.id} value={warehouse.id}>
+            {warehouse.name} ({warehouse.code})
+          </SelectItem>
+        ))}
+        {isSuperAdmin ? (
+          <SelectItem value={UNASSIGNED_WAREHOUSE_VALUE}>Not assigned to any warehouse</SelectItem>
+        ) : null}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Lists the filters in force so nothing hides products without the admin noticing. */
+function ActiveProductFilters({
+  brands,
+  categories,
+  filters,
+  onClear,
+  onRemove,
+  warehouses
+}: {
+  brands: AdminBrand[];
+  categories: AdminCategory[];
+  filters: ProductFilters;
+  onClear: () => void;
+  onRemove: (change: Partial<ProductFilters>) => void;
+  warehouses: AdminWarehouse[];
+}) {
+  const category = categories.find((item) => item.id === filters.category);
+  const subcategory = category?.children.find((item) => item.id === filters.subcategory);
+  const booleanLabel = (label: string, value: BooleanFilter) =>
+    value === "" ? null : `${label}: ${value === "true" ? "Yes" : "No"}`;
+  type FilterChip = { change: Partial<ProductFilters>; label: string } | null;
+  const chips: FilterChip[] = [
+    filters.search ? { change: { search: "" }, label: `Search: ${filters.search}` } : null,
+    filters.stockStatus
+      ? { change: { stockStatus: "" as const }, label: PRODUCT_STOCK_STATUS_LABELS[filters.stockStatus] }
+      : null,
+    filters.warehouseId
+      ? {
+          change: { warehouseId: "" },
+          label: `Warehouse: ${warehouses.find((item) => item.id === filters.warehouseId)?.name ?? "Selected"}`
+        }
+      : null,
+    filters.unassigned ? { change: { unassigned: false }, label: "Not assigned to a warehouse" } : null,
+    category ? { change: { category: "", subcategory: "" }, label: `Category: ${category.name}` } : null,
+    subcategory ? { change: { subcategory: "" }, label: `Subcategory: ${subcategory.name}` } : null,
+    filters.brand
+      ? {
+          change: { brand: "" },
+          label: `Brand: ${brands.find((item) => item.id === filters.brand)?.name ?? "Selected"}`
+        }
+      : null,
+    filters.status ? { change: { status: "" as const }, label: `Status: ${formatStatus(filters.status)}` } : null,
+    filters.medicalSpecialty
+      ? { change: { medicalSpecialty: "" }, label: `Specialty: ${filters.medicalSpecialty}` }
+      : null,
+    booleanLabel("Sterile", filters.sterile)
+      ? { change: { sterile: "" as const }, label: booleanLabel("Sterile", filters.sterile)! }
+      : null,
+    booleanLabel("Disposable", filters.disposable)
+      ? { change: { disposable: "" as const }, label: booleanLabel("Disposable", filters.disposable)! }
+      : null,
+    booleanLabel("Expiry sensitive", filters.expirySensitive)
+      ? {
+          change: { expirySensitive: "" as const },
+          label: booleanLabel("Expiry sensitive", filters.expirySensitive)!
+        }
+      : null
+  ];
+  const activeChips = chips.filter(
+    (chip): chip is NonNullable<FilterChip> => chip !== null
+  );
+
+  if (activeChips.length === 0) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Active filters" className={styles.activeFilters} role="group">
+      {activeChips.map((chip) => (
+        <button
+          aria-label={`Remove filter ${chip.label}`}
+          className={styles.activeFilterChip}
+          key={chip.label}
+          onClick={() => onRemove(chip.change)}
+          type="button"
+        >
+          <span>{chip.label}</span>
+          <X aria-hidden size={13} />
+        </button>
+      ))}
+      <Button onClick={onClear} size="sm" type="button" variant="ghost">
+        Clear all
+      </Button>
+    </div>
+  );
+}
+
 function ProductFilterFields({
   brands,
   categories,
   filters,
   isLoading,
-  onChange
+  isSuperAdmin,
+  onChange,
+  warehouses
 }: {
   brands: AdminBrand[];
   categories: AdminCategory[];
   filters: ProductFilters;
   isLoading: boolean;
+  isSuperAdmin: boolean;
   onChange: (filters: ProductFilters) => void;
+  /** Empty when the admin works in a single warehouse or cannot read warehouses. */
+  warehouses: AdminWarehouse[];
 }) {
   const subcategories = filters.category
     ? getSubcategoriesForCategory(categories, filters.category)
@@ -772,6 +1093,69 @@ function ProductFilterFields({
           />
         </span>
       </Label>
+      <Label>
+        Stock status
+        <Select
+          onValueChange={(value) =>
+            updateFilter(
+              "stockStatus",
+              value === FILTER_ALL_VALUE ? "" : (value as ProductStockStatus)
+            )
+          }
+          value={filters.stockStatus || FILTER_ALL_VALUE}
+        >
+          <SelectTrigger className="filterDrawerControl">
+            <SelectValue placeholder="Any stock" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={FILTER_ALL_VALUE}>Any stock</SelectItem>
+            {PRODUCT_STOCK_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {PRODUCT_STOCK_STATUS_LABELS[status]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Label>
+      {warehouses.length > 0 ? (
+        <Label>
+          Warehouse
+          <Select
+            onValueChange={(value) =>
+              onChange({
+                ...filters,
+                unassigned: value === UNASSIGNED_WAREHOUSE_VALUE,
+                warehouseId:
+                  value === FILTER_ALL_VALUE || value === UNASSIGNED_WAREHOUSE_VALUE ? "" : value
+              })
+            }
+            value={
+              filters.unassigned
+                ? UNASSIGNED_WAREHOUSE_VALUE
+                : filters.warehouseId || FILTER_ALL_VALUE
+            }
+          >
+            <SelectTrigger className="filterDrawerControl">
+              <SelectValue placeholder="All warehouses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={FILTER_ALL_VALUE}>
+                {isSuperAdmin ? "All warehouses" : "All my warehouses"}
+              </SelectItem>
+              {warehouses.map((warehouse) => (
+                <SelectItem key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name} ({warehouse.code})
+                </SelectItem>
+              ))}
+              {isSuperAdmin ? (
+                <SelectItem value={UNASSIGNED_WAREHOUSE_VALUE}>
+                  Not assigned to any warehouse
+                </SelectItem>
+              ) : null}
+            </SelectContent>
+          </Select>
+        </Label>
+      ) : null}
       <Label>
         Category
         <Select
@@ -904,7 +1288,8 @@ function ProductTable({
   onActivate,
   onDeactivate,
   onDelete,
-  products
+  products,
+  showWarehouses
 }: {
   bulk: BulkSelection<AdminProduct>;
   canDelete: boolean;
@@ -914,6 +1299,7 @@ function ProductTable({
   onDeactivate: (product: AdminProduct) => void;
   onDelete: (product: AdminProduct) => void;
   products: AdminProduct[];
+  showWarehouses: boolean;
 }) {
   const [virtualWindow, setVirtualWindow] = useState(() =>
     getProductVirtualWindow({ itemCount: products.length, scrollTop: 0 })
@@ -921,7 +1307,7 @@ function ProductTable({
   const scrollFrameRef = useRef<number | null>(null);
   const nextScrollTopRef = useRef(0);
   const visibleProducts = products.slice(virtualWindow.start, virtualWindow.end);
-  const columnCount = canUpdate ? 9 : 8;
+  const columnCount = 8 + (canUpdate ? 1 : 0) + (showWarehouses ? 1 : 0);
 
   useEffect(() => {
     setVirtualWindow(
@@ -979,11 +1365,12 @@ function ProductTable({
           {canUpdate ? <col className="bulkCheckboxColumn" /> : null}
           <col className="productTableProductColumn" />
           <col className="productTableSkuColumn" />
+          <col className="productTableStockColumn" />
+          {showWarehouses ? <col className="productTableWarehousesColumn" /> : null}
           <col className="productTableCategoryColumn" />
           <col className="productTableBrandColumn" />
           <col className="productTablePriceColumn" />
           <col className="productTableStatusColumn" />
-          <col className="productTableFlagsColumn" />
           <col className="productTableActionsColumn" />
         </colgroup>
         <TableHeader>
@@ -995,11 +1382,12 @@ function ProductTable({
             ) : null}
             <TableHead>Product</TableHead>
             <TableHead>SKU</TableHead>
+            <TableHead>Stock</TableHead>
+            {showWarehouses ? <TableHead>Warehouses</TableHead> : null}
             <TableHead>Category</TableHead>
             <TableHead>Brand</TableHead>
             <TableHead>Price</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Flags</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1040,11 +1428,26 @@ function ProductTable({
                   ) : null}
                   <TableCell>
                     <strong>{product.name}</strong>
-                    <span className="tableSubtext">
-                      {product.medicalSpecialty ?? "No specialty"}
-                    </span>
+                    <span className="tableSubtext">{formatProductTraits(product)}</span>
                   </TableCell>
                   <TableCell>{product.sku}</TableCell>
+                  <TableCell>
+                    {product.stock ? (
+                      <span className={styles.stockCell}>
+                        <strong>
+                          {product.stock.availableQuantity.toLocaleString("en-IN")} units
+                        </strong>
+                        <StatusBadge status={product.stock.status} />
+                      </span>
+                    ) : (
+                      <Badge variant="secondary">{product.inStock ? "In stock" : "No stock"}</Badge>
+                    )}
+                  </TableCell>
+                  {showWarehouses ? (
+                    <TableCell>
+                      <ProductWarehousesCell product={product} />
+                    </TableCell>
+                  ) : null}
                   <TableCell>
                     {product.category.name}
                     {product.subcategory ? (
@@ -1057,22 +1460,6 @@ function ProductTable({
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={product.status} />
-                  </TableCell>
-                  <TableCell>
-                    <span className="flagList">
-                      {product.sterile ? (
-                        <Badge variant="secondary">Sterile</Badge>
-                      ) : null}
-                      {product.disposable ? (
-                        <Badge variant="secondary">Disposable</Badge>
-                      ) : null}
-                      {product.expirySensitive ? (
-                        <Badge variant="secondary">Expiry</Badge>
-                      ) : null}
-                      {product.inStock ? (
-                        <Badge variant="secondary">Stock</Badge>
-                      ) : null}
-                    </span>
                   </TableCell>
                   <TableCell>
                     <Dropdown>
@@ -1151,6 +1538,39 @@ function ProductTable({
   );
 }
 
+function ProductWarehousesCell({ product }: { product: AdminProduct }) {
+  const warehouses = product.warehouses ?? [];
+
+  if (warehouses.length === 0) {
+    return <span className={styles.unassignedWarehouse}>Not assigned</span>;
+  }
+
+  const names = warehouses.map((warehouse) => warehouse.name);
+  const shown = names.slice(0, 2).join(", ");
+
+  return (
+    <span className={styles.warehouseNames} title={names.join(", ")}>
+      {names.length > 2 ? `${shown} +${names.length - 2}` : shown}
+    </span>
+  );
+}
+
+function formatProductTraits(product: AdminProduct) {
+  const traits = [
+    product.sterile ? "Sterile" : null,
+    product.disposable ? "Disposable" : null,
+    product.expirySensitive ? "Expiry tracked" : null
+  ].filter(Boolean);
+
+  return [product.medicalSpecialty ?? "No specialty", ...traits].join(" · ");
+}
+
+type WarehouseLookup = {
+  isLoading: boolean;
+  /** Every warehouse for the super admin; the admin's own warehouses otherwise. */
+  warehouses: AdminWarehouse[];
+};
+
 export function ProductForm({
   brands,
   canSave,
@@ -1158,8 +1578,10 @@ export function ProductForm({
   editingProduct,
   isLookupLoading,
   isSaving,
+  isSuperAdmin = false,
   onSave,
-  onUploadError
+  onUploadError,
+  warehouseLookup = null
 }: {
   brands: AdminBrand[];
   canSave: boolean;
@@ -1167,14 +1589,19 @@ export function ProductForm({
   editingProduct: AdminProduct | null;
   isLookupLoading: boolean;
   isSaving: boolean;
+  isSuperAdmin?: boolean;
   onSave: (values: ProductFormValues) => Promise<void>;
   onUploadError: (message: string | null) => void;
+  /** Null hides warehouse assignment, for admins who cannot read warehouses. */
+  warehouseLookup?: WarehouseLookup | null;
 }) {
   const form = useForm<ProductFormValues>({
     defaultValues: createEmptyProductFormValues(),
     mode: "onSubmit",
     resolver: zodResolver(productFormSchema)
   });
+  const warehouseIds = form.watch("warehouseIds");
+  const lookupWarehouses = warehouseLookup?.warehouses;
   const imageFields = useFieldArray({
     control: form.control,
     name: "images"
@@ -1217,6 +1644,25 @@ export function ProductForm({
         : createEmptyProductFormValues()
     );
   }, [editingProduct, form]);
+
+  // Runs after the reset above: a new product from warehouse staff starts in all of
+  // their warehouses, and they can untick any.
+  useEffect(() => {
+    if (
+      editingProduct ||
+      isSuperAdmin ||
+      !lookupWarehouses?.length ||
+      form.getFieldState("warehouseIds").isDirty ||
+      form.getValues("warehouseIds").length > 0
+    ) {
+      return;
+    }
+
+    form.setValue(
+      "warehouseIds",
+      lookupWarehouses.map((warehouse) => warehouse.id)
+    );
+  }, [editingProduct, form, isSuperAdmin, lookupWarehouses]);
 
   useEffect(() => {
     if (editingProduct || slugManuallyEditedRef.current) {
@@ -1537,6 +1983,22 @@ export function ProductForm({
         />
       </Card>
 
+      {warehouseLookup ? (
+        <WarehouseAssignmentFields
+          error={errors.warehouseIds?.message}
+          isLoading={warehouseLookup.isLoading}
+          isSuperAdmin={isSuperAdmin}
+          onChange={(nextIds) =>
+            form.setValue("warehouseIds", nextIds, {
+              shouldDirty: true,
+              shouldValidate: true
+            })
+          }
+          selectedIds={warehouseIds}
+          warehouses={warehouseLookup.warehouses}
+        />
+      ) : null}
+
       <Card className="formSection border-0">
         <h3>Pricing and classification</h3>
         <div className="formGrid">
@@ -1691,6 +2153,103 @@ export function ProductForm({
         ) : null}
       </div>
     </form>
+  );
+}
+
+function WarehouseAssignmentFields({
+  error,
+  isLoading,
+  isSuperAdmin,
+  onChange,
+  selectedIds,
+  warehouses
+}: {
+  error?: string;
+  isLoading: boolean;
+  isSuperAdmin: boolean;
+  onChange: (warehouseIds: string[]) => void;
+  selectedIds: string[];
+  warehouses: AdminWarehouse[];
+}) {
+  const hintId = useId();
+
+  function toggleWarehouse(warehouseId: string, checked: boolean) {
+    onChange(
+      checked
+        ? [...selectedIds.filter((id) => id !== warehouseId), warehouseId]
+        : selectedIds.filter((id) => id !== warehouseId)
+    );
+  }
+
+  return (
+    <Card aria-label="Warehouse availability" className="formSection border-0">
+      <div className="sectionTitleRow">
+        <div className={styles.warehouseHeading}>
+          <h3>Warehouse availability</h3>
+          <span className="helperText" id={hintId}>
+            {isSuperAdmin
+              ? "Only the warehouses you tick can see, stock, and fulfil this product."
+              : "Choose which of your warehouses carry this product. Other warehouses keep their own setting."}
+          </span>
+        </div>
+        {warehouses.length > 1 ? (
+          <div className="actionRow">
+            <Button
+              onClick={() => onChange(warehouses.map((warehouse) => warehouse.id))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Select all
+            </Button>
+            <Button onClick={() => onChange([])} size="sm" type="button" variant="outline">
+              Clear
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {isLoading ? <LoadingState label="Loading warehouses..." /> : null}
+      {!isLoading && warehouses.length === 0 ? (
+        <div className="emptyPanel smallEmpty">
+          {isSuperAdmin
+            ? "Create a warehouse before assigning products to it."
+            : "You are not assigned to any warehouse yet."}
+        </div>
+      ) : null}
+      {warehouses.length > 0 ? (
+        <div
+          aria-describedby={hintId}
+          aria-label="Product warehouses"
+          className={styles.warehouseChoices}
+          role="group"
+        >
+          {warehouses.map((warehouse) => (
+            <Label className={`checkField ${styles.warehouseChoice}`} key={warehouse.id}>
+              <Checkbox
+                aria-label={`${warehouse.name} (${warehouse.code})`}
+                checked={selectedIds.includes(warehouse.id)}
+                onCheckedChange={(checked) => toggleWarehouse(warehouse.id, checked === true)}
+              />
+              <span>
+                <strong>{warehouse.name}</strong>
+                <em>
+                  {warehouse.code} · {warehouse.city}
+                  {warehouse.status === "INACTIVE" ? " · Inactive" : ""}
+                </em>
+              </span>
+            </Label>
+          ))}
+        </div>
+      ) : null}
+      {!isLoading && warehouses.length > 0 && selectedIds.length === 0 ? (
+        <p className={styles.warehouseWarning} role="status">
+          {isSuperAdmin
+            ? "Not assigned to any warehouse yet, so no warehouse can see, stock, or sell it."
+            : "Choose at least one of your warehouses."}
+        </p>
+      ) : null}
+      {error ? <p className="fieldError">{error}</p> : null}
+    </Card>
   );
 }
 
@@ -2514,7 +3073,10 @@ function buildProductQuery(filters: ProductFilters) {
     search: filters.search || undefined,
     status: filters.status || undefined,
     sterile: toOptionalBoolean(filters.sterile),
-    subcategory: filters.subcategory || undefined
+    stockStatus: filters.stockStatus || undefined,
+    subcategory: filters.subcategory || undefined,
+    unassigned: filters.unassigned || undefined,
+    warehouseId: filters.warehouseId || undefined
   };
 }
 

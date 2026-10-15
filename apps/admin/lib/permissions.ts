@@ -2,10 +2,16 @@ export const ADMIN_ROLE = {
   SuperAdmin: "SUPER_ADMIN",
   InventoryManager: "INVENTORY_MANAGER",
   WarehouseManager: "WAREHOUSE_MANAGER",
+  WarehouseStaff: "WAREHOUSE_STAFF",
   OrderManager: "ORDER_MANAGER",
   DeliveryManager: "DELIVERY_MANAGER",
   Support: "SUPPORT"
 } as const;
+
+/** Every other role works inside the warehouses it is assigned to. */
+export function isSuperAdminRole(roleCode: string | null | undefined) {
+  return roleCode === ADMIN_ROLE.SuperAdmin;
+}
 
 export const ADMIN_PERMISSION = {
   DeliveryAssign: "delivery.assign",

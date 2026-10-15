@@ -58,11 +58,13 @@ import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import {
   WAREHOUSE_STATUSES,
   WAREHOUSES_PATH,
+  buildStaffAccountPayload,
   buildWarehouseCreatePath,
   buildWarehouseDetailPath,
   buildWarehouseEditPath,
   buildWarehousePayload,
   loadWarehouseResults,
+  createEmptyStaffAccountFormValues,
   createEmptyWarehouseFilters,
   createEmptyWarehouseFormValues,
   formatWarehouseStaffCandidate,
@@ -71,20 +73,25 @@ import {
   getWarehouseFilterContent,
   getWarehouseStatusAction,
   shouldShowWarehouseFilters,
+  sortStaffRoleOptions,
   warehouseFormSchema,
+  warehouseStaffAccountFormSchema,
   warehouseStaffFormSchema,
   warehouseToFormValues,
   type AdminWarehouse,
   type WarehouseFilters,
   type WarehouseFormValues,
   type WarehouseListResponse,
+  type WarehouseStaffAccountFormValues,
   type WarehouseStaffAssignment,
   type WarehouseStaffCandidate,
+  type WarehouseStaffRoleOption,
   type WarehouseStatus
 } from "../../../lib/warehouse-management";
 import "../warehouse-responsive.css";
 
 type WarehouseFieldErrors = Partial<Record<keyof WarehouseFormValues, string>>;
+type StaffAccountFieldErrors = Partial<Record<keyof WarehouseStaffAccountFormValues, string>>;
 export type WarehouseView = "create" | "list" | "staff";
 const ALL_WAREHOUSE_STATUSES_VALUE = "__all_warehouse_statuses__";
 
@@ -124,7 +131,7 @@ function WarehousesContent({
   returnToPath: string | null;
   view: WarehouseView;
 }) {
-  const { api, hasPermission } = useAdminSession();
+  const { admin, api, hasPermission, isSuperAdmin } = useAdminSession();
   const queryClient = useQueryClient();
   const router = useRouter();
   const urlFilters = useMemo(
@@ -151,10 +158,15 @@ function WarehousesContent({
   const [fieldErrors, setFieldErrors] = useState<WarehouseFieldErrors>({});
   const [staffAdminUserId, setStaffAdminUserId] = useState("");
   const [staffError, setStaffError] = useState<string | null>(null);
+  const [accountValues, setAccountValues] = useState<WarehouseStaffAccountFormValues>(
+    createEmptyStaffAccountFormValues()
+  );
+  const [accountErrors, setAccountErrors] = useState<StaffAccountFieldErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
-  const canManage = hasPermission(ADMIN_PERMISSION.WarehouseManage);
+  // Creating and configuring warehouses belongs to the super admin alone.
+  const canManage = Boolean(isSuperAdmin) && hasPermission(ADMIN_PERMISSION.WarehouseManage);
   const canManageStaff = hasPermission(ADMIN_PERMISSION.WarehouseStaffManage);
 
   const warehousesQuery = useQuery({
@@ -189,6 +201,17 @@ function WarehousesContent({
         `/admin/warehouses/${selectedWarehouseId ?? ""}/staff/candidates`
       ),
     queryKey: ["admin", "warehouses", selectedWarehouseId, "staff", "candidates"]
+  });
+
+  const staffRolesQuery = useQuery({
+    enabled: Boolean(view === "staff" && selectedWarehouseId && canManageStaff),
+    queryFn: () =>
+      api.request<WarehouseStaffRoleOption[]>(
+        `/admin/warehouses/${selectedWarehouseId ?? ""}/staff/roles`
+      ),
+    queryKey: ["admin", "warehouses", selectedWarehouseId, "staff-roles"],
+    select: sortStaffRoleOptions,
+    staleTime: 5 * 60_000
   });
 
   const createMutation = useMutation({
@@ -230,6 +253,19 @@ function WarehousesContent({
         method: "DELETE"
       })
   });
+  const createAccountMutation = useMutation({
+    mutationFn: ({
+      payload,
+      warehouseId
+    }: {
+      payload: ReturnType<typeof buildStaffAccountPayload>;
+      warehouseId: string;
+    }) =>
+      api.request<WarehouseStaffAssignment>(`/admin/warehouses/${warehouseId}/staff/accounts`, {
+        body: JSON.stringify(payload),
+        method: "POST"
+      })
+  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.request<void>(`/admin/warehouses/${id}`, { method: "DELETE" })
   });
@@ -249,16 +285,21 @@ function WarehousesContent({
     ? "Loading admin users..."
     : staffCandidates.length > 0
       ? "Select admin user"
-      : "No admin users to assign";
+      : isSuperAdmin
+        ? "No admin users to assign"
+        : "No one from your other warehouses";
   const showWarehouseFilters = shouldShowWarehouseFilters(view);
   const warehouseFilterContent = getWarehouseFilterContent(view);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const staffRoles = useMemo(() => staffRolesQuery.data ?? [], [staffRolesQuery.data]);
   const isMutating =
     createMutation.isPending ||
     updateMutation.isPending ||
     statusMutation.isPending ||
     assignStaffMutation.isPending ||
-    removeStaffMutation.isPending || deleteMutation.isPending;
+    removeStaffMutation.isPending ||
+    createAccountMutation.isPending ||
+    deleteMutation.isPending;
 
   async function runAction(action: () => Promise<void>) {
     setMutationError(null);
@@ -288,6 +329,15 @@ function WarehousesContent({
     setDraftFilters(urlFilters);
     setAppliedFilters(urlFilters);
   }, [urlFilters]);
+
+  // New accounts default to the least-privileged role the admin may give.
+  useEffect(() => {
+    const defaultRoleId = staffRoles[0]?.id;
+
+    if (defaultRoleId && !staffRoles.some((role) => role.id === accountValues.roleId)) {
+      setAccountValues((values) => ({ ...values, roleId: defaultRoleId }));
+    }
+  }, [accountValues.roleId, staffRoles]);
 
   useEffect(() => {
     if (view === "create" && initialEditWarehouseId) {
@@ -364,6 +414,8 @@ function WarehousesContent({
     setMutationError(null);
     setStaffError(null);
     setStaffAdminUserId("");
+    setAccountValues(createEmptyStaffAccountFormValues());
+    setAccountErrors({});
   }
 
   function startCreate() {
@@ -483,6 +535,36 @@ function WarehousesContent({
     });
   }
 
+  async function handleCreateAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedWarehouseId) {
+      return;
+    }
+
+    const parsed = warehouseStaffAccountFormSchema.safeParse(accountValues);
+
+    if (!parsed.success) {
+      setAccountErrors(getFieldErrors<WarehouseStaffAccountFormValues>(parsed.error));
+      return;
+    }
+
+    setAccountErrors({});
+    await runAction(async () => {
+      const created = await createAccountMutation.mutateAsync({
+        payload: buildStaffAccountPayload(parsed.data),
+        warehouseId: selectedWarehouseId
+      });
+      setAccountValues(createEmptyStaffAccountFormValues(parsed.data.roleId));
+      setMessage(
+        `Staff account created for ${created.firstName}. They can sign in with ${created.email}.`
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "warehouses", selectedWarehouseId, "staff"]
+      });
+    });
+  }
+
   async function handleRemoveStaff(assignment: WarehouseStaffAssignment) {
     if (!selectedWarehouseId) {
       return;
@@ -550,8 +632,14 @@ function WarehousesContent({
             }
             eyebrow="Warehouses"
             summary="Filter warehouses, track their status mix, and manage each record."
-            title="Warehouse overview"
+            title={isSuperAdmin ? "Warehouse overview" : "My warehouses"}
           />
+          {!isSuperAdmin ? (
+            <p className="warehouseScopeNote">
+              These are the warehouses you are assigned to. Only the super admin can create
+              warehouses or change their settings.
+            </p>
+          ) : null}
 
           <div className="metricGrid resourceMetrics warehouseMetricGrid">
             <MetricCard label="Total warehouses" tone="primary" value={totalCount} />
@@ -627,14 +715,7 @@ function WarehousesContent({
 
       {view === "create" ? (
         <>
-          <PermissionGate
-            fallback={
-              <Card className="panel">
-              <div className="emptyPanel">Warehouse management requires permission.</div>
-              </Card>
-            }
-            permission={ADMIN_PERMISSION.WarehouseManage}
-          >
+          {canManage ? (
             <Card className="panel warehouseCreatePanel">
               <PageHeader
                 backHref={warehouseBackPath}
@@ -679,7 +760,17 @@ function WarehousesContent({
                 />
               ) : null}
             </Card>
-          </PermissionGate>
+          ) : (
+            <EmptyState
+              action={
+                <Button asChild variant="outline">
+                  <Link href={warehouseBackPath}>Back to warehouses</Link>
+                </Button>
+              }
+              body="Only the super admin can create warehouses or change their settings. Ask the super admin if a warehouse needs to be added or updated."
+              title="Warehouse setup is restricted"
+            />
+          )}
         </>
       ) : null}
 
@@ -763,66 +854,110 @@ function WarehousesContent({
 
             {selectedWarehouse ? (
               <>
-              {staffError ? (
-                <p className="formError" role="alert">
-                  {staffError}
-                </p>
-              ) : null}
-              {staffCandidatesQuery.isError ? (
-                <p className="formError" role="alert">
-                  {getErrorMessage(staffCandidatesQuery.error) ?? "Unable to load admin users."}
-                </p>
-              ) : null}
-              <form className="inlineForm warehouseStaffAssignForm" onSubmit={handleAssignStaff}>
-                <Select
-                  aria-label="Admin user"
-                  disabled={isMutating || staffCandidates.length === 0}
-                  onValueChange={setStaffAdminUserId}
-                  value={staffAdminUserId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={staffCandidatePlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffCandidates.map((candidate) => (
-                      <SelectItem key={candidate.adminUserId} value={candidate.adminUserId}>
-                        {formatWarehouseStaffCandidate(candidate)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  className="iconTextButton"
-                  disabled={!selectedWarehouseId || isMutating}
-                  type="submit"
-                >
-                  <UserPlus aria-hidden size={16} />
-                  <span>{assignStaffMutation.isPending ? "Assigning..." : "Assign staff"}</span>
-                </Button>
-              </form>
+              <section
+                aria-labelledby="warehouse-staff-members-title"
+                className="warehouseStaffSection"
+              >
+                <h3 id="warehouse-staff-members-title">People at this warehouse</h3>
+                {staffQuery.isLoading ? (
+                  <LoadingState label="Loading staff assignments..." />
+                ) : null}
+                {staffQuery.isError ? (
+                  <p className="formError" role="alert">
+                    {getErrorMessage(staffQuery.error) ?? "Unable to load staff assignments."}
+                  </p>
+                ) : null}
+                {(staffQuery.data?.length ?? 0) === 0 && !staffQuery.isLoading && !staffQuery.isError ? (
+                  <EmptyState
+                    body="No staff assigned to this warehouse."
+                    title="No staff assigned"
+                  />
+                ) : null}
+                {(staffQuery.data?.length ?? 0) > 0 ? (
+                  <WarehouseStaffTable
+                    assignments={staffQuery.data ?? []}
+                    currentAdminId={isSuperAdmin ? null : (admin?.id ?? null)}
+                    isMutating={isMutating}
+                    onRemove={(assignment) => void handleRemoveStaff(assignment)}
+                    scope={selectedWarehouse.id}
+                  />
+                ) : null}
+              </section>
 
-              {staffQuery.isLoading ? (
-                <LoadingState label="Loading staff assignments..." />
-              ) : null}
-              {staffQuery.isError ? (
-                <p className="formError" role="alert">
-                  {getErrorMessage(staffQuery.error) ?? "Unable to load staff assignments."}
-                </p>
-              ) : null}
-              {(staffQuery.data?.length ?? 0) === 0 && !staffQuery.isLoading && !staffQuery.isError ? (
-                <EmptyState
-                  body="No staff assigned to this warehouse."
-                  title="No staff assigned"
-                />
-              ) : null}
-              {(staffQuery.data?.length ?? 0) > 0 ? (
-                <WarehouseStaffTable
-                  assignments={staffQuery.data ?? []}
-                  isMutating={isMutating}
-                  onRemove={(assignment) => void handleRemoveStaff(assignment)}
-                  scope={selectedWarehouse.id}
-                />
-              ) : null}
+              <div className="warehouseStaffAddGrid">
+                <section
+                  aria-labelledby="warehouse-staff-new-title"
+                  className="warehouseStaffCard"
+                >
+                  <h3 id="warehouse-staff-new-title">Create a staff account</h3>
+                  <p className="warehouseStaffHint">
+                    The new account can sign in straight away and works only at{" "}
+                    {selectedWarehouse.name}.
+                  </p>
+                  {staffRolesQuery.isError ? (
+                    <p className="formError" role="alert">
+                      {getErrorMessage(staffRolesQuery.error) ?? "Unable to load roles."}
+                    </p>
+                  ) : null}
+                  <StaffAccountForm
+                    errors={accountErrors}
+                    isSaving={createAccountMutation.isPending}
+                    isDisabled={isMutating || staffRoles.length === 0}
+                    onChange={setAccountValues}
+                    onSubmit={(event) => void handleCreateAccount(event)}
+                    roles={staffRoles}
+                    values={accountValues}
+                  />
+                </section>
+                <section
+                  aria-labelledby="warehouse-staff-existing-title"
+                  className="warehouseStaffCard"
+                >
+                  <h3 id="warehouse-staff-existing-title">Add existing staff</h3>
+                  <p className="warehouseStaffHint">
+                    {isSuperAdmin
+                      ? "Add any active admin who is not already at this warehouse."
+                      : "Add someone who already works at one of your other warehouses."}
+                  </p>
+                  {staffError ? (
+                    <p className="formError" role="alert">
+                      {staffError}
+                    </p>
+                  ) : null}
+                  {staffCandidatesQuery.isError ? (
+                    <p className="formError" role="alert">
+                      {getErrorMessage(staffCandidatesQuery.error) ?? "Unable to load admin users."}
+                    </p>
+                  ) : null}
+                  <form className="inlineForm warehouseStaffAssignForm" onSubmit={handleAssignStaff}>
+                    <Select
+                      aria-label="Admin user"
+                      disabled={isMutating || staffCandidates.length === 0}
+                      onValueChange={setStaffAdminUserId}
+                      value={staffAdminUserId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={staffCandidatePlaceholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staffCandidates.map((candidate) => (
+                          <SelectItem key={candidate.adminUserId} value={candidate.adminUserId}>
+                            {formatWarehouseStaffCandidate(candidate)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      className="iconTextButton"
+                      disabled={!selectedWarehouseId || isMutating}
+                      type="submit"
+                    >
+                      <UserPlus aria-hidden size={16} />
+                      <span>{assignStaffMutation.isPending ? "Assigning..." : "Assign staff"}</span>
+                    </Button>
+                  </form>
+                </section>
+              </div>
               </>
             ) : null}
           </Card>
@@ -918,23 +1053,26 @@ function WarehouseTable({
                         <Eye aria-hidden size={16} />
                       </Link>
                     </Button>
-                    <Button
-                      aria-label={`Edit ${warehouse.name}`}
-                      className="tableIconButton"
-                      disabled={!canManage || isMutating}
-                      onClick={() => onEdit(warehouse)}
-                      size="icon"
-                      title="Edit"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Pencil aria-hidden size={16} />
-                    </Button>
-                    {warehouse.status === "ACTIVE" ? (
+                    {/* Warehouse settings belong to the super admin, so others see only View. */}
+                    {canManage ? (
+                      <Button
+                        aria-label={`Edit ${warehouse.name}`}
+                        className="tableIconButton"
+                        disabled={isMutating}
+                        onClick={() => onEdit(warehouse)}
+                        size="icon"
+                        title="Edit"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Pencil aria-hidden size={16} />
+                      </Button>
+                    ) : null}
+                    {canManage && warehouse.status === "ACTIVE" ? (
                       <Button
                         aria-label={`Deactivate ${warehouse.name}`}
                         className="tableIconButton"
-                        disabled={!canManage || isMutating}
+                        disabled={isMutating}
                         onClick={() => onDeactivate(warehouse)}
                         size="icon"
                         title="Deactivate"
@@ -943,11 +1081,12 @@ function WarehouseTable({
                       >
                         <PowerOff aria-hidden size={16} />
                       </Button>
-                    ) : (
+                    ) : null}
+                    {canManage && warehouse.status !== "ACTIVE" ? (
                       <Button
                         aria-label={`Activate ${warehouse.name}`}
                         className="tableIconButton"
-                        disabled={!canManage || isMutating}
+                        disabled={isMutating}
                         onClick={() => onActivate(warehouse)}
                         size="icon"
                         title="Activate"
@@ -956,7 +1095,7 @@ function WarehouseTable({
                       >
                         <Power aria-hidden size={16} />
                       </Button>
-                    )}
+                    ) : null}
                     {canManage ? (
                       <Button
                         aria-label={`Delete ${warehouse.name}`}
@@ -992,11 +1131,14 @@ function WarehouseTable({
 
 function WarehouseStaffTable({
   assignments,
+  currentAdminId,
   isMutating,
   onRemove,
   scope
 }: {
   assignments: WarehouseStaffAssignment[];
+  /** Warehouse-level admins cannot remove themselves; null for the super admin. */
+  currentAdminId: string | null;
   isMutating: boolean;
   onRemove: (assignment: WarehouseStaffAssignment) => void;
   scope: string;
@@ -1018,41 +1160,45 @@ function WarehouseStaffTable({
           <TableHeader>
             <TableRow>
               <TableHead>Staff member</TableHead>
-              <TableHead>Admin user ID</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead className="warehouseActionsCell">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {staffPages.pageItems.map((assignment) => (
-              <TableRow key={assignment.id}>
-                <TableCell>
-                  <strong>
-                    {assignment.firstName} {assignment.lastName ?? ""}
-                  </strong>
-                  <em>{assignment.email}</em>
-                </TableCell>
-                <TableCell>
-                  <span className="warehouseCellText" title={assignment.adminUserId}>
-                    {assignment.adminUserId}
-                  </span>
-                </TableCell>
-                <TableCell className="warehouseActionsCell">
-                  <span className="tableActions">
-                    <Button
-                      className="iconTextButton"
-                      disabled={isMutating}
-                      onClick={() => onRemove(assignment)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <UserMinus aria-hidden size={16} />
-                      <span>Remove</span>
-                    </Button>
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
+            {staffPages.pageItems.map((assignment) => {
+              const isSelf = assignment.adminUserId === currentAdminId;
+
+              return (
+                <TableRow key={assignment.id}>
+                  <TableCell>
+                    <strong>
+                      {assignment.firstName} {assignment.lastName ?? ""}
+                      {isSelf ? " (you)" : ""}
+                    </strong>
+                    <em>{assignment.email}</em>
+                  </TableCell>
+                  <TableCell>
+                    <span className="warehouseCellText">{assignment.role?.name ?? "-"}</span>
+                  </TableCell>
+                  <TableCell className="warehouseActionsCell">
+                    <span className="tableActions">
+                      <Button
+                        className="iconTextButton"
+                        disabled={isMutating || isSelf}
+                        onClick={() => onRemove(assignment)}
+                        size="sm"
+                        title={isSelf ? "Ask the super admin to remove you from a warehouse." : undefined}
+                        type="button"
+                        variant="outline"
+                      >
+                        <UserMinus aria-hidden size={16} />
+                        <span>Remove</span>
+                      </Button>
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -1065,6 +1211,75 @@ function WarehouseStaffTable({
         totalPages={staffPages.totalPages}
       />
     </>
+  );
+}
+
+function StaffAccountForm({
+  errors,
+  isDisabled,
+  isSaving,
+  onChange,
+  onSubmit,
+  roles,
+  values
+}: {
+  errors: StaffAccountFieldErrors;
+  isDisabled: boolean;
+  isSaving: boolean;
+  onChange: (values: WarehouseStaffAccountFormValues) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  roles: WarehouseStaffRoleOption[];
+  values: WarehouseStaffAccountFormValues;
+}) {
+  const selectedRole = roles.find((role) => role.id === values.roleId);
+
+  function updateValue<Key extends keyof WarehouseStaffAccountFormValues>(
+    key: Key,
+    value: WarehouseStaffAccountFormValues[Key]
+  ) {
+    onChange({ ...values, [key]: value });
+  }
+
+  return (
+    <form className="formStack warehouseStaffAccountForm" noValidate onSubmit={onSubmit}>
+      <div className="formGrid warehouseStaffAccountGrid">
+        <TextField error={errors.firstName} label="First name" onChange={(value) => updateValue("firstName", value)} value={values.firstName} />
+        <TextField error={errors.lastName} label="Last name" onChange={(value) => updateValue("lastName", value)} required={false} value={values.lastName} />
+        <TextField error={errors.email} inputMode="email" label="Email" onChange={(value) => updateValue("email", value)} value={values.email} />
+        <TextField error={errors.mobileNumber} inputMode="tel" label="Mobile (optional)" onChange={(value) => updateValue("mobileNumber", value)} required={false} value={values.mobileNumber} />
+        <TextField error={errors.password} label="Temporary password" onChange={(value) => updateValue("password", value)} type="password" value={values.password} />
+        <Label>
+          Role
+          <Select
+            aria-label="Role"
+            disabled={roles.length === 0}
+            onValueChange={(value) => updateValue("roleId", value)}
+            value={values.roleId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={roles.length ? "Choose role" : "No roles available"} />
+            </SelectTrigger>
+            <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.roleId ? <span className="fieldError">{errors.roleId}</span> : null}
+        </Label>
+      </div>
+      {selectedRole?.description ? (
+        <p className="warehouseStaffHint">{selectedRole.description}</p>
+      ) : null}
+      <div className="actionRow">
+        <Button className="iconTextButton" disabled={isDisabled} type="submit">
+          <UserPlus aria-hidden size={16} />
+          <span>{isSaving ? "Creating..." : "Create staff account"}</span>
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -1212,6 +1427,7 @@ function TextField({
   label,
   onChange,
   required = true,
+  type,
   value
 }: {
   error?: string;
@@ -1219,15 +1435,18 @@ function TextField({
   label: string;
   onChange: (value: string) => void;
   required?: boolean;
+  type?: string;
   value: string;
 }) {
   return (
     <Label>
       {label}
       <Input
+        autoComplete={type === "password" ? "new-password" : undefined}
         inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         required={required}
+        type={type}
         value={value}
       />
       {error ? <span className="fieldError">{error}</span> : null}

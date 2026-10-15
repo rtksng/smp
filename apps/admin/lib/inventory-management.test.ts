@@ -237,9 +237,9 @@ describe("inventory management helpers", () => {
     expect(INVENTORY_ACTIONS_PATH).toBe("/inventory/actions");
     expect(INVENTORY_MOVEMENTS_PATH).toBe("/inventory/movements");
     expect(INVENTORY_TABS.map((tab) => tab.label)).toEqual([
-      "Overview",
+      "Stock levels",
       "Stock actions",
-      "Movements"
+      "Movement log"
     ]);
   });
 

@@ -14,11 +14,37 @@ export const PRODUCT_DOCUMENT_TYPES = [
   "WARRANTY"
 ] as const;
 
+/**
+ * Stock position across the warehouses in view. Out of stock: nothing available.
+ * Low stock: something available, but a stock line is at or below its threshold.
+ */
+export const PRODUCT_STOCK_STATUSES = ["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"] as const;
+
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 export type ProductDocumentType = (typeof PRODUCT_DOCUMENT_TYPES)[number];
+export type ProductStockStatus = (typeof PRODUCT_STOCK_STATUSES)[number];
+
+export const PRODUCT_STOCK_STATUS_LABELS: Record<ProductStockStatus, string> = {
+  IN_STOCK: "In stock",
+  LOW_STOCK: "Low stock",
+  OUT_OF_STOCK: "Out of stock"
+};
 
 export type AdminProductAsset = {
   id: string;
+};
+
+export type ProductWarehouseLink = {
+  code: string;
+  id: string;
+  name: string;
+  status: string;
+};
+
+export type ProductStockSummary = {
+  availableQuantity: number;
+  reservedQuantity: number;
+  status: ProductStockStatus;
 };
 
 export type AdminProduct = {
@@ -69,6 +95,8 @@ export type AdminProduct = {
   slug: string;
   status: ProductStatus;
   sterile: boolean;
+  /** Stock across the warehouses in view; admin product reads only. */
+  stock?: ProductStockSummary;
   subcategory: {
     id: string;
     name: string;
@@ -87,6 +115,9 @@ export type AdminProduct = {
     sku: string;
     status: ProductStatus;
   }>;
+  /** Assigned warehouses the admin can see. Warehouse staff see only their own. */
+  warehouseIds?: string[];
+  warehouses?: ProductWarehouseLink[];
 };
 
 export type ProductListResponse = {
@@ -302,7 +333,8 @@ export const productFormSchema = z
     subcategoryId: z.string().trim(),
     taxRate: amountString("Tax rate"),
     unit: optionalText("Unit", 40),
-    variants: z.array(productVariantFormSchema).max(50, "Add no more than 50 variants.")
+    variants: z.array(productVariantFormSchema).max(50, "Add no more than 50 variants."),
+    warehouseIds: z.array(z.string().trim().min(1))
   })
   .superRefine((value, context) => {
     const mrp = Number(value.mrp);
@@ -405,9 +437,13 @@ export type ProductPayload = {
     sku: string;
     status: ProductStatus;
   }>;
+  /** Replaces the warehouses the admin can see; other assignments stay as they are. */
+  warehouseIds: string[];
 };
 
-export function createEmptyProductFormValues(): ProductFormValues {
+export function createEmptyProductFormValues(
+  warehouseIds: string[] = []
+): ProductFormValues {
   return {
     basePrice: "",
     brandId: "",
@@ -434,7 +470,8 @@ export function createEmptyProductFormValues(): ProductFormValues {
     subcategoryId: "",
     taxRate: "0",
     unit: "",
-    variants: []
+    variants: [],
+    warehouseIds
   };
 }
 
@@ -513,8 +550,13 @@ export function buildProductPayload(values: ProductFormValues): ProductPayload {
       sellingPrice: Number(variant.sellingPrice),
       sku: variant.sku,
       status: variant.status
-    }))
+    })),
+    warehouseIds: [...new Set(values.warehouseIds)]
   };
+}
+
+export function getProductWarehouseIds(product: AdminProduct) {
+  return product.warehouseIds ?? product.warehouses?.map((warehouse) => warehouse.id) ?? [];
 }
 
 export function productToFormValues(product: AdminProduct): ProductFormValues {
@@ -561,7 +603,8 @@ export function productToFormValues(product: AdminProduct): ProductFormValues {
       sellingPrice: numberToString(variant.sellingPrice),
       sku: variant.sku,
       status: variant.status
-    }))
+    })),
+    warehouseIds: getProductWarehouseIds(product)
   };
 }
 

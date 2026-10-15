@@ -1,15 +1,24 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { WarehouseFilters } from "../../../lib/warehouse-management";
 import { WarehouseManagementPage } from "./warehouse-management";
 
-const { request, push, access } = vi.hoisted(() => ({ request: vi.fn(), push: vi.fn(), access: { allowed: true } }));
+const { request, push, access } = vi.hoisted(() => ({
+  request: vi.fn(),
+  push: vi.fn(),
+  access: { adminId: "super-admin", allowed: true, superAdmin: true }
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("../../admin-shell", () => ({ AdminShell: ({ children }: { children: ReactNode }) => children }));
 vi.mock("../../../lib/admin-session", () => ({
-  useAdminSession: () => ({ api: { request }, hasPermission: () => access.allowed }),
+  useAdminSession: () => ({
+    admin: { id: access.adminId },
+    api: { request },
+    hasPermission: () => access.allowed,
+    isSuperAdmin: access.superAdmin
+  }),
   ProtectedRoute: ({ children }: { children: ReactNode }) => children,
   PermissionGate: ({ children, fallback }: { children: ReactNode; fallback: ReactNode }) => access.allowed ? children : fallback
 }));
@@ -30,6 +39,8 @@ const adminId = "daaa9716-a744-4a6e-9015-9e9da8ea5912";
 const assignment = { id: "assignment-1", adminUserId: adminId, warehouseId: warehouse.id, firstName: "QA", lastName: "Staff", email: "qa@example.test" };
 const candidate = { adminUserId: adminId, firstName: "QA", lastName: "Staff", email: "qa@example.test", role: { code: "WAREHOUSE_MANAGER", id: "role-1", name: "Warehouse manager" } };
 const candidateLabel = "QA Staff (qa@example.test) - Warehouse manager";
+const staffRole = { code: "WAREHOUSE_STAFF", description: "Handles stock and dispatch work at assigned warehouses.", id: "6b0f8c4e-6f0e-4a4f-8d43-1b6f8a0c2d11", name: "Warehouse staff" };
+const managerRole = { code: "WAREHOUSE_MANAGER", description: "Runs a warehouse.", id: "0c1e7f62-97a4-4f0c-9a51-5d0e2c3b4a77", name: "Warehouse manager" };
 const response = (page = 1, totalPages = 1) => ({ items: [{ ...warehouse, id: `warehouse-${page}` }], pagination: { page, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1, limit: 100, total: totalPages * 100 } });
 const clients: QueryClient[] = [];
 
@@ -41,10 +52,13 @@ function mount(view: "create" | "list" | "staff", edit = false, initialFilters: 
 }
 
 beforeEach(() => {
+  access.adminId = "super-admin";
   access.allowed = true;
+  access.superAdmin = true;
   request.mockImplementation(async (path: string, options?: { method?: string }) => {
     if (options?.method) return warehouse;
     if (path.endsWith("/staff/candidates")) return [];
+    if (path.endsWith("/staff/roles")) return [];
     if (path.endsWith("/staff")) return [];
     return path === "/admin/warehouses" ? response() : warehouse;
   });
@@ -136,6 +150,7 @@ it("assigns staff picked by name, email and role, surfaces rejections, and offer
       return assignment;
     }
     if (options?.method === "DELETE") { assigned = false; return; }
+    if (path.endsWith("/staff/roles")) return [];
     if (path.endsWith("/staff/candidates")) return assigned ? [] : [candidate];
     if (path.endsWith("/staff")) return assigned ? [assignment] : [];
     return response();
@@ -160,6 +175,76 @@ it("assigns staff picked by name, email and role, surfaces rejections, and offer
   await waitFor(() => expect(screen.queryByText("qa@example.test")).not.toBeInTheDocument());
   expect(request).toHaveBeenCalledWith(`/admin/warehouses/${warehouse.id}/staff/${adminId}`, { method: "DELETE" });
   expect(await screen.findByRole("option", { name: candidateLabel })).toBeInTheDocument();
+});
+
+it("creates a staff account with an offered role and lists the new person at the warehouse", async () => {
+  let created = false;
+  const newStaff = { ...assignment, adminUserId: "new-admin", email: "picker@example.test", firstName: "Meera", id: "assignment-new", lastName: "Joshi", role: staffRole };
+  request.mockImplementation(async (path: string, options?: { method?: string }) => {
+    if (options?.method === "POST" && path.endsWith("/staff/accounts")) {
+      created = true;
+      return newStaff;
+    }
+    if (path.endsWith("/staff/roles")) return [managerRole, staffRole];
+    if (path.endsWith("/staff/candidates")) return [];
+    if (path.endsWith("/staff")) return created ? [newStaff] : [];
+    return response();
+  });
+  mount("staff");
+
+  const role = await screen.findByLabelText("Role");
+  // The least-privileged role is offered first and picked by default.
+  await waitFor(() => expect(role).toHaveValue(staffRole.id));
+  const firstName = screen.getByRole("textbox", { name: "First name" });
+  const lastName = screen.getByRole("textbox", { name: "Last name" });
+  const email = screen.getByRole("textbox", { name: "Email" });
+  const password = screen.getByLabelText("Temporary password");
+  fireEvent.click(screen.getByRole("button", { name: "Create staff account" }));
+  expect(request.mock.calls.some(([, options]) => options?.method)).toBe(false);
+
+  fireEvent.change(firstName, { target: { value: "Meera" } });
+  fireEvent.change(lastName, { target: { value: "Joshi" } });
+  fireEvent.change(email, { target: { value: "  Picker@Example.test " } });
+  fireEvent.change(password, { target: { value: "Welcome@123" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create staff account" }));
+
+  expect(await screen.findByText("Staff account created for Meera. They can sign in with picker@example.test.")).toBeInTheDocument();
+  expect(request).toHaveBeenCalledWith(`/admin/warehouses/${warehouse.id}/staff/accounts`, {
+    body: JSON.stringify({ email: "picker@example.test", firstName: "Meera", lastName: "Joshi", mobileNumber: null, password: "Welcome@123", roleId: staffRole.id }),
+    method: "POST"
+  });
+  const people = screen.getByRole("table", { name: "Assigned warehouse staff" });
+  expect(await within(people).findByText("picker@example.test")).toBeInTheDocument();
+  expect(within(people).getByText("Warehouse staff")).toBeInTheDocument();
+});
+
+it("keeps warehouse setup with the super admin", async () => {
+  access.superAdmin = false;
+  mount("create");
+  expect(await screen.findByText("Warehouse setup is restricted")).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "Warehouse name" })).not.toBeInTheDocument();
+  cleanup();
+
+  mount("list");
+  expect(await screen.findByRole("link", { name: "View QA warehouse" })).toBeInTheDocument();
+  expect(screen.getByText("My warehouses")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /^Edit/ })).not.toBeInTheDocument();
+  expect(request.mock.calls.some(([, options]) => options?.method)).toBe(false);
+});
+
+it("does not let a warehouse manager remove themselves", async () => {
+  access.superAdmin = false;
+  access.adminId = adminId;
+  request.mockImplementation(async (path: string) => {
+    if (path.endsWith("/staff/roles")) return [staffRole];
+    if (path.endsWith("/staff/candidates")) return [];
+    if (path.endsWith("/staff")) return [{ ...assignment, role: managerRole }];
+    return response();
+  });
+  mount("staff");
+
+  expect(await screen.findByText(/QA Staff\s+\(you\)/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
 });
 
 it("does not fetch staff assignments or candidates without staff-management permission", async () => {

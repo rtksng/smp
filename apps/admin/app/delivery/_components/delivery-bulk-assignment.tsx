@@ -22,10 +22,11 @@ import { useAdminSession } from "@/lib/admin-session";
 import { deliveryBulkAction } from "@/lib/bulk-module-actions";
 import {
   filterPartnersForWarehouse,
+  getDispatchCustomerName,
   isPartnerAssignedToWarehouse,
-  type AdminDeliveryPartner
+  type AdminDeliveryPartner,
+  type DispatchQueueOrder
 } from "@/lib/delivery-management";
-import type { AdminOrder } from "@/lib/order-management";
 import { useBulkSelection } from "@/lib/use-bulk-selection";
 import { useTableOverflow } from "@/lib/use-table-overflow";
 import type { WarehouseListResponse } from "@/lib/warehouse-management";
@@ -37,7 +38,7 @@ export function DeliveryBulkAssignment({
   disabled,
   onComplete
 }: {
-  orders: AdminOrder[];
+  orders: DispatchQueueOrder[];
   partners: AdminDeliveryPartner[];
   warehouses: WarehouseListResponse["items"];
   disabled: boolean;
@@ -54,8 +55,9 @@ export function DeliveryBulkAssignment({
   const filtered = orders.filter((order) =>
     [
       order.orderNumber,
-      order.customer?.firstName,
-      order.customer?.mobileNumber,
+      order.customer.businessName,
+      order.customer.fullName,
+      order.customer.mobileNumber,
       order.warehouse?.name
     ].some((value) => value?.toLowerCase().includes(search.trim().toLowerCase()))
   );
@@ -189,7 +191,7 @@ export function DeliveryBulkAssignment({
                     <strong>{order.orderNumber}</strong>
                   </TableCell>
                   <TableCell className="deliveryBulkCustomerCell" data-label="Customer">
-                    {order.customer?.firstName ?? "-"}
+                    {getDispatchCustomerName(order)}
                   </TableCell>
                   <TableCell className="deliveryStatusCell">
                     <StatusBadge status={order.status} />

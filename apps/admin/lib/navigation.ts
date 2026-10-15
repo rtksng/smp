@@ -69,7 +69,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
     children: [
       {
         href: INVENTORY_OVERVIEW_PATH,
-        label: "Overview",
+        label: "Stock levels",
         permissions: [ADMIN_PERMISSION.InventoryRead]
       },
       {
@@ -79,7 +79,7 @@ export const adminNavigationItems: readonly AdminNavigationItem[] = [
       },
       {
         href: INVENTORY_MOVEMENTS_PATH,
-        label: "Movements",
+        label: "Movement log",
         permissions: [ADMIN_PERMISSION.InventoryRead]
       }
     ],

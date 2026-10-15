@@ -2,7 +2,11 @@ import type { AdminApiClient, QueryParams } from "@/lib/admin-api";
 import type { AdminBrand, AdminCategory } from "@/lib/catalog-management";
 import type { AdminCustomer } from "@/lib/customer-management";
 import type { AdminDeliveryChargeRule } from "@/lib/delivery-charge-management";
-import type { InventoryStock, StockBatch } from "@/lib/inventory-management";
+import type {
+  InventoryStock,
+  InventorySummary,
+  StockBatch
+} from "@/lib/inventory-management";
 import type { AdminProduct } from "@/lib/product-form";
 import type { AdminCoupon, AdminQuoteRequest } from "@/lib/support-management";
 import type { AdminWarehouse } from "@/lib/warehouse-management";
@@ -111,20 +115,35 @@ export function createBulkResourceFixture() {
     status: "ACTIVE",
     variants: []
   })) as unknown as AdminProduct[];
+  // Stock list endpoints name the product and warehouse on every row, like the API.
+  const productRef = (productId: string) => {
+    const product = products.find((item) => item.id === productId)!;
+    return { id: product.id, name: product.name, sku: product.sku, status: product.status };
+  };
+  const warehouseRef = (warehouseId: string) => {
+    const warehouse = warehouses.find((item) => item.id === warehouseId)!;
+    return { code: warehouse.code, id: warehouse.id, name: warehouse.name };
+  };
   const stocks: InventoryStock[] = [10, 5, 1].map((availableQuantity, i) => ({
     id: fixtureId(100 + i),
     availableQuantity,
     reservedQuantity: 0,
     lowStockThreshold: 2,
+    product: productRef(products[i]!.id),
     productId: products[i]!.id,
+    variant: null,
     variantId: null,
+    warehouse: warehouseRef(warehouses[0]!.id),
     warehouseId: warehouses[0]!.id
   }));
   const batches: StockBatch[] = stocks.map((stock, i) => ({
     id: fixtureId(110 + i),
     batchNumber: `QA-BATCH-${i + 1}`,
+    product: productRef(stock.productId),
     productId: stock.productId,
+    variant: null,
     variantId: stock.variantId,
+    warehouse: warehouseRef(stock.warehouseId),
     warehouseId: stock.warehouseId,
     quantity: stock.availableQuantity,
     expiryDate: new Date(Date.now() + 86400000 * 10).toISOString(),
@@ -223,6 +242,22 @@ export function createBulkResourceFixture() {
       );
     else if (path === "/admin/inventory/near-expiry")
       result = paginated(batches, init?.query);
+    else if (path === "/admin/inventory/summary") {
+      const atOrBelow = stocks.filter((item) => item.availableQuantity <= item.lowStockThreshold);
+      const out = stocks.filter((item) => item.availableQuantity <= 0);
+      const summary: InventorySummary = {
+        assignedProducts: products.length,
+        availableUnits: stocks.reduce((total, item) => total + item.availableQuantity, 0),
+        inStockItems: stocks.length - atOrBelow.length,
+        lowStockItems: atOrBelow.length - out.length,
+        nearExpiryBatches: batches.filter((item) => item.quantity > 0).length,
+        nearExpiryDays: Number(init?.query?.days ?? 30),
+        outOfStockItems: out.length,
+        reservedUnits: stocks.reduce((total, item) => total + item.reservedQuantity, 0),
+        trackedItems: stocks.length
+      };
+      result = summary;
+    }
     else if (path === "/admin/inventory/movements")
       result = paginated(movements as Array<{ id: string }>, init?.query);
     else if (
@@ -260,6 +295,7 @@ export function createBulkResourceFixture() {
           destination = {
             ...stock,
             id: fixtureId(200 + stocks.length),
+            warehouse: warehouseRef(String(body?.toWarehouseId)),
             warehouseId: String(body?.toWarehouseId),
             availableQuantity: 0
           };

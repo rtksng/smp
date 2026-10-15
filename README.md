@@ -349,12 +349,17 @@ Useful API routes:
 - Admin warehouse staff:
   - `POST http://localhost:4000/api/v1/admin/warehouses/:id/staff`
   - `GET http://localhost:4000/api/v1/admin/warehouses/:id/staff`
+  - `GET http://localhost:4000/api/v1/admin/warehouses/:id/staff/roles`
+  - `POST http://localhost:4000/api/v1/admin/warehouses/:id/staff/accounts`
   - `DELETE http://localhost:4000/api/v1/admin/warehouses/:id/staff/:staffId`
 - Admin inventory:
   - `POST http://localhost:4000/api/v1/admin/inventory/stock-in`
+  - `POST http://localhost:4000/api/v1/admin/inventory/stock-out`
   - `POST http://localhost:4000/api/v1/admin/inventory/adjust`
   - `POST http://localhost:4000/api/v1/admin/inventory/transfer`
-  - `GET http://localhost:4000/api/v1/admin/inventory`
+  - `GET http://localhost:4000/api/v1/admin/inventory?stockStatus=LOW_STOCK&warehouseId=<warehouse-id>`
+  - `GET http://localhost:4000/api/v1/admin/inventory/summary?warehouseId=<warehouse-id>`
+  - `GET http://localhost:4000/api/v1/admin/inventory/batches?productId=<product-id>&warehouseId=<warehouse-id>`
   - `GET http://localhost:4000/api/v1/admin/inventory/low-stock`
   - `GET http://localhost:4000/api/v1/admin/inventory/near-expiry`
   - `GET http://localhost:4000/api/v1/admin/inventory/movements`
@@ -373,9 +378,11 @@ Useful API routes:
   - `PATCH http://localhost:4000/api/v1/admin/delivery-partners/:id/reject`
 - Admin delivery assignment:
   - `GET http://localhost:4000/api/v1/admin/delivery/assignments`
+  - `GET http://localhost:4000/api/v1/admin/delivery/dispatch-queue?warehouseId=<warehouse-id>`
   - `POST http://localhost:4000/api/v1/admin/delivery/assign`
 - Admin reports:
   - `GET http://localhost:4000/api/v1/admin/reports/dashboard?dateFrom=2026-05-01&dateTo=2026-05-26&warehouseId=<warehouse-id>`
+  - `GET http://localhost:4000/api/v1/admin/reports/warehouse-dashboard?dateFrom=2026-09-16&dateTo=2026-10-15&warehouseId=<warehouse-id>`
 - Delivery partner mobile API:
   - `GET http://localhost:4000/api/v1/delivery/me`
   - `PATCH http://localhost:4000/api/v1/delivery/me/status`
@@ -441,6 +448,7 @@ Admin panel routes:
 
 - `/login`
 - `/dashboard`
+- `/dashboard/warehouse`
 - `/products`
 - `/categories`
 - `/brands`
@@ -458,7 +466,7 @@ Admin panel routes:
 - `/reports`
 - `/settings`
 
-The `/products` admin route is a full product management workspace. It uses the guarded admin product APIs to search by name or SKU, filter by fixed category, subcategory, brand, status, sterile, disposable, expiry-sensitive, and medical specialty, create and edit products with React Hook Form and Zod validation, upload product images and product documents through the admin upload endpoints, manage variants, activate or deactivate products, and soft delete products behind confirmation dialogs. Product create/edit uses separate category and subcategory selectors, with subcategory options loaded from the selected parent category, and the product description field is a Lexical-backed rich text editor for headings, emphasis, lists, links, paragraph formatting, and alignment.
+The `/products` admin route is a full product management workspace. It uses the guarded admin product APIs to search by name or SKU, filter by fixed category, subcategory, brand, status, sterile, disposable, expiry-sensitive, and medical specialty, filter by stock status and warehouse from the toolbar, create and edit products with React Hook Form and Zod validation, choose the warehouses that carry each product, upload product images and product documents through the admin upload endpoints, manage variants, activate or deactivate products, and soft delete products behind confirmation dialogs. Product create/edit uses separate category and subcategory selectors, with subcategory options loaded from the selected parent category, and the product description field is a Lexical-backed rich text editor for headings, emphasis, lists, links, paragraph formatting, and alignment.
 
 Customer catalog pages render the seeded category tree with subcategories under their parent categories. Product listing filters support `subcategory`, category pages expose subcategory navigation chips, and product detail pages render sanitized rich product descriptions from the API.
 
@@ -470,13 +478,17 @@ The `/settings` admin route uses `settings.manage` to show role and permission c
 
 Warehouse and inventory admin screens are permission-aware in the UI, but backend guards remain authoritative. Warehouse CRUD requires warehouse permissions, inventory mutations require inventory permissions, and non-`SUPER_ADMIN` users are scoped to warehouses assigned through `WarehouseStaff`.
 
-The `/warehouses` admin route shows warehouse KPIs above a paged warehouse table with edit, activate/deactivate, and delete actions. Its filter drawer (search, state, status, and a `warehouseId` passed in the URL by search results, notifications, and reports) drives both the KPIs and the table; the old `/warehouses/list` URL redirects there with its query string. The warehouse sidebar also opens `/warehouses/staff` for filtered staff assignments (`?warehouseId=` preselects one warehouse), and button-driven `/warehouses/create` flows return to `/warehouses` after save, so list edits open the create/edit page before returning to the table. Each warehouse name and View action opens `/warehouses/[id]`, which shows the warehouse's details, stock KPIs, shortcuts into its inventory, movements, orders, deliveries and staff, a searchable paged product table, its staff with roles, and the delivery partners who have handled its deliveries. Each section loads only with its own permission (`inventory.read`, `warehouse.staff.manage`, `delivery.read`), admins not assigned to the warehouse see a single access message, and edits started there return to the detail page. Global search, new-warehouse notifications, and report rows open this page. Warehouse create/edit/activate/deactivate actions require `warehouse.manage`; staff assignment and removal are shown only to admins with `warehouse.staff.manage`.
+Warehouse-level product visibility: each product is assigned to the warehouses that carry it, and admins other than the super admin see, stock, and fulfil only products assigned to their warehouses. The product list shows each product's stock and warehouses, and its toolbar filters by name or SKU, stock status, and warehouse (the super admin can also list products that no warehouse carries yet).
 
-The inventory admin route group is split into `/inventory` for aggregate stock, low-stock, and near-expiry overview tables, `/inventory/actions` for stock-in, signed adjustments, and warehouse transfers, and `/inventory/movements` for the movement audit trail. It uses the warehouse and inventory APIs, validates warehouse/product IDs, batch numbers, quantities, prices, expiry dates, and reasons before submit, and keeps stock-changing actions behind confirmation dialogs. Stock rows show low-stock and near-expiry warnings, and batch views show batch number plus expiry date.
+The `/warehouses` admin route shows warehouse KPIs above a paged warehouse table with edit, activate/deactivate, and delete actions. Its filter drawer (search, state, status, and a `warehouseId` passed in the URL by search results, notifications, and reports) drives both the KPIs and the table; the old `/warehouses/list` URL redirects there with its query string. The warehouse sidebar also opens `/warehouses/staff` for filtered staff assignments (`?warehouseId=` preselects one warehouse), and button-driven `/warehouses/create` flows return to `/warehouses` after save, so list edits open the create/edit page before returning to the table. Each warehouse name and View action opens `/warehouses/[id]`, which shows the warehouse's details, stock KPIs, shortcuts into its inventory, movements, orders, deliveries and staff, a searchable paged product table, its staff with roles, and the delivery partners who have handled its deliveries. Each section loads only with its own permission (`inventory.read`, `warehouse.staff.manage`, `delivery.read`), admins not assigned to the warehouse see a single access message, and edits started there return to the detail page. Global search, new-warehouse notifications, and report rows open this page. Only the super admin creates, edits, activates, deactivates, or deletes warehouses; other admins see their own warehouses read-only. Staff management is shown only to admins with `warehouse.staff.manage`: warehouse managers see the people at their own warehouses, create staff accounts with a role no broader than their own, or add someone who already works at one of their warehouses, and cannot remove themselves.
+
+The inventory admin route group shares one warehouse picker across three tabs: `/inventory` (Stock levels) with summary tiles that filter the table by needs restock, low stock, out of stock, or expiring soon; `/inventory/actions` (Stock actions) with four guided actions: receive stock, remove stock with a reason, correct a count, and transfer stock; and `/inventory/movements` (Movement log) with inward, outward, count correction, and return filters. Stock actions offer only products assigned to the chosen warehouse, show the current stock and batches before any change, and keep every change behind a confirmation dialog.
 
 The `/orders` admin route uses the guarded admin order APIs for warehouse-scoped order search by order status, payment status, date range, customer mobile, order number, and warehouse. `/orders/[id]` shows customer info, delivery address, linked warehouse, order items, totals, payment attempts, invoice summary, and status timeline. Status updates, cancellation, and delivery assignment are permission-aware in the UI and still enforced by backend order, delivery, and warehouse-access guards; destructive or operational actions use confirmation dialogs.
 
-The `/dashboard` and `/reports` admin routes use the guarded reports API for dashboard cards, daily order and revenue charts, top-selling products, stock alerts, and warehouse-wise stock summaries. Report filters support date range, expiry window, and warehouse selection. The backend applies `reports.read` and warehouse assignment checks, so non-super-admin users only receive assigned-warehouse data where warehouse scope applies. Stock alert and warehouse summary SQL pre-aggregates inventory and batch data before joining warehouses to avoid inflated counts from row multiplication.
+For admins other than the super admin, `/dashboard` is the warehouse operations dashboard: active stock, pending dispatches, assigned riders, and fulfilment rate for their own warehouses, with the dispatch pipeline, the oldest orders waiting for a rider, restock needs, deliveries in progress, and riders. It refreshes every 30 seconds, and each figure links to the screen where it can be acted on. The super admin keeps the company-wide dashboard below and opens any warehouse's operations dashboard at `/dashboard/warehouse?warehouseId=<warehouse-id>`.
+
+The super admin `/dashboard` and the `/reports` admin routes use the guarded reports API for dashboard cards, daily order and revenue charts, top-selling products, stock alerts, and warehouse-wise stock summaries. Report filters support date range, expiry window, and warehouse selection. The backend applies `reports.read` and warehouse assignment checks, so non-super-admin users only receive assigned-warehouse data where warehouse scope applies. Stock alert and warehouse summary SQL pre-aggregates inventory and batch data before joining warehouses to avoid inflated counts from row multiplication.
 
 Stock movements use these primary movement types:
 
@@ -500,6 +512,6 @@ GST invoice generation is queued after Razorpay payment capture or after a COD o
 
 ## Delivery Operations
 
-Delivery management lives inside the admin dashboard at `apps/admin/app/delivery`; there is no separate delivery partner web app. The admin route uses guarded backend APIs to list delivery partners, open partner detail, view uploaded delivery documents, approve or reject partner applications, list assignments with status/warehouse/partner filters, and assign eligible confirmed or packed orders to active partners.
+Delivery management lives inside the admin dashboard at `apps/admin/app/delivery`; there is no separate delivery partner web app. The admin route uses guarded backend APIs to list delivery partners, open partner detail, view uploaded delivery documents, approve or reject partner applications, list assignments with status/warehouse/partner filters, and assign eligible confirmed or packed orders to active partners. Warehouse staff assign from their own warehouses' dispatch queue, which needs `delivery.assign` but not `orders.read`, and see only partners who work from their warehouses. Assignment tracking refreshes every 15 seconds.
 
 Delivery partner profiles include document metadata, approval status, online/offline availability, last-seen time, and wallet/earnings placeholders. Delivery assignments track `ASSIGNED`, `ACCEPTED`, `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED`, and `CANCELLED` history, pickup and delivered timestamps, proof-of-delivery placeholders, failure reasons, and an optional pickup warehouse location.

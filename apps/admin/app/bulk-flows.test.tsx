@@ -10,7 +10,7 @@ import {
   ProductQuestionsPage
 } from "./product-feedback/_components/product-feedback-sections";
 import { DeliveryBulkAssignment } from "./delivery/_components/delivery-bulk-assignment";
-import type { AdminOrder } from "@/lib/order-management";
+import type { DispatchQueueOrder } from "@/lib/delivery-management";
 import type { AdminDeliveryPartner } from "@/lib/delivery-management";
 import type { WarehouseListResponse } from "@/lib/warehouse-management";
 
@@ -107,6 +107,23 @@ function chooseAction(value: string) {
   fireEvent.change(screen.getByRole("combobox", { name: "Bulk action" }), {
     target: { value }
   });
+}
+function makeDispatchOrder(id: string, status: DispatchQueueOrder["status"]): DispatchQueueOrder {
+  return {
+    attempts: 0,
+    createdAt: "2026-09-05T10:00:00Z",
+    customer: { businessName: null, fullName: "QA Tester", mobileNumber: "9000000000" },
+    grandTotal: 100,
+    id,
+    itemCount: 1,
+    orderNumber: `QA-${id}`,
+    payment: { codAmount: 0, method: "ONLINE", status: "PAID" },
+    placedAt: null,
+    shippingAddress: null,
+    status,
+    warehouse: { code: "W1", id: "w1", name: "QA warehouse" },
+    warehouseId: "w1"
+  };
 }
 async function process(count: number) {
   fireEvent.click(screen.getByRole("button", { name: "Review selected" }));
@@ -282,19 +299,19 @@ describe("bulk flows through admin pages and API contracts", () => {
   });
 
   it("requires a partner, assigns selected ready orders, and refreshes delivery data", async () => {
-    const orders = [makeOrder("1", "PACKED"), makeOrder("2", "CONFIRMED")];
+    const orders = [makeDispatchOrder("1", "PACKED"), makeDispatchOrder("2", "CONFIRMED")];
     mocks.request.mockImplementation(async (path, init) => {
       if (path === "/admin/delivery/assign") {
         const body = JSON.parse(init.body);
         orders.find((order) => order.id === body.orderId)!.status = "ASSIGNED";
         return { id: body.orderId };
       }
-      return { ...orders.find((order) => path.endsWith(order.id))! };
+      throw new Error(`Unexpected request ${path}`);
     });
     const refreshed = vi.fn(async () => undefined);
     mount(
       <DeliveryBulkAssignment
-        orders={orders as AdminOrder[]}
+        orders={orders}
         partners={[
           {
             id: "d1",
@@ -344,7 +361,7 @@ describe("bulk flows through admin pages and API contracts", () => {
         .map((option) => option.textContent);
     mount(
       <DeliveryBulkAssignment
-        orders={[makeOrder("1", "PACKED")] as AdminOrder[]}
+        orders={[makeDispatchOrder("1", "PACKED")]}
         partners={[partner("d1", "North rider", [north]), partner("d2", "South rider", [south])]}
         warehouses={[north, south] as WarehouseListResponse["items"]}
         disabled={false}

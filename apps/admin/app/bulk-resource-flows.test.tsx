@@ -290,7 +290,7 @@ describe("bulk workflows for the additional admin modules", () => {
 
   it("adjusts and transfers explicit inventory batches with insufficient-stock skips and movement records", async () => {
     mount(<InventoryManagementPage view="overview" />);
-    await screen.findByRole("heading", { name: "Current aggregate stock" });
+    await screen.findByRole("heading", { name: "All stock lines" });
     await screen.findByRole("checkbox", { name: "Select current page" });
     selectPage();
     choose("adjust");

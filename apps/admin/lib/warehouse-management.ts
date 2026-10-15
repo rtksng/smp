@@ -73,6 +73,11 @@ export type WarehouseStaffCandidate = {
   role: WarehouseStaffRole;
 };
 
+/** A role the admin may give a new staff account; never more access than the admin holds. */
+export type WarehouseStaffRoleOption = WarehouseStaffRole & {
+  description: string | null;
+};
+
 export type WarehouseQuickLink = {
   href: string;
   label: string;
@@ -168,9 +173,65 @@ export const warehouseStaffFormSchema = z.object({
   adminUserId: z.string().trim().uuid("Select an admin user to assign.")
 });
 
+export const warehouseStaffAccountFormSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address.").max(254),
+  firstName: requiredText("First name", 120),
+  lastName: z.string().trim().max(120, "Last name is too long."),
+  mobileNumber: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || /^\+[1-9]\d{7,14}$/.test(value), {
+      message: "Enter the mobile number with its country code, for example +919876543210."
+    }),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters.")
+    .max(128, "Password is too long."),
+  roleId: z.string().trim().uuid("Choose a role for the new account.")
+});
+
 export type WarehouseFormValues = z.input<typeof warehouseFormSchema>;
 export type ParsedWarehouseFormValues = z.output<typeof warehouseFormSchema>;
 export type WarehouseStaffFormValues = z.infer<typeof warehouseStaffFormSchema>;
+export type WarehouseStaffAccountFormValues = z.input<typeof warehouseStaffAccountFormSchema>;
+
+export function createEmptyStaffAccountFormValues(
+  roleId = ""
+): WarehouseStaffAccountFormValues {
+  return {
+    email: "",
+    firstName: "",
+    lastName: "",
+    mobileNumber: "",
+    password: "",
+    roleId
+  };
+}
+
+export function buildStaffAccountPayload(
+  values: z.output<typeof warehouseStaffAccountFormSchema>
+) {
+  return {
+    email: values.email,
+    firstName: values.firstName,
+    lastName: values.lastName || null,
+    mobileNumber: values.mobileNumber || null,
+    password: values.password,
+    roleId: values.roleId
+  };
+}
+
+/** Least access first, so the new-account form defaults to warehouse staff when offered. */
+export function sortStaffRoleOptions(roles: WarehouseStaffRoleOption[]) {
+  const preferred = ["WAREHOUSE_STAFF", "WAREHOUSE_MANAGER"];
+
+  return [...roles].sort((left, right) => {
+    const leftRank = preferred.includes(left.code) ? preferred.indexOf(left.code) : preferred.length;
+    const rightRank = preferred.includes(right.code) ? preferred.indexOf(right.code) : preferred.length;
+
+    return leftRank - rightRank || left.name.localeCompare(right.name);
+  });
+}
 
 export function createEmptyWarehouseFormValues(): WarehouseFormValues {
   return {
@@ -336,16 +397,25 @@ export function buildWarehousePartnerCreatePath(warehouseId: string) {
   return buildWarehouseScopedHref(DELIVERY_PARTNER_CREATE_PATH, warehouseId);
 }
 
+export const WAREHOUSE_DASHBOARD_PATH = "/dashboard/warehouse";
+
 const WAREHOUSE_QUICK_LINKS: Array<{
   extraParams?: Record<string, string>;
   label: string;
   path: string;
   permission: string;
 }> = [
+  { label: "Operations dashboard", path: WAREHOUSE_DASHBOARD_PATH, permission: ADMIN_PERMISSION.ReportsRead },
   { label: "Stock overview", path: INVENTORY_OVERVIEW_PATH, permission: ADMIN_PERMISSION.InventoryRead },
   {
-    extraParams: { lowStock: "true" },
+    extraParams: { stockStatus: "LOW_STOCK" },
     label: "Low stock",
+    path: INVENTORY_OVERVIEW_PATH,
+    permission: ADMIN_PERMISSION.InventoryRead
+  },
+  {
+    extraParams: { stockStatus: "OUT_OF_STOCK" },
+    label: "Out of stock",
     path: INVENTORY_OVERVIEW_PATH,
     permission: ADMIN_PERMISSION.InventoryRead
   },

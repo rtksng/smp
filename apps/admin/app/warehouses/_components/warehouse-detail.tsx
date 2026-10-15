@@ -44,8 +44,8 @@ import {
   INVENTORY_OVERVIEW_PATH,
   getStockLevel,
   type InventoryStock,
-  type PaginatedResponse,
-  type StockBatch
+  type InventorySummary,
+  type PaginatedResponse
 } from "../../../lib/inventory-management";
 import { formatDateTime } from "../../../lib/order-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
@@ -70,12 +70,6 @@ import {
 } from "../../../lib/warehouse-management";
 import "../warehouse-responsive.css";
 
-type WarehouseStockSummary = {
-  lowStock: number;
-  nearExpiry: number;
-  products: number;
-};
-
 export function WarehouseDetailPage({ warehouseId }: { warehouseId: string }) {
   return (
     <AdminShell>
@@ -87,14 +81,15 @@ export function WarehouseDetailPage({ warehouseId }: { warehouseId: string }) {
 }
 
 export function WarehouseDetailContent({ warehouseId }: { warehouseId: string }) {
-  const { api, hasPermission } = useAdminSession();
+  const { api, hasPermission, isSuperAdmin } = useAdminSession();
   const queryClient = useQueryClient();
   const [productSearchDraft, setProductSearchDraft] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [productPage, setProductPage] = useState(1);
   const [partnerPage, setPartnerPage] = useState(1);
 
-  const canManage = hasPermission(ADMIN_PERMISSION.WarehouseManage);
+  // Only the super admin changes warehouse settings.
+  const canManage = Boolean(isSuperAdmin) && hasPermission(ADMIN_PERMISSION.WarehouseManage);
   const canManageStaff = hasPermission(ADMIN_PERMISSION.WarehouseStaffManage);
   const canReadDelivery = hasPermission(ADMIN_PERMISSION.DeliveryRead);
   const canManagePartners = hasPermission(ADMIN_PERMISSION.DeliveryPartnersManage);
@@ -110,28 +105,14 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
   // Related sections wait for the warehouse so a 403 or 404 shows one clear error instead of several.
   const isWarehouseLoaded = Boolean(warehouse);
 
+  // One summary call, counted the same way as the inventory page these metrics link to.
   const stockSummaryQuery = useQuery({
     enabled: isWarehouseLoaded && canReadInventory,
-    queryFn: async ({ signal }): Promise<WarehouseStockSummary> => {
-      const query = { limit: 1, page: 1, warehouseId };
-      const [products, lowStock, nearExpiry] = await Promise.all([
-        api.request<PaginatedResponse<InventoryStock>>("/admin/inventory", { query, signal }),
-        api.request<PaginatedResponse<InventoryStock>>("/admin/inventory/low-stock", {
-          query,
-          signal
-        }),
-        api.request<PaginatedResponse<StockBatch>>("/admin/inventory/near-expiry", {
-          query: { ...query, days: WAREHOUSE_NEAR_EXPIRY_DAYS },
-          signal
-        })
-      ]);
-
-      return {
-        lowStock: lowStock.pagination.total,
-        nearExpiry: nearExpiry.pagination.total,
-        products: products.pagination.total
-      };
-    },
+    queryFn: ({ signal }) =>
+      api.request<InventorySummary>("/admin/inventory/summary", {
+        query: { days: WAREHOUSE_NEAR_EXPIRY_DAYS, warehouseId },
+        signal
+      }),
     queryKey: ["admin", "inventory", "warehouse-detail", warehouseId, "summary"]
   });
 
@@ -246,19 +227,24 @@ export function WarehouseDetailContent({ warehouseId }: { warehouseId: string })
             {canReadInventory ? (
               <>
                 <MetricCard
-                  label="Products"
+                  label="Assigned products"
                   tone="primary"
-                  value={metricValue(stockSummaryQuery, (summary) => summary.products)}
+                  value={metricValue(stockSummaryQuery, (summary) => summary.assignedProducts)}
                 />
                 <MetricCard
                   label="Low stock"
                   tone="warning"
-                  value={metricValue(stockSummaryQuery, (summary) => summary.lowStock)}
+                  value={metricValue(stockSummaryQuery, (summary) => summary.lowStockItems)}
+                />
+                <MetricCard
+                  label="Out of stock"
+                  tone="warning"
+                  value={metricValue(stockSummaryQuery, (summary) => summary.outOfStockItems)}
                 />
                 <MetricCard
                   label={`Expiring in ${WAREHOUSE_NEAR_EXPIRY_DAYS} days`}
                   tone="warning"
-                  value={metricValue(stockSummaryQuery, (summary) => summary.nearExpiry)}
+                  value={metricValue(stockSummaryQuery, (summary) => summary.nearExpiryBatches)}
                 />
               </>
             ) : null}

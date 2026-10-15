@@ -10,6 +10,7 @@ import {
   createEmptyDeliveryPartnerFilters,
   createEmptyDeliveryPartnerForm,
   deliveryPartnerToFormValues,
+  describeDispatchPayment,
   filterPartnersForWarehouse,
   formatDeliveryAmount,
   formatDeliveryLabel,
@@ -18,6 +19,7 @@ import {
   formatDeliveryPartnerPay,
   formatDeliveryPartnerWarehouses,
   formatSalaryPeriod,
+  getDispatchCustomerName,
   getCurrentSalaryPeriod,
   getDeliveryLedgerEntryTypes,
   getDeliveryPartnerWarehouseMode,
@@ -184,6 +186,25 @@ describe("delivery partner warehouses and dispatch", () => {
   it("lists partner warehouses by name and code", () => {
     expect(formatDeliveryPartnerWarehouses(pune.warehouses)).toBe("Pune Central (W1)");
     expect(formatDeliveryPartnerWarehouses([])).toBe("No warehouses");
+  });
+
+  it("names dispatch customers by business first and tells riders what to collect", () => {
+    const customer = { businessName: "Sunrise Clinic", fullName: "Asha Rao", mobileNumber: "+919811111111" };
+
+    expect(getDispatchCustomerName({ customer })).toBe("Sunrise Clinic");
+    expect(getDispatchCustomerName({ customer: { ...customer, businessName: null } })).toBe("Asha Rao");
+    expect(getDispatchCustomerName({ customer: { ...customer, businessName: null, fullName: "" } })).toBe(
+      "+919811111111"
+    );
+    expect(
+      describeDispatchPayment({ grandTotal: 1250, payment: { codAmount: 1250, method: "COD", status: "PENDING" } })
+    ).toBe("Collect ₹1,250 cash");
+    expect(
+      describeDispatchPayment({ grandTotal: 980.5, payment: { codAmount: 0, method: "ONLINE", status: "PAID" } })
+    ).toBe("Prepaid ₹980.50");
+    expect(
+      describeDispatchPayment({ grandTotal: 400, payment: { codAmount: 0, method: null, status: "PARTIALLY_REFUNDED" } })
+    ).toBe("₹400, payment partially refunded");
   });
 });
 

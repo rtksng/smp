@@ -91,6 +91,8 @@ export type { ReportView } from "../../lib/reports-management";
 
 type ReportsDashboardProps = {
   eyebrow?: string;
+  /** Extra header buttons, shown after the report actions. */
+  extraActions?: ReactNode;
   hideSectionNavigation?: boolean;
   title?: string;
   view?: ReportView;
@@ -191,6 +193,7 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-IN", {
 
 export function ReportsDashboard({
   eyebrow = "Reports",
+  extraActions,
   hideSectionNavigation = false,
   title,
   view = "overview"
@@ -330,6 +333,7 @@ export function ReportsDashboard({
                 <RefreshCw aria-hidden size={16} />
                 <span>{dashboardQuery.isFetching ? "Refreshing..." : "Refresh"}</span>
               </Button>
+              {extraActions}
             </div>
           }
           eyebrow={eyebrow}

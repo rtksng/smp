@@ -514,6 +514,39 @@
   font-size: 13px;
 }
 
+/* A dispatched order's hint turns amber when the chosen order has left the queue. */
+.deliveryModule .deliveryFieldHint[role="status"] {
+  color: var(--warning);
+}
+
+.deliveryModule .deliveryDispatchWarehouseFilter {
+  min-width: 220px;
+}
+
+/* Live status for assignment tracking, which refreshes on a timer. */
+.deliveryModule .deliveryLiveNote {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.deliveryModule .deliveryLiveDot {
+  background: #0d9488;
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+}
+
+.deliveryModule .deliveryLiveDot[data-state="stale"] {
+  background: #d97706;
+}
+
 .deliveryModule .deliveryReadOnlyValue {
   color: var(--text);
   font-size: var(--admin-text-label);
@@ -773,6 +806,11 @@
 }
 
 @media (max-width: 640px) {
+  .deliveryModule .deliveryDispatchWarehouseFilter {
+    min-width: 0;
+    width: 100%;
+  }
+
   .deliveryModule {
     gap: 10px;
   }

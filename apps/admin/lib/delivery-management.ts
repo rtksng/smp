@@ -1,5 +1,5 @@
 import type { QueryParams } from "./admin-api";
-import { formatCurrency } from "./order-management";
+import { formatCurrency, type OrderStatus } from "./order-management";
 
 export const DELIVERY_PARTNER_STATUSES = [
   "PENDING_VERIFICATION",
@@ -169,6 +169,24 @@ export type AdminDeliveryAssignment = {
   status: DeliveryAssignmentStatus;
   statusHistory: DeliveryAssignmentHistory[];
   updatedAt: string;
+};
+
+/** A confirmed or packed order waiting for a rider, from GET /admin/delivery/dispatch-queue. */
+export type DispatchQueueOrder = {
+  /** Earlier deliveries of this order that failed or were cancelled. */
+  attempts: number;
+  createdAt: string;
+  customer: { businessName: string | null; fullName: string; mobileNumber: string };
+  grandTotal: number;
+  id: string;
+  itemCount: number;
+  orderNumber: string;
+  payment: { codAmount: number; method: string | null; status: string };
+  placedAt: string | null;
+  shippingAddress: { city: string; pincode: string; state: string } | null;
+  status: OrderStatus;
+  warehouse: { code: string; id: string; name: string } | null;
+  warehouseId: string | null;
 };
 
 export type PaginatedResponse<T> = {
@@ -342,6 +360,22 @@ export function formatDeliveryPartnerWarehouses(
   return warehouses.length > 0
     ? warehouses.map(formatDeliveryWarehouseName).join(", ")
     : "No warehouses";
+}
+
+/** Business name first, since most buyers are clinics and pharmacies. */
+export function getDispatchCustomerName(order: Pick<DispatchQueueOrder, "customer">) {
+  return order.customer.businessName || order.customer.fullName || order.customer.mobileNumber;
+}
+
+/** What the rider must know about money before leaving: cash to collect, or nothing. */
+export function describeDispatchPayment(order: Pick<DispatchQueueOrder, "grandTotal" | "payment">) {
+  if (order.payment.codAmount > 0) {
+    return `Collect ${formatDeliveryAmount(order.payment.codAmount)} cash`;
+  }
+
+  return order.payment.status === "PAID"
+    ? `Prepaid ${formatDeliveryAmount(order.grandTotal)}`
+    : `${formatDeliveryAmount(order.grandTotal)}, payment ${formatDeliveryLabel(order.payment.status).toLowerCase()}`;
 }
 
 /** Rupee amounts without trailing zero paise, for example ₹18,000 or ₹61.25. */

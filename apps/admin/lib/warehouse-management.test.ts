@@ -241,8 +241,10 @@ describe("warehouse management helpers", () => {
     const allow = (...permissions: string[]) => (permission: string) => permissions.includes(permission);
 
     expect(buildWarehouseQuickLinks("warehouse-1", () => true)).toEqual([
+      { href: "/dashboard/warehouse?warehouseId=warehouse-1", label: "Operations dashboard" },
       { href: "/inventory?warehouseId=warehouse-1", label: "Stock overview" },
-      { href: "/inventory?lowStock=true&warehouseId=warehouse-1", label: "Low stock" },
+      { href: "/inventory?stockStatus=LOW_STOCK&warehouseId=warehouse-1", label: "Low stock" },
+      { href: "/inventory?stockStatus=OUT_OF_STOCK&warehouseId=warehouse-1", label: "Out of stock" },
       {
         href: "/inventory?nearExpiry=true&nearExpiryDays=30&warehouseId=warehouse-1",
         label: "Near expiry"
@@ -256,13 +258,16 @@ describe("warehouse management helpers", () => {
       buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read", "inventory.read")).map(
         (link) => link.label
       )
-    ).toEqual(["Stock overview", "Low stock", "Near expiry", "Stock movements"]);
+    ).toEqual(["Stock overview", "Low stock", "Out of stock", "Near expiry", "Stock movements"]);
     expect(
       buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read", "delivery.read", "orders.read")).map(
         (link) => link.label
       )
     ).toEqual(["Orders", "Deliveries"]);
     expect(buildWarehouseQuickLinks("warehouse-1", allow("warehouse.read"))).toEqual([]);
+    expect(
+      buildWarehouseQuickLinks("warehouse-1", allow("reports.read")).map((link) => link.label)
+    ).toEqual(["Operations dashboard"]);
   });
 
   it("builds product and delivery partner queries for one warehouse", () => {

@@ -3,6 +3,7 @@ import {
   buildProductEditPath,
   buildProductPayload,
   createEmptyProductFormValues,
+  getProductWarehouseIds,
   getSubcategoriesForCategory,
   productFormSchema,
   productToFormValues,
@@ -123,8 +124,35 @@ describe("product form helpers", () => {
           sku: "FORCEPS-001-6IN",
           status: "ACTIVE"
         }
-      ]
+      ],
+      warehouseIds: []
     });
+  });
+
+  it("sends each chosen warehouse once and starts new products in the given warehouses", () => {
+    const parsed = productFormSchema.parse({
+      ...validFormValues(),
+      warehouseIds: ["warehouse-1", "warehouse-2", "warehouse-1"]
+    });
+
+    expect(buildProductPayload(parsed).warehouseIds).toEqual(["warehouse-1", "warehouse-2"]);
+    expect(createEmptyProductFormValues(["warehouse-3"]).warehouseIds).toEqual(["warehouse-3"]);
+    expect(createEmptyProductFormValues().warehouseIds).toEqual([]);
+  });
+
+  it("reads a product's warehouses from ids or from the linked warehouse list", () => {
+    expect(getProductWarehouseIds({ warehouseIds: ["warehouse-1"] } as AdminProduct)).toEqual([
+      "warehouse-1"
+    ]);
+    expect(
+      getProductWarehouseIds({
+        warehouses: [
+          { code: "PUN", id: "warehouse-2", name: "Pune", status: "ACTIVE" },
+          { code: "MUM", id: "warehouse-3", name: "Mumbai", status: "ACTIVE" }
+        ]
+      } as AdminProduct)
+    ).toEqual(["warehouse-2", "warehouse-3"]);
+    expect(getProductWarehouseIds({} as AdminProduct)).toEqual([]);
   });
 
   it("rejects product and variant prices above MRP", () => {
@@ -239,7 +267,8 @@ describe("product form helpers", () => {
           sku: "FORCEPS-001-6IN",
           status: "ACTIVE"
         }
-      ]
+      ],
+      warehouses: [{ code: "PUN", id: "warehouse-2", name: "Pune", status: "ACTIVE" }]
     };
 
     expect(productToFormValues(product)).toMatchObject({
@@ -268,7 +297,8 @@ describe("product form helpers", () => {
           sku: "FORCEPS-001-6IN",
           status: "ACTIVE"
         }
-      ]
+      ],
+      warehouseIds: ["warehouse-2"]
     });
   });
 

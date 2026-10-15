@@ -75,11 +75,8 @@ import {
 } from "@/components/ui/table";
 import {
   buildAssignDeliveryPayload,
-  canAssignDelivery,
   formatCurrency,
-  type AdminOrder,
-  type AssignDeliveryValues,
-  type PaginatedResponse as OrderPaginatedResponse
+  type AssignDeliveryValues
 } from "../../../lib/order-management";
 import { ADMIN_PERMISSION } from "../../../lib/permissions";
 import { useTableOverflow } from "../../../lib/use-table-overflow";
@@ -92,6 +89,7 @@ import {
   createEmptyDeliveryAssignmentFilters,
   createEmptyDeliveryPartnerFilters,
   DELIVERY_PARTNER_SEARCH_MAX_LENGTH,
+  describeDispatchPayment,
   filterPartnersForWarehouse,
   formatDeliveryDate,
   formatDeliveryDateTime,
@@ -99,6 +97,7 @@ import {
   formatDeliveryPartnerPay,
   formatDeliveryPartnerWarehouses,
   formatDeliveryWarehouseName,
+  getDispatchCustomerName,
   getEffectivePickupWarehouseId,
   isPartnerAssignedToWarehouse,
   loadDeliveryOptions,
@@ -106,11 +105,18 @@ import {
   type AdminDeliveryPartner,
   type DeliveryAssignmentFilters,
   type DeliveryPartnerFilters,
+  type DispatchQueueOrder,
   type PaginatedResponse
 } from "../../../lib/delivery-management";
 import "../delivery-responsive.css";
 
 const DELIVERY_PAGE_SIZE = 20;
+const ALL_WAREHOUSES_VALUE = "all";
+const ASSIGNMENTS_REFRESH_MS = 15_000;
+const updatedAtFormatter = new Intl.DateTimeFormat("en-IN", {
+  hour: "numeric",
+  minute: "2-digit"
+});
 const deliveryChartColors = {
   accent: "#587570",
   muted: "#94a3b8",
@@ -126,6 +132,8 @@ const emptyAssignmentForm: AssignDeliveryValues = {
 
 type DeliveryView = "analytics" | "partners" | "requests" | "assignments" | "assign";
 type AssignmentFilters = DeliveryAssignmentFilters & { search: string };
+/** An order and warehouse picked before opening the assign page, for example from the dashboard. */
+type AssignmentPreset = { orderId: string; warehouseId: string };
 
 const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
   analytics: {
@@ -133,7 +141,7 @@ const deliveryCopy: Record<DeliveryView, { summary: string; title: string }> = {
     title: "Delivery analytics"
   },
   assign: {
-    summary: "Create a delivery assignment from one focused order-to-partner form.",
+    summary: "Send confirmed and packed orders out with a rider from the same warehouse.",
     title: "Assign delivery"
   },
   assignments: {
@@ -244,13 +252,35 @@ function DeliveryAssignmentDestination() {
 }
 
 export function DeliveryAssignPage() {
-  return <DeliveryContent view="assign" />;
+  return (
+    <Suspense fallback={<LoadingState label="Loading dispatch queue..." />}>
+      <DeliveryAssignDestination />
+    </Suspense>
+  );
+}
+
+function DeliveryAssignDestination() {
+  const searchKey = useSearchParams().toString();
+  const params = new URLSearchParams(searchKey);
+
+  return (
+    <DeliveryContent
+      assignmentPreset={{
+        orderId: params.get("orderId") ?? "",
+        warehouseId: params.get("warehouseId") ?? ""
+      }}
+      key={searchKey}
+      view="assign"
+    />
+  );
 }
 
 function DeliveryContent({
+  assignmentPreset = { orderId: "", warehouseId: "" },
   view,
   initialAssignmentFilters = { ...createEmptyDeliveryAssignmentFilters(), search: "" }
 }: {
+  assignmentPreset?: AssignmentPreset;
   view: DeliveryView;
   initialAssignmentFilters?: AssignmentFilters;
 }) {
@@ -270,8 +300,12 @@ function DeliveryContent({
     useState<AssignmentFilters>(initialAssignmentFilters);
   const [assignmentFilters, setAssignmentFilters] =
     useState<AssignmentFilters>(initialAssignmentFilters);
-  const [assignmentForm, setAssignmentForm] =
-    useState<AssignDeliveryValues>(emptyAssignmentForm);
+  const [assignmentForm, setAssignmentForm] = useState<AssignDeliveryValues>(() => ({
+    ...emptyAssignmentForm,
+    orderId: assignmentPreset.orderId
+  }));
+  // Multi-warehouse admins can narrow the dispatch queue to one warehouse.
+  const [dispatchWarehouseId, setDispatchWarehouseId] = useState(assignmentPreset.warehouseId);
 
   const partnerQuery = useMemo(
     () => buildDeliveryPartnerQuery(partnerFilters, partnerPage, DELIVERY_PAGE_SIZE),
@@ -308,7 +342,7 @@ function DeliveryContent({
         }
       ),
     queryKey: ["admin", "delivery", "assignments", assignmentQuery],
-    refetchInterval: 15_000
+    refetchInterval: ASSIGNMENTS_REFRESH_MS
   });
   const partnerOptionsQuery = useQuery({
     enabled: view === "assign" || view === "assignments",
@@ -318,14 +352,14 @@ function DeliveryContent({
       })),
     queryKey: ["admin", "delivery", "partner-options", view]
   });
-  const ordersQuery = useQuery({
-    enabled: view === "assign" && hasPermission(ADMIN_PERMISSION.OrdersRead),
-    queryFn: async () => (await Promise.all(["CONFIRMED", "PACKED"].map((status) =>
-      loadDeliveryOptions((page) => api.request<OrderPaginatedResponse<AdminOrder>>("/admin/orders", {
-        query: { limit: 100, page, status }
-      }))
-    ))).flat(),
-    queryKey: ["admin", "delivery", "orders"]
+  // The dispatch queue holds only the admin's own warehouses' orders, oldest first.
+  const dispatchQueueQuery = useQuery({
+    enabled: view === "assign" && hasPermission(ADMIN_PERMISSION.DeliveryAssign),
+    queryFn: () => loadDeliveryOptions((page) =>
+      api.request<PaginatedResponse<DispatchQueueOrder>>("/admin/delivery/dispatch-queue", {
+        query: { limit: 100, page, warehouseId: dispatchWarehouseId || undefined }
+      })),
+    queryKey: ["admin", "delivery", "dispatch-queue", dispatchWarehouseId]
   });
   const warehousesQuery = useQuery({
     enabled: (view === "assign" || view === "assignments") && hasPermission(ADMIN_PERMISSION.WarehouseRead),
@@ -348,14 +382,10 @@ function DeliveryContent({
     () => warehousesQuery.data ?? [],
     [warehousesQuery.data]
   );
-  const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
+  const assignableOrders = useMemo(() => dispatchQueueQuery.data ?? [], [dispatchQueueQuery.data]);
   const activePartners = useMemo(
     () => (partnerOptionsQuery.data ?? []).filter((partner) => partner.status === "ACTIVE"),
     [partnerOptionsQuery.data]
-  );
-  const assignableOrders = useMemo(
-    () => orders.filter((order) => canAssignDelivery(order.status)),
-    [orders]
   );
   const selectedAssignmentOrder =
     assignableOrders.find((order) => order.id === assignmentForm.orderId) ?? null;
@@ -464,6 +494,12 @@ function DeliveryContent({
       },
       title: isApprove ? "Confirm approval" : "Confirm rejection"
     });
+  }
+
+  function changeDispatchWarehouse(warehouseId: string) {
+    setDispatchWarehouseId(warehouseId);
+    // The chosen order may belong to another warehouse, so pick again from the new list.
+    setAssignmentForm((current) => ({ ...current, orderId: "" }));
   }
 
   function changeAssignmentForm(nextValues: AssignDeliveryValues) {
@@ -645,6 +681,17 @@ function DeliveryContent({
             summary="Use filters to audit delivery progress, proof, pickup location, and issue history."
             title="Assignment tracking"
           />
+          {assignmentsQuery.dataUpdatedAt ? (
+            <p className="deliveryLiveNote">
+              <span
+                aria-hidden
+                className="deliveryLiveDot"
+                data-state={assignmentsQuery.isError ? "stale" : "live"}
+              />
+              Statuses refresh every {ASSIGNMENTS_REFRESH_MS / 1000} seconds. Last updated{" "}
+              {updatedAtFormatter.format(assignmentsQuery.dataUpdatedAt)}.
+            </p>
+          ) : null}
           <AssignmentFilterForm
             filters={assignmentDraftFilters}
             isWarehouseLoading={warehousesQuery.isLoading}
@@ -687,28 +734,50 @@ function DeliveryContent({
         <PermissionGate permission={ADMIN_PERMISSION.DeliveryAssign}>
           <section className="panel deliveryAssignPanel mt-3">
             <PageHeader
+              actions={
+                warehouses.length > 1 ? (
+                  <div className="deliveryField deliveryDispatchWarehouseFilter">
+                    <span aria-hidden="true">Orders from</span>
+                    <Select
+                      aria-label="Orders from"
+                      onValueChange={(value) =>
+                        changeDispatchWarehouse(value === ALL_WAREHOUSES_VALUE ? "" : value)
+                      }
+                      value={dispatchWarehouseId || ALL_WAREHOUSES_VALUE}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All warehouses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_WAREHOUSES_VALUE}>All warehouses</SelectItem>
+                        {warehouses.map((warehouse) => (
+                          <SelectItem key={warehouse.id} value={warehouse.id}>
+                            {formatDeliveryWarehouseName(warehouse)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : undefined
+              }
               className="settingsSectionHeader deliverySectionHeader"
               eyebrow="Assignment"
               level={2}
-              summary="Choose an assignable order, active partner, optional pickup warehouse, and dispatch note."
+              summary="Pick a waiting order, then an active partner who works from its pickup warehouse."
               title="Assign order"
             />
-            {!hasPermission(ADMIN_PERMISSION.OrdersRead) ? (
-              <p className="formError" role="alert">
-                Order lookup requires orders read permission.
-              </p>
-            ) : null}
             {!hasPermission(ADMIN_PERMISSION.WarehouseRead) ? (
               <p className="formError" role="alert">
                 Warehouse lookup requires warehouse read permission.
               </p>
             ) : null}
-            {ordersQuery.isLoading ? (
-              <LoadingState label="Loading assignable orders..." />
+            {dispatchQueueQuery.isLoading ? (
+              <LoadingState label="Loading orders waiting for dispatch..." />
             ) : null}
-            {ordersQuery.isError ? (
+            {dispatchQueueQuery.isError ? (
               <p className="formError" role="alert">
-                {getErrorMessage(ordersQuery.error) ?? "Unable to load orders."}
+                {getErrorMessage(dispatchQueueQuery.error) ??
+                  "Unable to load orders waiting for dispatch."}
               </p>
             ) : null}
             {partnerOptionsQuery.isLoading ? <LoadingState label="Loading active delivery partners..." /> : null}
@@ -732,19 +801,20 @@ function DeliveryContent({
                   ? { id: assignmentWarehouseId, name: assignmentWarehouseName }
                   : null
               }
+              selectedOrder={selectedAssignmentOrder}
               showEmptyStates={
-                !ordersQuery.isLoading &&
-                !ordersQuery.isError &&
+                !dispatchQueueQuery.isLoading &&
+                !dispatchQueueQuery.isError &&
                 !partnerOptionsQuery.isLoading &&
                 !partnerOptionsQuery.isError
               }
               values={assignmentForm}
               warehouses={warehouses}
             />
-            {hasPermission(ADMIN_PERMISSION.OrdersRead) ? <DeliveryBulkAssignment
+            <DeliveryBulkAssignment
               orders={assignableOrders} partners={activePartners} warehouses={warehouses}
-              disabled={isMutating || ordersQuery.isFetching || ordersQuery.isError || partnerOptionsQuery.isFetching || partnerOptionsQuery.isError || warehousesQuery.isError}
-              onComplete={invalidateDeliveryData} /> : null}
+              disabled={isMutating || dispatchQueueQuery.isFetching || dispatchQueueQuery.isError || partnerOptionsQuery.isFetching || partnerOptionsQuery.isError || warehousesQuery.isError}
+              onComplete={invalidateDeliveryData} />
           </section>
         </PermissionGate>
       ) : null}
@@ -1629,12 +1699,13 @@ function AssignmentForm({
   onSubmit,
   partners,
   pickupWarehouse,
+  selectedOrder,
   showEmptyStates,
   values,
   warehouses
 }: {
   activePartnerCount: number;
-  assignableOrders: AdminOrder[];
+  assignableOrders: DispatchQueueOrder[];
   canManagePartners: boolean;
   error: string | null;
   isPending: boolean;
@@ -1644,6 +1715,7 @@ function AssignmentForm({
   /** Active partners assigned to the pickup warehouse, or every active partner when it is unknown. */
   partners: AdminDeliveryPartner[];
   pickupWarehouse: { id: string; name: string } | null;
+  selectedOrder: DispatchQueueOrder | null;
   showEmptyStates: boolean;
   values: AssignDeliveryValues;
   warehouses: WarehouseListResponse["items"];
@@ -1678,11 +1750,29 @@ function AssignmentForm({
             <SelectContent>
               {assignableOrders.map((order) => (
                 <SelectItem key={order.id} value={order.id}>
-                  {order.orderNumber} ({formatDeliveryLabel(order.status)})
+                  {`${order.orderNumber}, ${getDispatchCustomerName(order)} (${formatDeliveryLabel(order.status)})`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {selectedOrder ? (
+            <span className="deliveryFieldHint">
+              {[
+                `${selectedOrder.itemCount} ${selectedOrder.itemCount === 1 ? "item" : "items"}`,
+                describeDispatchPayment(selectedOrder),
+                selectedOrder.shippingAddress
+                  ? `${selectedOrder.shippingAddress.city} ${selectedOrder.shippingAddress.pincode}`
+                  : null,
+                selectedOrder.warehouse ? `From ${selectedOrder.warehouse.name}` : null
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          ) : values.orderId && showEmptyStates ? (
+            <span className="deliveryFieldHint" role="status">
+              That order is no longer waiting for dispatch. It may already have a rider.
+            </span>
+          ) : null}
         </div>
         <div className="deliveryField">
           <span aria-hidden="true">Delivery partner</span>
@@ -1760,8 +1850,8 @@ function AssignmentForm({
       ) : null}
       {showEmptyStates && assignableOrders.length === 0 ? (
         <EmptyState
-          body="No confirmed or packed orders are currently assignable."
-          title="No assignable orders"
+          body="Confirmed and packed orders from your warehouses show up here when they are ready to go out."
+          title="No orders waiting for dispatch"
         />
       ) : null}
       {showEmptyStates && activePartnerCount === 0 ? (
@@ -1833,7 +1923,7 @@ function DetailItem({
 function getAssignmentWarehouseName(
   warehouseId: string | null,
   warehouses: WarehouseListResponse["items"],
-  order: AdminOrder | null
+  order: Pick<DispatchQueueOrder, "warehouse"> | null
 ) {
   const warehouse =
     warehouses.find((item) => item.id === warehouseId) ??

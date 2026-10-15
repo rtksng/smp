@@ -10,28 +10,36 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
   CheckCircle2,
+  ClipboardCheck,
+  History,
+  MoreVertical,
+  PackageMinus,
+  PackagePlus,
   RefreshCw,
   Search,
-  SlidersHorizontal,
-  TrendingUp
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { z } from "zod";
 import {
   ConfirmationDialog,
   type ConfirmationState
 } from "@/components/admin/confirmation-dialog";
 import { EmptyState } from "@/components/admin/empty-state";
-import { FilterDrawer } from "@/components/admin/filter-drawer";
 import { LoadingState } from "@/components/admin/loading-state";
-import { MetricCard } from "@/components/admin/metric-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { PaginationControls } from "@/components/admin/pagination-controls";
+import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger
+} from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -59,35 +67,41 @@ import {
 import { ADMIN_PERMISSION } from "../../lib/permissions";
 import type { AdminProduct, ProductListResponse } from "../../lib/product-form";
 import {
-  adjustStockFormSchema,
-  buildAdjustStockPayload,
-  buildInventoryRequest,
-  buildStockMovementQuery,
-  buildStockInPayload,
-  buildTransferStockPayload,
-  createEmptyAdjustStockFormValues,
-  createEmptyInventoryFilters,
-  createInventoryFiltersFromSearchParams,
-  createEmptyStockInFormValues,
-  createEmptyTransferStockFormValues,
-  formatMovementType,
+  INVENTORY_MOVEMENTS_PATH,
   INVENTORY_TABS,
-  inventoryFiltersSchema,
-  isLowStock,
-  isNearExpiry,
+  MOVEMENT_FILTERS,
+  STOCK_ACTIONS,
+  STOCK_OUT_REASONS,
+  STOCK_OUT_REASON_LABELS,
+  buildInventoryRequest,
+  buildStockActionHref,
+  buildStockCountPayload,
+  buildStockInPayload,
+  buildStockMovementQuery,
+  buildStockOutPayload,
+  buildTransferStockPayload,
+  createInventoryFiltersFromSearchParams,
+  daysUntilExpiry,
+  describeMovement,
+  formatSignedQuantity,
+  formatStockItemName,
+  getMovementNetQuantity,
+  getStockActionFromSearchParams,
+  getStockLevel,
   loadAllPaginatedItems,
-  STOCK_MOVEMENT_TYPES,
+  stockCountFormSchema,
   stockInFormSchema,
+  stockOutFormSchema,
   transferStockFormSchema,
-  type AdjustStockFormValues,
   type InventoryFilters,
   type InventoryStock,
+  type InventorySummary,
   type InventoryView,
   type PaginatedResponse,
+  type StockAction,
   type StockBatch,
-  type StockInFormValues,
   type StockMovement,
-  type TransferStockFormValues
+  type StockOutReason
 } from "../../lib/inventory-management";
 import type {
   AdminWarehouse,
@@ -95,40 +109,36 @@ import type {
 } from "../../lib/warehouse-management";
 import "./inventory-management.css";
 
-type StockInInputValues = ReturnType<typeof createEmptyStockInFormValues>;
-type AdjustInputValues = ReturnType<typeof createEmptyAdjustStockFormValues>;
-type TransferInputValues = ReturnType<typeof createEmptyTransferStockFormValues>;
-type FieldErrors<TFields extends Record<string, unknown>> = Partial<
-  Record<keyof TFields, string>
->;
-
-const PRODUCT_SELECT_EMPTY_VALUE = "__product_select_empty__";
-const VARIANT_SELECT_EMPTY_VALUE = "__variant_select_empty__";
-const WAREHOUSE_SELECT_EMPTY_VALUE = "__warehouse_select_empty__";
-const MOVEMENT_TYPE_SELECT_EMPTY_VALUE = "__movement_type_select_empty__";
 const INVENTORY_PAGE_SIZE = 20;
 const LOOKUP_PAGE_SIZE = 100;
+const PRODUCT_SEARCH_LIMIT = 20;
+const ALL_WAREHOUSES_VALUE = "__all_warehouses__";
+const NO_VARIANT_VALUE = "__base_product__";
+const NEAR_EXPIRY_DAYS = 30;
 
-const INVENTORY_VIEW_CONTENT: Record<
-  InventoryView,
-  {
-    heading: string;
-    summary: string;
-  }
-> = {
-  actions: {
-    heading: "Stock actions",
-    summary: "Receive, adjust, and transfer stock from a focused action workspace."
-  },
-  movements: {
-    heading: "Movement history",
-    summary:
-      "Review the inventory movement audit trail with warehouse and product filters."
-  },
-  overview: {
-    heading: "Stock overview",
-    summary: "Monitor assigned warehouse stock, low-stock warnings, and expiry risk."
-  }
+type StockLevelsView = "all" | "restock" | "low" | "out" | "expiring";
+type FieldErrors = Record<string, string | undefined>;
+
+const VIEW_TITLES: Record<InventoryView, string> = {
+  actions: "Stock actions",
+  movements: "Movement log",
+  overview: "Stock levels"
+};
+
+const STOCK_VIEW_TITLES: Record<StockLevelsView, string> = {
+  all: "All stock lines",
+  expiring: `Batches expiring within ${NEAR_EXPIRY_DAYS} days`,
+  low: "Low stock",
+  out: "Out of stock",
+  restock: "Needs restock"
+};
+
+const STOCK_VIEW_HINTS: Record<StockLevelsView, string> = {
+  all: "Every product and variant held in the warehouses in view.",
+  expiring: "Batches with units left that expire soon. Remove expired units so they are not sold.",
+  low: "Some units left, but at or below the low-stock threshold.",
+  out: "No units available to sell.",
+  restock: "Low or out of stock: everything at or below its threshold."
 };
 
 export function InventoryManagementPage({ view }: { view: InventoryView }) {
@@ -142,662 +152,141 @@ export function InventoryManagementPage({ view }: { view: InventoryView }) {
 }
 
 function InventoryContent({ view }: { view: InventoryView }) {
-  const { api, hasPermission } = useAdminSession();
+  const { api, hasPermission, isSuperAdmin } = useAdminSession();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
-  const urlFilters = useMemo(
-    () => createInventoryFiltersFromSearchParams(new URLSearchParams(searchKey)),
-    [searchKey]
-  );
-  const [draftFilters, setDraftFilters] = useState<InventoryFilters>(urlFilters);
-  const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>(urlFilters);
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [filterError, setFilterError] = useState<string | null>(null);
-  const [stockInValues, setStockInValues] = useState<StockInInputValues>(
-    createEmptyStockInFormValues()
-  );
-  const [adjustValues, setAdjustValues] = useState<AdjustInputValues>(
-    createEmptyAdjustStockFormValues()
-  );
-  const [transferValues, setTransferValues] = useState<TransferInputValues>(
-    createEmptyTransferStockFormValues()
-  );
-  const [stockInErrors, setStockInErrors] = useState<FieldErrors<StockInInputValues>>(
-    {}
-  );
-  const [adjustErrors, setAdjustErrors] = useState<FieldErrors<AdjustInputValues>>({});
-  const [transferErrors, setTransferErrors] = useState<
-    FieldErrors<TransferInputValues>
-  >({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
-  const [inventoryPage, setInventoryPage] = useState(1);
-  const [nearExpiryPage, setNearExpiryPage] = useState(1);
-  const [movementsPage, setMovementsPage] = useState(1);
-  const viewContent = INVENTORY_VIEW_CONTENT[view];
-  const isOverviewView = view === "overview";
-  const isActionsView = view === "actions";
-  const isMovementsView = view === "movements";
-  const hasFilters = isOverviewView || isMovementsView;
+  const urlParams = useMemo(() => new URLSearchParams(searchKey), [searchKey]);
+  const urlFilters = useMemo(() => createInventoryFiltersFromSearchParams(urlParams), [urlParams]);
+  const [filters, setFilters] = useState<InventoryFilters>(urlFilters);
+  const canReadWarehouses = hasPermission(ADMIN_PERMISSION.WarehouseRead);
 
   useEffect(() => {
-    setFilterError(null);
-    setDraftFilters(urlFilters);
-    setAppliedFilters(urlFilters);
+    setFilters(urlFilters);
   }, [urlFilters]);
 
-  const inventoryRequest = useMemo(
-    () =>
-      buildInventoryRequest(appliedFilters, {
-        limit: INVENTORY_PAGE_SIZE,
-        page: inventoryPage
-      }),
-    [appliedFilters, inventoryPage]
-  );
-  const scopedQuery = useMemo(
-    () =>
-      buildInventoryRequest(
-        {
-          ...appliedFilters,
-          lowStock: false,
-          nearExpiry: false
-        },
-        { limit: LOOKUP_PAGE_SIZE, page: 1 }
-      ).query,
-    [appliedFilters]
-  );
-  const movementQuery = useMemo(
-    () => buildStockMovementQuery(appliedFilters, movementsPage, INVENTORY_PAGE_SIZE),
-    [appliedFilters, movementsPage]
-  );
-
+  // The API lists every warehouse for the super admin and only assigned ones for everyone else.
   const warehousesQuery = useQuery({
-    enabled: hasPermission(ADMIN_PERMISSION.WarehouseRead),
+    enabled: canReadWarehouses,
     queryFn: () =>
       loadAllPaginatedItems<AdminWarehouse>((page) =>
         api.request<WarehouseListResponse>("/admin/warehouses", {
           query: { limit: LOOKUP_PAGE_SIZE, page }
         })
       ),
-    queryKey: ["admin", "inventory", "warehouses"]
+    queryKey: ["admin", "inventory", "warehouses"],
+    staleTime: 5 * 60_000
   });
-  const productsQuery = useQuery({
-    enabled: hasPermission(ADMIN_PERMISSION.ProductsRead),
-    queryFn: () =>
-      loadAllPaginatedItems<AdminProduct>((page) =>
-        api.request<ProductListResponse>("/admin/products", {
-          query: { limit: LOOKUP_PAGE_SIZE, page }
-        })
-      ),
-    queryKey: ["admin", "inventory", "products"]
-  });
-  const inventoryQuery = useQuery({
-    enabled: isOverviewView,
-    queryFn: () =>
-      api.request<PaginatedResponse<InventoryStock> | PaginatedResponse<StockBatch>>(
-        inventoryRequest.endpoint,
-        {
-          query: inventoryRequest.query
-        }
-      ),
-    queryKey: ["admin", "inventory", "list", inventoryRequest]
-  });
-  const lowStockQuery = useQuery({
-    enabled: isOverviewView,
-    queryFn: () =>
-      api.request<PaginatedResponse<InventoryStock>>("/admin/inventory/low-stock", {
-        query: scopedQuery
-      }),
-    queryKey: ["admin", "inventory", "low-stock", scopedQuery]
-  });
-  const nearExpiryQuery = useQuery({
-    enabled: isOverviewView,
-    queryFn: () =>
-      loadAllPaginatedItems<StockBatch>((page) =>
-        api.request<PaginatedResponse<StockBatch>>("/admin/inventory/near-expiry", {
-          query: {
-            ...scopedQuery,
-            days: Number(appliedFilters.nearExpiryDays),
-            page
-          }
-        })
-      ),
-    queryKey: [
-      "admin",
-      "inventory",
-      "near-expiry",
-      scopedQuery,
-      appliedFilters.nearExpiryDays
-    ]
-  });
-  const movementsQuery = useQuery({
-    enabled: isMovementsView,
-    queryFn: () =>
-      api.request<PaginatedResponse<StockMovement>>("/admin/inventory/movements", {
-        query: movementQuery
-      }),
-    queryKey: ["admin", "inventory", "movements", movementQuery]
-  });
-
-  const stockInMutation = useMutation({
-    mutationFn: (payload: ReturnType<typeof buildStockInPayload>) =>
-      api.request<InventoryStock>("/admin/inventory/stock-in", {
-        body: JSON.stringify(payload),
-        method: "POST"
-      })
-  });
-  const adjustMutation = useMutation({
-    mutationFn: (payload: ReturnType<typeof buildAdjustStockPayload>) =>
-      api.request<InventoryStock>("/admin/inventory/adjust", {
-        body: JSON.stringify(payload),
-        method: "POST"
-      })
-  });
-  const transferMutation = useMutation({
-    mutationFn: (payload: ReturnType<typeof buildTransferStockPayload>) =>
-      api.request("/admin/inventory/transfer", {
-        body: JSON.stringify(payload),
-        method: "POST"
-      })
-  });
-
-  const products = productsQuery.data ?? [];
-  const warehouses = warehousesQuery.data ?? [];
-  const stockInVariants = getProductVariants(products, stockInValues.productId);
-  const adjustVariants = getProductVariants(products, adjustValues.productId);
-  const transferVariants = getProductVariants(products, transferValues.productId);
-  const lowStockItems = lowStockQuery.data?.items ?? [];
-  const nearExpiryItems = nearExpiryQuery.data ?? [];
-  const movements = movementsQuery.data?.items ?? [];
-  const lowStockKeys = new Set(lowStockItems.map(stockKey));
-  const nearExpiryKeys = new Set(nearExpiryItems.map(batchKey));
-  const mutationError =
-    getErrorMessage(stockInMutation.error) ??
-    getErrorMessage(adjustMutation.error) ??
-    getErrorMessage(transferMutation.error);
-  const isMutating =
-    stockInMutation.isPending || adjustMutation.isPending || transferMutation.isPending;
-  const isLookupLoading = productsQuery.isLoading || warehousesQuery.isLoading;
-  const canBulkUpdate = hasPermission(ADMIN_PERMISSION.InventoryUpdate);
-  const bulk = useBulkSelection<BulkInventoryRow>(JSON.stringify(appliedFilters), inventoryQuery.data?.items ?? []);
-  const inventoryPagination = inventoryQuery.data?.pagination;
-  const movementPagination = movementsQuery.data?.pagination;
-  const nearExpiryTotalPages = Math.max(
-    Math.ceil(nearExpiryItems.length / INVENTORY_PAGE_SIZE),
-    1
-  );
-  const visibleNearExpiryItems = nearExpiryItems.slice(
-    (nearExpiryPage - 1) * INVENTORY_PAGE_SIZE,
-    nearExpiryPage * INVENTORY_PAGE_SIZE
-  );
-
-  useEffect(() => {
-    if (
-      inventoryPagination &&
-      inventoryPage > Math.max(inventoryPagination.totalPages, 1)
-    ) {
-      setInventoryPage(Math.max(inventoryPagination.totalPages, 1));
-    }
-  }, [inventoryPage, inventoryPagination]);
-
-  useEffect(() => {
-    if (
-      movementPagination &&
-      movementsPage > Math.max(movementPagination.totalPages, 1)
-    ) {
-      setMovementsPage(Math.max(movementPagination.totalPages, 1));
-    }
-  }, [movementPagination, movementsPage]);
-
-  useEffect(() => {
-    if (nearExpiryPage > nearExpiryTotalPages) {
-      setNearExpiryPage(nearExpiryTotalPages);
-    }
-  }, [nearExpiryPage, nearExpiryTotalPages]);
+  const warehouses = useMemo(() => warehousesQuery.data ?? [], [warehousesQuery.data]);
+  const showWarehouseColumn = Boolean(isSuperAdmin) || warehouses.length !== 1;
 
   async function refreshInventory() {
     await queryClient.invalidateQueries({ queryKey: ["admin", "inventory"] });
   }
 
-  function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = inventoryFiltersSchema.safeParse(draftFilters);
-
-    if (!parsed.success) {
-      setFilterError(parsed.error.issues[0]?.message ?? "Check the inventory filters.");
-      return;
-    }
-
-    setFilterError(null);
-    setAppliedFilters(parsed.data);
-    setInventoryPage(1);
-    setMovementsPage(1);
-    setNearExpiryPage(1);
-    setIsFilterDrawerOpen(false);
-  }
-
-  function resetFilters() {
-    const emptyFilters = createEmptyInventoryFilters();
-    setFilterError(null);
-    setDraftFilters(emptyFilters);
-    setAppliedFilters(emptyFilters);
-    setInventoryPage(1);
-    setMovementsPage(1);
-    setNearExpiryPage(1);
-  }
-
-  function handleStockInSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = stockInFormSchema.safeParse(stockInValues);
-
-    if (!parsed.success) {
-      setStockInErrors(getFieldErrors<StockInInputValues>(parsed.error));
-      return;
-    }
-
-    setStockInErrors({});
-    setConfirmation({
-      body: `Receive ${parsed.data.quantity} units for ${productLabel(products, parsed.data.productId, parsed.data.variantId || null)} into ${warehouseLabel(warehouses, parsed.data.warehouseId)} under batch ${parsed.data.batchNumber}?`,
-      confirmLabel: "Receive stock",
-      onConfirm: () => submitStockIn(parsed.data),
-      title: "Confirm stock in"
-    });
-  }
-
-  function handleAdjustSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = adjustStockFormSchema.safeParse(adjustValues);
-
-    if (!parsed.success) {
-      setAdjustErrors(getFieldErrors<AdjustInputValues>(parsed.error));
-      return;
-    }
-
-    setAdjustErrors({});
-    setConfirmation({
-      body: `Apply a ${parsed.data.quantityDelta} unit adjustment for ${productLabel(products, parsed.data.productId, parsed.data.variantId || null)} in ${warehouseLabel(warehouses, parsed.data.warehouseId)}?`,
-      confirmLabel: "Adjust stock",
-      onConfirm: () => submitAdjustment(parsed.data),
-      title: "Confirm stock adjustment"
-    });
-  }
-
-  function handleTransferSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = transferStockFormSchema.safeParse(transferValues);
-
-    if (!parsed.success) {
-      setTransferErrors(getFieldErrors<TransferInputValues>(parsed.error));
-      return;
-    }
-
-    setTransferErrors({});
-    setConfirmation({
-      body: `Transfer ${parsed.data.quantity} units of ${productLabel(products, parsed.data.productId, parsed.data.variantId || null)} from ${warehouseLabel(warehouses, parsed.data.fromWarehouseId)} to ${warehouseLabel(warehouses, parsed.data.toWarehouseId)}?`,
-      confirmLabel: "Transfer stock",
-      onConfirm: () => submitTransfer(parsed.data),
-      title: "Confirm stock transfer"
-    });
-  }
-
-  async function submitStockIn(values: StockInFormValues) {
-    setMessage(null);
-    await stockInMutation.mutateAsync(buildStockInPayload(values));
-    setStockInValues(createEmptyStockInFormValues());
-    setMessage("Stock received.");
-    await refreshInventory();
-  }
-
-  async function submitAdjustment(values: AdjustStockFormValues) {
-    setMessage(null);
-    await adjustMutation.mutateAsync(buildAdjustStockPayload(values));
-    setAdjustValues(createEmptyAdjustStockFormValues());
-    setMessage("Stock adjusted.");
-    await refreshInventory();
-  }
-
-  async function submitTransfer(values: TransferStockFormValues) {
-    setMessage(null);
-    await transferMutation.mutateAsync(buildTransferStockPayload(values));
-    setTransferValues(createEmptyTransferStockFormValues());
-    setMessage("Stock transferred.");
-    await refreshInventory();
-  }
-
   return (
-    <div className="inventoryModule">
+    <div className="inventoryModule" data-inventory-view={view}>
       <Card className="panel inventoryHeroPanel">
         <PageHeader
-          className={
-            hasFilters
-              ? "inventoryPageHeader inventoryPageHeaderFiltered"
-              : "inventoryPageHeader inventoryPageHeaderSingleAction"
-          }
-          level={2}
           actions={
-            <>
-              {hasFilters ? (
-                <Button
-                  className="iconTextButton"
-                  onClick={() => setIsFilterDrawerOpen(true)}
-                  type="button"
-                >
-                  <SlidersHorizontal aria-hidden size={16} />
-                  <span>Add filter</span>
-                </Button>
-              ) : null}
-              <Button
-                className="iconTextButton"
-                onClick={() => void refreshInventory()}
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw aria-hidden size={16} />
-                <span>Refresh</span>
-              </Button>
-            </>
+            <Button
+              className="iconTextButton"
+              onClick={() => void refreshInventory()}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw aria-hidden size={16} />
+              <span>Refresh</span>
+            </Button>
           }
-          eyebrow="Inventory control"
-          summary={viewContent.summary}
-          title={viewContent.heading}
+          className="inventoryPageHeader"
+          eyebrow="Inventory"
+          level={2}
+          title={VIEW_TITLES[view]}
         />
-        <InventorySubTabs activeView={view} />
-
-        {message ? <p className="formSuccess">{message}</p> : null}
-        {mutationError ? (
+        <div className="inventoryContextBar">
+          <InventorySubTabs activeView={view} warehouseId={filters.warehouseId} />
+          <WarehouseContextPicker
+            canReadWarehouses={canReadWarehouses}
+            isLoading={warehousesQuery.isLoading}
+            isSuperAdmin={Boolean(isSuperAdmin)}
+            onChange={(warehouseId) => setFilters((current) => ({ ...current, warehouseId }))}
+            value={filters.warehouseId}
+            warehouses={warehouses}
+          />
+        </div>
+        {warehousesQuery.isError ? (
           <p className="formError" role="alert">
-            {mutationError}
+            {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
           </p>
         ) : null}
-
-        {isOverviewView ? (
-          <div className="metricGrid resourceMetrics inventoryMetricGrid">
-            <MetricCard
-              label={
-                inventoryRequest.type === "batch" ? "Matching batches" : "Stock rows"
-              }
-              tone="primary"
-              value={inventoryQuery.data?.pagination.total ?? 0}
-            />
-            <MetricCard
-              label="Low stock"
-              tone="warning"
-              value={lowStockQuery.data?.pagination.total ?? lowStockItems.length}
-            />
-            <MetricCard
-              label="Near expiry"
-              tone="warning"
-              value={nearExpiryItems.length}
-            />
-            <MetricCard label="Warehouses" value={warehouses.length} />
-          </div>
+        {view === "overview" ? (
+          <StockSummaryTiles
+            filters={filters}
+            onSelect={(stockView) => setFilters((current) => withStockView(current, stockView))}
+          />
         ) : null}
       </Card>
 
-      {hasFilters ? (
-        <>
-          <FilterDrawer
-            error={filterError}
-            isOpen={isFilterDrawerOpen}
-            isSubmitting={
-              inventoryQuery.isFetching ||
-              lowStockQuery.isFetching ||
-              nearExpiryQuery.isFetching ||
-              movementsQuery.isFetching
-            }
-            onApply={handleFilterSubmit}
-            onOpenChange={setIsFilterDrawerOpen}
-            onReset={resetFilters}
-            summary="Search and refine inventory stock, warning, and movement records."
-            title={isMovementsView ? "Movement filters" : "Inventory filters"}
-          >
-            <InventoryFilterFields
-              filters={draftFilters}
-              isLoading={productsQuery.isLoading || warehousesQuery.isLoading}
-              onChange={setDraftFilters}
-              products={products}
-              showWarningFilters={isOverviewView}
-              showMovementType={isMovementsView}
-              warehouses={warehouses}
-            />
-          </FilterDrawer>
-          {productsQuery.isError ? (
-            <p className="formError" role="alert">
-              {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
-            </p>
-          ) : null}
-          {warehousesQuery.isError ? (
-            <p className="formError" role="alert">
-              {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-            </p>
-          ) : null}
-        </>
+      {view === "overview" ? (
+        <StockLevelsPanel
+          filters={filters}
+          onFiltersChange={setFilters}
+          onRefresh={refreshInventory}
+          showWarehouseColumn={showWarehouseColumn}
+          warehouses={warehouses}
+        />
       ) : null}
 
-      {isActionsView ? (
+      {view === "actions" ? (
         <PermissionGate
           fallback={
             <EmptyState
-              body="Your admin role cannot perform inventory stock actions."
+              body="Your admin role can view stock but cannot change it."
               title="Stock actions unavailable"
             />
           }
           permission={ADMIN_PERMISSION.InventoryUpdate}
         >
-          <Card className="panel mt-3 inventorySectionPanel inventoryActionsPanel">
-            <PageHeader
-              className="inventorySectionHeader"
-              level={2}
-              eyebrow="Stock actions"
-              title="Receive, adjust, and transfer stock"
-            />
-            {productsQuery.isError ? (
-              <p className="formError" role="alert">
-                {getErrorMessage(productsQuery.error) ?? "Unable to load products."}
-              </p>
-            ) : null}
-            {warehousesQuery.isError ? (
-              <p className="formError" role="alert">
-                {getErrorMessage(warehousesQuery.error) ?? "Unable to load warehouses."}
-              </p>
-            ) : null}
-            <div className="threeColumnGrid inventoryActionGrid">
-              <StockInForm
-                errors={stockInErrors}
-                isSaving={stockInMutation.isPending}
-                onChange={setStockInValues}
-                onSubmit={handleStockInSubmit}
-                products={products}
-                values={stockInValues}
-                variants={stockInVariants}
-                warehouses={warehouses}
-              />
-              <AdjustStockForm
-                errors={adjustErrors}
-                isSaving={adjustMutation.isPending}
-                onChange={setAdjustValues}
-                onSubmit={handleAdjustSubmit}
-                products={products}
-                values={adjustValues}
-                variants={adjustVariants}
-                warehouses={warehouses}
-              />
-              <TransferStockForm
-                errors={transferErrors}
-                isSaving={transferMutation.isPending}
-                onChange={setTransferValues}
-                onSubmit={handleTransferSubmit}
-                products={products}
-                values={transferValues}
-                variants={transferVariants}
-                warehouses={warehouses}
-              />
-            </div>
-          </Card>
+          <StockActionsPanel
+            initialAction={getStockActionFromSearchParams(urlParams.get("action"))}
+            initialBatchNumber={urlParams.get("batchNumber") ?? ""}
+            initialProductId={urlFilters.productId}
+            initialReason={urlParams.get("reason")}
+            initialVariantId={urlParams.get("variantId") ?? ""}
+            isSuperAdmin={Boolean(isSuperAdmin)}
+            onRefresh={refreshInventory}
+            warehouseId={filters.warehouseId}
+            warehouses={warehouses}
+          />
         </PermissionGate>
       ) : null}
 
-      {view === "overview" ? (
-        <>
-          <Card className="panel my-3 inventorySectionPanel inventoryTablePanel">
-            <PageHeader
-              className="inventorySectionHeader"
-              level={2}
-              eyebrow="Stock table"
-              title={
-                inventoryRequest.type === "batch"
-                  ? "Near-expiry batches"
-                  : "Current aggregate stock"
-              }
-            />
-            {inventoryQuery.isLoading || isLookupLoading ? (
-              <LoadingState label="Loading inventory..." />
-            ) : null}
-            {inventoryQuery.isError ? (
-              <p className="formError" role="alert">
-                {getErrorMessage(inventoryQuery.error) ?? "Unable to load inventory."}
-              </p>
-            ) : null}
-            {canBulkUpdate ? <InventoryBulkActions key={bulk.scope} selection={bulk} warehouses={warehouses} total={inventoryPagination?.total ?? 0}
-              disabled={inventoryQuery.isFetching || inventoryQuery.isError || isLookupLoading || isMutating}
-              loadAll={() => loadBulkRows((next, limit) => {
-                const request = buildInventoryRequest(appliedFilters, { page: next, limit });
-                return api.request<PaginatedResponse<BulkInventoryRow>>(request.endpoint, { query: request.query });
-              })}
-              getLabel={(item) => [productLabel(products, item.productId, item.variantId), warehouseLabel(warehouses, item.warehouseId), "batchNumber" in item ? item.batchNumber : ""].filter(Boolean).join(" / ")}
-              onComplete={refreshInventory} /> : null}
-            {!inventoryQuery.isLoading &&
-            !isLookupLoading &&
-            !inventoryQuery.isError ? (
-              inventoryRequest.type === "batch" ? (
-                <BatchTable
-                  bulk={canBulkUpdate ? bulk : undefined}
-                  batches={(inventoryQuery.data?.items ?? []) as StockBatch[]}
-                  nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
-                  products={products}
-                  warehouses={warehouses}
-                />
-              ) : (
-                <StockTable
-                  bulk={canBulkUpdate ? bulk : undefined}
-                  lowStockKeys={lowStockKeys}
-                  nearExpiryKeys={nearExpiryKeys}
-                  products={products}
-                  stocks={(inventoryQuery.data?.items ?? []) as InventoryStock[]}
-                  warehouses={warehouses}
-                />
-              )
-            ) : null}
-            {inventoryPagination ? (
-              <PaginationControls
-                onChange={(next) => { if (!bulk.isBusy) setInventoryPage(next); }}
-                page={inventoryPagination.page}
-                pageSize={inventoryPagination.limit}
-                totalItems={inventoryPagination.total}
-                totalPages={inventoryPagination.totalPages}
-              />
-            ) : null}
-          </Card>
-
-          {!appliedFilters.nearExpiry ? (
-            <Card className="panel inventorySectionPanel inventoryTablePanel">
-              <PageHeader
-                className="inventorySectionHeader"
-                level={2}
-                eyebrow="Near expiry"
-                summary={`Expiry window: ${appliedFilters.nearExpiryDays} days.`}
-                title="Positive batches expiring soon"
-              />
-              {nearExpiryQuery.isLoading || isLookupLoading ? (
-                <LoadingState label="Loading near-expiry batches..." />
-              ) : null}
-              {nearExpiryQuery.isError ? (
-                <p className="formError" role="alert">
-                  {getErrorMessage(nearExpiryQuery.error) ??
-                    "Unable to load near-expiry batches."}
-                </p>
-              ) : null}
-              {!nearExpiryQuery.isLoading &&
-              !isLookupLoading &&
-              !nearExpiryQuery.isError ? (
-                <BatchTable
-                  batches={visibleNearExpiryItems}
-                  nearExpiryDays={Number(appliedFilters.nearExpiryDays)}
-                  products={products}
-                  warehouses={warehouses}
-                />
-              ) : null}
-              {nearExpiryItems.length > 0 ? (
-                <PaginationControls
-                  onChange={setNearExpiryPage}
-                  page={nearExpiryPage}
-                  pageSize={INVENTORY_PAGE_SIZE}
-                  totalItems={nearExpiryItems.length}
-                  totalPages={nearExpiryTotalPages}
-                />
-              ) : null}
-            </Card>
-          ) : null}
-        </>
-      ) : null}
-
       {view === "movements" ? (
-        <Card className="panel mt-3 inventorySectionPanel inventoryTablePanel">
-          <PageHeader
-            className="inventorySectionHeader"
-            level={2}
-            eyebrow="Movement history"
-            title="Stock movement audit trail"
-          />
-          {movementsQuery.isLoading || isLookupLoading ? (
-            <LoadingState label="Loading movement history..." />
-          ) : null}
-          {movementsQuery.isError ? (
-            <p className="formError" role="alert">
-              {getErrorMessage(movementsQuery.error) ??
-                "Unable to load stock movements."}
-            </p>
-          ) : null}
-          {!movementsQuery.isLoading && !isLookupLoading && !movementsQuery.isError ? (
-            <MovementTable
-              movements={movements}
-              products={products}
-              warehouses={warehouses}
-            />
-          ) : null}
-          {movementPagination ? (
-            <PaginationControls
-              onChange={setMovementsPage}
-              page={movementPagination.page}
-              pageSize={movementPagination.limit}
-              totalItems={movementPagination.total}
-              totalPages={movementPagination.totalPages}
-            />
-          ) : null}
-        </Card>
-      ) : null}
-
-      {isActionsView ? (
-        <ConfirmationDialog
-          confirmation={confirmation}
-          isPending={isMutating}
-          onCancel={() => setConfirmation(null)}
-          onConfirmComplete={() => setConfirmation(null)}
+        <MovementLogPanel
+          filters={filters}
+          onFiltersChange={setFilters}
+          showWarehouseColumn={showWarehouseColumn}
         />
       ) : null}
     </div>
   );
 }
 
-function InventorySubTabs({ activeView }: { activeView: InventoryView }) {
+function InventorySubTabs({
+  activeView,
+  warehouseId
+}: {
+  activeView: InventoryView;
+  warehouseId: string;
+}) {
   return (
     <nav aria-label="Inventory sections" className="inventorySubTabs">
       {INVENTORY_TABS.map((tab) => (
         <Link
           aria-current={activeView === tab.value ? "page" : undefined}
           className="inventorySubTab"
-          href={tab.href}
+          href={warehouseId ? `${tab.href}?warehouseId=${encodeURIComponent(warehouseId)}` : tab.href}
           key={tab.href}
         >
           {tab.label}
@@ -807,565 +296,52 @@ function InventorySubTabs({ activeView }: { activeView: InventoryView }) {
   );
 }
 
-function InventoryFilterFields({
-  filters,
+/** One place to choose the warehouse every inventory view works in. */
+function WarehouseContextPicker({
+  canReadWarehouses,
   isLoading,
+  isSuperAdmin,
   onChange,
-  products,
-  showWarningFilters = true,
-  showMovementType = false,
+  value,
   warehouses
 }: {
-  filters: InventoryFilters;
+  canReadWarehouses: boolean;
   isLoading: boolean;
-  onChange: (filters: InventoryFilters) => void;
-  products: AdminProduct[];
-  showWarningFilters?: boolean;
-  showMovementType?: boolean;
+  isSuperAdmin: boolean;
+  onChange: (warehouseId: string) => void;
+  value: string;
   warehouses: AdminWarehouse[];
 }) {
+  if (!canReadWarehouses) {
+    return null;
+  }
+
+  if (!isSuperAdmin && warehouses.length === 1) {
+    return (
+      <p className="inventoryWarehouseChip">
+        <span>Warehouse</span>
+        <strong>
+          {warehouses[0]!.name} ({warehouses[0]!.code})
+        </strong>
+      </p>
+    );
+  }
+
   return (
-    <div className="filterDrawerFields">
-      <Label>
-        Search
-        <span className="searchInput">
-          <Search aria-hidden size={16} />
-          <Input
-            className="filterDrawerControl"
-            onChange={(event) => onChange({ ...filters, search: event.target.value })}
-            placeholder="Product or SKU"
-            value={filters.search}
-          />
-        </span>
-      </Label>
-      <ProductSelect
+    <div className="inventoryWarehousePicker">
+      <Select
+        aria-label="Warehouse"
         disabled={isLoading}
-        onChange={(productId) => onChange({ ...filters, productId })}
-        products={products}
-        required={false}
-        value={filters.productId}
-      />
-      <WarehouseSelect
-        disabled={isLoading}
-        onChange={(warehouseId) => onChange({ ...filters, warehouseId })}
-        required={false}
-        value={filters.warehouseId}
-        warehouses={warehouses}
-      />
-      {showMovementType ? (
-        <Label>
-          Movement type
-          <Select
-            onValueChange={(nextValue) =>
-              onChange({
-                ...filters,
-                movementType:
-                  nextValue === MOVEMENT_TYPE_SELECT_EMPTY_VALUE
-                    ? ""
-                    : (nextValue as (typeof STOCK_MOVEMENT_TYPES)[number])
-              })
-            }
-            value={filters.movementType || MOVEMENT_TYPE_SELECT_EMPTY_VALUE}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All movement types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={MOVEMENT_TYPE_SELECT_EMPTY_VALUE}>
-                All movement types
-              </SelectItem>
-              {STOCK_MOVEMENT_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {formatMovementType(type)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Label>
-      ) : null}
-      {showWarningFilters ? (
-        <>
-          <Label className="checkField rowCheck">
-            <Checkbox
-              checked={filters.lowStock}
-              onCheckedChange={(checked) =>
-                onChange({
-                  ...filters,
-                  lowStock: checked === true,
-                  nearExpiry: checked === true ? false : filters.nearExpiry
-                })
-              }
-            />
-            <span>Low stock</span>
-          </Label>
-          <Label className="checkField rowCheck">
-            <Checkbox
-              checked={filters.nearExpiry}
-              onCheckedChange={(checked) =>
-                onChange({
-                  ...filters,
-                  lowStock: checked === true ? false : filters.lowStock,
-                  nearExpiry: checked === true
-                })
-              }
-            />
-            <span>Near expiry</span>
-          </Label>
-          <Label>
-            Expiry window (days)
-            <Input
-              className="filterDrawerControl"
-              max={365}
-              min={1}
-              onChange={(event) =>
-                onChange({ ...filters, nearExpiryDays: event.target.value })
-              }
-              step={1}
-              type="number"
-              value={filters.nearExpiryDays}
-            />
-          </Label>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function StockInForm({
-  errors,
-  isSaving,
-  onChange,
-  onSubmit,
-  products,
-  values,
-  variants,
-  warehouses
-}: {
-  errors: FieldErrors<StockInInputValues>;
-  isSaving: boolean;
-  onChange: (values: StockInInputValues) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  products: AdminProduct[];
-  values: StockInInputValues;
-  variants: AdminProduct["variants"];
-  warehouses: AdminWarehouse[];
-}) {
-  function updateValue<Key extends keyof StockInInputValues>(
-    key: Key,
-    value: StockInInputValues[Key]
-  ) {
-    onChange({
-      ...values,
-      [key]: value
-    });
-  }
-
-  return (
-    <InventoryActionForm
-      icon={<TrendingUp aria-hidden size={18} />}
-      isSaving={isSaving}
-      onSubmit={onSubmit}
-      submitLabel="Stock in"
-      title="Stock in"
-    >
-      <WarehouseSelect
-        error={errors.warehouseId}
-        onChange={(warehouseId) => updateValue("warehouseId", warehouseId)}
-        value={values.warehouseId}
-        warehouses={warehouses}
-      />
-      <ProductSelect
-        error={errors.productId}
-        onChange={(productId) => updateValue("productId", productId)}
-        products={products}
-        value={values.productId}
-      />
-      <VariantSelect
-        error={errors.variantId}
-        onChange={(variantId) => updateValue("variantId", variantId)}
-        value={values.variantId}
-        variants={variants}
-      />
-      <TextField
-        error={errors.batchNumber}
-        label="Batch number"
-        onChange={(value) => updateValue("batchNumber", value)}
-        value={values.batchNumber}
-      />
-      <TextField
-        error={errors.expiryDate}
-        label="Expiry date"
-        onChange={(value) => updateValue("expiryDate", value)}
-        required={false}
-        type="date"
-        value={values.expiryDate}
-      />
-      <TextField
-        error={errors.quantity}
-        inputMode="numeric"
-        label="Quantity"
-        onChange={(value) => updateValue("quantity", value)}
-        value={values.quantity}
-      />
-      <TextField
-        error={errors.purchasePrice}
-        inputMode="decimal"
-        label="Purchase price"
-        onChange={(value) => updateValue("purchasePrice", value)}
-        value={values.purchasePrice}
-      />
-      <TextField
-        error={errors.sellingPrice}
-        inputMode="decimal"
-        label="Selling price"
-        onChange={(value) => updateValue("sellingPrice", value)}
-        value={values.sellingPrice}
-      />
-      <TextField
-        error={errors.mrp}
-        inputMode="decimal"
-        label="MRP"
-        onChange={(value) => updateValue("mrp", value)}
-        value={values.mrp}
-      />
-      <TextField
-        error={errors.lowStockThreshold}
-        inputMode="numeric"
-        label="Low-stock threshold"
-        onChange={(value) => updateValue("lowStockThreshold", value)}
-        required={false}
-        value={values.lowStockThreshold}
-      />
-      <TextAreaField
-        error={errors.notes}
-        label="Notes"
-        onChange={(value) => updateValue("notes", value)}
-        value={values.notes}
-      />
-    </InventoryActionForm>
-  );
-}
-
-function AdjustStockForm({
-  errors,
-  isSaving,
-  onChange,
-  onSubmit,
-  products,
-  values,
-  variants,
-  warehouses
-}: {
-  errors: FieldErrors<AdjustInputValues>;
-  isSaving: boolean;
-  onChange: (values: AdjustInputValues) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  products: AdminProduct[];
-  values: AdjustInputValues;
-  variants: AdminProduct["variants"];
-  warehouses: AdminWarehouse[];
-}) {
-  function updateValue<Key extends keyof AdjustInputValues>(
-    key: Key,
-    value: AdjustInputValues[Key]
-  ) {
-    onChange({
-      ...values,
-      [key]: value
-    });
-  }
-
-  return (
-    <InventoryActionForm
-      icon={<SlidersHorizontal aria-hidden size={18} />}
-      isSaving={isSaving}
-      onSubmit={onSubmit}
-      submitLabel="Adjust"
-      title="Adjust"
-    >
-      <WarehouseSelect
-        error={errors.warehouseId}
-        onChange={(warehouseId) => updateValue("warehouseId", warehouseId)}
-        value={values.warehouseId}
-        warehouses={warehouses}
-      />
-      <ProductSelect
-        error={errors.productId}
-        onChange={(productId) => updateValue("productId", productId)}
-        products={products}
-        value={values.productId}
-      />
-      <VariantSelect
-        error={errors.variantId}
-        onChange={(variantId) => updateValue("variantId", variantId)}
-        value={values.variantId}
-        variants={variants}
-      />
-      <TextField
-        error={errors.batchNumber}
-        label="Batch number"
-        onChange={(value) => updateValue("batchNumber", value)}
-        value={values.batchNumber}
-      />
-      <TextField
-        error={errors.quantityDelta}
-        inputMode="numeric"
-        label="Quantity delta"
-        onChange={(value) => updateValue("quantityDelta", value)}
-        value={values.quantityDelta}
-      />
-      <TextField
-        error={errors.lowStockThreshold}
-        inputMode="numeric"
-        label="Low-stock threshold"
-        onChange={(value) => updateValue("lowStockThreshold", value)}
-        required={false}
-        value={values.lowStockThreshold}
-      />
-      <TextAreaField
-        error={errors.reason}
-        label="Reason"
-        onChange={(value) => updateValue("reason", value)}
-        required
-        value={values.reason}
-      />
-    </InventoryActionForm>
-  );
-}
-
-function TransferStockForm({
-  errors,
-  isSaving,
-  onChange,
-  onSubmit,
-  products,
-  values,
-  variants,
-  warehouses
-}: {
-  errors: FieldErrors<TransferInputValues>;
-  isSaving: boolean;
-  onChange: (values: TransferInputValues) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  products: AdminProduct[];
-  values: TransferInputValues;
-  variants: AdminProduct["variants"];
-  warehouses: AdminWarehouse[];
-}) {
-  function updateValue<Key extends keyof TransferInputValues>(
-    key: Key,
-    value: TransferInputValues[Key]
-  ) {
-    onChange({
-      ...values,
-      [key]: value
-    });
-  }
-
-  return (
-    <InventoryActionForm
-      icon={<ArrowRightLeft aria-hidden size={18} />}
-      isSaving={isSaving}
-      onSubmit={onSubmit}
-      submitLabel="Transfer"
-      title="Transfer"
-    >
-      <WarehouseSelect
-        error={errors.fromWarehouseId}
-        label="Source warehouse"
-        onChange={(fromWarehouseId) => updateValue("fromWarehouseId", fromWarehouseId)}
-        value={values.fromWarehouseId}
-        warehouses={warehouses}
-      />
-      <WarehouseSelect
-        error={errors.toWarehouseId}
-        label="Destination warehouse"
-        onChange={(toWarehouseId) => updateValue("toWarehouseId", toWarehouseId)}
-        value={values.toWarehouseId}
-        warehouses={warehouses}
-      />
-      <ProductSelect
-        error={errors.productId}
-        onChange={(productId) => updateValue("productId", productId)}
-        products={products}
-        value={values.productId}
-      />
-      <VariantSelect
-        error={errors.variantId}
-        onChange={(variantId) => updateValue("variantId", variantId)}
-        value={values.variantId}
-        variants={variants}
-      />
-      <TextField
-        error={errors.batchNumber}
-        label="Batch number"
-        onChange={(value) => updateValue("batchNumber", value)}
-        value={values.batchNumber}
-      />
-      <TextField
-        error={errors.quantity}
-        inputMode="numeric"
-        label="Quantity"
-        onChange={(value) => updateValue("quantity", value)}
-        value={values.quantity}
-      />
-      <TextAreaField
-        error={errors.notes}
-        label="Notes"
-        onChange={(value) => updateValue("notes", value)}
-        value={values.notes}
-      />
-    </InventoryActionForm>
-  );
-}
-
-function InventoryActionForm({
-  children,
-  icon,
-  isSaving,
-  onSubmit,
-  submitLabel,
-  title
-}: {
-  children: React.ReactNode;
-  icon: React.ReactNode;
-  isSaving: boolean;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  submitLabel: string;
-  title: string;
-}) {
-  return (
-    <Card className="inventoryActionFormCard">
-      <form className="formStack compactForm inventoryActionForm" onSubmit={onSubmit}>
-        <h3>
-          {icon}
-          <span>{title}</span>
-        </h3>
-        {children}
-        <Button className="iconTextButton" disabled={isSaving} type="submit">
-          <CheckCircle2 aria-hidden size={16} />
-          <span>{isSaving ? "Working..." : submitLabel}</span>
-        </Button>
-      </form>
-    </Card>
-  );
-}
-
-function ProductSelect({
-  disabled,
-  error,
-  onChange,
-  products,
-  required = true,
-  value
-}: {
-  disabled?: boolean;
-  error?: string;
-  onChange: (value: string) => void;
-  products: AdminProduct[];
-  required?: boolean;
-  value: string;
-}) {
-  const emptyLabel = required ? "Select product" : "All products";
-
-  return (
-    <Label>
-      Product
-      <Select
-        disabled={disabled}
-        onValueChange={(nextValue) =>
-          onChange(nextValue === PRODUCT_SELECT_EMPTY_VALUE ? "" : nextValue)
-        }
-        value={value || PRODUCT_SELECT_EMPTY_VALUE}
+        onValueChange={(nextValue) => onChange(nextValue === ALL_WAREHOUSES_VALUE ? "" : nextValue)}
+        value={value || ALL_WAREHOUSES_VALUE}
       >
         <SelectTrigger>
-          <SelectValue placeholder={emptyLabel} />
+          <SelectValue placeholder="All warehouses" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={PRODUCT_SELECT_EMPTY_VALUE}>{emptyLabel}</SelectItem>
-          {products.map((product) => (
-            <SelectItem key={product.id} value={product.id}>
-              {product.name} ({product.sku})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {error ? <span className="fieldError">{error}</span> : null}
-    </Label>
-  );
-}
-
-function VariantSelect({
-  error,
-  onChange,
-  value,
-  variants
-}: {
-  error?: string;
-  onChange: (value: string) => void;
-  value: string;
-  variants: AdminProduct["variants"];
-}) {
-  return (
-    <Label>
-      Variant
-      <Select
-        onValueChange={(nextValue) =>
-          onChange(nextValue === VARIANT_SELECT_EMPTY_VALUE ? "" : nextValue)
-        }
-        value={value || VARIANT_SELECT_EMPTY_VALUE}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="No variant" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={VARIANT_SELECT_EMPTY_VALUE}>No variant</SelectItem>
-          {variants.map((variant) => (
-            <SelectItem key={variant.id} value={variant.id}>
-              {variant.name} ({variant.sku})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {error ? <span className="fieldError">{error}</span> : null}
-    </Label>
-  );
-}
-
-function WarehouseSelect({
-  disabled,
-  error,
-  label = "Warehouse",
-  onChange,
-  required = true,
-  value,
-  warehouses
-}: {
-  disabled?: boolean;
-  error?: string;
-  label?: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  value: string;
-  warehouses: AdminWarehouse[];
-}) {
-  const emptyLabel = required ? "Select warehouse" : "All warehouses";
-
-  return (
-    <Label>
-      {label}
-      <Select
-        disabled={disabled}
-        onValueChange={(nextValue) =>
-          onChange(nextValue === WAREHOUSE_SELECT_EMPTY_VALUE ? "" : nextValue)
-        }
-        value={value || WAREHOUSE_SELECT_EMPTY_VALUE}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={emptyLabel} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={WAREHOUSE_SELECT_EMPTY_VALUE}>{emptyLabel}</SelectItem>
+          <SelectItem value={ALL_WAREHOUSES_VALUE}>
+            {isSuperAdmin ? "All warehouses" : "All my warehouses"}
+          </SelectItem>
           {warehouses.map((warehouse) => (
             <SelectItem key={warehouse.id} value={warehouse.id}>
               {warehouse.name} ({warehouse.code})
@@ -1373,89 +349,315 @@ function WarehouseSelect({
           ))}
         </SelectContent>
       </Select>
-      {error ? <span className="fieldError">{error}</span> : null}
-    </Label>
+    </div>
   );
 }
 
-function TextField({
-  error,
-  inputMode,
-  label,
-  onChange,
-  required = true,
-  type = "text",
-  value
+function getStockView(filters: InventoryFilters): StockLevelsView {
+  if (filters.nearExpiry) return "expiring";
+  if (filters.lowStock) return "restock";
+  if (filters.stockStatus === "LOW_STOCK") return "low";
+  if (filters.stockStatus === "OUT_OF_STOCK") return "out";
+
+  return "all";
+}
+
+function withStockView(filters: InventoryFilters, stockView: StockLevelsView): InventoryFilters {
+  return {
+    ...filters,
+    lowStock: stockView === "restock",
+    nearExpiry: stockView === "expiring",
+    nearExpiryDays: String(NEAR_EXPIRY_DAYS),
+    stockStatus: stockView === "low" ? "LOW_STOCK" : stockView === "out" ? "OUT_OF_STOCK" : ""
+  };
+}
+
+function StockSummaryTiles({
+  filters,
+  onSelect
 }: {
-  error?: string;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-  label: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  type?: string;
-  value: string;
+  filters: InventoryFilters;
+  onSelect: (stockView: StockLevelsView) => void;
 }) {
+  const { api } = useAdminSession();
+  const summaryQuery = useQuery({
+    queryFn: ({ signal }) =>
+      api.request<InventorySummary>("/admin/inventory/summary", {
+        query: { days: NEAR_EXPIRY_DAYS, warehouseId: filters.warehouseId || undefined },
+        signal
+      }),
+    queryKey: ["admin", "inventory", "summary", filters.warehouseId]
+  });
+  const summary = summaryQuery.data;
+  const activeView = getStockView(filters);
+  const count = (select: (value: InventorySummary) => number) =>
+    summary ? select(summary).toLocaleString("en-IN") : summaryQuery.isError ? "-" : "...";
+  const tiles: Array<{
+    hint: string;
+    label: string;
+    tone: "neutral" | "primary" | "warning";
+    value: string;
+    view: StockLevelsView;
+  }> = [
+    { hint: "Product and variant lines", label: "All stock lines", tone: "primary", value: count((s) => s.trackedItems), view: "all" },
+    { hint: "Low or out of stock", label: "Needs restock", tone: "warning", value: count((s) => s.lowStockItems + s.outOfStockItems), view: "restock" },
+    { hint: "At or below threshold", label: "Low stock", tone: "warning", value: count((s) => s.lowStockItems), view: "low" },
+    { hint: "Nothing left to sell", label: "Out of stock", tone: "warning", value: count((s) => s.outOfStockItems), view: "out" },
+    { hint: `Batches within ${NEAR_EXPIRY_DAYS} days`, label: "Expiring soon", tone: "warning", value: count((s) => s.nearExpiryBatches), view: "expiring" }
+  ];
+
   return (
-    <Label>
-      {label}
-      <Input
-        inputMode={inputMode}
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        type={type}
-        value={value}
-      />
-      {error ? <span className="fieldError">{error}</span> : null}
-    </Label>
+    <>
+      <div aria-label="Stock summary" className="inventoryTiles" role="group">
+        {tiles.map((tile) => (
+          <button
+            aria-pressed={activeView === tile.view}
+            className="inventoryTile"
+            data-tone={tile.tone}
+            key={tile.view}
+            onClick={() => onSelect(tile.view)}
+            type="button"
+          >
+            <span>{tile.label}</span>
+            <strong>{tile.value}</strong>
+            <em>{tile.hint}</em>
+          </button>
+        ))}
+      </div>
+      {summary ? (
+        <p className="inventorySummaryLine">
+          {summary.assignedProducts.toLocaleString("en-IN")} products assigned ·{" "}
+          {summary.availableUnits.toLocaleString("en-IN")} units available ·{" "}
+          {summary.reservedUnits.toLocaleString("en-IN")} reserved for open orders
+        </p>
+      ) : null}
+    </>
   );
 }
 
-function TextAreaField({
-  error,
-  label,
-  onChange,
-  required = false,
-  value
+function StockLevelsPanel({
+  filters,
+  onFiltersChange,
+  onRefresh,
+  showWarehouseColumn,
+  warehouses
 }: {
-  error?: string;
-  label: string;
-  onChange: (value: string) => void;
-  required?: boolean;
-  value: string;
+  filters: InventoryFilters;
+  onFiltersChange: (filters: InventoryFilters) => void;
+  onRefresh: () => Promise<void>;
+  showWarehouseColumn: boolean;
+  warehouses: AdminWarehouse[];
 }) {
+  const { api, hasPermission } = useAdminSession();
+  const [page, setPage] = useState(1);
+  const [searchDraft, setSearchDraft] = useState(filters.search);
+  const stockView = getStockView(filters);
+  const request = useMemo(
+    () => buildInventoryRequest(filters, { limit: INVENTORY_PAGE_SIZE, page }),
+    [filters, page]
+  );
+  const listQuery = useQuery<PaginatedResponse<InventoryStock> | PaginatedResponse<StockBatch>>({
+    placeholderData: (previous) => previous,
+    queryFn: ({ signal }) =>
+      api.request<PaginatedResponse<InventoryStock> | PaginatedResponse<StockBatch>>(
+        request.endpoint,
+        { query: request.query, signal }
+      ),
+    queryKey: ["admin", "inventory", "list", request]
+  });
+  const canUpdate = hasPermission(ADMIN_PERMISSION.InventoryUpdate);
+  const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
+  const bulk = useBulkSelection<BulkInventoryRow>(JSON.stringify(filters), items);
+  const pagination = listQuery.data?.pagination;
+  const filterScope = JSON.stringify({ ...filters, search: "" });
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterScope]);
+
+  useEffect(() => {
+    setSearchDraft(filters.search);
+  }, [filters.search]);
+
+  useEffect(() => {
+    if (pagination && page > Math.max(pagination.totalPages, 1)) {
+      setPage(Math.max(pagination.totalPages, 1));
+    }
+  }, [page, pagination]);
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const search = searchDraft.trim().slice(0, 160);
+
+    setPage(1);
+    onFiltersChange({ ...filters, search });
+  }
+
+  const rowLabel = (row: BulkInventoryRow) =>
+    [formatStockItemName(row), row.warehouse?.name ?? warehouseName(warehouses, row.warehouseId), "batchNumber" in row ? row.batchNumber : ""]
+      .filter(Boolean)
+      .join(" / ");
+
   return (
-    <Label>
-      {label}
-      <Textarea
-        onChange={(event) => onChange(event.target.value)}
-        required={required}
-        value={value}
+    <Card className="panel mt-3 inventorySectionPanel inventoryTablePanel">
+      <PageHeader
+        actions={
+          canUpdate ? (
+            <Button asChild className="iconTextButton">
+              <Link href={buildStockActionHref("receive", { warehouseId: filters.warehouseId })}>
+                <PackagePlus aria-hidden size={16} />
+                <span>Receive stock</span>
+              </Link>
+            </Button>
+          ) : null
+        }
+        className="inventorySectionHeader"
+        eyebrow="Stock levels"
+        level={2}
+        title={STOCK_VIEW_TITLES[stockView]}
       />
-      {error ? <span className="fieldError">{error}</span> : null}
-    </Label>
+      <p className="inventoryViewHint">{STOCK_VIEW_HINTS[stockView]}</p>
+      <div className="inventoryToolbar">
+        <form className="inventorySearchForm" onSubmit={submitSearch} role="search">
+          <span className="searchInput">
+            <Search aria-hidden size={16} />
+            <Input
+              aria-label="Search stock by product name or SKU"
+              maxLength={160}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Search by product name or SKU"
+              value={searchDraft}
+            />
+          </span>
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+        </form>
+        <ActiveInventoryFilters filters={filters} onChange={onFiltersChange} />
+      </div>
+
+      {listQuery.isLoading ? <LoadingState label="Loading stock..." /> : null}
+      {listQuery.isError ? (
+        <p className="formError" role="alert">
+          {getErrorMessage(listQuery.error) ?? "Unable to load stock."}
+        </p>
+      ) : null}
+      {canUpdate ? (
+        <InventoryBulkActions
+          disabled={listQuery.isFetching || listQuery.isError}
+          getLabel={rowLabel}
+          key={bulk.scope}
+          loadAll={() =>
+            loadBulkRows((next, limit) => {
+              const allRequest = buildInventoryRequest(filters, { limit, page: next });
+              return api.request<PaginatedResponse<BulkInventoryRow>>(allRequest.endpoint, {
+                query: allRequest.query
+              });
+            })
+          }
+          onComplete={onRefresh}
+          selection={bulk}
+          total={pagination?.total ?? 0}
+          warehouses={warehouses}
+        />
+      ) : null}
+      {!listQuery.isLoading && !listQuery.isError ? (
+        request.type === "batch" ? (
+          <BatchTable
+            batches={items as StockBatch[]}
+            bulk={canUpdate ? bulk : undefined}
+            canUpdate={canUpdate}
+            rowLabel={rowLabel}
+            showWarehouseColumn={showWarehouseColumn}
+            warehouses={warehouses}
+          />
+        ) : (
+          <StockTable
+            bulk={canUpdate ? bulk : undefined}
+            canUpdate={canUpdate}
+            rowLabel={rowLabel}
+            showWarehouseColumn={showWarehouseColumn}
+            stocks={items as InventoryStock[]}
+            warehouses={warehouses}
+          />
+        )
+      ) : null}
+      {pagination ? (
+        <PaginationControls
+          isPending={listQuery.isFetching && !listQuery.isLoading}
+          onChange={(next) => {
+            if (!bulk.isBusy) setPage(next);
+          }}
+          page={pagination.page}
+          pageSize={pagination.limit}
+          totalItems={pagination.total}
+          totalPages={pagination.totalPages}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+/** Shows filters that came from a link, such as one product's stock, with a way to clear them. */
+function ActiveInventoryFilters({
+  filters,
+  onChange
+}: {
+  filters: InventoryFilters;
+  onChange: (filters: InventoryFilters) => void;
+}) {
+  type FilterChip = { change: Partial<InventoryFilters>; label: string };
+  const chips: FilterChip[] = [];
+
+  if (filters.search) {
+    chips.push({ change: { search: "" }, label: `Search: ${filters.search}` });
+  }
+  if (filters.productId) {
+    chips.push({ change: { productId: "" }, label: "One product only" });
+  }
+
+  if (chips.length === 0) {
+    return null;
+  }
+
+  return (
+    <div aria-label="Active filters" className="inventoryActiveFilters" role="group">
+      {chips.map((chip) => (
+        <button
+          aria-label={`Remove filter ${chip.label}`}
+          className="inventoryFilterChip"
+          key={chip.label}
+          onClick={() => onChange({ ...filters, ...chip.change })}
+          type="button"
+        >
+          <span>{chip.label}</span>
+          <X aria-hidden size={13} />
+        </button>
+      ))}
+    </div>
   );
 }
 
 function StockTable({
   bulk,
-  lowStockKeys,
-  nearExpiryKeys,
-  products,
+  canUpdate,
+  rowLabel,
+  showWarehouseColumn,
   stocks,
   warehouses
 }: {
   bulk?: BulkSelection<BulkInventoryRow>;
-  lowStockKeys: Set<string>;
-  nearExpiryKeys: Set<string>;
-  products: AdminProduct[];
+  canUpdate: boolean;
+  rowLabel: (row: BulkInventoryRow) => string;
+  showWarehouseColumn: boolean;
   stocks: InventoryStock[];
   warehouses: AdminWarehouse[];
 }) {
   if (stocks.length === 0) {
     return (
       <EmptyState
-        body="No stock rows match the selected filters."
-        title="No stock rows found"
+        body="No stock lines match this view. Products appear here once stock is received into a warehouse they are assigned to."
+        title="No stock lines found"
       />
     );
   }
@@ -1464,7 +666,10 @@ function StockTable({
     <div className="inventoryTableShell">
       <p className="inventoryTableHint">Swipe sideways to view every stock column.</p>
       <div className="brandTableScroll inventoryTableScroll">
-        <Table className="brandDataTable inventoryDataTable inventoryDataTableWithBulk">
+        <Table
+          aria-label="Stock levels"
+          className={`brandDataTable inventoryDataTable${bulk ? " inventoryDataTableWithBulk" : ""}`}
+        >
           <TableHeader>
             <TableRow>
               {bulk ? (
@@ -1473,45 +678,52 @@ function StockTable({
                 </TableHead>
               ) : null}
               <TableHead>Product</TableHead>
-              <TableHead>Warehouse</TableHead>
+              {showWarehouseColumn ? <TableHead>Warehouse</TableHead> : null}
               <TableHead>Available</TableHead>
               <TableHead>Reserved</TableHead>
-              <TableHead>Threshold</TableHead>
-              <TableHead>Warnings</TableHead>
+              <TableHead>Low-stock threshold</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="inventoryActionsCell">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {stocks.map((stock) => {
-              const key = stockKey(stock);
-              const low = lowStockKeys.has(key) || isLowStock(stock);
-              const nearExpiry = nearExpiryKeys.has(key);
+              const status = stock.stockStatus ?? getStockLevel(stock);
 
               return (
                 <TableRow key={stock.id}>
                   {bulk ? (
                     <TableCell className="bulkCheckboxCell">
-                      <BulkRowCheckbox
-                        selection={bulk}
-                        item={stock}
-                        label={`${productLabel(products, stock.productId, stock.variantId)} / ${warehouseLabel(warehouses, stock.warehouseId)}`}
-                      />
+                      <BulkRowCheckbox item={stock} label={rowLabel(stock)} selection={bulk} />
                     </TableCell>
                   ) : null}
                   <TableCell>
-                    <strong>
-                      {productLabel(products, stock.productId, stock.variantId)}
-                    </strong>
+                    <strong>{formatStockItemName(stock)}</strong>
+                    <span className="tableSubtext">
+                      {stock.variant?.sku ?? stock.product?.sku ?? "SKU unavailable"}
+                    </span>
                   </TableCell>
+                  {showWarehouseColumn ? (
+                    <TableCell>{stock.warehouse?.name ?? warehouseName(warehouses, stock.warehouseId)}</TableCell>
+                  ) : null}
                   <TableCell>
-                    {warehouseLabel(warehouses, stock.warehouseId)}
+                    <strong>{stock.availableQuantity.toLocaleString("en-IN")}</strong>
                   </TableCell>
-                  <TableCell>{stock.availableQuantity}</TableCell>
-                  <TableCell>{stock.reservedQuantity}</TableCell>
-                  <TableCell>{stock.lowStockThreshold}</TableCell>
-                  <TableCell className="flagList">
-                    {low ? <b>Low stock</b> : null}
-                    {nearExpiry ? <b>Near expiry</b> : null}
-                    {!low && !nearExpiry ? <span>-</span> : null}
+                  <TableCell>{stock.reservedQuantity.toLocaleString("en-IN")}</TableCell>
+                  <TableCell>{stock.lowStockThreshold.toLocaleString("en-IN")}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={status} />
+                  </TableCell>
+                  <TableCell className="inventoryActionsCell">
+                    <StockRowActions
+                      canUpdate={canUpdate}
+                      label={formatStockItemName(stock)}
+                      params={{
+                        productId: stock.productId,
+                        variantId: stock.variantId,
+                        warehouseId: stock.warehouseId
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               );
@@ -1524,23 +736,25 @@ function StockTable({
 }
 
 function BatchTable({
-  bulk,
   batches,
-  nearExpiryDays,
-  products,
+  bulk,
+  canUpdate,
+  rowLabel,
+  showWarehouseColumn,
   warehouses
 }: {
-  bulk?: BulkSelection<BulkInventoryRow>;
   batches: StockBatch[];
-  nearExpiryDays: number;
-  products: AdminProduct[];
+  bulk?: BulkSelection<BulkInventoryRow>;
+  canUpdate: boolean;
+  rowLabel: (row: BulkInventoryRow) => string;
+  showWarehouseColumn: boolean;
   warehouses: AdminWarehouse[];
 }) {
   if (batches.length === 0) {
     return (
       <EmptyState
-        body="No batches match the selected filters."
-        title="No batches found"
+        body={`No batches with units left expire within ${NEAR_EXPIRY_DAYS} days.`}
+        title="Nothing expiring soon"
       />
     );
   }
@@ -1550,6 +764,7 @@ function BatchTable({
       <p className="inventoryTableHint">Swipe sideways to view every batch column.</p>
       <div className="brandTableScroll inventoryTableScroll">
         <Table
+          aria-label="Expiring batches"
           className={`brandDataTable inventoryDataTable${bulk ? " inventoryDataTableWithBulk" : ""}`}
         >
           <TableHeader>
@@ -1561,45 +776,64 @@ function BatchTable({
               ) : null}
               <TableHead>Batch</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Expiry</TableHead>
-              <TableHead>Prices</TableHead>
+              {showWarehouseColumn ? <TableHead>Warehouse</TableHead> : null}
+              <TableHead>Units left</TableHead>
+              <TableHead>Expires</TableHead>
+              <TableHead>Selling price / MRP</TableHead>
+              <TableHead className="inventoryActionsCell">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {batches.map((batch) => (
-              <TableRow key={batch.id}>
-                {bulk ? (
-                  <TableCell className="bulkCheckboxCell">
-                    <BulkRowCheckbox
-                      selection={bulk}
-                      item={batch}
-                      label={batch.batchNumber}
+            {batches.map((batch) => {
+              const daysLeft = daysUntilExpiry(batch.expiryDate);
+
+              return (
+                <TableRow key={batch.id}>
+                  {bulk ? (
+                    <TableCell className="bulkCheckboxCell">
+                      <BulkRowCheckbox item={batch} label={batch.batchNumber} selection={bulk} />
+                    </TableCell>
+                  ) : null}
+                  <TableCell>
+                    <strong>{batch.batchNumber}</strong>
+                  </TableCell>
+                  <TableCell>
+                    {formatStockItemName(batch)}
+                    {batch.product ? <span className="tableSubtext">{batch.product.sku}</span> : null}
+                  </TableCell>
+                  {showWarehouseColumn ? (
+                    <TableCell>{batch.warehouse?.name ?? warehouseName(warehouses, batch.warehouseId)}</TableCell>
+                  ) : null}
+                  <TableCell>{batch.quantity.toLocaleString("en-IN")}</TableCell>
+                  <TableCell>
+                    <span className="inventoryExpiryCell">
+                      <span>{formatDate(batch.expiryDate)}</span>
+                      {daysLeft !== null ? (
+                        <b data-urgent={daysLeft <= 7 ? "true" : undefined}>
+                          {daysLeft <= 0 ? "Expired" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
+                        </b>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
+                  </TableCell>
+                  <TableCell className="inventoryActionsCell">
+                    <StockRowActions
+                      canUpdate={canUpdate}
+                      label={`${rowLabel(batch)}`}
+                      params={{
+                        batchNumber: batch.batchNumber,
+                        productId: batch.productId,
+                        reason: "EXPIRED",
+                        variantId: batch.variantId,
+                        warehouseId: batch.warehouseId
+                      }}
                     />
                   </TableCell>
-                ) : null}
-                <TableCell>
-                  <strong>{batch.batchNumber}</strong>
-                </TableCell>
-                <TableCell>
-                  {productLabel(products, batch.productId, batch.variantId)}
-                </TableCell>
-                <TableCell>
-                  {warehouseLabel(warehouses, batch.warehouseId)}
-                </TableCell>
-                <TableCell>{batch.quantity}</TableCell>
-                <TableCell className="flagList">
-                  <span>{formatDate(batch.expiryDate)}</span>
-                  {isNearExpiry(batch.expiryDate, new Date(), nearExpiryDays) ? (
-                    <b>Near expiry</b>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {formatCurrency(batch.sellingPrice)} / {formatCurrency(batch.mrp)}
-                </TableCell>
-              </TableRow>
-            ))}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -1607,19 +841,923 @@ function BatchTable({
   );
 }
 
-function MovementTable({
-  movements,
-  products,
+function StockRowActions({
+  canUpdate,
+  label,
+  params
+}: {
+  canUpdate: boolean;
+  label: string;
+  params: {
+    batchNumber?: string;
+    productId: string;
+    reason?: StockOutReason;
+    variantId: string | null;
+    warehouseId: string;
+  };
+}) {
+  const historyHref = `${INVENTORY_MOVEMENTS_PATH}?${new URLSearchParams({
+    productId: params.productId,
+    warehouseId: params.warehouseId
+  }).toString()}`;
+
+  if (!canUpdate) {
+    return (
+      <Button asChild className="iconTextButton" size="sm" variant="outline">
+        <Link aria-label={`History for ${label}`} href={historyHref}>
+          <History aria-hidden size={15} />
+          <span>History</span>
+        </Link>
+      </Button>
+    );
+  }
+
+  return (
+    <Dropdown>
+      <DropdownTrigger>
+        <Button aria-label={`Stock actions for ${label}`} size="icon" type="button" variant="ghost">
+          <MoreVertical aria-hidden size={16} />
+        </Button>
+      </DropdownTrigger>
+      <DropdownMenu aria-label={`Stock actions for ${label}`}>
+        <DropdownItem as={Link} href={buildStockActionHref("receive", params)} key="receive" startContent={<PackagePlus aria-hidden size={15} />}>
+          Receive stock
+        </DropdownItem>
+        <DropdownItem as={Link} href={buildStockActionHref("remove", params)} key="remove" startContent={<PackageMinus aria-hidden size={15} />}>
+          Remove stock
+        </DropdownItem>
+        <DropdownItem as={Link} href={buildStockActionHref("count", params)} key="count" startContent={<ClipboardCheck aria-hidden size={15} />}>
+          Correct a count
+        </DropdownItem>
+        <DropdownItem as={Link} href={buildStockActionHref("transfer", params)} key="transfer" startContent={<ArrowRightLeft aria-hidden size={15} />}>
+          Transfer stock
+        </DropdownItem>
+        <DropdownItem as={Link} href={historyHref} key="history" startContent={<History aria-hidden size={15} />}>
+          View history
+        </DropdownItem>
+      </DropdownMenu>
+    </Dropdown>
+  );
+}
+
+type ActionValues = {
+  batchNumber: string;
+  countedQuantity: string;
+  expiryDate: string;
+  lowStockThreshold: string;
+  mrp: string;
+  notes: string;
+  purchasePrice: string;
+  quantity: string;
+  reason: string;
+  sellingPrice: string;
+  stockOutReason: "" | StockOutReason;
+  toWarehouseId: string;
+};
+
+function createEmptyActionValues(batchNumber = "", stockOutReason: "" | StockOutReason = ""): ActionValues {
+  return {
+    batchNumber,
+    countedQuantity: "",
+    expiryDate: "",
+    lowStockThreshold: "",
+    mrp: "",
+    notes: "",
+    purchasePrice: "",
+    quantity: "",
+    reason: "Physical stock count",
+    sellingPrice: "",
+    stockOutReason,
+    toWarehouseId: ""
+  };
+}
+
+/**
+ * One action at a time: pick the warehouse and product once, see what is on hand,
+ * then fill in only what that action needs.
+ */
+function StockActionsPanel({
+  initialAction,
+  initialBatchNumber,
+  initialProductId,
+  initialReason,
+  initialVariantId,
+  isSuperAdmin,
+  onRefresh,
+  warehouseId: contextWarehouseId,
   warehouses
 }: {
-  movements: StockMovement[];
-  products: AdminProduct[];
+  initialAction: StockAction;
+  initialBatchNumber: string;
+  initialProductId: string;
+  initialReason: string | null;
+  initialVariantId: string;
+  isSuperAdmin: boolean;
+  onRefresh: () => Promise<void>;
+  warehouseId: string;
   warehouses: AdminWarehouse[];
+}) {
+  const { api } = useAdminSession();
+  const queryClient = useQueryClient();
+  const initialStockOutReason = (STOCK_OUT_REASONS as readonly string[]).includes(initialReason ?? "")
+    ? (initialReason as StockOutReason)
+    : "";
+  const [action, setAction] = useState<StockAction>(initialAction);
+  const [warehouseId, setWarehouseId] = useState(contextWarehouseId);
+  const [productId, setProductId] = useState(initialProductId);
+  const [variantId, setVariantId] = useState(initialVariantId);
+  const [productSearch, setProductSearch] = useState("");
+  const [values, setValues] = useState<ActionValues>(() =>
+    createEmptyActionValues(initialBatchNumber, initialStockOutReason)
+  );
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const activeWarehouses = warehouses.filter((warehouse) => warehouse.status === "ACTIVE");
+  const selectedWarehouse = warehouses.find((warehouse) => warehouse.id === warehouseId) ?? null;
+
+  useEffect(() => {
+    setAction(initialAction);
+  }, [initialAction]);
+
+  useEffect(() => {
+    if (contextWarehouseId) {
+      setWarehouseId(contextWarehouseId);
+    }
+  }, [contextWarehouseId]);
+
+  // Someone who runs one warehouse always works in it.
+  useEffect(() => {
+    if (!warehouseId && !isSuperAdmin && activeWarehouses.length === 1) {
+      setWarehouseId(activeWarehouses[0]!.id);
+    }
+  }, [activeWarehouses, isSuperAdmin, warehouseId]);
+
+  // Products offered are only those assigned to the chosen warehouse.
+  const productsQuery = useQuery<ProductListResponse>({
+    enabled: Boolean(warehouseId),
+    placeholderData: (previous) => previous,
+    queryFn: ({ signal }) =>
+      api.request<ProductListResponse>("/admin/products", {
+        query: {
+          limit: PRODUCT_SEARCH_LIMIT,
+          page: 1,
+          search: productSearch.trim() || undefined,
+          sort: "name_az",
+          warehouseId
+        },
+        signal
+      }),
+    queryKey: ["admin", "inventory", "action-products", warehouseId, productSearch.trim()]
+  });
+  const productDetailQuery = useQuery({
+    enabled: Boolean(productId),
+    queryFn: ({ signal }) =>
+      api.request<AdminProduct>(`/admin/products/${encodeURIComponent(productId)}`, { signal }),
+    queryKey: ["admin", "inventory", "action-product", productId]
+  });
+  const product = productDetailQuery.data ?? null;
+  const isProductInWarehouse = Boolean(
+    product && warehouseId && (product.warehouseIds ?? []).includes(warehouseId)
+  );
+  const stockLineQuery = useQuery({
+    enabled: Boolean(productId && warehouseId),
+    queryFn: ({ signal }) =>
+      api.request<PaginatedResponse<InventoryStock>>("/admin/inventory", {
+        query: { limit: 100, page: 1, productId, warehouseId },
+        signal
+      }),
+    queryKey: ["admin", "inventory", "action-stock", warehouseId, productId]
+  });
+  const stockLine =
+    stockLineQuery.data?.items.find((item) => (item.variantId ?? "") === variantId) ?? null;
+  const batchesQuery = useQuery({
+    enabled: Boolean(productId && warehouseId),
+    queryFn: ({ signal }) =>
+      api.request<StockBatch[]>("/admin/inventory/batches", {
+        query: { includeEmpty: true, productId, variantId: variantId || undefined, warehouseId },
+        signal
+      }),
+    queryKey: ["admin", "inventory", "action-batches", warehouseId, productId, variantId]
+  });
+  const allBatches = batchesQuery.data ?? [];
+  const batchesWithStock = allBatches.filter((batch) => batch.quantity > 0);
+  const selectedBatch = allBatches.find((batch) => batch.batchNumber === values.batchNumber) ?? null;
+  const transferDestinations = (product?.warehouses ?? []).filter(
+    (warehouse) => warehouse.id !== warehouseId && warehouse.status === "ACTIVE"
+  );
+
+  const mutation = useMutation({
+    mutationFn: ({ body, path }: { body: unknown; path: string }) =>
+      api.request(path, { body: JSON.stringify(body), method: "POST" })
+  });
+
+  function updateValue<Key extends keyof ActionValues>(key: Key, value: ActionValues[Key]) {
+    setValues((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
+  function chooseAction(nextAction: StockAction) {
+    setAction(nextAction);
+    setErrors({});
+    setFormError(null);
+    setMessage(null);
+    setValues((current) => ({
+      ...createEmptyActionValues(nextAction === "receive" ? "" : current.batchNumber),
+      notes: current.notes
+    }));
+  }
+
+  function chooseWarehouse(nextWarehouseId: string) {
+    setWarehouseId(nextWarehouseId);
+    setVariantId("");
+    setValues(createEmptyActionValues());
+    setErrors({});
+    setMessage(null);
+  }
+
+  function chooseProduct(nextProductId: string) {
+    setProductId(nextProductId);
+    setVariantId("");
+    setValues(createEmptyActionValues());
+    setErrors({});
+    setMessage(null);
+  }
+
+  // Receiving fills prices from the product and the threshold from the current stock line.
+  useEffect(() => {
+    if (action !== "receive" || !product) {
+      return;
+    }
+
+    const variant = product.variants.find((item) => item.id === variantId);
+
+    setValues((current) => ({
+      ...current,
+      lowStockThreshold: current.lowStockThreshold || String(stockLine?.lowStockThreshold ?? 0),
+      mrp: current.mrp || String(variant?.mrp ?? product.mrp),
+      sellingPrice: current.sellingPrice || String(variant?.sellingPrice ?? product.sellingPrice)
+    }));
+  }, [action, product, stockLine?.lowStockThreshold, variantId]);
+
+  const base = { productId, variantId, warehouseId };
+  const itemName = product
+    ? formatStockItemName({
+        product,
+        productId,
+        variant: product.variants.find((item) => item.id === variantId) ?? null
+      })
+    : "this product";
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    setMessage(null);
+
+    if (action === "receive") {
+      const parsed = stockInFormSchema.safeParse({ ...base, ...pick(values, ["batchNumber", "expiryDate", "lowStockThreshold", "mrp", "notes", "purchasePrice", "quantity", "sellingPrice"]) });
+
+      if (!parsed.success) return setErrors(getFieldErrors(parsed.error));
+      if (product?.expirySensitive && !parsed.data.expiryDate) {
+        return setErrors({ expiryDate: "This product is expiry tracked, so the batch needs an expiry date." });
+      }
+
+      return confirm({
+        body: `Receive ${parsed.data.quantity} units of ${itemName} into ${selectedWarehouse?.name ?? "the warehouse"} under batch ${parsed.data.batchNumber.trim()}?`,
+        confirmLabel: "Receive stock",
+        path: "/admin/inventory/stock-in",
+        payload: buildStockInPayload(parsed.data),
+        success: `Received ${parsed.data.quantity} units of ${itemName}.`,
+        title: "Confirm stock received"
+      });
+    }
+
+    if (action === "remove") {
+      const parsed = stockOutFormSchema.safeParse({ ...base, batchNumber: values.batchNumber, notes: values.notes, quantity: values.quantity, reason: values.stockOutReason });
+
+      if (!parsed.success) return setErrors(getFieldErrors(parsed.error, { reason: "stockOutReason" }));
+      if (selectedBatch && Number(parsed.data.quantity) > selectedBatch.quantity) {
+        return setErrors({ quantity: `Batch ${selectedBatch.batchNumber} has only ${selectedBatch.quantity} units.` });
+      }
+
+      return confirm({
+        body: `Remove ${parsed.data.quantity} units of ${itemName} from batch ${parsed.data.batchNumber} (${STOCK_OUT_REASON_LABELS[parsed.data.reason].toLowerCase()})?`,
+        confirmLabel: "Remove stock",
+        path: "/admin/inventory/stock-out",
+        payload: buildStockOutPayload(parsed.data),
+        success: `Removed ${parsed.data.quantity} units of ${itemName}.`,
+        title: "Confirm stock removal"
+      });
+    }
+
+    if (action === "count") {
+      const parsed = stockCountFormSchema.safeParse({ ...base, batchNumber: values.batchNumber, countedQuantity: values.countedQuantity, lowStockThreshold: values.lowStockThreshold, reason: values.reason });
+
+      if (!parsed.success) return setErrors(getFieldErrors(parsed.error));
+      if (!selectedBatch) return setErrors({ batchNumber: "Choose the batch you counted." });
+
+      const payload = buildStockCountPayload(parsed.data, selectedBatch.quantity);
+
+      if (!payload) {
+        return setFormError(`Batch ${selectedBatch.batchNumber} already shows ${selectedBatch.quantity} units, so there is nothing to correct.`);
+      }
+
+      return confirm({
+        body: `Change batch ${selectedBatch.batchNumber} of ${itemName} from ${selectedBatch.quantity} to ${parsed.data.countedQuantity} units (${formatSignedQuantity(payload.quantityDelta)})?`,
+        confirmLabel: "Save count",
+        path: "/admin/inventory/adjust",
+        payload,
+        success: `Batch ${selectedBatch.batchNumber} now shows ${parsed.data.countedQuantity} units.`,
+        title: "Confirm count correction"
+      });
+    }
+
+    const parsed = transferStockFormSchema.safeParse({
+      batchNumber: values.batchNumber,
+      fromWarehouseId: warehouseId,
+      notes: values.notes,
+      productId,
+      quantity: values.quantity,
+      toWarehouseId: values.toWarehouseId,
+      variantId
+    });
+
+    if (!parsed.success) return setErrors(getFieldErrors(parsed.error));
+    if (selectedBatch && Number(parsed.data.quantity) > selectedBatch.quantity) {
+      return setErrors({ quantity: `Batch ${selectedBatch.batchNumber} has only ${selectedBatch.quantity} units.` });
+    }
+
+    const destination = transferDestinations.find((warehouse) => warehouse.id === parsed.data.toWarehouseId);
+
+    return confirm({
+      body: `Move ${parsed.data.quantity} units of ${itemName} from ${selectedWarehouse?.name ?? "this warehouse"} to ${destination?.name ?? "the destination"}?`,
+      confirmLabel: "Transfer stock",
+      path: "/admin/inventory/transfer",
+      payload: buildTransferStockPayload(parsed.data),
+      success: `Moved ${parsed.data.quantity} units of ${itemName} to ${destination?.name ?? "the destination"}.`,
+      title: "Confirm stock transfer"
+    });
+  }
+
+  function confirm(input: {
+    body: string;
+    confirmLabel: string;
+    path: string;
+    payload: unknown;
+    success: string;
+    title: string;
+  }) {
+    setErrors({});
+    setConfirmation({
+      body: input.body,
+      confirmLabel: input.confirmLabel,
+      onConfirm: async () => {
+        await mutation.mutateAsync({ body: input.payload, path: input.path });
+        setMessage(input.success);
+        setValues((current) => ({
+          ...createEmptyActionValues(action === "receive" ? "" : current.batchNumber, current.stockOutReason),
+          reason: current.reason
+        }));
+        await Promise.all([
+          onRefresh(),
+          queryClient.invalidateQueries({ queryKey: ["admin", "inventory"] })
+        ]);
+      },
+      title: input.title
+    });
+  }
+
+  const productOptions = productsQuery.data?.items ?? [];
+  const productChoices =
+    product && !productOptions.some((item) => item.id === product.id) && isProductInWarehouse
+      ? [product, ...productOptions]
+      : productOptions;
+  const ready = Boolean(warehouseId && productId && product && isProductInWarehouse);
+
+  return (
+    <Card className="panel mt-3 inventorySectionPanel inventoryActionsPanel">
+      <div aria-label="Choose a stock action" className="inventoryActionPicker" role="radiogroup">
+        {STOCK_ACTIONS.map((option) => (
+          <button
+            aria-checked={action === option.value}
+            className="inventoryActionOption"
+            key={option.value}
+            onClick={() => chooseAction(option.value)}
+            role="radio"
+            type="button"
+          >
+            <span className="inventoryActionIcon" aria-hidden>
+              {ACTION_ICONS[option.value]}
+            </span>
+            <span>
+              <strong>{option.label}</strong>
+              <em>{option.description}</em>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {message ? (
+        <p className="formSuccess inventoryActionSuccess" role="status">
+          <CheckCircle2 aria-hidden size={16} />
+          <span>{message}</span>
+          <Link href={`${INVENTORY_MOVEMENTS_PATH}?${new URLSearchParams({ productId, warehouseId }).toString()}`}>
+            View in movement log
+          </Link>
+        </p>
+      ) : null}
+
+      <form className="inventoryActionForm" noValidate onSubmit={handleSubmit}>
+        <fieldset className="inventoryActionStep">
+          <legend>1. What are you working with?</legend>
+          <div className="formGrid inventoryActionGrid">
+            <Label>
+              {action === "transfer" ? "From warehouse" : "Warehouse"}
+              <Select
+                aria-label={action === "transfer" ? "From warehouse" : "Warehouse"}
+                disabled={activeWarehouses.length === 0}
+                onValueChange={chooseWarehouse}
+                value={warehouseId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWarehouses.map((warehouse) => (
+                    <SelectItem key={warehouse.id} value={warehouse.id}>
+                      {warehouse.name} ({warehouse.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Label>
+            <div className="inventoryProductPicker">
+              <Label>
+                Find product
+                <span className="searchInput">
+                  <Search aria-hidden size={16} />
+                  <Input
+                    aria-label="Find product by name or SKU"
+                    disabled={!warehouseId}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    placeholder={warehouseId ? "Name or SKU" : "Choose a warehouse first"}
+                    value={productSearch}
+                  />
+                </span>
+              </Label>
+              <Label>
+                Product
+                <Select
+                  aria-label="Product"
+                  disabled={!warehouseId}
+                  onValueChange={chooseProduct}
+                  value={productId}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        productsQuery.isFetching
+                          ? "Searching..."
+                          : productChoices.length
+                            ? "Choose product"
+                            : "No assigned products found"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productChoices.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} ({item.sku})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Label>
+            </div>
+            {product && product.variants.length > 0 ? (
+              <Label>
+                Variant
+                <Select
+                  aria-label="Variant"
+                  onValueChange={(next) => {
+                    setVariantId(next === NO_VARIANT_VALUE ? "" : next);
+                    setValues(createEmptyActionValues());
+                  }}
+                  value={variantId || NO_VARIANT_VALUE}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Base product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VARIANT_VALUE}>Base product</SelectItem>
+                    {product.variants.map((variant) => (
+                      <SelectItem key={variant.id} value={variant.id}>
+                        {variant.name} ({variant.sku})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Label>
+            ) : null}
+          </div>
+          {productsQuery.isError ? (
+            <p className="formError" role="alert">
+              {getErrorMessage(productsQuery.error) ?? "Unable to search products."}
+            </p>
+          ) : null}
+          {product && warehouseId && !isProductInWarehouse ? (
+            <p className="formError" role="alert">
+              {product.name} is not assigned to {selectedWarehouse?.name ?? "this warehouse"}.
+              {isSuperAdmin ? " Assign it from the product page first." : " Ask the super admin to assign it."}
+            </p>
+          ) : null}
+          {ready ? (
+            <StockSnapshot
+              batches={allBatches}
+              isLoading={stockLineQuery.isLoading || batchesQuery.isLoading}
+              stockLine={stockLine}
+            />
+          ) : null}
+        </fieldset>
+
+        {ready ? (
+          <fieldset className="inventoryActionStep">
+            <legend>2. {STOCK_ACTIONS.find((option) => option.value === action)?.label}</legend>
+            <div className="formGrid inventoryActionGrid">
+              {action === "receive" ? (
+                <>
+                  <ActionField error={errors.batchNumber} hint={allBatches.length ? "Reuse a batch number to add to it." : undefined} label="Batch number">
+                    <Input
+                      aria-label="Batch number"
+                      list="inventory-existing-batches"
+                      maxLength={120}
+                      onChange={(event) => updateValue("batchNumber", event.target.value)}
+                      value={values.batchNumber}
+                    />
+                    <datalist id="inventory-existing-batches">
+                      {allBatches.map((batch) => (
+                        <option key={batch.id} value={batch.batchNumber} />
+                      ))}
+                    </datalist>
+                  </ActionField>
+                  <ActionField error={errors.expiryDate} label={product?.expirySensitive ? "Expiry date" : "Expiry date (optional)"}>
+                    <Input aria-label="Expiry date" onChange={(event) => updateValue("expiryDate", event.target.value)} type="date" value={values.expiryDate} />
+                  </ActionField>
+                  <ActionField error={errors.quantity} label="Units received">
+                    <Input aria-label="Units received" inputMode="numeric" onChange={(event) => updateValue("quantity", event.target.value)} value={values.quantity} />
+                  </ActionField>
+                  <ActionField error={errors.purchasePrice} label="Purchase price per unit">
+                    <Input aria-label="Purchase price per unit" inputMode="decimal" onChange={(event) => updateValue("purchasePrice", event.target.value)} value={values.purchasePrice} />
+                  </ActionField>
+                  <ActionField error={errors.sellingPrice} label="Selling price">
+                    <Input aria-label="Selling price" inputMode="decimal" onChange={(event) => updateValue("sellingPrice", event.target.value)} value={values.sellingPrice} />
+                  </ActionField>
+                  <ActionField error={errors.mrp} label="MRP">
+                    <Input aria-label="MRP" inputMode="decimal" onChange={(event) => updateValue("mrp", event.target.value)} value={values.mrp} />
+                  </ActionField>
+                  <ActionField error={errors.lowStockThreshold} hint="Alert when available units fall to this number." label="Low-stock threshold">
+                    <Input aria-label="Low-stock threshold" inputMode="numeric" onChange={(event) => updateValue("lowStockThreshold", event.target.value)} value={values.lowStockThreshold} />
+                  </ActionField>
+                </>
+              ) : null}
+
+              {action !== "receive" ? (
+                <ActionField error={errors.batchNumber} label="Batch">
+                  <BatchSelect
+                    batches={action === "count" ? allBatches : batchesWithStock}
+                    onChange={(batchNumber) => updateValue("batchNumber", batchNumber)}
+                    value={values.batchNumber}
+                  />
+                </ActionField>
+              ) : null}
+
+              {action === "remove" || action === "transfer" ? (
+                <ActionField
+                  error={errors.quantity}
+                  hint={selectedBatch ? `Up to ${selectedBatch.quantity} units in this batch.` : undefined}
+                  label={action === "remove" ? "Units to remove" : "Units to move"}
+                >
+                  <Input
+                    aria-label={action === "remove" ? "Units to remove" : "Units to move"}
+                    inputMode="numeric"
+                    onChange={(event) => updateValue("quantity", event.target.value)}
+                    value={values.quantity}
+                  />
+                </ActionField>
+              ) : null}
+
+              {action === "remove" ? (
+                <ActionField error={errors.stockOutReason} label="Reason">
+                  <Select
+                    aria-label="Reason"
+                    onValueChange={(next) => updateValue("stockOutReason", next as StockOutReason)}
+                    value={values.stockOutReason}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Why is it leaving?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STOCK_OUT_REASONS.map((reason) => (
+                        <SelectItem key={reason} value={reason}>
+                          {STOCK_OUT_REASON_LABELS[reason]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </ActionField>
+              ) : null}
+
+              {action === "count" ? (
+                <>
+                  <ActionField
+                    error={errors.countedQuantity}
+                    hint={
+                      selectedBatch && /^\d+$/.test(values.countedQuantity)
+                        ? `System shows ${selectedBatch.quantity}. Change: ${formatSignedQuantity(Number(values.countedQuantity) - selectedBatch.quantity)} units.`
+                        : selectedBatch
+                          ? `System shows ${selectedBatch.quantity} units.`
+                          : undefined
+                    }
+                    label="Units counted"
+                  >
+                    <Input aria-label="Units counted" inputMode="numeric" onChange={(event) => updateValue("countedQuantity", event.target.value)} value={values.countedQuantity} />
+                  </ActionField>
+                  <ActionField error={errors.reason} label="Reason">
+                    <Input aria-label="Reason" maxLength={1000} onChange={(event) => updateValue("reason", event.target.value)} value={values.reason} />
+                  </ActionField>
+                </>
+              ) : null}
+
+              {action === "transfer" ? (
+                <ActionField
+                  error={errors.toWarehouseId}
+                  hint={transferDestinations.length === 0 ? "This product is not assigned to any other active warehouse you can reach." : undefined}
+                  label="To warehouse"
+                >
+                  <Select
+                    aria-label="To warehouse"
+                    disabled={transferDestinations.length === 0}
+                    onValueChange={(next) => updateValue("toWarehouseId", next)}
+                    value={values.toWarehouseId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transferDestinations.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name} ({warehouse.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </ActionField>
+              ) : null}
+            </div>
+            {action !== "count" ? (
+              <ActionField error={errors.notes} label="Notes (optional)">
+                <Textarea aria-label="Notes" maxLength={1000} onChange={(event) => updateValue("notes", event.target.value)} value={values.notes} />
+              </ActionField>
+            ) : null}
+            {formError ? (
+              <p className="formError" role="alert">
+                {formError}
+              </p>
+            ) : null}
+            <div className="actionRow inventoryActionSubmit">
+              <Button className="iconTextButton" disabled={mutation.isPending} type="submit">
+                {ACTION_ICONS[action]}
+                <span>{STOCK_ACTIONS.find((option) => option.value === action)?.label}</span>
+              </Button>
+            </div>
+          </fieldset>
+        ) : (
+          <p className="inventoryActionPrompt">
+            {warehouseId
+              ? "Choose a product assigned to this warehouse to continue."
+              : "Choose a warehouse to see the products assigned to it."}
+          </p>
+        )}
+      </form>
+
+      <ConfirmationDialog
+        confirmation={confirmation}
+        isPending={mutation.isPending}
+        onCancel={() => setConfirmation(null)}
+        onConfirmComplete={() => setConfirmation(null)}
+      />
+    </Card>
+  );
+}
+
+const ACTION_ICONS: Record<StockAction, ReactNode> = {
+  count: <ClipboardCheck aria-hidden size={18} />,
+  receive: <PackagePlus aria-hidden size={18} />,
+  remove: <PackageMinus aria-hidden size={18} />,
+  transfer: <ArrowRightLeft aria-hidden size={18} />
+};
+
+function StockSnapshot({
+  batches,
+  isLoading,
+  stockLine
+}: {
+  batches: StockBatch[];
+  isLoading: boolean;
+  stockLine: InventoryStock | null;
+}) {
+  if (isLoading) {
+    return <LoadingState label="Loading current stock..." />;
+  }
+
+  const withStock = batches.filter((batch) => batch.quantity > 0);
+
+  return (
+    <div aria-label="Current stock" className="inventorySnapshot" role="group">
+      <div>
+        <span>On hand</span>
+        <strong>{(stockLine?.availableQuantity ?? 0).toLocaleString("en-IN")}</strong>
+      </div>
+      <div>
+        <span>Reserved</span>
+        <strong>{(stockLine?.reservedQuantity ?? 0).toLocaleString("en-IN")}</strong>
+      </div>
+      <div>
+        <span>Threshold</span>
+        <strong>{(stockLine?.lowStockThreshold ?? 0).toLocaleString("en-IN")}</strong>
+      </div>
+      <div>
+        <span>Batches with units</span>
+        <strong>{withStock.length}</strong>
+      </div>
+      {stockLine ? <StatusBadge status={stockLine.stockStatus ?? getStockLevel(stockLine)} /> : <StatusBadge status="OUT_OF_STOCK" />}
+    </div>
+  );
+}
+
+function BatchSelect({
+  batches,
+  onChange,
+  value
+}: {
+  batches: StockBatch[];
+  onChange: (batchNumber: string) => void;
+  value: string;
+}) {
+  return (
+    <Select aria-label="Batch" disabled={batches.length === 0} onValueChange={onChange} value={value}>
+      <SelectTrigger>
+        <SelectValue placeholder={batches.length ? "Choose batch" : "No batches with units"} />
+      </SelectTrigger>
+      <SelectContent>
+        {batches.map((batch) => (
+          <SelectItem key={batch.id} value={batch.batchNumber}>
+            {batch.batchNumber} · {batch.quantity} units
+            {batch.expiryDate ? ` · expires ${formatDate(batch.expiryDate)}` : ""}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ActionField({
+  children,
+  error,
+  hint,
+  label
+}: {
+  children: ReactNode;
+  error?: string;
+  hint?: string;
+  label: string;
+}) {
+  return (
+    <div className="inventoryActionField">
+      <span className="inventoryActionLabel">{label}</span>
+      {children}
+      {hint && !error ? <span className="helperText">{hint}</span> : null}
+      {error ? <span className="fieldError">{error}</span> : null}
+    </div>
+  );
+}
+
+function MovementLogPanel({
+  filters,
+  onFiltersChange,
+  showWarehouseColumn
+}: {
+  filters: InventoryFilters;
+  onFiltersChange: (filters: InventoryFilters) => void;
+  showWarehouseColumn: boolean;
+}) {
+  const { api } = useAdminSession();
+  const [page, setPage] = useState(1);
+  const [searchDraft, setSearchDraft] = useState(filters.search);
+  const query = useMemo(
+    () => buildStockMovementQuery(filters, page, INVENTORY_PAGE_SIZE),
+    [filters, page]
+  );
+  const movementsQuery = useQuery<PaginatedResponse<StockMovement>>({
+    placeholderData: (previous) => previous,
+    queryFn: ({ signal }) =>
+      api.request<PaginatedResponse<StockMovement>>("/admin/inventory/movements", { query, signal }),
+    queryKey: ["admin", "inventory", "movements", query]
+  });
+  const movements = movementsQuery.data?.items ?? [];
+  const pagination = movementsQuery.data?.pagination;
+  const filterScope = JSON.stringify({ ...filters, search: "" });
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterScope]);
+
+  useEffect(() => {
+    setSearchDraft(filters.search);
+  }, [filters.search]);
+
+  return (
+    <Card className="panel mt-3 inventorySectionPanel inventoryTablePanel">
+      <PageHeader
+        className="inventorySectionHeader"
+        eyebrow="Movement log"
+        level={2}
+        title="Every stock change, newest first"
+      />
+      <div className="inventoryToolbar">
+        <div aria-label="Movement type" className="inventorySegmented" role="group">
+          {MOVEMENT_FILTERS.map((option) => (
+            <Button
+              aria-pressed={filters.movementType === option.value}
+              key={option.value || "all"}
+              onClick={() => onFiltersChange({ ...filters, movementType: option.value })}
+              size="sm"
+              type="button"
+              variant={filters.movementType === option.value ? "default" : "outline"}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        <form
+          className="inventorySearchForm"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onFiltersChange({ ...filters, search: searchDraft.trim().slice(0, 160) });
+          }}
+          role="search"
+        >
+          <span className="searchInput">
+            <Search aria-hidden size={16} />
+            <Input
+              aria-label="Search movements by product name or SKU"
+              maxLength={160}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Product name or SKU"
+              value={searchDraft}
+            />
+          </span>
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+        </form>
+        <ActiveInventoryFilters filters={filters} onChange={onFiltersChange} />
+      </div>
+      {movementsQuery.isLoading ? <LoadingState label="Loading movement log..." /> : null}
+      {movementsQuery.isError ? (
+        <p className="formError" role="alert">
+          {getErrorMessage(movementsQuery.error) ?? "Unable to load stock movements."}
+        </p>
+      ) : null}
+      {!movementsQuery.isLoading && !movementsQuery.isError ? (
+        <MovementTable movements={movements} showWarehouseColumn={showWarehouseColumn} />
+      ) : null}
+      {pagination ? (
+        <PaginationControls
+          isPending={movementsQuery.isFetching && !movementsQuery.isLoading}
+          onChange={setPage}
+          page={pagination.page}
+          pageSize={pagination.limit}
+          totalItems={pagination.total}
+          totalPages={pagination.totalPages}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function MovementTable({
+  movements,
+  showWarehouseColumn
+}: {
+  movements: StockMovement[];
+  showWarehouseColumn: boolean;
 }) {
   if (movements.length === 0) {
     return (
       <EmptyState
-        body="No stock movements match the selected filters."
+        body="No stock movements match these filters."
         title="No movements found"
       />
     );
@@ -1629,34 +1767,47 @@ function MovementTable({
     <div className="inventoryTableShell">
       <p className="inventoryTableHint">Swipe sideways to view every movement column.</p>
       <div className="brandTableScroll inventoryTableScroll">
-        <Table className="brandDataTable inventoryDataTable inventoryMovementDataTable">
+        <Table aria-label="Stock movements" className="brandDataTable inventoryDataTable inventoryMovementDataTable">
           <TableHeader>
             <TableRow>
-              <TableHead>Time</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>When</TableHead>
+              <TableHead>What happened</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Reason / reference</TableHead>
+              {showWarehouseColumn ? <TableHead>Warehouse</TableHead> : null}
+              <TableHead>Batch</TableHead>
+              <TableHead>Change</TableHead>
+              <TableHead>Recorded by</TableHead>
+              <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.map((movement) => (
-              <TableRow key={movement.id}>
-                <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
-                <TableCell>{formatMovementType(movement.type)}</TableCell>
-                <TableCell>
-                  {productLabel(products, movement.productId, movement.variantId)}
-                </TableCell>
-                <TableCell>
-                  {warehouseLabel(warehouses, movement.warehouseId)}
-                </TableCell>
-                <TableCell>{movement.quantity}</TableCell>
-                <TableCell>
-                  {movement.notes || formatMovementReference(movement) || "-"}
-                </TableCell>
-              </TableRow>
-            ))}
+            {movements.map((movement) => {
+              const change = getMovementNetQuantity(movement);
+
+              return (
+                <TableRow key={movement.id}>
+                  <TableCell>{formatDateTime(movement.createdAt)}</TableCell>
+                  <TableCell>
+                    <strong>{describeMovement(movement)}</strong>
+                  </TableCell>
+                  <TableCell>
+                    {formatStockItemName(movement)}
+                    {movement.product ? <span className="tableSubtext">{movement.product.sku}</span> : null}
+                  </TableCell>
+                  {showWarehouseColumn ? (
+                    <TableCell>{movement.warehouse?.name ?? movement.warehouseId}</TableCell>
+                  ) : null}
+                  <TableCell>{movement.batchNumber ?? "-"}</TableCell>
+                  <TableCell>
+                    <span className="inventoryChange" data-direction={change > 0 ? "in" : change < 0 ? "out" : "none"}>
+                      {formatSignedQuantity(change)}
+                    </span>
+                  </TableCell>
+                  <TableCell>{movement.createdBy?.name ?? "System"}</TableCell>
+                  <TableCell>{movement.notes || "-"}</TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -1664,43 +1815,16 @@ function MovementTable({
   );
 }
 
-function productLabel(
-  products: AdminProduct[],
-  productId: string,
-  variantId: string | null
-) {
-  const product = products.find((item) => item.id === productId);
-  const variant = product?.variants.find((item) => item.id === variantId);
-
-  if (!product) {
-    return productId;
-  }
-
-  return variant ? `${product.name} - ${variant.name}` : product.name;
+function warehouseName(warehouses: AdminWarehouse[], warehouseId: string) {
+  return warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? warehouseId;
 }
 
-function warehouseLabel(warehouses: AdminWarehouse[], warehouseId: string) {
-  return (
-    warehouses.find((warehouse) => warehouse.id === warehouseId)?.name ?? warehouseId
-  );
-}
-
-function getProductVariants(products: AdminProduct[], productId: string) {
-  return products.find((product) => product.id === productId)?.variants ?? [];
-}
-
-function stockKey(
-  stock: Pick<InventoryStock, "productId" | "variantId" | "warehouseId">
-) {
-  return `${stock.productId}:${stock.variantId ?? ""}:${stock.warehouseId}`;
-}
-
-function batchKey(batch: Pick<StockBatch, "productId" | "variantId" | "warehouseId">) {
-  return `${batch.productId}:${batch.variantId ?? ""}:${batch.warehouseId}`;
+function pick<T extends object, K extends keyof T>(value: T, keys: K[]) {
+  return Object.fromEntries(keys.map((key) => [key, value[key]])) as Pick<T, K>;
 }
 
 function formatDate(value: Date | string | null) {
-  return value ? new Date(value).toLocaleDateString("en-IN") : "-";
+  return value ? new Date(value).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "-";
 }
 
 function formatDateTime(value: Date | string | null | undefined) {
@@ -1719,19 +1843,6 @@ function formatDateTime(value: Date | string | null | undefined) {
   });
 }
 
-function formatMovementReference(
-  movement: Pick<StockMovement, "referenceId" | "referenceType">
-) {
-  if (!movement.referenceType) {
-    return movement.referenceId;
-  }
-
-  const referenceType = movement.referenceType.toLowerCase().replaceAll("_", " ");
-  return movement.referenceId
-    ? `${referenceType} ${movement.referenceId}`
-    : referenceType;
-}
-
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 2,
@@ -1742,13 +1853,14 @@ function formatCurrency(value: number) {
   return currencyFormatter.format(value);
 }
 
-function getFieldErrors<TFields extends Record<string, unknown>>(error: z.ZodError) {
+/** Maps zod issues to form fields, renaming schema keys where the form calls them something else. */
+function getFieldErrors(error: z.ZodError, rename: Record<string, string> = {}) {
   const flattened = error.flatten().fieldErrors as Record<string, string[] | undefined>;
-  const errors: Partial<Record<keyof TFields, string>> = {};
+  const errors: FieldErrors = {};
 
   for (const [field, messages] of Object.entries(flattened)) {
     if (messages?.[0]) {
-      errors[field as keyof TFields] = messages[0];
+      errors[rename[field] ?? field] = messages[0];
     }
   }
 

@@ -6,7 +6,9 @@ import {
   orderBulkActions,
   productBulkActions
 } from "./bulk-module-actions";
+import { AdminApiClientError } from "./admin-api";
 import { processBulkRows } from "./bulk-actions";
+import type { DispatchQueueOrder } from "./delivery-management";
 import type { AdminOrder } from "./order-management";
 import type { AdminProduct } from "./product-form";
 import type { AdminProductFeedback } from "./support-management";
@@ -19,6 +21,8 @@ const order = (id: string, status: AdminOrder["status"] = "CREATED") =>
     warehouseId: "w1",
     invoice: null
   }) as AdminOrder;
+const dispatchOrder = (id: string, status: DispatchQueueOrder["status"] = "PACKED") =>
+  ({ id, orderNumber: `QA-${id}`, status, warehouseId: "w1" }) as DispatchQueueOrder;
 const product = {
   id: "p1",
   status: "ACTIVE",
@@ -185,9 +189,7 @@ describe("module bulk contracts", () => {
 
   it("uses the pickup override for eligible orders and skips assigned orders", async () => {
     const client = api();
-    client.request.mockImplementation(async (_path, init) =>
-      init?.method ? {} : order("1", "PACKED")
-    );
+    client.request.mockResolvedValue({});
     const action = deliveryBulkAction(
       client,
       { deliveryPartnerId: "d1", pickupWarehouseId: "w1", note: "Dispatch QA" },
@@ -196,9 +198,9 @@ describe("module bulk contracts", () => {
     );
     const results = await processBulkRows(
       [
-        order("1", "PACKED"),
-        { ...order("2", "CONFIRMED"), warehouseId: "w2" },
-        order("3", "ASSIGNED")
+        dispatchOrder("1", "PACKED"),
+        { ...dispatchOrder("2", "CONFIRMED"), warehouseId: "w2" },
+        dispatchOrder("3", "ASSIGNED")
       ],
       action
     );
@@ -208,11 +210,50 @@ describe("module bulk contracts", () => {
       "skipped"
     ]);
     expect(
-      action.skipReason({ ...order("4", "CONFIRMED"), warehouseId: null })
+      action.skipReason({ ...dispatchOrder("4", "CONFIRMED"), warehouseId: null })
     ).toBeNull();
+    // Queue rows come from the dispatch queue, so no order read access is needed to assign them.
+    expect(client.request).toHaveBeenCalledTimes(2);
     expect(client.request).toHaveBeenLastCalledWith("/admin/delivery/assign", {
       method: "POST",
       body: '{"orderId":"2","deliveryPartnerId":"d1","pickupWarehouseId":"w1","note":"Dispatch QA"}'
     });
+  });
+
+  it("skips orders dispatched since the queue loaded but reports other refusals", async () => {
+    const client = api();
+    client.request.mockImplementation(async (_path, init) => {
+      const { orderId } = JSON.parse(String(init?.body)) as { orderId: string };
+
+      if (orderId === "taken") {
+        throw new AdminApiClientError("Order is no longer available for assignment.", 409);
+      }
+      if (orderId === "moved") {
+        throw new AdminApiClientError(
+          "Order can be assigned only after it is confirmed or packed.",
+          400
+        );
+      }
+      throw new AdminApiClientError(
+        "Delivery partner is not assigned to the pickup warehouse.",
+        400
+      );
+    });
+    const action = deliveryBulkAction(
+      client,
+      { deliveryPartnerId: "d1", pickupWarehouseId: "", note: "" },
+      "QA Partner",
+      ""
+    );
+    const results = await processBulkRows(
+      [dispatchOrder("taken"), dispatchOrder("moved"), dispatchOrder("elsewhere")],
+      action
+    );
+
+    expect(results.map((result) => [result.status, result.message])).toEqual([
+      ["skipped", "This order is no longer waiting for dispatch."],
+      ["skipped", "This order is no longer waiting for dispatch."],
+      ["failed", "Delivery partner is not assigned to the pickup warehouse."]
+    ]);
   });
 });

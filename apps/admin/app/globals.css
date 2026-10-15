@@ -2036,23 +2036,24 @@ h2 {
 }
 
 .productDataTable {
-  min-width: 1340px;
+  min-width: 1520px;
   table-layout: fixed !important;
   width: 100% !important;
 }
 
 .adminTableViewport [data-slot="table"].productDataTable {
-  min-width: 1340px !important;
+  min-width: 1520px !important;
   table-layout: fixed !important;
   width: 100% !important;
 }
 
+/* Fixed layout takes column widths from these <col> classes, with or without the bulk column. */
 .productTableProductColumn {
   width: 320px;
 }
 
 .productTableSkuColumn {
-  width: 260px;
+  width: 200px;
 }
 
 .productTableCategoryColumn {
@@ -2068,52 +2069,16 @@ h2 {
   width: 110px;
 }
 
-.productTableFlagsColumn {
+.productTableStockColumn {
   width: 150px;
+}
+
+.productTableWarehousesColumn {
+  width: 200px;
 }
 
 .productTableActionsColumn {
   width: 90px;
-}
-
-.adminTableViewport .productDataTable th:nth-child(1),
-.adminTableViewport .productDataTable td:nth-child(1) {
-  width: 320px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(2),
-.adminTableViewport .productDataTable td:nth-child(2) {
-  width: 260px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(3),
-.adminTableViewport .productDataTable td:nth-child(3) {
-  width: 180px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(4),
-.adminTableViewport .productDataTable td:nth-child(4) {
-  width: 120px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(5),
-.adminTableViewport .productDataTable td:nth-child(5) {
-  width: 110px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(6),
-.adminTableViewport .productDataTable td:nth-child(6) {
-  width: 110px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(7),
-.adminTableViewport .productDataTable td:nth-child(7) {
-  width: 150px !important;
-}
-
-.adminTableViewport .productDataTable th:nth-child(8),
-.adminTableViewport .productDataTable td:nth-child(8) {
-  width: 90px !important;
 }
 
 .adminTableViewport .productDataTable td:first-child,

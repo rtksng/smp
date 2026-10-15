@@ -95,9 +95,9 @@ describe("admin navigation", () => {
     ]).find((item) => item.href === "/inventory");
 
     expect(inventoryItem?.children?.map((item) => item.label)).toEqual([
-      "Overview",
+      "Stock levels",
       "Stock actions",
-      "Movements"
+      "Movement log"
     ]);
   });
 

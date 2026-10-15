@@ -1,6 +1,7 @@
 import type { BulkAction } from "@/components/admin/bulk-actions";
-import type { AdminApiClient } from "./admin-api";
+import { AdminApiClientError, type AdminApiClient } from "./admin-api";
 import { BulkSkip } from "./bulk-actions";
+import type { DispatchQueueOrder } from "./delivery-management";
 import {
   canAssignDelivery,
   canCancelOrder,
@@ -228,8 +229,8 @@ export function deliveryBulkAction(
   values: { deliveryPartnerId: string; pickupWarehouseId: string; note: string },
   partnerName: string,
   warehouseName: string
-): BulkAction<AdminOrder> {
-  const skipReason = (order: AdminOrder) =>
+): BulkAction<DispatchQueueOrder> {
+  const skipReason = (order: Pick<DispatchQueueOrder, "status">) =>
     !canAssignDelivery(order.status)
       ? "Only confirmed or packed orders can be assigned."
       : null;
@@ -243,20 +244,35 @@ export function deliveryBulkAction(
         : "Choose an active delivery partner.",
     skipReason,
     execute: async (order) => {
-      const current = await api.request<AdminOrder>(`/admin/orders/${order.id}`);
-      const reason = skipReason(current);
+      const reason = skipReason(order);
       if (reason) throw new BulkSkip(reason);
-      return api.request("/admin/delivery/assign", {
-        method: "POST",
-        body: JSON.stringify({
-          orderId: order.id,
-          deliveryPartnerId: values.deliveryPartnerId,
-          ...(values.pickupWarehouseId
-            ? { pickupWarehouseId: values.pickupWarehouseId }
-            : {}),
-          ...(values.note.trim() ? { note: values.note.trim() } : {})
-        })
-      });
+      try {
+        return await api.request("/admin/delivery/assign", {
+          method: "POST",
+          body: JSON.stringify({
+            orderId: order.id,
+            deliveryPartnerId: values.deliveryPartnerId,
+            ...(values.pickupWarehouseId
+              ? { pickupWarehouseId: values.pickupWarehouseId }
+              : {}),
+            ...(values.note.trim() ? { note: values.note.trim() } : {})
+          })
+        });
+      } catch (error) {
+        // The API re-checks the order, so one dispatched or moved since the list loaded is skipped.
+        if (isOrderNoLongerAssignable(error)) {
+          throw new BulkSkip("This order is no longer waiting for dispatch.");
+        }
+        throw error;
+      }
     }
   };
+}
+
+function isOrderNoLongerAssignable(error: unknown) {
+  return (
+    error instanceof AdminApiClientError &&
+    (error.status === 409 ||
+      (error.status === 400 && error.message.includes("confirmed or packed")))
+  );
 }

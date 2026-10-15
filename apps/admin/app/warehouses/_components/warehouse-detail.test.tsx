@@ -6,6 +6,7 @@ import { AdminApiClientError } from "../../../lib/admin-api";
 import { WarehouseDetailContent } from "./warehouse-detail";
 
 const access = vi.hoisted(() => ({
+  isSuperAdmin: true,
   permissions: new Set<string>(),
   request: vi.fn()
 }));
@@ -14,7 +15,8 @@ vi.mock("../../../lib/admin-session", () => ({
   ProtectedRoute: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAdminSession: () => ({
     api: { request: access.request },
-    hasPermission: (permission: string) => access.permissions.has(permission)
+    hasPermission: (permission: string) => access.permissions.has(permission),
+    isSuperAdmin: access.isSuperAdmin
   })
 }));
 
@@ -96,6 +98,7 @@ const clients: QueryClient[] = [];
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
+  access.isSuperAdmin = true;
   access.permissions.clear();
   access.request.mockReset();
 });
@@ -111,9 +114,14 @@ describe("Warehouse detail", () => {
     expect(within(details).getByText("PUN-01")).toBeInTheDocument();
     expect(within(details).getByText("18.52, 73.85")).toBeInTheDocument();
     expect(within(details).getByText(warehouseId)).toBeInTheDocument();
-    await waitFor(() => expect(metricValue("Products")).toBe("3"));
+    await waitFor(() => expect(metricValue("Assigned products")).toBe("3"));
     expect(metricValue("Low stock")).toBe("2");
+    expect(metricValue("Out of stock")).toBe("1");
     expect(metricValue("Expiring in 30 days")).toBe("4");
+    expect(access.request).toHaveBeenCalledWith(
+      "/admin/inventory/summary",
+      expect.objectContaining({ query: { days: 30, warehouseId } })
+    );
     await waitFor(() => expect(metricValue("Assigned staff")).toBe("1"));
     await waitFor(() => expect(metricValue("Delivery partners")).toBe("1"));
 
@@ -196,7 +204,8 @@ describe("Warehouse detail", () => {
     const shortcuts = screen.getByRole("navigation", { name: "Warehouse shortcuts" });
     expect(within(shortcuts).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       `/inventory?warehouseId=${warehouseId}`,
-      `/inventory?lowStock=true&warehouseId=${warehouseId}`,
+      `/inventory?stockStatus=LOW_STOCK&warehouseId=${warehouseId}`,
+      `/inventory?stockStatus=OUT_OF_STOCK&warehouseId=${warehouseId}`,
       `/inventory?nearExpiry=true&nearExpiryDays=30&warehouseId=${warehouseId}`,
       `/inventory/movements?warehouseId=${warehouseId}`,
       `/orders?warehouseId=${warehouseId}`,
@@ -213,13 +222,27 @@ describe("Warehouse detail", () => {
     expect(screen.getByRole("link", { name: "Back to warehouses" })).toHaveAttribute("href", "/warehouses");
   });
 
+  it("offers editing only to the super admin and links report readers to the operations dashboard", async () => {
+    access.isSuperAdmin = false;
+    grant([...ALL_PERMISSIONS, "reports.read"]);
+    mockApi();
+    renderDetail();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Pune Central" })).toBeInTheDocument();
+    // Only the super admin configures warehouses, even if an old role still lists warehouse.manage.
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("navigation", { name: "Warehouse shortcuts" })).getByRole("link", {
+        name: "Operations dashboard"
+      })
+    ).toHaveAttribute("href", `/dashboard/warehouse?warehouseId=${warehouseId}`);
+  });
+
   it("searches and pages the warehouse's products without reloading the KPI totals", async () => {
     grant(["warehouse.read", "inventory.read", "products.read"]);
     mockApi({
       "/admin/inventory": ({ query }) =>
-        query?.limit === 1
-          ? listPage([stock(1)], 1, 45, 1)
-          : listPage([stock(query?.page === 2 ? 21 : 1)], Number(query?.page), 45)
+        listPage([stock(query?.page === 2 ? 21 : 1)], Number(query?.page), 45)
     });
     renderDetail();
 
@@ -241,11 +264,7 @@ describe("Warehouse detail", () => {
       "/admin/inventory",
       expect.objectContaining({ query: { limit: 20, page: 2, search: "forceps", warehouseId } })
     );
-    expect(
-      access.request.mock.calls.filter(
-        ([path, options]) => path === "/admin/inventory" && options?.query?.limit === 1
-      )
-    ).toHaveLength(1);
+    expect(countCalls("/admin/inventory/summary")).toBe(1);
   });
 
   it("loads only what an inventory manager may see", async () => {
@@ -263,11 +282,17 @@ describe("Warehouse detail", () => {
         "Delivery partners unavailable"
       )
     ).toBeInTheDocument();
-    expect(shortcutLabels()).toEqual(["Stock overview", "Low stock", "Near expiry", "Stock movements"]);
+    expect(shortcutLabels()).toEqual([
+      "Stock overview",
+      "Low stock",
+      "Out of stock",
+      "Near expiry",
+      "Stock movements"
+    ]);
     expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
     await waitFor(() => expect(metricValue("Low stock")).toBe("2"));
     expect(requestedPaths()).toEqual(
-      new Set([detailPath, "/admin/inventory", "/admin/inventory/low-stock", "/admin/inventory/near-expiry"])
+      new Set([detailPath, "/admin/inventory", "/admin/inventory/summary"])
     );
   });
 
@@ -315,6 +340,9 @@ describe("Warehouse detail", () => {
       "/admin/delivery-partners": () => listPage([], 1, 0, 10),
       "/admin/inventory": () => {
         throw new Error("Inventory is temporarily unavailable.");
+      },
+      "/admin/inventory/summary": () => {
+        throw new Error("Inventory is temporarily unavailable.");
       }
     });
     renderDetail();
@@ -329,7 +357,7 @@ describe("Warehouse detail", () => {
         "No delivery partners assigned"
       )
     ).toBeInTheDocument();
-    await waitFor(() => expect(metricValue("Products")).toBe("-"));
+    await waitFor(() => expect(metricValue("Assigned products")).toBe("-"));
     expect(metricValue("Delivery partners")).toBe("0");
   });
 
@@ -339,12 +367,12 @@ describe("Warehouse detail", () => {
     renderDetail();
 
     await within(await screen.findByRole("region", { name: "Products" })).findByText("Product 1");
-    await waitFor(() => expect(countCalls("/admin/inventory/near-expiry")).toBe(1));
+    await waitFor(() => expect(countCalls("/admin/inventory/summary")).toBe(1));
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(countCalls(detailPath)).toBe(2));
-    await waitFor(() => expect(countCalls("/admin/inventory/near-expiry")).toBe(2));
+    await waitFor(() => expect(countCalls("/admin/inventory/summary")).toBe(2));
     expect(requestedPaths()).toEqual(
-      new Set([detailPath, "/admin/inventory", "/admin/inventory/low-stock", "/admin/inventory/near-expiry"])
+      new Set([detailPath, "/admin/inventory", "/admin/inventory/summary"])
     );
   });
 
@@ -370,23 +398,30 @@ function mockApi(overrides: Record<string, Route> = {}) {
     [`${detailPath}/staff`]: () => staff,
     "/admin/delivery-partners": () => listPage([partner], 1, 1, 10),
     "/admin/inventory": ({ query }) =>
-      query?.limit === 1
-        ? listPage([stock(1)], 1, 3, 1)
-        : listPage(
-            [
-              stock(1),
-              stock(2, { availableQuantity: 2 }),
-              stock(3, {
-                availableQuantity: 0,
-                variant: { id: "variant-3", name: "Size 6", sku: "SKU-3-6" },
-                variantId: "variant-3"
-              })
-            ],
-            Number(query?.page ?? 1),
-            3
-          ),
-    "/admin/inventory/low-stock": () => listPage([stock(2)], 1, 2, 1),
-    "/admin/inventory/near-expiry": () => listPage([], 1, 4, 1),
+      listPage(
+        [
+          stock(1),
+          stock(2, { availableQuantity: 2 }),
+          stock(3, {
+            availableQuantity: 0,
+            variant: { id: "variant-3", name: "Size 6", sku: "SKU-3-6" },
+            variantId: "variant-3"
+          })
+        ],
+        Number(query?.page ?? 1),
+        3
+      ),
+    "/admin/inventory/summary": () => ({
+      assignedProducts: 3,
+      availableUnits: 12,
+      inStockItems: 1,
+      lowStockItems: 2,
+      nearExpiryBatches: 4,
+      nearExpiryDays: 30,
+      outOfStockItems: 1,
+      reservedUnits: 3,
+      trackedItems: 4
+    }),
     ...overrides
   };
 

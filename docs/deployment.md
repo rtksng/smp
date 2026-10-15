@@ -144,10 +144,12 @@ The worker should run at least one instance in production. Scale horizontally on
 
 ## Warehouse Operations Checklist
 
-- Create warehouses before receiving stock.
+- Create warehouses before receiving stock. Only the super admin can create or configure them.
 - Assign non-super-admin warehouse staff before expecting scoped access.
+- Assign each product to the warehouses that carry it before receiving stock there. Stock actions and checkout use only assigned warehouses.
+- After deploying the `20261015000100_warehouse_scoped_operations` migration, check that every product is assigned where expected. The migration assigns products only to warehouses that already hold their stock, batches, or movements. It also removes `warehouse.manage` from roles other than `SUPER_ADMIN`; admins see the change after their next login or token refresh.
 - Prefer deactivate over delete; delete is blocked when inventory, batches, or movements exist.
-- Use stock-in for new receipts and signed adjustment for corrections.
+- Use stock-in for new receipts, stock-out with a reason for damaged, expired, or used units, and count corrections for physical count differences.
 - Use transfer for warehouse-to-warehouse movement so paired stock movements share a reference.
 - Review low-stock and near-expiry queues daily.
 - Audit `AdminAuditLog` and `StockMovement` during stock discrepancy investigations.

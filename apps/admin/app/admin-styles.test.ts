@@ -268,12 +268,12 @@ describe("admin layout styles", () => {
     expect(globalsCss).toMatch(
       /\*::-webkit-scrollbar\s*{[^}]*height:\s*8px;[^}]*width:\s*8px;/s
     );
-    expect(globalsCss).toMatch(/\.productDataTable\s*{[^}]*min-width:\s*1340px;/s);
+    expect(globalsCss).toMatch(/\.productDataTable\s*{[^}]*min-width:\s*1520px;/s);
     expect(globalsCss).toMatch(/\.productTableProductColumn\s*{[^}]*width:\s*320px;/s);
-    expect(globalsCss).toMatch(/\.productTableFlagsColumn\s*{[^}]*width:\s*150px;/s);
-    expect(globalsCss).toMatch(
-      /\.adminTableViewport \.productDataTable th:nth-child\(1\),[\s\S]*?\.adminTableViewport \.productDataTable td:nth-child\(1\)\s*{[^}]*width:\s*320px !important;/s
-    );
+    expect(globalsCss).toMatch(/\.productTableStockColumn\s*{[^}]*width:\s*150px;/s);
+    expect(globalsCss).toMatch(/\.productTableWarehousesColumn\s*{[^}]*width:\s*200px;/s);
+    // Column widths come from <col> classes, so the optional bulk column cannot shift them.
+    expect(globalsCss).not.toMatch(/\.productDataTable t[hd]:nth-child/);
     expect(globalsCss).toMatch(
       /\.adminTableViewport \[data-slot="table"\]\.productDataTable\s*{[^}]*table-layout:\s*fixed !important;/s
     );
