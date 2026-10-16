@@ -8,6 +8,7 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import type { CustomerEmailEvent } from "@surgical/types";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import {
@@ -26,6 +27,10 @@ import {
 } from "../../generated/prisma/enums";
 import { Prisma } from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
+import {
+  CustomerEmailNotifier,
+  emailMoney
+} from "../../queues/customer-email.notifier";
 import type { AuthJwtPayload } from "../auth/common/auth-token.service";
 import { PermissionCode } from "../permissions/permissions.constants";
 import {
@@ -89,6 +94,12 @@ const PARTNER_INCLUDE = {
     where: { warehouse: { deletedAt: null } }
   }
 } as const satisfies Prisma.DeliveryPartnerInclude;
+
+type DeliveryCustomerEmail = {
+  customerId: string;
+  dedupeKey: string;
+  event: CustomerEmailEvent;
+};
 
 const ASSIGNMENT_INCLUDE = {
   deliveryPartner: {
@@ -218,7 +229,8 @@ export class DeliveryService {
     private readonly prisma: PrismaService,
     private readonly warehouseAccessService: WarehouseAccessService,
     @Optional() private readonly apiQueueService?: ApiQueueService,
-    @Optional() private readonly configService?: ConfigService
+    @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
   ) {}
 
   async listAdminDeliveryPartners(
@@ -569,9 +581,22 @@ export class DeliveryService {
 
       return {
         assignment: serializedAssignment,
+        customerId: order.userId,
         notificationId: notification?.id ?? null
       };
     });
+
+    // A reassignment after a failed attempt is a new assignment, so it emails again.
+    await this.customerEmails?.notifyCustomer(
+      result.customerId,
+      {
+        orderId: result.assignment.orderId,
+        orderNumber: result.assignment.orderNumber,
+        status: "ASSIGNED",
+        template: "order-progress"
+      },
+      `order-progress:${result.assignment.orderId}:ASSIGNED:${result.assignment.id}`
+    );
 
     if (!this.apiQueueService || !result.notificationId) {
       return result.assignment;
@@ -1385,7 +1410,8 @@ export class DeliveryService {
     assignmentId: string,
     input: UpdateDeliveryAssignmentStatusDto
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    let customerEmails: DeliveryCustomerEmail[] = [];
+    const updated = await this.prisma.$transaction(async (tx) => {
       const partner = await this.findPartnerById(tx, deliveryPartnerId, {
         requireActive: true
       });
@@ -1443,8 +1469,75 @@ export class DeliveryService {
         await this.creditDeliveryCommission(tx, partner, assignment);
       }
 
+      // Only set on a real transition; replayed updates return above and send nothing.
+      customerEmails = this.buildDeliveryCustomerEmails(assignment, input);
+
       return this.serializeAssignment(await this.findAssignmentById(tx, assignment.id));
     });
+
+    for (const email of customerEmails) {
+      await this.customerEmails?.notifyCustomer(email.customerId, email.event, email.dedupeKey);
+    }
+
+    return updated;
+  }
+
+  private buildDeliveryCustomerEmails(
+    assignment: DeliveryAssignmentRecord,
+    input: UpdateDeliveryAssignmentStatusDto
+  ): DeliveryCustomerEmail[] {
+    const { order } = assignment;
+    const customerId = order.user.id;
+
+    if (input.status === DeliveryStatus.OUT_FOR_DELIVERY) {
+      return [
+        {
+          customerId,
+          dedupeKey: `order-progress:${order.id}:OUT_FOR_DELIVERY:${assignment.id}`,
+          event: {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            status: "OUT_FOR_DELIVERY",
+            template: "order-progress"
+          }
+        }
+      ];
+    }
+
+    if (input.status !== DeliveryStatus.DELIVERED) {
+      return [];
+    }
+
+    const emails: DeliveryCustomerEmail[] = [
+      {
+        customerId,
+        dedupeKey: `order-progress:${order.id}:DELIVERED`,
+        event: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: "DELIVERED",
+          template: "order-progress"
+        }
+      }
+    ];
+    const codPayment = order.payments[0];
+
+    if (codPayment && this.assignmentRequiresCodCollection(assignment)) {
+      emails.push({
+        customerId,
+        dedupeKey: `payment-result:${codPayment.id}:PAID`,
+        event: {
+          amount: emailMoney(codPayment.amount),
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentReference: null,
+          status: "PAID",
+          template: "payment-result"
+        }
+      });
+    }
+
+    return emails;
   }
 
   /** Credits commission-based partners for a completed delivery, using their pay at delivery time. */

@@ -5,6 +5,7 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import type { CartService } from "../../src/modules/cart/cart.service";
 import type { OrdersService } from "../../src/modules/orders/orders.service";
 import { QuoteRequestsService } from "../../src/modules/quote-requests/quote-requests.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { SendQuoteResponseDto } from "../../src/modules/quote-requests/dto/quote-request.dto";
@@ -541,3 +542,55 @@ function matchesWhere(log: Record<string, unknown>, where: Record<string, unknow
 
   return true;
 }
+
+test("quote emails go to the request's email address, including revisions", async () => {
+  const prisma = createQuoteRequestsPrismaMock();
+  const { notifier, sent } = createRecordingNotifier();
+  const service = new QuoteRequestsService(
+    prisma as unknown as PrismaService,
+    createCartServiceMock(prisma) as unknown as CartService,
+    undefined,
+    notifier
+  );
+
+  await service.createQuoteRequest({
+    email: "Asha@Example.com",
+    message: "Need 20 forceps for Mumbai",
+    mobileNumber: "+919876543210",
+    name: "Dr Asha Rao",
+    organization: null
+  });
+  const quotation = {
+    items: [{ name: "Artery forceps", quantity: 20, sku: "FORCEPS-001", taxRate: 12, unitPrice: 250 }],
+    notes: "Includes sterilisation pouches.",
+    shippingTotal: 100
+  };
+  await service.sendAdminQuotation("quote-1", quotation);
+  await service.sendAdminQuotation("quote-1", { ...quotation, shippingTotal: 0 });
+
+  assert.deepEqual(sent[0], {
+    customerId: null,
+    dedupeKey: "quote-received:quote-1",
+    email: "asha@example.com",
+    event: {
+      quoteReference: "quote-1",
+      requestSummary: "Need 20 forceps for Mumbai",
+      submittedAt: now.toISOString(),
+      template: "quote-received"
+    }
+  });
+  const first = sent[1]?.event;
+  const revised = sent[2]?.event;
+  assert.ok(first?.template === "quotation-available");
+  assert.ok(revised?.template === "quotation-available");
+  assert.equal(first.revised, false);
+  assert.equal(revised.revised, true);
+  assert.deepEqual(first.items, [
+    { lineTotal: "5000.00", name: "Artery forceps", quantity: 20, unitPrice: "250.00" }
+  ]);
+  assert.equal(first.subtotal, "5000.00");
+  assert.equal(first.taxTotal, "600.00");
+  assert.equal(first.grandTotal, "5700.00");
+  assert.equal(first.quotationNote, "Includes sterilisation pouches.");
+  assert.equal(sent[1]?.email, "asha@example.com");
+})

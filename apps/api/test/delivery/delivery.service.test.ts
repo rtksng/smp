@@ -16,6 +16,7 @@ import { AdminRoleCode } from "../../src/modules/roles/roles.constants";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
 
 import { adminAuth, FakeWarehouseAccess, createDeliveryPrismaMock, now } from "./delivery.fixture";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 
 test("listAdminDeliveryPartners returns profiles with documents, online state, and wallet placeholders", async () => {
   const prisma = createDeliveryPrismaMock();
@@ -767,4 +768,51 @@ test("listDispatchQueue lists ready orders for the admin's warehouses, oldest fi
     () => service.listDispatchQueue({ warehouseId: "warehouse-2" }, adminAuth()),
     /not assigned to this warehouse/
   );
+});
+
+test("delivery emails cover assignment, out for delivery, delivery, and COD receipt once", async () => {
+  const prisma = createDeliveryPrismaMock({ orderStatus: "PACKED" });
+  const { notifier, sent } = createRecordingNotifier();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    undefined,
+    undefined,
+    notifier
+  );
+
+  const assignment = await service.assignOrder(
+    { deliveryPartnerId: "partner-1", orderId: "order-1", pickupWarehouseId: "warehouse-1" },
+    { auth: adminAuth(), ipAddress: "127.0.0.1", userAgent: "node-test" }
+  );
+  assert.equal(sent[0]?.dedupeKey, `order-progress:order-1:ASSIGNED:${assignment.id}`);
+
+  const statusPrisma = createDeliveryPrismaMock({ orderStatus: "ASSIGNED" });
+  const statusEmails = createRecordingNotifier();
+  const statusService = new DeliveryService(
+    statusPrisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    undefined,
+    undefined,
+    statusEmails.notifier
+  );
+  for (const status of ["ACCEPTED", "PICKED_UP", "OUT_FOR_DELIVERY"] as const) {
+    await statusService.updateAssignmentStatus("partner-1", "assignment-1", { status });
+  }
+  const delivered = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
+  await statusService.updateAssignmentStatus("partner-1", "assignment-1", delivered);
+  await statusService.updateAssignmentStatus("partner-1", "assignment-1", delivered);
+
+  assert.deepEqual(
+    statusEmails.sent.map(({ dedupeKey, event }) => [event.template, dedupeKey]),
+    [
+      ["order-progress", "order-progress:order-1:OUT_FOR_DELIVERY:assignment-1"],
+      ["order-progress", "order-progress:order-1:DELIVERED"],
+      ["payment-result", statusEmails.sent[2]?.dedupeKey]
+    ]
+  );
+  const receipt = statusEmails.sent[2]?.event;
+  assert.ok(receipt?.template === "payment-result");
+  assert.equal(receipt.status, "PAID");
+  assert.match(statusEmails.sent[2]?.dedupeKey ?? "", /^payment-result:.+:PAID$/);
 });

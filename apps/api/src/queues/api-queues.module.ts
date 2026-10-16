@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { QUEUE_NAMES } from "@surgical/config";
 import type { RedisOptions } from "ioredis";
 import { ApiQueueService } from "./api-queue.service";
+import { CustomerEmailNotifier } from "./customer-email.notifier";
 
 function createRedisConnection(configService: ConfigService): RedisOptions {
   const redisUrl = configService.get<string>("redisUrl") ?? process.env.REDIS_URL;
@@ -39,7 +40,7 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
 }
 
 @Module({
-  exports: [ApiQueueService],
+  exports: [ApiQueueService, CustomerEmailNotifier],
   imports: [
     BullModule.forRootAsync({
       inject: [ConfigService],
@@ -53,6 +54,7 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
     }),
     BullModule.registerQueue(
       { name: QUEUE_NAMES.otp },
+      { name: QUEUE_NAMES.customerEmail },
       { name: QUEUE_NAMES.notifications },
       { name: QUEUE_NAMES.invoice },
       { name: QUEUE_NAMES.paymentWebhook },
@@ -60,6 +62,6 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
       { name: QUEUE_NAMES.nearExpiryAlert }
     )
   ],
-  providers: [ApiQueueService]
+  providers: [ApiQueueService, CustomerEmailNotifier]
 })
 export class ApiQueuesModule {}

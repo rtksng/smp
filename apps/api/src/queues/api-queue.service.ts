@@ -2,12 +2,14 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable } from "@nestjs/common";
 import { QUEUE_NAMES } from "@surgical/config";
 import {
+  CUSTOMER_EMAIL_JOB_NAMES,
   INVOICE_JOB_NAMES,
   LOW_STOCK_ALERT_JOB_NAMES,
   NEAR_EXPIRY_ALERT_JOB_NAMES,
   NOTIFICATION_JOB_NAMES,
   OTP_JOB_NAMES,
   PAYMENT_WEBHOOK_JOB_NAMES,
+  type CustomerEmailJobName,
   type GenerateGstInvoiceJobData,
   type InvoiceJobName,
   type LowStockAlertJobName,
@@ -16,6 +18,7 @@ import {
   type OtpJobName,
   type PaymentWebhookJobName,
   type ProcessPaymentWebhookJobData,
+  type SendCustomerEmailJobData,
   type SendLowStockAlertJobData,
   type SendDeliveryAssignmentNotificationJobData,
   type SendNearExpiryAlertJobData,
@@ -34,6 +37,17 @@ const DEFAULT_JOB_OPTIONS: JobsOptions = {
   removeOnFail: 5000
 };
 
+// More attempts than other jobs so Resend rate limits and brief outages recover
+// on their own; the worker stops early on permanent provider errors.
+const CUSTOMER_EMAIL_JOB_OPTIONS: JobsOptions = {
+  ...DEFAULT_JOB_OPTIONS,
+  attempts: 6,
+  backoff: {
+    delay: 10000,
+    type: "exponential"
+  }
+};
+
 @Injectable()
 export class ApiQueueService {
   constructor(
@@ -44,6 +58,12 @@ export class ApiQueueService {
       SendDeliveryAssignmentNotificationJobData | SendOrderConfirmationJobData,
       void,
       NotificationJobName
+    >,
+    @InjectQueue(QUEUE_NAMES.customerEmail)
+    private readonly customerEmailQueue: Queue<
+      SendCustomerEmailJobData,
+      void,
+      CustomerEmailJobName
     >,
     @InjectQueue(QUEUE_NAMES.invoice)
     private readonly invoiceQueue: Queue<
@@ -90,6 +110,14 @@ export class ApiQueueService {
       NOTIFICATION_JOB_NAMES.sendDeliveryAssignment,
       data,
       DEFAULT_JOB_OPTIONS
+    );
+  }
+
+  async enqueueCustomerEmail(data: SendCustomerEmailJobData) {
+    await this.customerEmailQueue.add(
+      CUSTOMER_EMAIL_JOB_NAMES.sendCustomerEmail,
+      data,
+      CUSTOMER_EMAIL_JOB_OPTIONS
     );
   }
 

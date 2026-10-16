@@ -2,10 +2,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException
 } from "@nestjs/common";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
+import { CustomerEmailNotifier } from "../../queues/customer-email.notifier";
 import { AddressType, Prisma } from "../../generated/prisma/client";
 import type {
   CreateCustomerAddressDto,
@@ -52,7 +54,10 @@ function hasOwn<T extends object>(value: T, key: keyof T) {
 
 @Injectable()
 export class CustomerProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
+  ) {}
 
   async getProfile(customerId: string) {
     const customer = await this.findActiveCustomer(customerId);
@@ -75,6 +80,16 @@ export class CustomerProfileService {
           id: customerId
         }
       });
+
+      // OTP sign-up has no email, so the welcome waits for the first one added.
+      // The worker's dedupe key keeps it to once per customer.
+      if (!existingCustomer.email && customer.email) {
+        await this.customerEmails?.notify(
+          { customerId, email: customer.email, firstName: customer.firstName },
+          { template: "welcome" },
+          `welcome:${customerId}`
+        );
+      }
 
       return this.serializeProfile(customer);
     } catch (error: unknown) {

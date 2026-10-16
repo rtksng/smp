@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
+import { CustomerEmailNotifier } from "../../queues/customer-email.notifier";
 import { Prisma, ProductStatus } from "../../generated/prisma/client";
 import type {
   AdminProductFeedbackListQueryDto,
@@ -31,7 +32,10 @@ type FeedbackLogRecord = Prisma.NotificationLogGetPayload<Record<string, never>>
 
 @Injectable()
 export class ProductFeedbackService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
+  ) {}
 
   async listFeedback(slug: string) {
     const product = await this.findPublicProduct(slug);
@@ -186,6 +190,8 @@ export class ProductFeedbackService {
       throw new NotFoundException("Product question was not found.");
     }
 
+    // Editing an existing answer does not email the customer again.
+    const firstAnswer = question.status !== PUBLIC_QUESTION_STATUS;
     const payload = {
       ...readPayload(question.payload),
       answer: input.answer.trim(),
@@ -202,7 +208,39 @@ export class ProductFeedbackService {
       }
     });
 
+    if (firstAnswer) {
+      await this.notifyQuestionAnswered(question, payload);
+    }
+
     return serializeAdminFeedback(updated);
+  }
+
+  private async notifyQuestionAnswered(question: FeedbackLogRecord, payload: FeedbackPayload) {
+    if (!this.customerEmails || !question.userId || !payload.question || !payload.answer) {
+      return;
+    }
+
+    // Questions store the product id in `recipient`.
+    const product = await this.prisma.product.findFirst({
+      select: { name: true, slug: true },
+      where: { deletedAt: null, id: question.recipient }
+    });
+
+    if (!product) {
+      return;
+    }
+
+    await this.customerEmails.notifyCustomer(
+      question.userId,
+      {
+        answer: payload.answer,
+        productName: product.name,
+        productSlug: product.slug,
+        question: payload.question,
+        template: "question-answered"
+      },
+      `question-answered:${question.id}`
+    );
   }
 
   async moderateReview(id: string, input: ModerateProductReviewDto) {

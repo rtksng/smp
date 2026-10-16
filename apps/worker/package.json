@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
+    "email:preview": "tsx --tsconfig tsconfig.json scripts/email-preview.ts",
     "build": "tsc -p tsconfig.build.json",
     "healthcheck": "node dist/healthcheck.js",
     "lint": "eslint .",
@@ -20,6 +21,7 @@
     "@surgical/config": "workspace:*",
     "@surgical/types": "workspace:*",
     "bullmq": "^5.25.0",
+    "handlebars": "4.7.9",
     "ioredis": "^5.4.1",
     "pg": "8.21.0",
     "reflect-metadata": "^0.2.2",

@@ -8,6 +8,7 @@ import { AdminCustomerListQueryDto } from "../../src/modules/customers/dto/admin
 import { REQUIRED_PERMISSIONS_KEY } from "../../src/modules/auth/decorators/require-permission.decorator";
 import { PermissionCode } from "../../src/modules/permissions/permissions.constants";
 import type { PrismaService } from "../../src/database/prisma.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 import { CustomerStatus } from "../../src/generated/prisma/client";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
@@ -519,3 +520,40 @@ test("admin customer controller methods declare customer read and update permiss
     [PermissionCode.UsersUpdate]
   );
 });
+
+test("updateCustomerStatus emails the customer only when the status changes", async () => {
+  async function updateFrom(previousStatus: string) {
+    const { notifier, sent } = createRecordingNotifier();
+    const tx = {
+      customerSupportNote: { create: async () => undefined },
+      user: {
+        findFirst: async () => ({ status: previousStatus }),
+        update: async () => customer({ isActive: false, status: "BLOCKED" })
+      },
+      userSession: { updateMany: async () => undefined }
+    };
+    const prisma = {
+      $transaction: async <T>(handler: (client: typeof tx) => Promise<T>) => handler(tx)
+    } as unknown as PrismaService;
+
+    await new AdminCustomersService(prisma, notifier).updateCustomerStatus(
+      "customer-1",
+      { note: "Internal: repeated failed payment abuse.", status: "BLOCKED" },
+      "admin-1"
+    );
+
+    return sent;
+  }
+
+  const changed = await updateFrom("ACTIVE");
+  assert.deepEqual(changed, [
+    {
+      customerId: "customer-1",
+      dedupeKey: `account-status:customer-1:BLOCKED:${now.getTime()}`,
+      email: "asha@example.com",
+      event: { status: "BLOCKED", template: "account-status" }
+    }
+  ]);
+  assert.doesNotMatch(JSON.stringify(changed), /Internal/, "support notes stay internal");
+  assert.deepEqual(await updateFrom("BLOCKED"), []);
+})

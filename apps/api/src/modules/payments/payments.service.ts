@@ -17,6 +17,10 @@ import {
   WebhookProcessingStatus
 } from "../../generated/prisma/client";
 import { ApiQueueService } from "../../queues/api-queue.service";
+import {
+  CustomerEmailNotifier,
+  emailMoney
+} from "../../queues/customer-email.notifier";
 import type {
   CreateRazorpayOrderDto,
   VerifyRazorpayPaymentDto
@@ -94,7 +98,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly razorpayClient: RazorpayClient,
-    @Optional() private readonly queueService?: ApiQueueService
+    @Optional() private readonly queueService?: ApiQueueService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
   ) {}
 
   getPaymentGatewayStatus() {
@@ -183,6 +188,7 @@ export class PaymentsService {
     }
 
     let invoiceOrderId: string | null = null;
+    let paidOrder = null as { amount: DecimalValue; orderId: string; orderNumber: string } | null;
     const result = await this.prisma.$transaction(async (tx) => {
       const order = await this.findCustomerOrder(tx, customerId, input.orderId);
       const payment = this.findOnlinePaymentForProviderOrder(
@@ -239,6 +245,7 @@ export class PaymentsService {
 
       await this.clearCustomerCartItems(tx, customerId);
       invoiceOrderId = order.id;
+      paidOrder = { amount: payment.amount, orderId: order.id, orderNumber: order.orderNumber };
 
       return {
         orderStatus: nextOrderStatus,
@@ -253,6 +260,22 @@ export class PaymentsService {
         requestedAt: new Date().toISOString(),
         version: 1
       });
+    }
+
+    // Shares its dedupe key with the webhook path, so the customer is told once.
+    if (paidOrder) {
+      await this.customerEmails?.notifyCustomer(
+        customerId,
+        {
+          amount: emailMoney(decimalToNumber(paidOrder.amount)),
+          orderId: paidOrder.orderId,
+          orderNumber: paidOrder.orderNumber,
+          paymentReference: input.razorpay_payment_id,
+          status: "PAID",
+          template: "payment-result"
+        },
+        `payment-result:${result.paymentId}:PAID`
+      );
     }
 
     return result;
@@ -1020,6 +1043,8 @@ export class PaymentsService {
       await this.updatePaymentRefundStatus(this.prisma, payment.id);
     }
 
+    await this.notifyRefundStatus(refund, status, providerRefund.id);
+
     return this.serializeRefund({
       ...refund,
       ...updatedRefund
@@ -1071,10 +1096,36 @@ export class PaymentsService {
       await this.updatePaymentRefundStatus(this.prisma, payment.id);
     }
 
+    if (status !== refund.status) {
+      await this.notifyRefundStatus(refund, status, refund.providerRefundId);
+    }
+
     return this.serializeRefund({
       ...refund,
       ...updatedRefund
     });
+  }
+
+  private async notifyRefundStatus(
+    refund: RefundWithPaymentAndOrder,
+    status: RefundStatus,
+    providerRefundId: string | null
+  ) {
+    const amount = decimalToNumber(refund.amount);
+
+    await this.customerEmails?.notifyCustomer(
+      refund.order.userId,
+      {
+        amount: emailMoney(amount),
+        orderId: refund.orderId,
+        orderNumber: refund.order.orderNumber,
+        partial: amount < decimalToNumber(refund.order.grandTotal),
+        refundReference: providerRefundId,
+        status,
+        template: "refund-update"
+      },
+      `refund-update:${refund.id}:${status}`
+    );
   }
 
   private assertRefundCanUseRazorpay(refund: RefundWithPaymentAndOrder) {

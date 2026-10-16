@@ -11,6 +11,7 @@ import {
   CreateProductReviewDto
 } from "../../src/modules/product-feedback/dto/product-feedback.dto";
 import { ProductFeedbackService } from "../../src/modules/product-feedback/product-feedback.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 
 const now = new Date("2026-06-15T10:00:00.000Z");
 
@@ -437,3 +438,29 @@ function matchesProductSearchFilter(
       : false;
   });
 }
+
+test("answering a question emails the customer who asked, once", async () => {
+  const prisma = createProductFeedbackPrismaMock();
+  const { notifier, sent } = createRecordingNotifier();
+  const service = new ProductFeedbackService(prisma as unknown as PrismaService, notifier);
+
+  await service.createQuestion("customer-1", "surgical-forceps", {
+    question: "Is this autoclavable?"
+  });
+  await service.answerQuestion("feedback-1", { answer: "Yes, up to 134°C." });
+  await service.answerQuestion("feedback-1", { answer: "Yes, up to 134°C for 18 minutes." });
+
+  assert.deepEqual(sent, [
+    {
+      customerId: "customer-1",
+      dedupeKey: "question-answered:feedback-1",
+      event: {
+        answer: "Yes, up to 134°C.",
+        productName: "SurgiPro Artery Forceps",
+        productSlug: "surgical-forceps",
+        question: "Is this autoclavable?",
+        template: "question-answered"
+      }
+    }
+  ]);
+})

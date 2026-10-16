@@ -2,6 +2,7 @@
 
 import { APP_NAMES } from "@surgical/config";
 import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -10,7 +11,6 @@ import {
   Menu,
   PackageSearch,
   Search,
-  ShieldCheck,
   ShoppingCart,
   UserRound,
   X
@@ -91,13 +91,12 @@ export function Header() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-[#c4e4e0] bg-white/92 backdrop-blur">
       <div className="grid w-full max-w-full gap-3 overflow-hidden px-4 py-2 lg:hidden">
         <div className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden">
-          <Link className="flex min-w-0 items-center gap-2" href="/">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20">
-              <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-            </span>
-            <span className="truncate text-sm font-black uppercase tracking-[0.02em] text-[#123f3c]">
-              {APP_NAMES.customerWeb}
-            </span>
+          <Link
+            aria-label={`${APP_NAMES.customerWeb} home`}
+            className="flex min-w-0 items-center"
+            href="/"
+          >
+            <BrandLogo className="h-9 w-[90px]" priority sizes="90px" />
           </Link>
           <Link
             className="inline-flex min-h-8 max-w-[9.5rem] items-center gap-1 rounded-full bg-[#f3faf9] px-3 text-[10px] font-semibold text-[#123f3c]"
@@ -163,15 +162,12 @@ export function Header() {
 
       <Container className="hidden lg:block">
         <div className="grid min-h-20 grid-cols-[1fr_auto] items-center gap-3 py-3 lg:grid-cols-[auto_auto_minmax(320px,1fr)_auto] lg:gap-4">
-          <Link className="flex min-w-0 items-center gap-3 xl:min-w-64" href="/">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#0f6f68] text-white shadow-sm shadow-[#0f6f68]/20">
-              <ShieldCheck aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[#123f3c] sm:text-base">
-                {APP_NAMES.customerWeb}
-              </span>
-            </span>
+          <Link
+            aria-label={`${APP_NAMES.customerWeb} home`}
+            className="flex min-w-0 items-center xl:min-w-64"
+            href="/"
+          >
+            <BrandLogo className="h-12 w-[120px]" priority sizes="120px" />
           </Link>
 
           <CategoryMenu categoryNavigation={categoryNavigation} />
@@ -236,18 +232,12 @@ export function Header() {
           >
             <div className="flex items-center justify-between gap-3 border-b border-[#c4e4e0] pb-4">
               <Link
-                className="flex min-w-0 items-center gap-3"
+                aria-label={`${APP_NAMES.customerWeb} home`}
+                className="flex min-w-0 items-center"
                 href="/"
                 onClick={() => setMenuOpen(false)}
               >
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0f6f68] text-white">
-                  <ShieldCheck aria-hidden="true" className="h-5 w-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[#123f3c]">
-                    {APP_NAMES.customerWeb}
-                  </span>
-                </span>
+                <BrandLogo className="h-10 w-[100px]" sizes="100px" />
               </Link>
               <button
                 aria-label="Close menu"
@@ -482,6 +472,29 @@ function CategoryMenu({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function BrandLogo({
+  className,
+  priority = false,
+  sizes
+}: {
+  className: string;
+  priority?: boolean;
+  sizes: string;
+}) {
+  return (
+    <span className={`relative block shrink-0 ${className}`}>
+      <Image
+        alt="Hospi Surgical Division"
+        className="object-contain"
+        fill
+        priority={priority}
+        sizes={sizes}
+        src="/brand/hospisurgical.png"
+      />
+    </span>
   );
 }
 

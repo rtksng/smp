@@ -67,6 +67,156 @@ export interface SendOrderConfirmationJobData {
   version: 1;
 }
 
+export const CUSTOMER_EMAIL_JOB_NAMES = {
+  sendCustomerEmail: "send-customer-email"
+} as const;
+
+export type CustomerEmailJobName =
+  (typeof CUSTOMER_EMAIL_JOB_NAMES)[keyof typeof CUSTOMER_EMAIL_JOB_NAMES];
+
+export const CUSTOMER_EMAIL_TEMPLATE_KEYS = [
+  "welcome",
+  "account-status",
+  "order-received",
+  "order-progress",
+  "order-cancelled",
+  "payment-result",
+  "invoice-ready",
+  "return-update",
+  "refund-update",
+  "quote-received",
+  "quotation-available",
+  "question-answered"
+] as const;
+
+export type CustomerEmailTemplateKey = (typeof CUSTOMER_EMAIL_TEMPLATE_KEYS)[number];
+
+/** Money values are decimal strings such as "2360.00"; dates are ISO strings. */
+export interface CustomerEmailLineItem {
+  lineTotal: string;
+  name: string;
+  quantity: number;
+  unitPrice: string;
+}
+
+export interface CustomerEmailAddress {
+  city: string;
+  fullName: string;
+  landmark: string | null;
+  line1: string;
+  line2: string | null;
+  pincode: string;
+  state: string;
+}
+
+export type CustomerEmailEvent =
+  | { template: "welcome" }
+  | {
+      template: "account-status";
+      status: "ACTIVE" | "INACTIVE" | "BLOCKED";
+    }
+  | {
+      template: "order-received";
+      deliveryAddress: CustomerEmailAddress | null;
+      discountTotal: string;
+      grandTotal: string;
+      items: CustomerEmailLineItem[];
+      orderId: string;
+      orderNumber: string;
+      payment: "COD" | "ONLINE_PENDING" | "ONLINE_PAID";
+      placedAt: string;
+      shippingTotal: string;
+      subtotal: string;
+      taxTotal: string;
+    }
+  | {
+      template: "order-progress";
+      orderId: string;
+      orderNumber: string;
+      status: "CONFIRMED" | "PACKED" | "ASSIGNED" | "OUT_FOR_DELIVERY" | "DELIVERED";
+    }
+  | {
+      template: "order-cancelled";
+      cancellationReason: string | null;
+      grandTotal: string;
+      orderId: string;
+      orderNumber: string;
+      refund: "NOT_DUE" | "REQUESTED" | "UNDER_REVIEW";
+    }
+  | {
+      template: "payment-result";
+      amount: string;
+      orderId: string;
+      orderNumber: string;
+      paymentReference: string | null;
+      status: "PAID" | "FAILED";
+    }
+  | {
+      template: "invoice-ready";
+      grandTotal: string;
+      invoiceNumber: string;
+      issuedAt: string;
+      orderId: string;
+      orderNumber: string;
+    }
+  | {
+      template: "return-update";
+      customerNote: string | null;
+      orderId: string;
+      orderNumber: string;
+      status: "RECEIVED" | "APPROVED" | "REJECTED";
+    }
+  | {
+      template: "refund-update";
+      amount: string;
+      orderId: string;
+      orderNumber: string;
+      partial: boolean;
+      refundReference: string | null;
+      status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+    }
+  | {
+      template: "quote-received";
+      quoteReference: string;
+      requestSummary: string;
+      submittedAt: string;
+    }
+  | {
+      template: "quotation-available";
+      grandTotal: string;
+      items: CustomerEmailLineItem[];
+      quotationNote: string | null;
+      quoteReference: string;
+      revised: boolean;
+      shippingTotal: string;
+      subtotal: string;
+      taxTotal: string;
+      validUntil: string | null;
+    }
+  | {
+      template: "question-answered";
+      answer: string;
+      productName: string;
+      productSlug: string;
+      question: string;
+    };
+
+export interface CustomerEmailRecipient {
+  /** Null for guest quote requests. */
+  customerId: string | null;
+  email: string;
+  name: string;
+}
+
+export interface SendCustomerEmailJobData {
+  /** Stable per business event; repeated jobs with the same key send once. */
+  dedupeKey: string;
+  event: CustomerEmailEvent;
+  recipient: CustomerEmailRecipient;
+  requestedAt: string;
+  version: 1;
+}
+
 export const INVOICE_JOB_NAMES = {
   generateInvoice: "generate-invoice",
   generateGstInvoice: "generate-gst-invoice"

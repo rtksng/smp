@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ApiQueuesModule } from "../../queues/api-queues.module";
 import { AuthModule } from "../auth/auth.module";
 import { AdminCustomersController } from "./admin-customers.controller";
 import { AdminCustomersService } from "./admin-customers.service";
@@ -8,7 +9,7 @@ import { CustomerProfileService } from "./customer-profile.service";
 @Module({
   controllers: [CustomerProfileController, AdminCustomersController],
   exports: [CustomerProfileService, AdminCustomersService],
-  imports: [AuthModule],
+  imports: [AuthModule, ApiQueuesModule],
   providers: [CustomerProfileService, AdminCustomersService]
 })
 export class CustomersModule {}

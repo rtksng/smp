@@ -16,7 +16,7 @@ export type NotificationRecord = {
   payload: Record<string, unknown>;
   providerRef: string;
   recipient: string;
-  sentAt: Date;
+  sentAt: Date | null;
   status: string;
   templateKey: string;
   userId: string | null;

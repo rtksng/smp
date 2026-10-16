@@ -1155,6 +1155,7 @@ model NotificationLog {
   @@index([userId])
   @@index([channel])
   @@index([status])
+  @@index([providerRef])
   @@index([channel, status, createdAt])
 }
 

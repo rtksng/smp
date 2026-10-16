@@ -46,7 +46,7 @@ export function CartPage() {
     <>
       <Header />
       <main className="bg-[#f3faf9]">
-        <Container className="py-8">
+        <Container className="py-4">
           <ProtectedCustomerRoute>
             <CartContent />
           </ProtectedCustomerRoute>

@@ -14,6 +14,7 @@ export const FEATURE_SCOPE = {
 } as const;
 
 export const QUEUE_NAMES = {
+  customerEmail: "customer-email",
   invoice: "invoice",
   lowStockAlert: "low-stock-alert",
   nearExpiryAlert: "near-expiry-alert",

@@ -20,6 +20,7 @@ import { OrdersService } from "../../src/modules/orders/orders.service";
 import { AdminOrderListQueryDto } from "../../src/modules/orders/dto/order.dto";
 import { DeliveryChargesService } from "../../src/modules/delivery-charges/delivery-charges.service";
 import type { WarehouseAccessService } from "../../src/modules/warehouses/warehouse-access.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
 const todayOrderPrefix = buildTodayNumberPrefix("ORD");
@@ -2141,4 +2142,112 @@ test("order controllers use the correct auth and permission guards", () => {
     AdminJwtGuard,
     PermissionGuard
   ]);
+});
+
+function emailingOrdersService(prisma: ReturnType<typeof createOrdersPrismaMock>) {
+  const { notifier, sent } = createRecordingNotifier();
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    undefined,
+    undefined,
+    new FakeRefundProcessor() as never,
+    undefined,
+    notifier
+  );
+
+  return { sent, service };
+}
+
+const emailAdminContext = {
+  auth: adminAuth(),
+  ipAddress: "127.0.0.1",
+  userAgent: "node-test"
+};
+
+test("order lifecycle queues order received, progress, and cancellation emails", async () => {
+  const prisma = createOrdersPrismaMock();
+  const { sent, service } = emailingOrdersService(prisma);
+
+  const order = await service.createOrder("customer-1", {
+    paymentMethod: "COD",
+    shippingAddressId: "address-1"
+  });
+  await service.updateStatus("order-1", { status: "CONFIRMED" }, emailAdminContext);
+  await service.cancelOrder("order-1", { reason: "Out of stock locally" }, emailAdminContext);
+
+  assert.deepEqual(
+    sent.map(({ dedupeKey }) => dedupeKey),
+    ["order-received:order-1", "order-progress:order-1:CONFIRMED", "order-cancelled:order-1"]
+  );
+  assert.equal(sent[0]?.customerId, "customer-1");
+  const received = sent[0]?.event;
+  assert.ok(received?.template === "order-received");
+  assert.equal(received.orderNumber, order.orderNumber);
+  assert.equal(received.grandTotal, order.totals.grandTotal.toFixed(2));
+  // Line amounts exclude tax so they add up to the subtotal row.
+  assert.equal(
+    received.items.reduce((sum, item) => sum + Number(item.lineTotal), 0).toFixed(2),
+    received.subtotal
+  );
+  assert.deepEqual(sent[2]?.event, {
+    cancellationReason: "Out of stock locally",
+    grandTotal: order.totals.grandTotal.toFixed(2),
+    orderId: "order-1",
+    orderNumber: order.orderNumber,
+    refund: "NOT_DUE",
+    template: "order-cancelled"
+  });
+});
+
+test("return emails follow submission, approval, and rejection", async () => {
+  const approve = emailingOrdersService(
+    createOrdersPrismaMock({ orderStatus: "DELIVERED", paymentStatus: "PAID" })
+  );
+  await approve.service.requestMyOrderReturn("customer-1", "order-1", {
+    reason: "Seal was damaged on arrival"
+  });
+  await approve.service.approveAdminReturn("order-1", {}, emailAdminContext);
+
+  assert.deepEqual(
+    approve.sent.map(({ dedupeKey, event }) => [dedupeKey, event.template]),
+    [
+      ["return-update:refund-1:RECEIVED", "return-update"],
+      ["return-update:refund-1:APPROVED", "return-update"]
+    ]
+  );
+  const approved = approve.sent[1]?.event;
+  assert.ok(approved?.template === "return-update");
+  assert.equal(approved.status, "APPROVED");
+  assert.equal(approved.customerNote, null, "the default approval note is not repeated");
+
+  const reject = emailingOrdersService(
+    createOrdersPrismaMock({ orderStatus: "DELIVERED", paymentStatus: "PAID" })
+  );
+  await reject.service.requestMyOrderReturn("customer-1", "order-1", {
+    reason: "Seal was damaged on arrival"
+  });
+  await reject.service.rejectAdminReturn(
+    "order-1",
+    { note: "Return rejected after inspection." },
+    emailAdminContext
+  );
+
+  const rejected = reject.sent[1];
+  assert.equal(rejected?.dedupeKey, "return-update:refund-1:REJECTED");
+  assert.ok(rejected?.event.template === "return-update");
+  assert.equal(rejected.event.status, "REJECTED");
+  assert.equal(rejected.event.customerNote, "Return rejected after inspection.");
+});
+
+test("customer cancellation of an unpaid order says no refund is due", async () => {
+  const { sent, service } = emailingOrdersService(createOrdersPrismaMock());
+
+  await service.cancelMyOrder("customer-1", "order-1", {});
+
+  assert.equal(sent[0]?.dedupeKey, "order-cancelled:order-1");
+  const cancelled = sent[0]?.event;
+  assert.ok(cancelled?.template === "order-cancelled");
+  assert.equal(cancelled.refund, "NOT_DUE");
+  assert.equal(cancelled.cancellationReason, null);
 });

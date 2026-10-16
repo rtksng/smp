@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { CustomerEmailEvent } from "@surgical/types";
 import {
   BadRequestException,
   ConflictException,
@@ -10,6 +11,14 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { ApiQueueService } from "../../queues/api-queue.service";
+import {
+  CustomerEmailNotifier,
+  emailAddress,
+  emailLineItems,
+  emailMoney,
+  emailText,
+  type CustomerEmailContact
+} from "../../queues/customer-email.notifier";
 import {
   DeliveryStatus,
   OrderStatus,
@@ -235,7 +244,8 @@ export class OrdersService {
     @Optional() private readonly queueService?: ApiQueueService,
     @Optional() private readonly cartService?: CartService,
     @Optional() private readonly paymentsService?: PaymentsService,
-    @Optional() private readonly deliveryChargesService?: DeliveryChargesService
+    @Optional() private readonly deliveryChargesService?: DeliveryChargesService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
   ) {}
 
   async createOrder(customerId: string, input: CreateOrderDto) {
@@ -410,6 +420,11 @@ export class OrdersService {
       requestedAt: new Date().toISOString(),
       version: 1
     });
+    await this.customerEmails?.notify(
+      orderEmailContact(order),
+      orderReceivedEmail(order),
+      `order-received:${order.id}`
+    );
 
     return order;
   }
@@ -535,6 +550,11 @@ export class OrdersService {
       requestedAt: new Date().toISOString(),
       version: 1
     });
+    await this.customerEmails?.notify(
+      orderEmailContact(order),
+      orderReceivedEmail(order),
+      `order-received:${order.id}`
+    );
 
     return order;
   }
@@ -622,7 +642,7 @@ export class OrdersService {
   async cancelMyOrder(customerId: string, orderId: string, input: CancelOrderDto) {
     await this.assertActiveCustomer(this.prisma, customerId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const cancelledOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findCustomerOrder(tx, customerId, orderId);
 
       if (!CANCELLABLE_STATUSES.has(order.status)) {
@@ -670,6 +690,15 @@ export class OrdersService {
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
+
+    // A paid order always gets a PENDING refund above, so "requested" is accurate.
+    await this.notifyOrderCancelled(
+      cancelledOrder,
+      input.reason,
+      hasPaidPayment(cancelledOrder) ? "REQUESTED" : "NOT_DUE"
+    );
+
+    return cancelledOrder;
   }
 
   async requestMyOrderReturn(
@@ -679,7 +708,8 @@ export class OrdersService {
   ) {
     await this.assertActiveCustomer(this.prisma, customerId);
 
-    return this.prisma.$transaction(async (tx) => {
+    let returnRefundId = "";
+    const returnedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findCustomerOrder(tx, customerId, orderId);
 
       if (order.status !== OrderStatus.DELIVERED) {
@@ -701,7 +731,7 @@ export class OrdersService {
         order.payments[0] ??
         null;
 
-      await tx.refund.create({
+      const refund = await tx.refund.create({
         data: {
           amount: decimalToNumber(order.grandTotal),
           orderId: order.id,
@@ -710,9 +740,24 @@ export class OrdersService {
           status: RefundStatus.PENDING
         }
       });
+      returnRefundId = refund.id;
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
+
+    await this.customerEmails?.notify(
+      orderEmailContact(returnedOrder),
+      {
+        customerNote: null,
+        orderId: returnedOrder.id,
+        orderNumber: returnedOrder.orderNumber,
+        status: "RECEIVED",
+        template: "return-update"
+      },
+      `return-update:${returnRefundId}:RECEIVED`
+    );
+
+    return returnedOrder;
   }
 
   async listAdminOrders(query: AdminOrderListQueryDto, auth: AuthJwtPayload) {
@@ -811,6 +856,7 @@ export class OrdersService {
 
     let invoiceOrderId: string | null = null;
     let refundOrderId: string | null = null;
+    let returnRefundId: string | null = null;
     const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
       this.assertAllowedStatusTransition(order.status, input.status);
@@ -854,10 +900,16 @@ export class OrdersService {
 
       if (input.status === OrderStatus.RETURNED) {
         refundOrderId = order.id;
+        returnRefundId =
+          order.refunds.find((refund) => ACTIVE_RETURN_REFUND_STATUSES.has(refund.status))
+            ?.id ?? null;
       }
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
+
+    // Sent before refund processing, which can fail after this commit.
+    await this.notifyAdminStatusUpdate(updatedOrder, input, returnRefundId);
 
     if (invoiceOrderId) {
       await this.queueService?.enqueueInvoice({
@@ -883,7 +935,7 @@ export class OrdersService {
     return this.updateStatus(
       orderId,
       {
-        note: input.note ?? "Return request approved.",
+        note: input.note ?? RETURN_APPROVED_NOTE,
         status: OrderStatus.RETURNED
       },
       context,
@@ -896,7 +948,8 @@ export class OrdersService {
     input: AdminReturnActionDto,
     context: AdminActionContext
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    let rejected = null as { amount: number; id: string; wasReturn: boolean } | null;
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
       const refund = await tx.refund.findFirst({
         where: {
@@ -930,9 +983,21 @@ export class OrdersService {
           status: order.status
         }
       });
+      rejected = {
+        amount: decimalToNumber(refund.amount),
+        id: refund.id,
+        // Return refunds belong to delivered orders; others are cancellation refunds.
+        wasReturn: order.status === OrderStatus.DELIVERED
+      };
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
+
+    if (rejected) {
+      await this.notifyRefundRequestRejected(updatedOrder, rejected, input.note);
+    }
+
+    return updatedOrder;
   }
 
   async processAdminReturnRefund(orderId: string, context: AdminActionContext) {
@@ -955,7 +1020,7 @@ export class OrdersService {
     input: CancelOrderDto,
     context: AdminActionContext
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const cancelledOrder = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
 
       if (!CANCELLABLE_STATUSES.has(order.status)) {
@@ -986,6 +1051,110 @@ export class OrdersService {
 
       return this.serializeOrder(await this.findOrderById(tx, order.id));
     });
+
+    // Admin cancellation does not create a refund, so a paid order is only
+    // promised a review, never a refund.
+    await this.notifyOrderCancelled(
+      cancelledOrder,
+      input.reason,
+      hasPaidPayment(cancelledOrder) ? "UNDER_REVIEW" : "NOT_DUE"
+    );
+
+    return cancelledOrder;
+  }
+
+  private async notifyOrderCancelled(
+    order: SerializedOrder,
+    reason: string | undefined,
+    refund: Extract<CustomerEmailEvent, { template: "order-cancelled" }>["refund"]
+  ) {
+    await this.customerEmails?.notify(
+      orderEmailContact(order),
+      {
+        cancellationReason: emailText(reason),
+        grandTotal: emailMoney(order.totals.grandTotal),
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        refund,
+        template: "order-cancelled"
+      },
+      `order-cancelled:${order.id}`
+    );
+  }
+
+  private async notifyAdminStatusUpdate(
+    order: SerializedOrder,
+    input: UpdateOrderStatusDto,
+    returnRefundId: string | null
+  ) {
+    if (input.status === OrderStatus.RETURNED) {
+      if (!returnRefundId) return;
+      const note = emailText(input.note);
+      await this.customerEmails?.notify(
+        orderEmailContact(order),
+        {
+          customerNote: note === RETURN_APPROVED_NOTE ? null : note,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: "APPROVED",
+          template: "return-update"
+        },
+        `return-update:${returnRefundId}:APPROVED`
+      );
+      return;
+    }
+
+    if (
+      input.status === OrderStatus.CONFIRMED ||
+      input.status === OrderStatus.PACKED ||
+      input.status === OrderStatus.DELIVERED
+    ) {
+      await this.customerEmails?.notify(
+        orderEmailContact(order),
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: input.status,
+          template: "order-progress"
+        },
+        `order-progress:${order.id}:${input.status}`
+      );
+    }
+  }
+
+  private async notifyRefundRequestRejected(
+    order: SerializedOrder,
+    refund: { amount: number; id: string; wasReturn: boolean },
+    note: string | undefined
+  ) {
+    if (refund.wasReturn) {
+      await this.customerEmails?.notify(
+        orderEmailContact(order),
+        {
+          customerNote: emailText(note),
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          status: "REJECTED",
+          template: "return-update"
+        },
+        `return-update:${refund.id}:REJECTED`
+      );
+      return;
+    }
+
+    await this.customerEmails?.notify(
+      orderEmailContact(order),
+      {
+        amount: emailMoney(refund.amount),
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        partial: refund.amount < order.totals.grandTotal,
+        refundReference: null,
+        status: "CANCELLED",
+        template: "refund-update"
+      },
+      `refund-update:${refund.id}:CANCELLED`
+    );
   }
 
   private async assertActiveCustomer(client: OrderClient, customerId: string) {
@@ -1975,6 +2144,52 @@ function parseDateBoundary(value: string | undefined, boundary: "end" | "start")
   const parsed = new Date(value);
 
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+type SerializedOrder = ReturnType<OrdersService["serializeOrder"]>;
+
+const RETURN_APPROVED_NOTE = "Return request approved.";
+
+function hasPaidPayment(order: SerializedOrder) {
+  return order.paymentDetails.some((payment) => payment.status === PaymentStatus.PAID);
+}
+
+function orderEmailContact(order: SerializedOrder): CustomerEmailContact {
+  return {
+    customerId: order.customer.id,
+    email: order.customer.email,
+    firstName: order.customer.firstName
+  };
+}
+
+function orderReceivedEmail(order: SerializedOrder): CustomerEmailEvent {
+  return {
+    deliveryAddress: emailAddress(order.shippingAddress),
+    discountTotal: emailMoney(order.totals.discount),
+    grandTotal: emailMoney(order.totals.grandTotal),
+    // Line amounts exclude tax so they add up to the subtotal row.
+    items: emailLineItems(
+      order.items.map((item) => ({
+        lineTotal: item.total - item.taxAmount,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice
+      }))
+    ),
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    payment:
+      order.paymentMethod === PaymentMethod.COD
+        ? "COD"
+        : order.paymentStatus === PaymentStatus.PAID
+          ? "ONLINE_PAID"
+          : "ONLINE_PENDING",
+    placedAt: (order.placedAt ?? order.createdAt).toISOString(),
+    shippingTotal: emailMoney(order.totals.deliveryCharge),
+    subtotal: emailMoney(order.totals.subtotal),
+    taxTotal: emailMoney(order.totals.tax),
+    template: "order-received"
+  };
 }
 
 function serializeAddress(address: NonNullable<OrderRecord["shippingAddress"]> | null) {

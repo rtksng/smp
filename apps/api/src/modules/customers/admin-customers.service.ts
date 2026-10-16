@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
+import { CustomerEmailNotifier } from "../../queues/customer-email.notifier";
 import { CustomerStatus, Prisma } from "../../generated/prisma/client";
 import type {
   AddCustomerSupportNoteDto,
@@ -89,7 +90,10 @@ type DecimalValue = number | string | { toNumber?: () => number; toString: () =>
 
 @Injectable()
 export class AdminCustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
+  ) {}
 
   async listCustomers(query: AdminCustomerListQueryDto) {
     const page = query.page ?? 1;
@@ -165,9 +169,18 @@ export class AdminCustomersService {
   ) {
     const nextIsActive = input.status === CustomerStatus.ACTIVE;
     const note = input.note?.trim();
+    let statusChange = null as { email: string | null; firstName: string; updatedAt: Date } | null;
 
-    return this.prisma.$transaction(async (tx) => {
-      await this.assertCustomerExists(tx, customerId);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const previous = await tx.user.findFirst({
+        select: { status: true },
+        where: { deletedAt: null, id: customerId }
+      });
+
+      if (!previous) {
+        throw new NotFoundException("Customer was not found.");
+      }
+
       const customer = await tx.user.update({
         data: {
           isActive: nextIsActive,
@@ -200,8 +213,23 @@ export class AdminCustomersService {
         }
       });
 
+      if (previous.status !== input.status) {
+        statusChange = customer;
+      }
+
       return this.serializeCustomer(customer);
     });
+
+    // The support note stays internal; the email uses fixed status wording only.
+    if (statusChange) {
+      await this.customerEmails?.notify(
+        { customerId, email: statusChange.email, firstName: statusChange.firstName },
+        { status: input.status, template: "account-status" },
+        `account-status:${customerId}:${input.status}:${statusChange.updatedAt.getTime()}`
+      );
+    }
+
+    return result;
   }
 
   async addSupportNote(

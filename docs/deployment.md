@@ -120,6 +120,18 @@ node apps/worker/dist/main.js
 
 The worker should run at least one instance in production. Scale horizontally only after confirming job idempotency for the affected queue.
 
+Customer emails are sent by the worker through Resend. They stay off until configured:
+
+```bash
+EMAIL_SENDING_ENABLED=true
+RESEND_API_KEY=<resend-sending-key>
+EMAIL_FROM="Surgical Medical Equipment <orders@mail.example.com>"
+EMAIL_SUPPORT_ADDRESS=support@example.com
+CUSTOMER_SITE_URL=https://www.example.com
+```
+
+Verify the sending domain in Resend (SPF, DKIM, DMARC) before enabling. See `apps/worker/src/email/README.md` for triggers, preview, and operations.
+
 ## Backups And Migration Notes
 
 - PostgreSQL is the source of truth; keep daily automated backups and test restores periodically.

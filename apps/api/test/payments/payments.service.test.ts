@@ -13,6 +13,7 @@ import type { PrismaService } from "../../src/database/prisma.service";
 import { PaymentsService } from "../../src/modules/payments/payments.service";
 import type { RazorpayClient } from "../../src/modules/payments/razorpay.client";
 import type { ApiQueueService } from "../../src/queues/api-queue.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
 const keySecret = "test-razorpay-key-secret";
@@ -1066,4 +1067,103 @@ test("handleRazorpayWebhook completes processing refunds from Razorpay refund we
   assert.ok(prisma.records.refunds[0]?.processedAt instanceof Date);
   assert.equal(prisma.records.payment.status, "REFUNDED");
   assert.equal(prisma.records.order.paymentStatus, "REFUNDED");
+});
+
+test("verifyRazorpayPayment emails the payment receipt with the webhook's dedupe key", async () => {
+  const prisma = createPaymentsPrismaMock({
+    payment: {
+      provider: "razorpay",
+      providerOrderId: "order_razorpay_1"
+    }
+  });
+  const { notifier, sent } = createRecordingNotifier();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient,
+    new FakePaymentQueue() as unknown as ApiQueueService,
+    notifier
+  );
+
+  await service.verifyRazorpayPayment("customer-1", {
+    orderId: "order-1",
+    razorpay_order_id: "order_razorpay_1",
+    razorpay_payment_id: "pay_razorpay_1",
+    razorpay_signature: createPaymentSignature("order_razorpay_1", "pay_razorpay_1")
+  });
+
+  assert.deepEqual(sent, [
+    {
+      customerId: "customer-1",
+      dedupeKey: "payment-result:payment-1:PAID",
+      event: {
+        amount: "283.20",
+        orderId: "order-1",
+        orderNumber: "ORD-20260525-000001",
+        paymentReference: "pay_razorpay_1",
+        status: "PAID",
+        template: "payment-result"
+      }
+    }
+  ]);
+});
+
+test("refund processing emails the recorded refund status", async () => {
+  const refundOptions = (status: string, providerRefundId?: string) =>
+    createPaymentsPrismaMock({
+      order: { paymentStatus: "PAID", status: "RETURNED" },
+      payment: {
+        paidAt: now,
+        provider: "razorpay",
+        providerAmountPaise: 28320,
+        providerOrderId: "order_razorpay_1",
+        providerPaymentId: "pay_razorpay_1",
+        status: "PAID",
+        transactionRef: "pay_razorpay_1"
+      },
+      refund: {
+        amount: "283.20",
+        paymentId: "payment-1",
+        ...(providerRefundId ? { providerRefundId } : {}),
+        reason: "Seal was damaged on arrival",
+        status
+      }
+    });
+
+  const created = createRecordingNotifier();
+  await new PaymentsService(
+    refundOptions("PENDING") as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient,
+    undefined,
+    created.notifier
+  ).processPendingOrderRefund("order-1");
+
+  assert.deepEqual(created.sent, [
+    {
+      customerId: "customer-1",
+      dedupeKey: "refund-update:refund-1:COMPLETED",
+      event: {
+        amount: "283.20",
+        orderId: "order-1",
+        orderNumber: "ORD-20260525-000001",
+        partial: false,
+        refundReference: "rfnd_razorpay_1",
+        status: "COMPLETED",
+        template: "refund-update"
+      }
+    }
+  ]);
+
+  // A refetched refund that moved from FAILED to COMPLETED is a real change.
+  const refetched = createRecordingNotifier();
+  await new PaymentsService(
+    refundOptions("FAILED", "rfnd_razorpay_1") as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient,
+    undefined,
+    refetched.notifier
+  ).processPendingOrderRefund("order-1");
+
+  assert.deepEqual(
+    refetched.sent.map(({ dedupeKey }) => dedupeKey),
+    ["refund-update:refund-1:COMPLETED"]
+  );
 });

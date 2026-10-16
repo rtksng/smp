@@ -7,6 +7,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
+import {
+  CustomerEmailNotifier,
+  emailLineItems,
+  emailMoney
+} from "../../queues/customer-email.notifier";
 import { CartService } from "../cart/cart.service";
 import { OrdersService } from "../orders/orders.service";
 import { assertQuotationIsCurrent, quoteLineKey } from "./quote-cart-pricing";
@@ -85,7 +90,8 @@ export class QuoteRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
-    @Optional() private readonly ordersService?: OrdersService
+    @Optional() private readonly ordersService?: OrdersService,
+    @Optional() private readonly customerEmails?: CustomerEmailNotifier
   ) {}
 
   async createQuoteRequest(input: CreateQuoteRequestDto) {
@@ -99,6 +105,18 @@ export class QuoteRequestsService {
         templateKey: QUOTE_REQUEST_TEMPLATE_KEY
       }
     });
+
+    // Guests can request quotes, so this goes to the address on the form.
+    await this.customerEmails?.notify(
+      { customerId: null, email: payload.email, firstName: payload.name },
+      {
+        quoteReference: quoteReference(request.id),
+        requestSummary: payload.message,
+        submittedAt: request.createdAt.toISOString(),
+        template: "quote-received"
+      },
+      `quote-received:${request.id}`
+    );
 
     return serializeQuoteRequest(request);
   }
@@ -202,6 +220,26 @@ export class QuoteRequestsService {
         id
       }
     });
+
+    await this.customerEmails?.notify(
+      { customerId: request.userId, email: payload.email, firstName: payload.name },
+      {
+        grandTotal: emailMoney(quotation.totals.grandTotal),
+        // Line amounts exclude tax so they add up to the subtotal row.
+        items: emailLineItems(
+          quotation.items.map((item) => ({ ...item, lineTotal: item.lineSubtotal }))
+        ),
+        quotationNote: quotation.notes,
+        quoteReference: quoteReference(request.id),
+        revised: payload.quotation !== null,
+        shippingTotal: emailMoney(quotation.totals.shippingTotal),
+        subtotal: emailMoney(quotation.totals.subtotal),
+        taxTotal: emailMoney(quotation.totals.taxTotal),
+        template: "quotation-available",
+        validUntil: quotationValidUntilIso(quotation.validUntil)
+      },
+      `quotation-available:${request.id}:${Date.parse(quotation.respondedAt)}`
+    );
 
     return serializeQuoteRequest(updated);
   }
@@ -498,6 +536,18 @@ function readQuotePayload(value: unknown): QuotePayload {
     convertedOrderId:
       typeof payload.convertedOrderId === "string" ? payload.convertedOrderId : null
   };
+}
+
+// Matches the short reference shown on the customer quotes page.
+function quoteReference(id: string) {
+  return id.slice(0, 8);
+}
+
+function quotationValidUntilIso(validUntil: string | null) {
+  if (!validUntil) return null;
+  // Date-only values mean the end of that day; the email shows the date itself.
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(validUntil) ? `${validUntil}T12:00:00Z` : validUntil);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
 function buildQuotation(input: SendQuoteResponseDto): QuoteQuotation {

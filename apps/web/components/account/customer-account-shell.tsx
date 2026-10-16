@@ -72,7 +72,7 @@ export function CustomerAccountShell({
         className="accountNoShadows bg-[#f3faf9]"
         data-testid="account-main"
       >
-        <Container className="py-6 sm:py-8">
+        <Container className="py-4">
           <ProtectedCustomerRoute>
             <div className="grid gap-5 lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-6">
               <aside

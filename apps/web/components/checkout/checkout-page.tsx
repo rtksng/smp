@@ -102,7 +102,7 @@ export function CheckoutPage() {
         className="checkoutNoShadows bg-[#f3faf9]"
         data-testid="checkout-main"
       >
-        <Container className="py-8">
+        <Container className="py-4">
           <ProtectedCustomerRoute>
             <CheckoutContent />
           </ProtectedCustomerRoute>

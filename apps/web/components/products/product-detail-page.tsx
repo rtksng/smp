@@ -357,7 +357,7 @@ export function ProductDetailPage({ initialProduct, slug }: ProductDetailPagePro
         className="productDetailNoShadows bg-[#f3faf9]"
         data-testid="product-detail-main"
       >
-        <Container className="py-4 sm:py-8">
+        <Container className="py-4">
           {productQuery.isLoading ? <ProductDetailSkeleton /> : null}
 
           {productQuery.isError && isNotFoundApiError(productQuery.error) ? (

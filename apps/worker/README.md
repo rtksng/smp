@@ -37,7 +37,10 @@ WORKER_PREFLIGHT_ON_STARTUP=true
 WORKER_PREFLIGHT_TIMEOUT_MS=5000
 ERROR_MONITORING_ENABLED=false
 ERROR_MONITORING_DSN=
+EMAIL_SENDING_ENABLED=false
 ```
+
+Customer email settings (`RESEND_API_KEY`, `EMAIL_FROM`, and others) are described in `src/email/README.md`.
 
 Worker logs are emitted as JSON through the shared Nest logger surface. Keep the worker deployed separately from the API so queue processing can be restarted or scaled without interrupting HTTP traffic.
 
@@ -52,6 +55,7 @@ Set `WORKER_PREFLIGHT_ON_STARTUP=false` only for local debugging when Redis/Post
 
 ## Queues
 
+- `customer-email`: renders and sends customer emails through Resend (see `src/email/README.md`)
 - `otp`: mock OTP delivery
 - `notifications`: persists customer order confirmation records to `NotificationLog`
 - `invoice`: mock invoice generation

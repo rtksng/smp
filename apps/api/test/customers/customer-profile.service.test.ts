@@ -11,6 +11,7 @@ import {
 } from "../../src/modules/customers/dto/customer-profile.dto";
 import { CustomerJwtGuard } from "../../src/modules/auth/guards/customer-jwt.guard";
 import type { PrismaService } from "../../src/database/prisma.service";
+import { createRecordingNotifier } from "../queues/recording-customer-email-notifier";
 
 const now = new Date("2026-05-25T10:00:00.000Z");
 
@@ -379,3 +380,28 @@ test("customer profile controller requires the customer JWT guard", () => {
     [CustomerJwtGuard]
   );
 });
+
+test("updateProfile queues the welcome email only when the first email address is added", async () => {
+  const firstEmail = createRecordingNotifier();
+  await new CustomerProfileService(
+    createCustomerPrismaMock({ user: userFixture({ email: null, firstName: "Customer" }) }),
+    firstEmail.notifier
+  ).updateProfile("customer-1", { email: "Asha@Clinic.in" });
+
+  assert.deepEqual(firstEmail.sent, [
+    {
+      customerId: "customer-1",
+      dedupeKey: "welcome:customer-1",
+      email: "asha@clinic.in",
+      event: { template: "welcome" }
+    }
+  ]);
+
+  const changedEmail = createRecordingNotifier();
+  await new CustomerProfileService(
+    createCustomerPrismaMock(),
+    changedEmail.notifier
+  ).updateProfile("customer-1", { email: "billing@clinic.in" });
+
+  assert.deepEqual(changedEmail.sent, []);
+})

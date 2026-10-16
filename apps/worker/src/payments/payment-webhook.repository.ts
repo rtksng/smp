@@ -4,10 +4,14 @@ import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { QUEUE_NAMES } from "@surgical/config";
 import {
+  CUSTOMER_EMAIL_JOB_NAMES,
   INVOICE_JOB_NAMES,
+  type CustomerEmailEvent,
+  type CustomerEmailJobName,
   type GenerateGstInvoiceJobData,
   type InvoiceJobName,
-  type ProcessPaymentWebhookJobData
+  type ProcessPaymentWebhookJobData,
+  type SendCustomerEmailJobData
 } from "@surgical/types";
 import type { JobsOptions, Queue } from "bullmq";
 import { Pool, type PoolClient } from "pg";
@@ -45,6 +49,15 @@ const DEFAULT_JOB_OPTIONS: JobsOptions = {
   },
   removeOnComplete: 1000,
   removeOnFail: 5000
+};
+// Matches the API's customer email job options.
+const CUSTOMER_EMAIL_JOB_OPTIONS: JobsOptions = {
+  ...DEFAULT_JOB_OPTIONS,
+  attempts: 6,
+  backoff: {
+    delay: 10000,
+    type: "exponential"
+  }
 };
 
 type RazorpayWebhookPayload = Record<string, unknown>;
@@ -85,8 +98,34 @@ type RefundRow = {
   paymentId: string | null;
   status: string;
 };
+type RefundEmailStatus = Extract<CustomerEmailEvent, { template: "refund-update" }>["status"];
+type WebhookCustomerEmail =
+  | {
+      amount: string;
+      kind: "payment";
+      orderId: string;
+      paymentId: string;
+      providerPaymentId: string;
+      status: "FAILED" | "PAID";
+    }
+  | {
+      amount: string;
+      kind: "refund";
+      orderId: string;
+      providerRefundId: string;
+      refundId: string;
+      status: RefundEmailStatus;
+    };
 type RepositoryResult = PaymentWebhookProcessingResult & {
+  customerEmail?: WebhookCustomerEmail;
   invoiceOrderId?: string;
+};
+type OrderEmailRow = {
+  email: string | null;
+  firstName: string;
+  grandTotal: string;
+  orderNumber: string;
+  userId: string;
 };
 
 @Injectable()
@@ -104,6 +143,12 @@ export class PgPaymentWebhookRepository
       GenerateGstInvoiceJobData,
       void,
       InvoiceJobName
+    >,
+    @InjectQueue(QUEUE_NAMES.customerEmail)
+    private readonly customerEmailQueue: Queue<
+      SendCustomerEmailJobData,
+      void,
+      CustomerEmailJobName
     >
   ) {
     super();
@@ -140,6 +185,10 @@ export class PgPaymentWebhookRepository
 
     const result = await processRecordedWebhook(this.pool, data.webhookId, data.payload);
 
+    if (result.customerEmail) {
+      await this.enqueueCustomerEmail(result.customerEmail);
+    }
+
     if (result.invoiceOrderId) {
       await this.invoiceQueue.add(
         INVOICE_JOB_NAMES.generateInvoice,
@@ -150,7 +199,7 @@ export class PgPaymentWebhookRepository
         },
         {
           ...DEFAULT_JOB_OPTIONS,
-          jobId: `payment-webhook-invoice:${result.invoiceOrderId}`
+          jobId: `payment-webhook-invoice-${result.invoiceOrderId}`
         }
       );
     }
@@ -161,6 +210,71 @@ export class PgPaymentWebhookRepository
       received: result.received
     };
   }
+
+  private async enqueueCustomerEmail(email: WebhookCustomerEmail) {
+    const order = await findOrderEmailRow(this.pool, email.orderId);
+
+    if (!order?.email) {
+      return;
+    }
+
+    const amount = Number(email.amount).toFixed(2);
+    const event: CustomerEmailEvent =
+      email.kind === "payment"
+        ? {
+            amount,
+            orderId: email.orderId,
+            orderNumber: order.orderNumber,
+            paymentReference: email.providerPaymentId,
+            status: email.status,
+            template: "payment-result"
+          }
+        : {
+            amount,
+            orderId: email.orderId,
+            orderNumber: order.orderNumber,
+            partial: Number(email.amount) < Number(order.grandTotal),
+            refundReference: email.providerRefundId,
+            status: email.status,
+            template: "refund-update"
+          };
+
+    // Same dedupe keys as the API, so a payment verified in both places emails once.
+    await this.customerEmailQueue.add(
+      CUSTOMER_EMAIL_JOB_NAMES.sendCustomerEmail,
+      {
+        dedupeKey:
+          email.kind === "payment"
+            ? `payment-result:${email.paymentId}:${email.status}`
+            : `refund-update:${email.refundId}:${email.status}`,
+        event,
+        recipient: {
+          customerId: order.userId,
+          email: order.email,
+          name: order.firstName
+        },
+        requestedAt: new Date().toISOString(),
+        version: 1
+      },
+      CUSTOMER_EMAIL_JOB_OPTIONS
+    );
+  }
+}
+
+async function findOrderEmailRow(pool: Pick<Pool, "query">, orderId: string) {
+  const result = await pool.query<OrderEmailRow>(
+    `SELECT o."orderNumber",
+            o."grandTotal"::text AS "grandTotal",
+            o."userId",
+            u.email,
+            u."firstName"
+     FROM "Order" o
+     JOIN "User" u ON u.id = o."userId"
+     WHERE o.id = $1 AND u."deletedAt" IS NULL`,
+    [orderId]
+  );
+
+  return result.rows[0] ?? null;
 }
 
 async function processRecordedWebhook(
@@ -210,6 +324,7 @@ async function processRecordedWebhook(
     await client.query("COMMIT");
 
     return {
+      customerEmail: result.customerEmail,
       duplicate: false,
       invoiceOrderId: result.invoiceOrderId,
       processed: result.processed,
@@ -230,7 +345,12 @@ async function applySupportedWebhookEvent(
   client: PoolClient,
   webhookId: string,
   payload: RazorpayWebhookPayload
-) {
+): Promise<{
+  customerEmail?: WebhookCustomerEmail;
+  invoiceOrderId?: string;
+  paymentId: string | null;
+  processed: boolean;
+}> {
   const paymentEntity = extractRazorpayPaymentEntity(payload);
   const refundEntity = extractRazorpayRefundEntity(payload);
   const payment = paymentEntity
@@ -250,11 +370,24 @@ async function applySupportedWebhookEvent(
   }
 
   if (refundEntity) {
+    const refund = payment
+      ? await processRefundWebhookEvent(client, payload, payment, refundEntity)
+      : null;
+
     return {
+      customerEmail:
+        refund && payment
+          ? {
+              amount: refund.amount,
+              kind: "refund",
+              orderId: payment.orderId,
+              providerRefundId: refundEntity.id,
+              refundId: refund.id,
+              status: refund.status
+            }
+          : undefined,
       paymentId: payment?.id ?? null,
-      processed: payment
-        ? await processRefundWebhookEvent(client, payload, payment, refundEntity)
-        : false
+      processed: refund !== null
     };
   }
 
@@ -271,12 +404,23 @@ async function applySupportedWebhookEvent(
     payment,
     paymentEntity
   );
+  const event = readString(payload.event);
+  const emailStatus =
+    event === "payment.captured" ? "PAID" : event === "payment.failed" ? "FAILED" : null;
 
   return {
-    invoiceOrderId:
-      processed && readString(payload.event) === "payment.captured"
-        ? payment.orderId
+    customerEmail:
+      processed && emailStatus
+        ? {
+            amount: payment.amount,
+            kind: "payment",
+            orderId: payment.orderId,
+            paymentId: payment.id,
+            providerPaymentId: paymentEntity.id,
+            status: emailStatus
+          }
         : undefined,
+    invoiceOrderId: processed && event === "payment.captured" ? payment.orderId : undefined,
     paymentId: payment.id,
     processed
   };
@@ -433,16 +577,17 @@ async function processPaymentWebhookEvent(
   return false;
 }
 
+/** Returns the updated refund, or null when the event changed nothing. */
 async function processRefundWebhookEvent(
   client: PoolClient,
   payload: RazorpayWebhookPayload,
   payment: PaymentRow,
   refundEntity: RazorpayRefundEntity
-) {
+): Promise<{ amount: string; id: string; status: RefundEmailStatus } | null> {
   const event = readString(payload.event);
 
   if (event !== "refund.processed" && event !== "refund.failed") {
-    return false;
+    return null;
   }
 
   if (payment.providerPaymentId !== refundEntity.paymentId) {
@@ -452,7 +597,7 @@ async function processRefundWebhookEvent(
   const refund = await findRefundByProviderRefundId(client, refundEntity.id);
 
   if (!refund) {
-    return false;
+    return null;
   }
 
   if (refund.paymentId !== payment.id) {
@@ -466,7 +611,7 @@ async function processRefundWebhookEvent(
   const status = mapRazorpayRefundStatus(refundEntity.status);
 
   if (refund.status === status) {
-    return false;
+    return null;
   }
 
   const now = new Date();
@@ -484,7 +629,7 @@ async function processRefundWebhookEvent(
     await updatePaymentRefundStatus(client, payment);
   }
 
-  return true;
+  return { amount: refund.amount, id: refund.id, status };
 }
 
 async function updatePaymentRefundStatus(client: PoolClient, payment: PaymentRow) {
@@ -748,7 +893,9 @@ function decimalToPaise(value: DecimalValue) {
   return Math.round(decimalToNumber(value) * 100);
 }
 
-function mapRazorpayRefundStatus(status: "failed" | "pending" | "processed") {
+function mapRazorpayRefundStatus(
+  status: "failed" | "pending" | "processed"
+): RefundEmailStatus {
   if (status === "processed") {
     return REFUND_STATUS_COMPLETED;
   }
