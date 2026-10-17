@@ -1,7 +1,5 @@
 const DEFAULT_STORAGE_PUBLIC_BASE_URL = "http://localhost:4000/uploads";
 const DEFAULT_STORAGE_PUBLIC_PATH = "uploads";
-const DEFAULT_RAILWAY_STORAGE_PUBLIC_BASE_URL =
-  "https://pxseurailproxy-production-1f3a.up.railway.app";
 
 export function resolveStoredUploadUrl(value: string | null | undefined) {
   if (!value) {
@@ -27,12 +25,10 @@ export function resolveStoragePublicBaseUrl(value?: string) {
     .trim()
     .replace(/\/+$/, "");
 
-  if (isValidPublicBaseUrl(configuredValue)) {
-    return configuredValue;
-  }
-
-  return process.env.NODE_ENV === "production"
-    ? DEFAULT_RAILWAY_STORAGE_PUBLIC_BASE_URL
+  // Production refuses to start without a valid STORAGE_PUBLIC_BASE_URL (see
+  // api.config.ts), so this default only applies in local development.
+  return isValidPublicBaseUrl(configuredValue)
+    ? configuredValue
     : DEFAULT_STORAGE_PUBLIC_BASE_URL;
 }
 
@@ -70,7 +66,7 @@ function extractUploadKey(value: string, publicPath: string) {
   return null;
 }
 
-function isValidPublicBaseUrl(value: string) {
+export function isValidPublicBaseUrl(value: string) {
   try {
     const url = new URL(value);
 

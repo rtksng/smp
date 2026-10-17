@@ -10,6 +10,7 @@ import {
 } from "./uploads.constants";
 import { LocalStorageProvider } from "./storage/local-storage.provider";
 import { S3StorageProvider } from "./storage/s3-storage.provider";
+import { PrivateFilesController } from "./private-files.controller";
 import { resolveStoragePublicBaseUrl } from "./upload-url";
 import {
   AdminUploadsController,
@@ -22,7 +23,8 @@ import { UploadsService } from "./uploads.service";
   controllers: [
     AdminUploadsController,
     CustomerUploadsController,
-    DeliveryPartnerUploadsController
+    DeliveryPartnerUploadsController,
+    PrivateFilesController
   ],
   imports: [AuthModule],
   providers: [
@@ -52,6 +54,7 @@ import { UploadsService } from "./uploads.service";
             bucket: requiredConfig(configService, "s3Bucket"),
             endpoint: configService.get<string>("s3Endpoint") || undefined,
             forcePathStyle: configService.get<boolean>("s3ForcePathStyle", false),
+            private: privateBucketAccess(configService),
             publicBaseUrl: resolveStoragePublicBaseUrl(
               requiredConfig(configService, "storagePublicBaseUrl")
             ),
@@ -82,6 +85,20 @@ import { UploadsService } from "./uploads.service";
   exports: [UploadsService]
 })
 export class UploadsModule {}
+
+function privateBucketAccess(configService: ConfigService) {
+  const bucket = configService.get<string>("s3PrivateBucket");
+
+  return bucket
+    ? {
+        accessKeyId: configService.get<string>("s3PrivateAccessKeyId"),
+        bucket,
+        endpoint: configService.get<string>("s3PrivateEndpoint"),
+        region: configService.get<string>("s3PrivateRegion"),
+        secretAccessKey: configService.get<string>("s3PrivateSecretAccessKey")
+      }
+    : undefined;
+}
 
 function requiredConfig(configService: ConfigService, key: string) {
   const value = configService.get<string>(key);

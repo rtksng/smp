@@ -333,3 +333,42 @@ test("loadApiEnvironment reads and bounds the unpaid order expiry settings", () 
     assert.throws(() => loadApiEnvironment(), /UNPAID_ORDER_TIMEOUT_MINUTES/, value);
   }
 });
+
+test("loadApiEnvironment refuses a placeholder storage URL in production instead of guessing a host", () => {
+  for (const value of ["<UNKNOWN>", "not a url"]) {
+    setProductionApiEnv({ STORAGE_PUBLIC_BASE_URL: value });
+
+    assert.throws(() => loadApiEnvironment(), /STORAGE_PUBLIC_BASE_URL must be an http\(s\) URL/, value);
+  }
+});
+
+test("loadApiEnvironment reads the private documents bucket", () => {
+  setProductionApiEnv({ S3_PRIVATE_BUCKET: " surgical-private-documents " });
+
+  assert.equal(loadApiEnvironment().s3PrivateBucket, "surgical-private-documents");
+});
+
+test("loadApiEnvironment reads separate credentials for the private bucket", () => {
+  setProductionApiEnv({
+    S3_PRIVATE_ACCESS_KEY_ID: "private-key",
+    S3_PRIVATE_BUCKET: "private-documents",
+    S3_PRIVATE_ENDPOINT: "https://storage.example.com",
+    S3_PRIVATE_REGION: "auto",
+    S3_PRIVATE_SECRET_ACCESS_KEY: "private-secret"
+  });
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.s3PrivateAccessKeyId, "private-key");
+  assert.equal(environment.s3PrivateSecretAccessKey, "private-secret");
+  assert.equal(environment.s3PrivateEndpoint, "https://storage.example.com");
+  assert.equal(environment.s3PrivateRegion, "auto");
+});
+
+test("loadApiEnvironment rejects incomplete private bucket settings in production", () => {
+  setProductionApiEnv({ S3_PRIVATE_ACCESS_KEY_ID: "private-key", S3_PRIVATE_SECRET_ACCESS_KEY: "secret" });
+  assert.throws(() => loadApiEnvironment(), /S3_PRIVATE_BUCKET is required/);
+
+  setProductionApiEnv({ S3_PRIVATE_ACCESS_KEY_ID: "private-key", S3_PRIVATE_BUCKET: "private-documents" });
+  assert.throws(() => loadApiEnvironment(), /Set both S3_PRIVATE_ACCESS_KEY_ID and S3_PRIVATE_SECRET_ACCESS_KEY/);
+});

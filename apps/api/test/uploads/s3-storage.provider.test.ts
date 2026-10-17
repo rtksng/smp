@@ -46,3 +46,78 @@ test("S3StorageProvider stores objects through an S3-compatible client", async (
     "application/pdf"
   );
 });
+
+test("S3StorageProvider keeps private files in the private bucket and reads them back", async () => {
+  const client = new FakeS3Client();
+  const provider = new S3StorageProvider(
+    {
+      bucket: "public-catalog",
+      private: { bucket: "private-documents" },
+      publicBaseUrl: "https://cdn.example.com/uploads"
+    },
+    client
+  );
+
+  await provider.putObject({
+    buffer: Buffer.from("%PDF-1.7"),
+    contentType: "application/pdf",
+    key: "private/customers/customer-1/documents/id.pdf"
+  });
+  await provider.putObject({
+    buffer: Buffer.from("png"),
+    contentType: "image/png",
+    key: "catalog/products/images/main.png"
+  });
+  await provider.getObject("private/customers/customer-1/documents/id.pdf");
+
+  const buckets = client.commands.map(
+    (command) => (command as { input: { Bucket: string } }).input.Bucket
+  );
+  assert.deepEqual(buckets, ["private-documents", "public-catalog", "private-documents"]);
+});
+
+test("S3StorageProvider reports a missing object as null", async () => {
+  const provider = new S3StorageProvider(
+    { bucket: "public-catalog", publicBaseUrl: "https://cdn.example.com/uploads" },
+    {
+      send: async () => {
+        throw Object.assign(new Error("The specified key does not exist."), { name: "NoSuchKey" });
+      }
+    }
+  );
+
+  assert.equal(await provider.getObject("private/customers/c/documents/x.pdf"), null);
+});
+
+test("S3StorageProvider uses the private bucket's own credentials when it has them", async () => {
+  const publicClient = new FakeS3Client();
+  const privateClient = new FakeS3Client();
+  const provider = new S3StorageProvider(
+    {
+      bucket: "public-catalog",
+      private: { accessKeyId: "private-key", bucket: "private-documents", secretAccessKey: "private-secret" },
+      publicBaseUrl: "https://cdn.example.com/uploads"
+    },
+    publicClient,
+    privateClient
+  );
+
+  await provider.putObject({
+    buffer: Buffer.from("%PDF-1.7"),
+    contentType: "application/pdf",
+    key: "private/delivery-partners/partner-1/documents/licence.pdf"
+  });
+  await provider.putObject({
+    buffer: Buffer.from("png"),
+    contentType: "image/png",
+    key: "catalog/products/images/main.png"
+  });
+  await provider.getObject("private/delivery-partners/partner-1/documents/licence.pdf");
+
+  assert.equal(privateClient.commands.length, 2);
+  assert.equal(publicClient.commands.length, 1);
+  assert.equal(
+    (publicClient.commands[0] as { input: { Key: string } }).input.Key,
+    "catalog/products/images/main.png"
+  );
+});

@@ -93,7 +93,11 @@ test("getAdminDeliveryPartner returns one partner with document detail", async (
   const result = await service.getAdminDeliveryPartner("partner-1", adminAuth());
 
   assert.equal(result.id, "partner-1");
-  assert.equal(result.documents[0]?.fileUrl, "http://localhost/uploads/license.pdf");
+  // Documents are private: viewers get a short-lived signed API link.
+  assert.match(
+    String(result.documents[0]?.fileUrl),
+    /^http:\/\/localhost:4000\/api\/v1\/files\/delivery-partners\/documents\/license\.pdf\?expires=\d+&signature=/
+  );
   assert.equal(result.warehouses[0]?.code, "DEL-01");
   assert.equal(result.warehouses[0]?.associatedAt, now);
   assert.equal(prisma.calls.deliveryPartnerFindFirst.length, 1);
@@ -356,7 +360,7 @@ test("delivery partner can store uploaded document metadata on the profile", asy
   );
 
   const profile = await service.addMyDocument("partner-1", {
-    fileKey: "delivery-partners/documents/pan.pdf",
+    fileKey: "private/delivery-partners/partner-1/documents/pan.pdf",
     fileUrl: "http://localhost/uploads/pan.pdf",
     title: "PAN card",
     type: "PAN"
@@ -364,6 +368,32 @@ test("delivery partner can store uploaded document metadata on the profile", asy
 
   assert.equal(profile.documents.at(-1)?.title, "PAN card");
   assert.equal(prisma.calls.deliveryPartnerDocumentCreate.length, 1);
+  // The client-sent URL is ignored; responses sign the stored key.
+  assert.equal(
+    (prisma.calls.deliveryPartnerDocumentCreate[0] as { data: { fileUrl: string } }).data.fileUrl,
+    ""
+  );
+});
+
+test("delivery partners cannot attach files uploaded by someone else", async () => {
+  const prisma = createDeliveryPrismaMock();
+  const service = new DeliveryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  for (const fileKey of [
+    "private/delivery-partners/partner-2/documents/pan.pdf",
+    "delivery-partners/documents/pan.pdf",
+    "private/delivery-partners/partner-1/../partner-2/documents/pan.pdf"
+  ]) {
+    await assert.rejects(
+      () => service.addMyDocument("partner-1", { fileKey, title: "PAN card", type: "PAN" }),
+      /Upload the file again/,
+      fileKey
+    );
+  }
+  assert.equal(prisma.calls.deliveryPartnerDocumentCreate.length, 0);
 });
 
 test("delivery partner status updates store pickup and delivered timestamps with proof placeholder", async () => {
@@ -385,7 +415,7 @@ test("delivery partner status updates store pickup and delivered timestamps with
   const delivered = await service.updateAssignmentStatus("partner-1", "assignment-1", {
     cashCollectedAmount: 1225,
     note: "Received by clinic desk",
-    proofOfDeliveryKey: "proofs/order-1.jpg",
+    proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order-1.jpg",
     proofOfDeliveryUrl: "http://localhost/uploads/proofs/order-1.jpg",
     receiverName: "Nisha Rao",
     status: "DELIVERED"
@@ -394,7 +424,7 @@ test("delivery partner status updates store pickup and delivered timestamps with
   assert.equal(delivered.status, "DELIVERED");
   assert.ok(delivered.pickedUpAt);
   assert.ok(delivered.deliveredAt);
-  assert.equal(delivered.proofOfDeliveryKey, "proofs/order-1.jpg");
+  assert.equal(delivered.proofOfDeliveryKey, "private/delivery-partners/partner-1/proofs/order-1.jpg");
   assert.equal(delivered.receiverName, "Nisha Rao");
   assert.equal(delivered.payment.cashCollectedAmount, 1225);
   assert.equal(delivered.payment.cashSettlementStatus, "COLLECTED");
@@ -411,7 +441,7 @@ test("delivery retries do not repeat stock or cash writes and COD receipt marks 
   for (const status of ["ACCEPTED", "PICKED_UP", "OUT_FOR_DELIVERY"] as const) {
     await service.updateAssignmentStatus("partner-1", "assignment-1", { status });
   }
-  const payload = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
+  const payload = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
   await service.updateAssignmentStatus("partner-1", "assignment-1", payload);
   const retried = await service.updateAssignmentStatus("partner-1", "assignment-1", payload);
   assert.equal(retried.status, "DELIVERED");
@@ -499,7 +529,7 @@ test("delivery partner must provide proof and receiver name before marking deliv
     () =>
       service.updateAssignmentStatus("partner-1", "assignment-1", {
         cashCollectedAmount: 1225,
-        proofOfDeliveryKey: "proofs/order-1.jpg",
+        proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order-1.jpg",
         status: "DELIVERED"
       }),
     BadRequestException
@@ -549,7 +579,7 @@ test("COD deliveries must include the collected amount before marking delivered"
   await assert.rejects(
     () =>
       service.updateAssignmentStatus("partner-1", "assignment-1", {
-        proofOfDeliveryKey: "proofs/order-1.jpg",
+        proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order-1.jpg",
         proofOfDeliveryUrl: "http://localhost/uploads/proofs/order-1.jpg",
         receiverName: "Nisha Rao",
         status: "DELIVERED"
@@ -799,7 +829,7 @@ test("delivery emails cover assignment, out for delivery, delivery, and COD rece
   for (const status of ["ACCEPTED", "PICKED_UP", "OUT_FOR_DELIVERY"] as const) {
     await statusService.updateAssignmentStatus("partner-1", "assignment-1", { status });
   }
-  const delivered = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
+  const delivered = { status: "DELIVERED" as const, cashCollectedAmount: 1225, receiverName: "QA Receiver", proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order.jpg", proofOfDeliveryUrl: "https://example.test/proof.jpg" };
   await statusService.updateAssignmentStatus("partner-1", "assignment-1", delivered);
   await statusService.updateAssignmentStatus("partner-1", "assignment-1", delivered);
 

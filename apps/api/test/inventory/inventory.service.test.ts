@@ -1297,3 +1297,61 @@ test("stock-out and batch lookup inputs are validated", async () => {
   assert.equal(lookup.includeEmpty, true);
   assert.ok((await validate(plainToInstance(StockBatchListQueryDto, { productId: stockOut.productId }))).length);
 });
+
+test("stock removals carry their quantity check, so a concurrent removal cannot go negative", async () => {
+  const prisma = createInventoryPrismaMock();
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+  const removal = {
+    batchNumber: "BATCH-1",
+    productId: "product-1",
+    quantity: 4,
+    reason: "DAMAGED" as never,
+    warehouseId: "warehouse-1"
+  };
+
+  await service.stockOut(removal, actionContext());
+
+  assert.deepEqual((prisma.calls.stockBatchUpdate[0] as { where: unknown }).where, {
+    id: "batch-1",
+    quantity: { gte: 4 }
+  });
+  assert.deepEqual((prisma.calls.inventoryStockUpdate[0] as { where: unknown }).where, {
+    availableQuantity: { gte: 4 },
+    id: "stock-1"
+  });
+
+  // Another removal took the units between the check above and this write.
+  prisma.stockBatch.update = async () => {
+    throw Object.assign(new Error("No record was found for an update."), { code: "P2025" });
+  };
+  await assert.rejects(() => service.stockOut(removal, actionContext()), /Stock changed/);
+});
+
+test("a stock row created twice at once surfaces as a conflict, not a duplicate row", async () => {
+  const prisma = createInventoryPrismaMock();
+  const service = new InventoryService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+  prisma.inventoryStock.findFirst = async () => null as never;
+  prisma.inventoryStock.create = async () => {
+    throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+  };
+
+  await assert.rejects(
+    () =>
+      service.stockIn(
+        {
+          batchNumber: "BATCH-NEW",
+          productId: "product-1",
+          quantity: 5,
+          warehouseId: "warehouse-1"
+        } as never,
+        actionContext()
+      ),
+    /Stock changed/
+  );
+});

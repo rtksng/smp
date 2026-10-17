@@ -27,14 +27,15 @@ test("HTTP admin assignment, driver delivery, customer tracking and COD settleme
       const customer = await request(server).get(`/orders/${ids.order}`).expect(200);
       assert.equal(customer.body.data.deliveryTracking[0].status, status);
     }
-    const proof = { status: "DELIVERED", receiverName: "QA Receiver", proofOfDeliveryKey: "qa/proof.jpg", proofOfDeliveryUrl: "https://example.test/qa-proof.jpg", cashCollectedAmount: 1225 };
+    const proof = { status: "DELIVERED", receiverName: "QA Receiver", proofOfDeliveryKey: "private/delivery-partners/00000000-0000-4000-8000-000000000002/proofs/proof.jpg", proofOfDeliveryUrl: "https://example.test/qa-proof.jpg", cashCollectedAmount: 1225 };
     await request(server).patch(statusPath).send({ ...proof, cashCollectedAmount: 1 }).expect(400);
     await request(server).patch(statusPath).send(proof).expect(200);
     await request(server).patch(statusPath).send(proof).expect(200);
     const delivered = await request(server).get(`/orders/${ids.order}`).expect(200);
     assert.equal(delivered.body.data.status, "DELIVERED");
     assert.equal(delivered.body.data.paymentStatus, "PAID");
-    assert.equal(delivered.body.data.deliveryTracking[0].proofOfDeliveryUrl, proof.proofOfDeliveryUrl);
+    // The customer sees the proof through a signed API link, never the URL the app sent.
+    assert.match(delivered.body.data.deliveryTracking[0].proofOfDeliveryUrl, /\/api\/v1\/files\/private\/delivery-partners\/.+\/proofs\/proof\.jpg\?expires=\d+&signature=/);
     assert.equal(fixture.prisma.calls.inventoryStockUpdateMany.length, 1);
     assert.equal(fixture.prisma.calls.paymentUpdateMany.length, 1);
     const cash = await request(server).get("/delivery/cash").expect(200);

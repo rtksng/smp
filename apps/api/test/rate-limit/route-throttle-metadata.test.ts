@@ -7,6 +7,12 @@ import { CustomerAuthController } from "../../src/modules/auth/customer/customer
 import { DeliveryPartnerAuthController } from "../../src/modules/auth/delivery-partner/delivery-partner-auth.controller";
 import { HealthController } from "../../src/modules/health/health.controller";
 import { PaymentsController } from "../../src/modules/payments/payments.controller";
+import {
+  AdminUploadsController,
+  CustomerUploadsController,
+  DeliveryPartnerUploadsController
+} from "../../src/modules/uploads/uploads.controller";
+import { uploaderTracker } from "../../src/modules/uploads/upload-throttle";
 
 const THROTTLER_LIMIT = "THROTTLER:LIMIT";
 const THROTTLER_TTL = "THROTTLER:TTL";
@@ -45,4 +51,19 @@ test("health checks and the Razorpay webhook skip rate limiting", () => {
     ),
     true
   );
+});
+
+test("upload routes are limited per uploading account", () => {
+  const routes: Array<[Handler, number]> = [
+    [AdminUploadsController.prototype.uploadImage, 120],
+    [AdminUploadsController.prototype.uploadDocument, 120],
+    [CustomerUploadsController.prototype.uploadDocument, 10],
+    [DeliveryPartnerUploadsController.prototype.uploadDocument, 30],
+    [DeliveryPartnerUploadsController.prototype.uploadProof, 30]
+  ];
+
+  for (const [handler, limit] of routes) {
+    assert.equal(Reflect.getMetadata(`${THROTTLER_LIMIT}default`, handler), limit, handler.name);
+    assert.equal(Reflect.getMetadata("THROTTLER:TRACKERdefault", handler), uploaderTracker, handler.name);
+  }
 });

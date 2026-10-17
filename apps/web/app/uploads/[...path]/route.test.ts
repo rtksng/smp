@@ -63,4 +63,40 @@ describe("public catalog image proxy", () => {
     expect(response.status).toBe(502);
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
+
+  it("refuses redirects to hosts other than the storage bucket", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, { headers: { location: "http://169.254.169.254/latest/meta-data" }, status: 302 })
+    );
+
+    const response = await requestImage();
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows only one redirect", async () => {
+    const location = `https://storage.railway.app/catalog-bucket/${imagePath}`;
+    fetchMock.mockResolvedValueOnce(new Response(null, { headers: { location }, status: 302 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, { headers: { location: "https://example.com/elsewhere" }, status: 302 })
+    );
+
+    const response = await requestImage();
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[1]?.[1] as RequestInit).redirect).toBe("manual");
+  });
+
+  it("is unavailable rather than guessing a storage host when none is configured", async () => {
+    vi.stubEnv("NEXT_PUBLIC_STORAGE_PUBLIC_URL", undefined);
+    vi.stubEnv("STORAGE_PUBLIC_BASE_URL", undefined);
+    vi.stubEnv("NEXT_PUBLIC_API_URL", undefined);
+
+    const response = await requestImage();
+
+    expect(response.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

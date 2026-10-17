@@ -1,4 +1,5 @@
 import { API_VERSION_PREFIX } from "@surgical/config";
+import { isValidPublicBaseUrl } from "../modules/uploads/upload-url";
 
 const DEFAULT_WEB_ORIGIN = "http://localhost:3000";
 const DEFAULT_ADMIN_ORIGIN = "http://localhost:3001";
@@ -145,6 +146,11 @@ export type ApiEnvironment = {
   s3Bucket?: string;
   s3Endpoint?: string;
   s3ForcePathStyle: boolean;
+  s3PrivateAccessKeyId?: string;
+  s3PrivateBucket?: string;
+  s3PrivateEndpoint?: string;
+  s3PrivateRegion?: string;
+  s3PrivateSecretAccessKey?: string;
   s3Region?: string;
   s3SecretAccessKey?: string;
   storageDocumentMaxBytes: number;
@@ -222,6 +228,11 @@ export function loadApiEnvironment(): ApiEnvironment {
     s3Bucket: process.env.S3_BUCKET,
     s3Endpoint: process.env.S3_ENDPOINT,
     s3ForcePathStyle: parseBoolean(process.env.S3_FORCE_PATH_STYLE, false),
+    s3PrivateAccessKeyId: process.env.S3_PRIVATE_ACCESS_KEY_ID?.trim() || undefined,
+    s3PrivateBucket: process.env.S3_PRIVATE_BUCKET?.trim() || undefined,
+    s3PrivateEndpoint: process.env.S3_PRIVATE_ENDPOINT?.trim() || undefined,
+    s3PrivateRegion: process.env.S3_PRIVATE_REGION?.trim() || undefined,
+    s3PrivateSecretAccessKey: process.env.S3_PRIVATE_SECRET_ACCESS_KEY?.trim() || undefined,
     s3Region: process.env.S3_REGION,
     s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     storageDocumentMaxBytes: Number(
@@ -302,6 +313,12 @@ function validateProductionEnvironment(environment: ApiEnvironment) {
     throw new Error("STORAGE_PROVIDER=local cannot be used in production.");
   }
 
+  // Catalog image URLs are built from this; a placeholder such as <UNKNOWN>
+  // would break every image.
+  if (!isValidPublicBaseUrl(environment.storagePublicBaseUrl)) {
+    throw new Error("STORAGE_PUBLIC_BASE_URL must be an http(s) URL in production.");
+  }
+
   validateS3Environment(environment);
 }
 
@@ -324,6 +341,23 @@ function validateS3Environment(environment: ApiEnvironment) {
 
   if (!environment.s3SecretAccessKey) {
     throw new Error("S3_SECRET_ACCESS_KEY is required when STORAGE_PROVIDER=s3.");
+  }
+
+  const privateSettings = [
+    environment.s3PrivateAccessKeyId,
+    environment.s3PrivateSecretAccessKey,
+    environment.s3PrivateEndpoint,
+    environment.s3PrivateRegion
+  ];
+
+  if (privateSettings.some(Boolean) && !environment.s3PrivateBucket) {
+    throw new Error("S3_PRIVATE_BUCKET is required when other S3_PRIVATE_* settings are set.");
+  }
+
+  if (Boolean(environment.s3PrivateAccessKeyId) !== Boolean(environment.s3PrivateSecretAccessKey)) {
+    throw new Error(
+      "Set both S3_PRIVATE_ACCESS_KEY_ID and S3_PRIVATE_SECRET_ACCESS_KEY, or neither."
+    );
   }
 }
 

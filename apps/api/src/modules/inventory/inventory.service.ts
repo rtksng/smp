@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Optional
 } from "@nestjs/common";
+import {
+  isRecordNotFoundError,
+  isUniqueConstraintError
+} from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import {
   OrderStatus,
@@ -170,7 +175,7 @@ export class InventoryService {
               id: beforeBatch.id
             }
           })
-        : await tx.stockBatch.create({
+        : await guardStockChange(tx.stockBatch.create({
             data: {
               batchNumber: input.batchNumber,
               expiryDate: input.expiryDate ? new Date(input.expiryDate) : null,
@@ -182,7 +187,7 @@ export class InventoryService {
               variantId: input.variantId ?? null,
               warehouseId: input.warehouseId
             }
-          });
+          }));
 
       await this.publishProductWhenStocked(tx, product, updatedStock);
 
@@ -266,16 +271,19 @@ export class InventoryService {
         throw new BadRequestException("Batch quantity cannot become negative.");
       }
 
-      const afterBatch = await tx.stockBatch.update({
-        data: {
-          quantity: {
-            increment: input.quantityDelta
+      const afterBatch = await guardStockChange(
+        tx.stockBatch.update({
+          data: {
+            quantity: {
+              increment: input.quantityDelta
+            }
+          },
+          where: {
+            id: beforeBatch.id,
+            ...(input.quantityDelta < 0 ? { quantity: { gte: -input.quantityDelta } } : {})
           }
-        },
-        where: {
-          id: beforeBatch.id
-        }
-      });
+        })
+      );
 
       const updatedStock = await this.incrementInventoryStock(tx, {
         delta: input.quantityDelta,
@@ -367,10 +375,12 @@ export class InventoryService {
         );
       }
 
-      const afterBatch = await tx.stockBatch.update({
-        data: { quantity: { increment: -input.quantity } },
-        where: { id: beforeBatch.id }
-      });
+      const afterBatch = await guardStockChange(
+        tx.stockBatch.update({
+          data: { quantity: { increment: -input.quantity } },
+          where: { id: beforeBatch.id, quantity: { gte: input.quantity } }
+        })
+      );
       const updatedStock = await this.incrementInventoryStock(tx, {
         ...stockKey,
         delta: -input.quantity
@@ -945,16 +955,19 @@ export class InventoryService {
       throw new BadRequestException("Source batch does not have enough stock.");
     }
 
-    const updatedSourceBatch = await tx.stockBatch.update({
-      data: {
-        quantity: {
-          increment: -input.quantity
+    const updatedSourceBatch = await guardStockChange(
+      tx.stockBatch.update({
+        data: {
+          quantity: {
+            increment: -input.quantity
+          }
+        },
+        where: {
+          id: sourceBatch.id,
+          quantity: { gte: input.quantity }
         }
-      },
-      where: {
-        id: sourceBatch.id
-      }
-    });
+      })
+    );
     const existingDestinationBatch = await this.findStockBatch(tx, {
       batchNumber: input.batchNumber,
       productId: input.productId,
@@ -972,7 +985,7 @@ export class InventoryService {
             id: existingDestinationBatch.id
           }
         })
-      : await tx.stockBatch.create({
+      : await guardStockChange(tx.stockBatch.create({
           data: {
             batchNumber: sourceBatch.batchNumber,
             expiryDate: sourceBatch.expiryDate,
@@ -984,7 +997,7 @@ export class InventoryService {
             variantId: input.variantId ?? null,
             warehouseId: input.toWarehouseId
           }
-        });
+        }));
 
     return {
       destinationBatchId: destinationBatch.id,
@@ -1208,35 +1221,40 @@ export class InventoryService {
         throw new BadRequestException("Stock cannot become negative.");
       }
 
-      return tx.inventoryStock.create({
-        data: {
-          availableQuantity: input.delta,
-          productId: input.productId,
-          reorderLevel: input.lowStockThreshold ?? 0,
-          reservedQuantity: 0,
-          variantId: input.variantId,
-          warehouseId: input.warehouseId
-        }
-      });
+      return guardStockChange(
+        tx.inventoryStock.create({
+          data: {
+            availableQuantity: input.delta,
+            productId: input.productId,
+            reorderLevel: input.lowStockThreshold ?? 0,
+            reservedQuantity: 0,
+            variantId: input.variantId,
+            warehouseId: input.warehouseId
+          }
+        })
+      );
     }
 
     if (existingStock.availableQuantity + input.delta < 0) {
       throw new BadRequestException("Stock cannot become negative.");
     }
 
-    return tx.inventoryStock.update({
-      data: {
-        availableQuantity: {
-          increment: input.delta
+    return guardStockChange(
+      tx.inventoryStock.update({
+        data: {
+          availableQuantity: {
+            increment: input.delta
+          },
+          ...(input.lowStockThreshold !== undefined
+            ? { reorderLevel: input.lowStockThreshold }
+            : {})
         },
-        ...(input.lowStockThreshold !== undefined
-          ? { reorderLevel: input.lowStockThreshold }
-          : {})
-      },
-      where: {
-        id: existingStock.id
-      }
-    });
+        where: {
+          id: existingStock.id,
+          ...(input.delta < 0 ? { availableQuantity: { gte: -input.delta } } : {})
+        }
+      })
+    );
   }
 
   private async writeAuditLog(
@@ -1400,6 +1418,25 @@ export class InventoryService {
       variantId: movement.variantId,
       warehouseId: movement.warehouseId
     };
+  }
+}
+
+const STOCK_CHANGED_MESSAGE =
+  "Stock changed while this was being saved. Refresh and try again.";
+
+// Removals carry their quantity check in the where clause, so a concurrent
+// change that leaves too little stock fails here instead of going negative.
+// A duplicate-row error means another request created the same stock or
+// batch row at the same moment.
+async function guardStockChange<T>(write: Promise<T>): Promise<T> {
+  try {
+    return await write;
+  } catch (error) {
+    if (isRecordNotFoundError(error) || isUniqueConstraintError(error)) {
+      throw new ConflictException(STOCK_CHANGED_MESSAGE);
+    }
+
+    throw error;
   }
 }
 
