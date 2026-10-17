@@ -7,8 +7,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import type { Response } from "express";
+import { AUTH_THROTTLE_LIMITS } from "../common/auth-throttle";
 import { getAuthRequestContext } from "../common/request-context";
 import {
   CustomerRequestOtpDto,
@@ -26,6 +28,7 @@ export class CustomerAuthController {
   constructor(private readonly customerAuthService: CustomerAuthService) {}
 
   @Post("request-otp")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.otpRequest })
   @ApiOperation({ summary: "Request a customer login OTP." })
   @ApiOkResponse({ description: "OTP generated and sent through mock sender." })
   @ApiBadRequestResponse({ description: "Invalid mobile number." })
@@ -35,6 +38,7 @@ export class CustomerAuthController {
   }
 
   @Post("verify-otp")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.otpVerify })
   @ApiOperation({ summary: "Verify customer OTP and issue tokens." })
   @ApiOkResponse({ description: "Customer authenticated." })
   @ApiUnauthorizedResponse({ description: "Invalid or expired OTP." })

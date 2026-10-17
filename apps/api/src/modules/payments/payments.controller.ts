@@ -22,6 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
 import type { AuthenticatedRequest } from "../auth/guards/authenticated-request";
@@ -99,6 +100,8 @@ export class PaymentsController {
   }
 
   @Post("razorpay/webhook")
+  // Signature-verified server-to-server traffic; Razorpay needs a 2xx quickly.
+  @SkipThrottle()
   @ApiOperation({ summary: "Receive a Razorpay webhook after signature verification." })
   @ApiHeader({
     description: "Razorpay webhook signature generated over the raw request body.",

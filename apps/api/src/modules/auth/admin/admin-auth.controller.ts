@@ -6,7 +6,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
+import { AUTH_THROTTLE_LIMITS } from "../common/auth-throttle";
 import { getAuthRequestContext } from "../common/request-context";
 import { AdminLoginDto } from "../dto/admin-login.dto";
 import { LogoutDto, RefreshTokenDto } from "../dto/session-token.dto";
@@ -18,6 +20,7 @@ export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
   @Post("login")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.login })
   @ApiOperation({ summary: "Login an admin with email and password." })
   @ApiOkResponse({ description: "Admin authenticated with role permissions." })
   @ApiBadRequestResponse({ description: "Invalid login payload." })

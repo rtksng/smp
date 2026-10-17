@@ -36,6 +36,20 @@ function demoMobileNumbers(value: string | undefined, envName: string) {
   return mobileNumbers;
 }
 
+function demoOtpCode(value: string | undefined) {
+  const code = value?.trim();
+
+  if (!code) {
+    return undefined;
+  }
+
+  if (!/^\d{6}$/.test(code)) {
+    throw new Error("OTP_DEMO_CODE must be a 6-digit code.");
+  }
+
+  return code;
+}
+
 function parseTrustProxy(value: string | undefined) {
   if (!value) {
     return false;
@@ -88,6 +102,7 @@ function corsOriginsForEnvironment(environment: string) {
 
 export type ApiEnvironment = {
   apiPrefix: string;
+  apiProxySharedSecret?: string;
   bcryptSaltRounds: number;
   corsOrigins: string[];
   databaseUrl: string;
@@ -98,9 +113,11 @@ export type ApiEnvironment = {
   jwtAccessTtlSeconds: number;
   jwtRefreshSecret: string;
   jwtRefreshTtlSeconds: number;
+  otpDemoCode?: string;
   otpDemoCustomerMobileNumbers: string[];
   otpDemoDeliveryMobileNumbers: string[];
   otpExposeInResponse: boolean;
+  otpMaxVerifyAttempts: number;
   otpRateLimit: number;
   otpRateWindowSeconds: number;
   otpResendCooldownSeconds: number;
@@ -135,6 +152,7 @@ export function loadApiEnvironment(): ApiEnvironment {
   const environment = process.env.NODE_ENV ?? "development";
   const apiEnvironment: ApiEnvironment = {
     apiPrefix: API_VERSION_PREFIX.replace(/^\//, ""),
+    apiProxySharedSecret: process.env.API_PROXY_SHARED_SECRET?.trim() || undefined,
     bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS ?? 12),
     corsOrigins: corsOriginsForEnvironment(environment),
     databaseUrl: required("DATABASE_URL"),
@@ -148,6 +166,7 @@ export function loadApiEnvironment(): ApiEnvironment {
     jwtAccessTtlSeconds: Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
     jwtRefreshSecret: required("JWT_REFRESH_SECRET"),
     jwtRefreshTtlSeconds: Number(process.env.JWT_REFRESH_TTL_SECONDS ?? 2592000),
+    otpDemoCode: demoOtpCode(process.env.OTP_DEMO_CODE),
     otpDemoCustomerMobileNumbers: demoMobileNumbers(
       process.env.OTP_DEMO_CUSTOMER_MOBILE_NUMBERS,
       "OTP_DEMO_CUSTOMER_MOBILE_NUMBERS"
@@ -160,6 +179,7 @@ export function loadApiEnvironment(): ApiEnvironment {
       process.env.OTP_EXPOSE_IN_RESPONSE,
       environment !== "production"
     ),
+    otpMaxVerifyAttempts: Number(process.env.OTP_MAX_VERIFY_ATTEMPTS ?? 5),
     otpRateLimit: Number(process.env.OTP_RATE_LIMIT ?? 5),
     otpRateWindowSeconds: Number(process.env.OTP_RATE_WINDOW_SECONDS ?? 3600),
     otpResendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS ?? 60),
@@ -216,6 +236,27 @@ function validateProductionEnvironment(environment: ApiEnvironment) {
 
   if (environment.swaggerEnabled) {
     throw new Error("SWAGGER_ENABLED cannot be true in production.");
+  }
+
+  // Demo numbers (for app-store review and internal testing) must log in with
+  // a fixed secret code; production never returns a generated code.
+  if (
+    !environment.otpDemoCode &&
+    (environment.otpDemoCustomerMobileNumbers.length > 0 ||
+      environment.otpDemoDeliveryMobileNumbers.length > 0)
+  ) {
+    throw new Error(
+      "OTP_DEMO_CODE is required in production when OTP_DEMO_*_MOBILE_NUMBERS is set."
+    );
+  }
+
+  if (
+    environment.apiProxySharedSecret &&
+    environment.apiProxySharedSecret.length < 32
+  ) {
+    throw new Error(
+      "API_PROXY_SHARED_SECRET must be at least 32 characters in production."
+    );
   }
 
   if (

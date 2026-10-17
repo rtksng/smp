@@ -15,7 +15,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
+import { AUTH_THROTTLE_LIMITS } from "../common/auth-throttle";
 import { getAuthRequestContext } from "../common/request-context";
 import {
   DeliveryPartnerRequestOtpDto,
@@ -33,6 +35,7 @@ export class DeliveryPartnerAuthController {
   ) {}
 
   @Post("request-otp")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.otpRequest })
   @ApiOperation({
     summary: "Request a delivery partner OTP for the future delivery mobile app."
   })
@@ -44,6 +47,7 @@ export class DeliveryPartnerAuthController {
   }
 
   @Post("register")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.registration })
   @ApiOperation({
     summary: "Register a delivery partner application for admin approval."
   })
@@ -61,6 +65,7 @@ export class DeliveryPartnerAuthController {
   }
 
   @Post("verify-otp")
+  @Throttle({ default: AUTH_THROTTLE_LIMITS.otpVerify })
   @ApiOperation({
     summary: "Verify delivery partner OTP and issue mobile-app API tokens."
   })

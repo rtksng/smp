@@ -42,9 +42,16 @@ class InMemoryOtpCache {
     this.entries.delete(key);
   }
 
+  // Atomic like Redis INCR: no await between the read and the write, and the
+  // expiry is set only when the counter is created.
   async increment(key: string, ttlSeconds: number) {
-    const current = Number((await this.get(key)) ?? "0") + 1;
-    await this.set(key, String(current), ttlSeconds);
+    const entry = this.entries.get(key);
+    const live = entry && entry.expiresAt > this.now() ? entry : undefined;
+    const current = Number(live?.value ?? "0") + 1;
+    this.entries.set(key, {
+      expiresAt: live?.expiresAt ?? this.now() + ttlSeconds * 1000,
+      value: String(current)
+    });
     return current;
   }
 }
@@ -298,5 +305,177 @@ test("requestOtp enforces a Redis-backed request rate limit", async () => {
   await assert.rejects(
     () => service.requestOtp(OtpPurpose.DeliveryPartner, "+919876543210"),
     /too many OTP requests/i
+  );
+});
+
+function attemptLimitedService(cache: InMemoryOtpCache, maxVerifyAttempts = 3) {
+  return new OtpService(cache, {
+    cooldownSeconds: 0,
+    generator: () => "123456",
+    maxVerifyAttempts,
+    otpTtlSeconds: 300,
+    rateLimit: 10,
+    rateWindowSeconds: 3600
+  });
+}
+
+test("verifyOtp invalidates the code after too many incorrect attempts", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const service = attemptLimitedService(cache);
+  await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    assert.equal(
+      await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "000000"),
+      false
+    );
+  }
+
+  await assert.rejects(
+    () => service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+    /too many incorrect OTP attempts/i
+  );
+});
+
+test("verifyOtp limits concurrent guesses to the attempt budget", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const service = attemptLimitedService(cache);
+  await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+  const guesses = Array.from({ length: 20 }, (_, index) =>
+    String(index).padStart(6, "0")
+  ).concat("123456");
+
+  const results = await Promise.allSettled(
+    guesses.map((guess) =>
+      service.verifyOtp(OtpPurpose.Customer, "+919876543210", guess)
+    )
+  );
+
+  assert.equal(
+    results.filter((result) => result.status === "fulfilled").length,
+    3
+  );
+  assert.ok(
+    results.every(
+      (result) => result.status === "rejected" || result.value === false
+    )
+  );
+});
+
+test("requestOtp resets the incorrect attempt count for the new code", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const service = attemptLimitedService(cache);
+  await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "000000");
+  }
+
+  await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+    true
+  );
+});
+
+test("verifyOtp clears the attempt count after a successful login", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const service = attemptLimitedService(cache);
+  await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+
+  await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "000000");
+  await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "000000");
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+    true
+  );
+
+  assert.equal(
+    await cache.get("auth:otp:customer:+919876543210:attempts"),
+    null
+  );
+});
+
+function demoCodeService(cache: InMemoryOtpCache, queue: FakeOtpQueue) {
+  return new (OtpService as unknown as new (
+    cache: InMemoryOtpCache,
+    options: OtpServiceOptions,
+    queue: FakeOtpQueue
+  ) => OtpService)(
+    cache,
+    {
+      cooldownSeconds: 0,
+      demoCode: "482915",
+      demoCustomerMobileNumbers: ["+919000000000"],
+      demoDeliveryMobileNumbers: ["+919000000001"],
+      exposeOtpInResponse: false,
+      generator: () => "123456",
+      otpTtlSeconds: 300,
+      rateLimit: 5,
+      rateWindowSeconds: 3600
+    },
+    queue
+  );
+}
+
+test("requestOtp uses the fixed demo code without returning or sending it", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const queue = new FakeOtpQueue();
+  const service = demoCodeService(cache, queue);
+
+  const customer = await service.requestOtp(OtpPurpose.Customer, "+919000000000");
+  const deliveryPartner = await service.requestOtp(
+    OtpPurpose.DeliveryPartner,
+    "+919000000001"
+  );
+
+  assert.equal("devOtp" in customer, false);
+  assert.equal("devOtp" in deliveryPartner, false);
+  assert.equal(queue.otpJobs.length, 0);
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919000000000", "123456"),
+    false
+  );
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919000000000", "482915"),
+    true
+  );
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.DeliveryPartner, "+919000000001", "482915"),
+    true
+  );
+});
+
+test("requestOtp still generates and sends codes for non-demo numbers when a demo code is set", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const queue = new FakeOtpQueue();
+  const service = demoCodeService(cache, queue);
+
+  const response = await service.requestOtp(OtpPurpose.Customer, "+919876543210");
+
+  assert.equal("devOtp" in response, false);
+  assert.equal(queue.otpJobs.length, 1);
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "482915"),
+    false
+  );
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.Customer, "+919876543210", "123456"),
+    true
+  );
+});
+
+test("demo numbers are limited to their own audience", async () => {
+  const cache = new InMemoryOtpCache(() => Date.now());
+  const queue = new FakeOtpQueue();
+  const service = demoCodeService(cache, queue);
+
+  await service.requestOtp(OtpPurpose.DeliveryPartner, "+919000000000");
+
+  assert.equal(queue.otpJobs.length, 1);
+  assert.equal(
+    await service.verifyOtp(OtpPurpose.DeliveryPartner, "+919000000000", "482915"),
+    false
   );
 });

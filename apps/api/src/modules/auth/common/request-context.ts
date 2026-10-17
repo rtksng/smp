@@ -5,17 +5,12 @@ export type AuthRequestContext = {
   userAgent?: string;
 };
 
-function firstForwardedIp(value: Request["headers"]["x-forwarded-for"]) {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value?.split(",")[0]?.trim();
-}
-
+// request.ip honours TRUST_PROXY and the trusted frontend proxy header (see
+// TrustedClientIpMiddleware). Raw X-Forwarded-For values are not used because
+// any client can set them.
 export function getAuthRequestContext(request: Request): AuthRequestContext {
   return {
-    ipAddress: firstForwardedIp(request.headers["x-forwarded-for"]) ?? request.ip,
+    ipAddress: request.ip,
     userAgent:
       typeof request.headers["user-agent"] === "string"
         ? request.headers["user-agent"]

@@ -6,6 +6,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ApiResponseInterceptor } from "./common/interceptors/api-response.interceptor";
 import { StructuredLogger } from "./common/logging/structured-logger.service";
 import { RequestLoggingMiddleware } from "./common/middleware/request-logging.middleware";
+import { TrustedClientIpMiddleware } from "./common/middleware/trusted-client-ip.middleware";
 import { ErrorMonitoringService } from "./common/monitoring/error-monitoring.service";
 import { createRedisThrottlerStorage } from "./common/rate-limit/redis-throttler-storage";
 import { loadApiEnvironment } from "./config/api.config";
@@ -98,6 +99,8 @@ import { WishlistModule } from "./modules/wishlist/wishlist.module";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestLoggingMiddleware).forRoutes("*");
+    consumer
+      .apply(TrustedClientIpMiddleware, RequestLoggingMiddleware)
+      .forRoutes("*");
   }
 }

@@ -30,13 +30,25 @@ export class RedisCacheService implements OnModuleDestroy {
   }
 
   async increment(key: string, ttlSeconds: number) {
-    const count = await this.redis.incr(key);
-
-    if (count === 1 && ttlSeconds > 0) {
-      await this.redis.expire(key, ttlSeconds);
+    if (ttlSeconds <= 0) {
+      return this.redis.incr(key);
     }
 
-    return count;
+    // Create the counter with its expiry and increment it in one transaction,
+    // so a failure between the two steps can never leave a counter that
+    // never expires.
+    const results = await this.redis
+      .multi()
+      .set(key, "0", "EX", ttlSeconds, "NX")
+      .incr(key)
+      .exec();
+    const [, incrementResult] = results ?? [];
+
+    if (!incrementResult || incrementResult[0]) {
+      throw incrementResult?.[0] ?? new Error(`Unable to increment ${key}.`);
+    }
+
+    return Number(incrementResult[1]);
   }
 
   async onModuleDestroy() {
