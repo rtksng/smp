@@ -5,7 +5,7 @@ import {
   type OtpJobName,
   type SendOtpJobData
 } from "@surgical/types";
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import {
   assertJobName,
   logJobCompleted,
@@ -17,11 +17,17 @@ import {
   requireString,
   requireVersionOne
 } from "./job-processing";
+import { OtpDeliveryService } from "../otp/otp-delivery.service";
 import { StructuredLogger } from "../structured-logger.service";
 
-@Processor(QUEUE_NAMES.otp)
+// Each send waits on the WhatsApp API; one job at a time would hold users
+// waiting for their login code behind each other.
+@Processor(QUEUE_NAMES.otp, { concurrency: 10 })
 export class OtpProcessor extends WorkerHost {
-  constructor(private readonly logger: StructuredLogger = new StructuredLogger()) {
+  constructor(
+    private readonly otpDelivery: OtpDeliveryService,
+    private readonly logger: StructuredLogger = new StructuredLogger()
+  ) {
     super();
   }
 
@@ -29,19 +35,30 @@ export class OtpProcessor extends WorkerHost {
     const startedAtMs = Date.now();
 
     try {
-      assertJobName(job, OTP_JOB_NAMES.sendOtp, "OTP");
-      const data = validateSendOtpJobData(job.data);
+      let data: SendOtpJobData;
+
+      try {
+        assertJobName(job, OTP_JOB_NAMES.sendOtp, "OTP");
+        data = validateSendOtpJobData(job.data);
+      } catch (error) {
+        // A malformed payload cannot succeed on retry.
+        throw new UnrecoverableError(error instanceof Error ? error.message : String(error));
+      }
+
+      const result = await this.otpDelivery.send(data);
 
       logJobCompleted(
         this.logger,
         OtpProcessor.name,
         QUEUE_NAMES.otp,
         job,
-        "otp.sent",
+        result.status === "sent" ? "otp.sent" : "otp.skipped",
         startedAtMs,
         {
+          messageId: result.status === "sent" ? result.messageId : undefined,
           mobileNumber: redactMobileNumber(data.mobileNumber),
-          purpose: data.purpose
+          purpose: data.purpose,
+          reason: result.status === "skipped" ? result.reason : undefined
         }
       );
     } catch (error) {

@@ -19,6 +19,7 @@ import { InvoicesProcessor } from "../src/queues/invoices.processor";
 import { LowStockAlertProcessor } from "../src/queues/low-stock-alert.processor";
 import { NearExpiryAlertProcessor } from "../src/queues/near-expiry-alert.processor";
 import { NotificationsProcessor } from "../src/queues/notifications.processor";
+import { OtpDeliveryService } from "../src/otp/otp-delivery.service";
 import { OtpProcessor } from "../src/queues/otp.processor";
 import { PaymentWebhookProcessor } from "../src/queues/payment-webhook.processor";
 import {
@@ -95,9 +96,24 @@ class FakePaymentWebhookRepository extends PaymentWebhookRepository {
   }
 }
 
+function whatsAppOtpDelivery() {
+  return new OtpDeliveryService(
+    {
+      accessToken: "test-token",
+      apiVersion: "v23.0",
+      codeTtlSeconds: 300,
+      enabled: true,
+      phoneNumberId: "1234567890",
+      templateLanguage: "en_US",
+      templateName: "login_otp"
+    },
+    { sendOtp: async () => ({ messageId: "wamid.test" }) }
+  );
+}
+
 test("OtpProcessor rejects malformed payloads before logging", async () => {
   const logger = new FakeLogger();
-  const processor = new OtpProcessor(logger as StructuredLogger);
+  const processor = new OtpProcessor(whatsAppOtpDelivery(), logger as StructuredLogger);
 
   await assert.rejects(
     processor.process(
@@ -117,14 +133,14 @@ test("OtpProcessor rejects malformed payloads before logging", async () => {
 
 test("OtpProcessor logs sanitized job context without OTP or full mobile number", async () => {
   const logger = new FakeLogger();
-  const processor = new OtpProcessor(logger as StructuredLogger);
+  const processor = new OtpProcessor(whatsAppOtpDelivery(), logger as StructuredLogger);
 
   await processor.process(
     makeJob(OTP_JOB_NAMES.sendOtp, {
-      mobileNumber: "9876543210",
+      mobileNumber: "+919876543210",
       otp: "123456",
       purpose: "delivery_partner",
-      requestedAt: "2026-06-18T10:30:00.000Z",
+      requestedAt: new Date().toISOString(),
       version: 1
     })
   );
@@ -132,9 +148,10 @@ test("OtpProcessor logs sanitized job context without OTP or full mobile number"
   assert.equal(logger.logs.length, 1);
   const serializedLog = JSON.stringify(logger.logs[0]);
   assert.match(serializedLog, /otp.sent/);
+  assert.match(serializedLog, /wamid.test/);
   assert.doesNotMatch(serializedLog, /123456/);
   assert.doesNotMatch(serializedLog, /9876543210/);
-  assert.match(serializedLog, /\*\*\*\*\*\*3210/);
+  assert.match(serializedLog, /\*{9}3210/);
 });
 
 test("InvoicesProcessor rejects malformed payloads and logs the failed job", async () => {
