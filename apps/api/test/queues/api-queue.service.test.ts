@@ -88,3 +88,18 @@ test("unpaid order expiry uses one named schedule that replicas can upsert or re
     { removed: "expire-unpaid-orders" }
   ]);
 });
+
+test("enqueueRefundProcessing queues one retried job per refund", async () => {
+  const { orderMaintenanceQueue, service } = queueService();
+
+  await service.enqueueRefundProcessing("refund-1");
+
+  assert.equal(orderMaintenanceQueue.jobs.length, 1);
+  assert.equal(orderMaintenanceQueue.jobs[0]?.name, ORDER_MAINTENANCE_JOB_NAMES.processRefund);
+  assert.equal(
+    (orderMaintenanceQueue.jobs[0]?.data as { refundId: string }).refundId,
+    "refund-1"
+  );
+  assert.equal(orderMaintenanceQueue.jobs[0]?.options?.jobId, "refund-refund-1");
+  assert.equal(orderMaintenanceQueue.jobs[0]?.options?.attempts, 5);
+});

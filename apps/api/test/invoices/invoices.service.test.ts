@@ -317,3 +317,39 @@ test("getAdminInvoice applies warehouse scope before returning invoice data", as
   assert.deepEqual(warehouseAccess.assertedWarehouseIds, ["warehouse-1"]);
 }
 );
+
+test("simultaneous invoice requests for one order return the invoice that won", async () => {
+  const prisma = createInvoicePrismaMock();
+  const createInvoice = prisma.gSTInvoice.create;
+  // Another request inserts the invoice between this one's lookup and insert.
+  prisma.gSTInvoice.create = async (args: { data: Record<string, unknown> }) => {
+    await createInvoice(args);
+    throw Object.assign(new Error("Unique constraint failed on the fields: (orderId)"), {
+      code: "P2002"
+    });
+  };
+  const service = new InvoicesService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  const invoice = await service.getCustomerInvoice("customer-1", "order-1");
+
+  assert.equal(invoice.id, "invoice-1");
+});
+
+test("invoice creation errors other than a duplicate still fail", async () => {
+  const prisma = createInvoicePrismaMock();
+  prisma.gSTInvoice.create = async () => {
+    throw new Error("database unavailable");
+  };
+  const service = new InvoicesService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(
+    () => service.getCustomerInvoice("customer-1", "order-1"),
+    /database unavailable/
+  );
+});

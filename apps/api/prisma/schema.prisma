@@ -824,7 +824,7 @@ model Refund {
   status           RefundStatus @default(PENDING)
   amount           Decimal      @db.Decimal(12, 2)
   reason           String?
-  providerRefundId String?
+  providerRefundId String?      @unique
   processedAt      DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt

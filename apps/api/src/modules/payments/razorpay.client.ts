@@ -37,6 +37,10 @@ export type RazorpayCreateRefundResult = {
 
 export type RazorpayFetchRefundResult = RazorpayCreateRefundResult;
 
+export type RazorpayPaymentRefund = RazorpayCreateRefundResult & {
+  notes: Record<string, string>;
+};
+
 export type RazorpayOrderPayment = {
   id: string;
   // created, authorized, captured, refunded or failed.
@@ -173,6 +177,52 @@ export class RazorpayClient {
     }
 
     return payload;
+  }
+
+  async fetchPaymentRefunds(paymentId: string): Promise<RazorpayPaymentRefund[]> {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+
+    const response = await this.request(
+      `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refunds`,
+      {
+        headers: {
+          Authorization: this.authorizationHeader()
+        },
+        method: "GET"
+      }
+    );
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new BadGatewayException("Razorpay payment refunds fetch failed.");
+    }
+
+    if (!isRecord(payload) || !Array.isArray(payload.items)) {
+      throw new BadGatewayException("Razorpay returned an invalid refunds response.");
+    }
+
+    return payload.items.map((item: unknown) => {
+      if (!isRazorpayCreateRefundResult(item)) {
+        throw new BadGatewayException("Razorpay returned an invalid refund.");
+      }
+
+      const rawNotes = (item as RazorpayCreateRefundResult & { notes?: unknown }).notes;
+      const notes = isRecord(rawNotes) ? rawNotes : {};
+
+      return {
+        ...item,
+        notes: Object.fromEntries(
+          Object.entries(notes).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string"
+          )
+        )
+      };
+    });
   }
 
   async fetchOrderPayments(razorpayOrderId: string): Promise<RazorpayOrderPayment[]> {

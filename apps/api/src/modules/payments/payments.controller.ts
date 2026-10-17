@@ -117,13 +117,15 @@ export class PaymentsController {
   handleRazorpayWebhook(
     @RawBody() rawBody: Buffer | undefined,
     @Body() body: unknown,
-    @Headers("x-razorpay-signature") signature: string | undefined
+    @Headers("x-razorpay-signature") signature: string | undefined,
+    // Razorpay sends the same event id on every retry of one event.
+    @Headers("x-razorpay-event-id") eventId: string | undefined
   ) {
     if (!rawBody) {
       throw new UnauthorizedException("Razorpay raw webhook body is missing.");
     }
 
-    return this.paymentsService.handleRazorpayWebhook(rawBody, body, signature);
+    return this.paymentsService.handleRazorpayWebhook(rawBody, body, signature, eventId);
   }
 }
 

@@ -13,6 +13,36 @@ jobs:
     name: Install, lint, typecheck, test, build
     runs-on: ubuntu-latest
 
+    # Real PostgreSQL and Redis for the race and locking tests, which are
+    # skipped when DATABASE_TEST_URL or REDIS_TEST_URL is not set.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: smp_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d smp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_TEST_URL: postgresql://postgres:postgres@localhost:5432/smp_test
+      REDIS_TEST_URL: redis://localhost:6379
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +64,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://localhost:5432/smp_ci
         run: pnpm --filter @surgical/api prisma:generate
+
+      - name: Apply migrations to the test database
+        env:
+          DATABASE_URL: ${{ env.DATABASE_TEST_URL }}
+        run: pnpm --filter @surgical/api exec prisma migrate deploy --schema ./prisma/schema.prisma
 
       - name: Lint
         run: pnpm lint

@@ -4,17 +4,20 @@ import { ConfigService } from "@nestjs/config";
 import { QUEUE_NAMES } from "@surgical/config";
 import {
   ORDER_MAINTENANCE_JOB_NAMES,
-  type OrderMaintenanceJobName
+  type OrderMaintenanceJobName,
+  type ProcessRefundJobData
 } from "@surgical/types";
 import { UnrecoverableError, type Job } from "bullmq";
 import { ApiQueueService } from "../../queues/api-queue.service";
+import { PaymentsService } from "../payments/payments.service";
 import { UnpaidOrderExpiryService } from "./unpaid-order-expiry.service";
 
 export const UNPAID_ORDER_EXPIRY_INTERVAL_MS = 5 * 60_000;
 
 // Runs in the API rather than the worker because it reuses the order
-// cancellation logic that releases stock. Every API replica runs this worker;
-// BullMQ hands each scheduled job to only one of them.
+// cancellation logic that releases stock and holds the Razorpay keys for
+// refunds. Every API replica runs this worker; BullMQ hands each job to only
+// one of them.
 @Processor(QUEUE_NAMES.orderMaintenance)
 export class OrderMaintenanceProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(OrderMaintenanceProcessor.name);
@@ -23,6 +26,7 @@ export class OrderMaintenanceProcessor extends WorkerHost implements OnApplicati
   constructor(
     private readonly unpaidOrderExpiry: UnpaidOrderExpiryService,
     private readonly queues: ApiQueueService,
+    private readonly payments: PaymentsService,
     configService: ConfigService
   ) {
     super();
@@ -47,7 +51,21 @@ export class OrderMaintenanceProcessor extends WorkerHost implements OnApplicati
     }
   }
 
-  async process(job: Job<Record<string, never>, void, OrderMaintenanceJobName>) {
+  async process(
+    job: Job<ProcessRefundJobData | Record<string, never>, void, OrderMaintenanceJobName>
+  ) {
+    if (job.name === ORDER_MAINTENANCE_JOB_NAMES.processRefund) {
+      const refundId = (job.data as Partial<ProcessRefundJobData>).refundId;
+
+      if (typeof refundId !== "string" || refundId.length === 0) {
+        throw new UnrecoverableError("Refund job is missing its refund id.");
+      }
+
+      const refund = await this.payments.processRefund(refundId);
+      this.logger.log({ event: "refunds.processed", refundId, status: refund.status });
+      return;
+    }
+
     if (job.name !== ORDER_MAINTENANCE_JOB_NAMES.expireUnpaidOrders) {
       throw new UnrecoverableError(`Unsupported order maintenance job: ${job.name}`);
     }

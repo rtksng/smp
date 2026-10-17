@@ -6,11 +6,14 @@ import { QUEUE_NAMES } from "@surgical/config";
 import {
   CUSTOMER_EMAIL_JOB_NAMES,
   INVOICE_JOB_NAMES,
+  ORDER_MAINTENANCE_JOB_NAMES,
   type CustomerEmailEvent,
   type CustomerEmailJobName,
   type GenerateGstInvoiceJobData,
   type InvoiceJobName,
+  type OrderMaintenanceJobName,
   type ProcessPaymentWebhookJobData,
+  type ProcessRefundJobData,
   type SendCustomerEmailJobData
 } from "@surgical/types";
 import type { JobsOptions, Queue } from "bullmq";
@@ -29,6 +32,8 @@ const PAYMENT_STATUS_REFUNDED = "REFUNDED";
 const PAYMENT_STATUS_PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED";
 const ORDER_STATUS_CREATED = "CREATED";
 const ORDER_STATUS_CONFIRMED = "CONFIRMED";
+const ORDER_STATUS_CANCELLED = "CANCELLED";
+const REFUND_STATUS_PENDING = "PENDING";
 const REFUND_STATUS_COMPLETED = "COMPLETED";
 const REFUND_STATUS_FAILED = "FAILED";
 const REFUND_STATUS_PROCESSING = "PROCESSING";
@@ -50,6 +55,19 @@ const DEFAULT_JOB_OPTIONS: JobsOptions = {
   removeOnComplete: 1000,
   removeOnFail: 5000
 };
+// Matches the API's refund job options; the job id dedupes repeats.
+function refundJobOptions(refundId: string): JobsOptions {
+  return {
+    attempts: 5,
+    backoff: {
+      delay: 60_000,
+      type: "exponential"
+    },
+    jobId: `refund-${refundId}`,
+    removeOnComplete: true,
+    removeOnFail: 500
+  };
+}
 // Matches the API's customer email job options.
 const CUSTOMER_EMAIL_JOB_OPTIONS: JobsOptions = {
   ...DEFAULT_JOB_OPTIONS,
@@ -117,6 +135,8 @@ type WebhookCustomerEmail =
       status: RefundEmailStatus;
     };
 type RepositoryResult = PaymentWebhookProcessingResult & {
+  // Refund opened for a payment captured after its order was cancelled.
+  cancelledOrderRefundId?: string;
   customerEmail?: WebhookCustomerEmail;
   invoiceOrderId?: string;
 };
@@ -149,6 +169,12 @@ export class PgPaymentWebhookRepository
       SendCustomerEmailJobData,
       void,
       CustomerEmailJobName
+    >,
+    @InjectQueue(QUEUE_NAMES.orderMaintenance)
+    private readonly orderMaintenanceQueue: Queue<
+      ProcessRefundJobData,
+      void,
+      OrderMaintenanceJobName
     >
   ) {
     super();
@@ -187,6 +213,19 @@ export class PgPaymentWebhookRepository
 
     if (result.customerEmail) {
       await this.enqueueCustomerEmail(result.customerEmail);
+    }
+
+    if (result.cancelledOrderRefundId) {
+      // The API holds the Razorpay keys and sends the refund.
+      await this.orderMaintenanceQueue.add(
+        ORDER_MAINTENANCE_JOB_NAMES.processRefund,
+        {
+          refundId: result.cancelledOrderRefundId,
+          requestedAt: new Date().toISOString(),
+          version: 1
+        },
+        refundJobOptions(result.cancelledOrderRefundId)
+      );
     }
 
     if (result.invoiceOrderId) {
@@ -324,6 +363,7 @@ async function processRecordedWebhook(
     await client.query("COMMIT");
 
     return {
+      cancelledOrderRefundId: result.cancelledOrderRefundId,
       customerEmail: result.customerEmail,
       duplicate: false,
       invoiceOrderId: result.invoiceOrderId,
@@ -346,6 +386,7 @@ async function applySupportedWebhookEvent(
   webhookId: string,
   payload: RazorpayWebhookPayload
 ): Promise<{
+  cancelledOrderRefundId?: string;
   customerEmail?: WebhookCustomerEmail;
   invoiceOrderId?: string;
   paymentId: string | null;
@@ -398,17 +439,21 @@ async function applySupportedWebhookEvent(
     };
   }
 
-  const processed = await processPaymentWebhookEvent(
-    client,
-    payload,
-    payment,
-    paymentEntity
-  );
+  const { cancelledOrderRefundId, lateForCancelledOrder, processed } =
+    await processPaymentWebhookEvent(client, payload, payment, paymentEntity);
   const event = readString(payload.event);
-  const emailStatus =
-    event === "payment.captured" ? "PAID" : event === "payment.failed" ? "FAILED" : null;
+  // A late payment on a cancelled order is not confirmed to the customer; the
+  // refund email tells them what happened.
+  const emailStatus = lateForCancelledOrder
+    ? null
+    : event === "payment.captured"
+      ? "PAID"
+      : event === "payment.failed"
+        ? "FAILED"
+        : null;
 
   return {
+    cancelledOrderRefundId,
     customerEmail:
       processed && emailStatus
         ? {
@@ -420,18 +465,30 @@ async function applySupportedWebhookEvent(
             status: emailStatus
           }
         : undefined,
-    invoiceOrderId: processed && event === "payment.captured" ? payment.orderId : undefined,
+    invoiceOrderId:
+      processed && event === "payment.captured" && !lateForCancelledOrder
+        ? payment.orderId
+        : undefined,
     paymentId: payment.id,
     processed
   };
 }
+
+type PaymentEventOutcome = {
+  cancelledOrderRefundId?: string;
+  lateForCancelledOrder: boolean;
+  processed: boolean;
+};
+
+const UNCHANGED: PaymentEventOutcome = { lateForCancelledOrder: false, processed: false };
+const APPLIED: PaymentEventOutcome = { lateForCancelledOrder: false, processed: true };
 
 async function processPaymentWebhookEvent(
   client: PoolClient,
   payload: RazorpayWebhookPayload,
   payment: PaymentRow,
   paymentEntity: RazorpayPaymentEntity
-) {
+): Promise<PaymentEventOutcome> {
   const event = readString(payload.event);
   const order = await findOrderForUpdate(client, payment.orderId);
 
@@ -444,12 +501,29 @@ async function processPaymentWebhookEvent(
   }
 
   if (event === "payment.captured") {
-    if (payment.status === PAYMENT_STATUS_PAID) {
-      return false;
+    if (
+      payment.status === PAYMENT_STATUS_PAID ||
+      payment.status === PAYMENT_STATUS_REFUNDED ||
+      payment.status === PAYMENT_STATUS_PARTIALLY_REFUNDED
+    ) {
+      return UNCHANGED;
     }
 
     await assertProviderPaymentIdIsUnused(client, paymentEntity.id, payment.id);
     const now = new Date();
+
+    if (order.status === ORDER_STATUS_CANCELLED) {
+      return {
+        cancelledOrderRefundId: await recordPaymentOnCancelledOrder(
+          client,
+          payment,
+          paymentEntity,
+          now
+        ),
+        lateForCancelledOrder: true,
+        processed: true
+      };
+    }
 
     await client.query(
       `UPDATE "Payment"
@@ -507,7 +581,7 @@ async function processPaymentWebhookEvent(
       [order.userId]
     );
 
-    return true;
+    return APPLIED;
   }
 
   if (event === "payment.authorized" && payment.status === PAYMENT_STATUS_PENDING) {
@@ -539,7 +613,7 @@ async function processPaymentWebhookEvent(
       [PAYMENT_STATUS_AUTHORIZED, now, payment.orderId]
     );
 
-    return true;
+    return APPLIED;
   }
 
   if (event === "payment.failed" && payment.status === PAYMENT_STATUS_PENDING) {
@@ -571,10 +645,89 @@ async function processPaymentWebhookEvent(
       [PAYMENT_STATUS_FAILED, now, payment.orderId]
     );
 
-    return true;
+    return APPLIED;
   }
 
-  return false;
+  return UNCHANGED;
+}
+
+// Money was captured for an order that is already cancelled (for example by
+// the unpaid order expiry). The order stays cancelled with its stock released;
+// the payment is recorded and a refund opened, which the API sends to
+// Razorpay. Returns the refund to process, or undefined when one was already
+// completed.
+async function recordPaymentOnCancelledOrder(
+  client: PoolClient,
+  payment: PaymentRow,
+  paymentEntity: RazorpayPaymentEntity,
+  now: Date
+) {
+  await client.query(
+    `UPDATE "Payment"
+     SET "paidAt" = $1,
+         "provider" = $2,
+         "providerAmountPaise" = $3,
+         "providerPaymentId" = $4,
+         "status" = $5,
+         "transactionRef" = $4,
+         "updatedAt" = $1
+     WHERE id = $6`,
+    [now, RAZORPAY_PROVIDER, paymentEntity.amount, paymentEntity.id, PAYMENT_STATUS_PAID, payment.id]
+  );
+  await client.query(
+    `UPDATE "Order"
+     SET "paymentStatus" = $1,
+         "updatedAt" = $2
+     WHERE id = $3`,
+    [PAYMENT_STATUS_PAID, now, payment.orderId]
+  );
+
+  const existingRefund = await client.query<{ id: string; status: string }>(
+    `SELECT id, status
+     FROM "Refund"
+     WHERE "paymentId" = $1
+     ORDER BY "createdAt" ASC
+     LIMIT 1
+     FOR UPDATE`,
+    [payment.id]
+  );
+
+  if (existingRefund.rows[0]) {
+    return existingRefund.rows[0].status === REFUND_STATUS_COMPLETED
+      ? undefined
+      : existingRefund.rows[0].id;
+  }
+
+  const refundId = randomUUID();
+
+  await client.query(
+    `INSERT INTO "Refund"
+     ("id", "orderId", "paymentId", "status", "amount", "reason", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+    [
+      refundId,
+      payment.orderId,
+      payment.id,
+      REFUND_STATUS_PENDING,
+      payment.amount,
+      "Payment received after the order was cancelled.",
+      now
+    ]
+  );
+  await client.query(
+    `INSERT INTO "OrderStatusHistory"
+     ("id", "orderId", "status", "note", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $5)`,
+    [
+      randomUUID(),
+      payment.orderId,
+      ORDER_STATUS_CANCELLED,
+      "Payment received after cancellation (Razorpay webhook); refund started.",
+      now
+    ]
+  );
+
+  return refundId;
 }
 
 /** Returns the updated refund, or null when the event changed nothing. */
@@ -713,7 +866,14 @@ async function findCapturedPaymentInvoiceOrderId(
 
   const payment = await findPaymentByProviderOrderId(client, paymentEntity.orderId);
 
-  return payment?.orderId;
+  if (!payment) {
+    return undefined;
+  }
+
+  // A late payment on a cancelled order is refunded, never invoiced.
+  const order = await findOrderForUpdate(client, payment.orderId);
+
+  return order && order.status !== ORDER_STATUS_CANCELLED ? payment.orderId : undefined;
 }
 
 async function findPaymentByProviderPaymentId(

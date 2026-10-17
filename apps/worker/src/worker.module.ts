@@ -61,6 +61,10 @@ import { StructuredLogger } from "./structured-logger.service";
     }),
     BullModule.registerQueue({
       name: QUEUE_NAMES.nearExpiryAlert
+    }),
+    // Producer only: the API processes these jobs.
+    BullModule.registerQueue({
+      name: QUEUE_NAMES.orderMaintenance
     })
   ],
   providers: [

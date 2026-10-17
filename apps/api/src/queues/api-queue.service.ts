@@ -20,6 +20,7 @@ import {
   type OtpJobName,
   type PaymentWebhookJobName,
   type ProcessPaymentWebhookJobData,
+  type ProcessRefundJobData,
   type SendCustomerEmailJobData,
   type SendLowStockAlertJobData,
   type SendDeliveryAssignmentNotificationJobData,
@@ -65,6 +66,21 @@ export const OTP_JOB_OPTIONS: JobsOptions = {
 
 const UNPAID_ORDER_EXPIRY_SCHEDULER_ID = "expire-unpaid-orders";
 
+// The worker queues the same job, with matching options, for payments that
+// arrive by webhook after the order was cancelled.
+function refundJobOptions(refundId: string): JobsOptions {
+  return {
+    attempts: 5,
+    backoff: {
+      delay: 60_000,
+      type: "exponential"
+    },
+    jobId: `refund-${refundId}`,
+    removeOnComplete: true,
+    removeOnFail: 500
+  };
+}
+
 @Injectable()
 export class ApiQueueService {
   constructor(
@@ -108,7 +124,7 @@ export class ApiQueueService {
     >,
     @InjectQueue(QUEUE_NAMES.orderMaintenance)
     private readonly orderMaintenanceQueue: Queue<
-      Record<string, never>,
+      ProcessRefundJobData | Record<string, never>,
       void,
       OrderMaintenanceJobName
     >
@@ -128,6 +144,16 @@ export class ApiQueueService {
           removeOnFail: 500
         }
       }
+    );
+  }
+
+  // One job per refund (the job id dedupes repeats). Retries cover Razorpay
+  // outages; a refund that keeps failing stays PENDING for an admin.
+  async enqueueRefundProcessing(refundId: string) {
+    await this.orderMaintenanceQueue.add(
+      ORDER_MAINTENANCE_JOB_NAMES.processRefund,
+      { refundId, requestedAt: new Date().toISOString(), version: 1 },
+      refundJobOptions(refundId)
     );
   }
 

@@ -103,6 +103,10 @@ When the web or admin app proxies API calls through its own `/api/v1` route, tho
 
 Unpaid online orders: every 5 minutes the API cancels online orders still unpaid after `UNPAID_ORDER_TIMEOUT_MINUTES` (default 30, minimum 15), releasing their stock and coupon use. Before cancelling it asks Razorpay; orders with a captured or authorized payment are kept, and a captured one is logged as needing reconciliation. Quote orders and cash-on-delivery orders are never expired. The job runs inside the API through the `order-maintenance` BullMQ queue, so every API replica can serve it and each run is handled once. Search the API logs for `orders.unpaid_expiry` to see each run's counts.
 
+Late payments: if Razorpay captures a payment after its order was cancelled (for example by the expiry above), the API (verification) or the worker (webhook) records the payment, keeps the order cancelled, and opens a refund. The refund is sent to Razorpay by a `process-refund` job on the same `order-maintenance` queue, processed by the API, which holds the Razorpay keys. Failed attempts retry with backoff; a refund that keeps failing stays `PENDING` for an admin to process. Search the API logs for `refunds.processed`.
+
+Migration `20261018000100_refund_provider_id_unique` makes `Refund.providerRefundId` unique. It fails if two refunds already share a Razorpay refund id; check with `SELECT "providerRefundId", count(*) FROM "Refund" WHERE "providerRefundId" IS NOT NULL GROUP BY 1 HAVING count(*) > 1;` before deploying.
+
 Health check:
 
 ```bash

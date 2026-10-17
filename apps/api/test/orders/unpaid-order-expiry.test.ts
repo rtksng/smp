@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { ORDER_MAINTENANCE_JOB_NAMES } from "@surgical/types";
 import { UnrecoverableError, type Job } from "bullmq";
 import type { PrismaService } from "../../src/database/prisma.service";
+import type { PaymentsService } from "../../src/modules/payments/payments.service";
 import type { RazorpayClient } from "../../src/modules/payments/razorpay.client";
 import {
   OrderMaintenanceProcessor,
@@ -223,6 +224,7 @@ test("selects only old, unpaid, online, non-quote orders and caps one run", asyn
 
 function processor(options: {
   enabled?: boolean;
+  payments?: Partial<Record<keyof PaymentsService, unknown>>;
   queues?: Partial<Record<keyof ApiQueueService, unknown>>;
   runs?: unknown[];
 }) {
@@ -236,12 +238,13 @@ function processor(options: {
   return new OrderMaintenanceProcessor(
     expiry as unknown as UnpaidOrderExpiryService,
     (options.queues ?? {}) as unknown as ApiQueueService,
+    (options.payments ?? {}) as unknown as PaymentsService,
     config({ unpaidOrderExpiryEnabled: options.enabled ?? true })
   );
 }
 
-function maintenanceJob(name: string) {
-  return { data: {}, id: "job-1", name } as unknown as Job<
+function maintenanceJob(name: string, data: Record<string, unknown> = {}) {
+  return { data, id: "job-1", name } as unknown as Job<
     Record<string, never>,
     void,
     typeof ORDER_MAINTENANCE_JOB_NAMES.expireUnpaidOrders
@@ -286,4 +289,24 @@ test("processor runs expiry for its job, skips it when disabled, and rejects unk
   );
 
   assert.equal(runs.length, 1);
+});
+
+test("processor sends queued refunds to the payments service", async () => {
+  const refunded: string[] = [];
+  const payments = {
+    processRefund: async (refundId: string) => {
+      refunded.push(refundId);
+      return { status: "COMPLETED" };
+    }
+  };
+
+  await processor({ payments }).process(
+    maintenanceJob(ORDER_MAINTENANCE_JOB_NAMES.processRefund, { refundId: "refund-1" })
+  );
+  await assert.rejects(
+    () => processor({ payments }).process(maintenanceJob(ORDER_MAINTENANCE_JOB_NAMES.processRefund)),
+    UnrecoverableError
+  );
+
+  assert.deepEqual(refunded, ["refund-1"]);
 });

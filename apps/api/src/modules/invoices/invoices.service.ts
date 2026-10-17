@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
 import {
   OrderStatus,
@@ -207,58 +208,75 @@ export class InvoicesService {
     const issuedAt = new Date();
     const draft = this.buildInvoiceDraft(order, invoiceNumber, issuedAt);
     const html = renderInvoiceHtml(draft);
-    const invoice = await client.gSTInvoice.create({
-      data: {
-        billingAddress: draft.billingAddress,
-        billingName: draft.billingName,
-        cgstTotal: draft.cgstTotal,
-        customerBusinessName: draft.customerBusinessName,
-        customerEmail: draft.customerEmail,
-        customerMobileNumber: draft.customerMobileNumber,
-        customerName: draft.customerName,
-        destinationState: draft.destinationState,
-        discountTotal: draft.discountTotal,
-        grandTotal: draft.grandTotal,
-        gstNumber: draft.gstNumber,
-        html,
-        igstTotal: draft.igstTotal,
-        invoiceNumber: draft.invoiceNumber,
-        issuedAt,
-        items: {
-          create: draft.items.map((item) => ({
-            cgstAmount: item.cgstAmount,
-            cgstRate: item.cgstRate,
-            description: item.description,
-            hsnCode: item.hsnCode,
-            igstAmount: item.igstAmount,
-            igstRate: item.igstRate,
-            orderItemId: item.orderItemId,
-            productId: item.productId,
-            quantity: item.quantity,
-            sgstAmount: item.sgstAmount,
-            sgstRate: item.sgstRate,
-            sku: item.sku,
-            taxableValue: item.taxableValue,
-            taxAmount: item.taxAmount,
-            taxRate: item.taxRate,
-            total: item.total,
-            unitPrice: item.unitPrice
-          }))
+    try {
+      const invoice = await client.gSTInvoice.create({
+        data: {
+          billingAddress: draft.billingAddress,
+          billingName: draft.billingName,
+          cgstTotal: draft.cgstTotal,
+          customerBusinessName: draft.customerBusinessName,
+          customerEmail: draft.customerEmail,
+          customerMobileNumber: draft.customerMobileNumber,
+          customerName: draft.customerName,
+          destinationState: draft.destinationState,
+          discountTotal: draft.discountTotal,
+          grandTotal: draft.grandTotal,
+          gstNumber: draft.gstNumber,
+          html,
+          igstTotal: draft.igstTotal,
+          invoiceNumber: draft.invoiceNumber,
+          issuedAt,
+          items: {
+            create: draft.items.map((item) => ({
+              cgstAmount: item.cgstAmount,
+              cgstRate: item.cgstRate,
+              description: item.description,
+              hsnCode: item.hsnCode,
+              igstAmount: item.igstAmount,
+              igstRate: item.igstRate,
+              orderItemId: item.orderItemId,
+              productId: item.productId,
+              quantity: item.quantity,
+              sgstAmount: item.sgstAmount,
+              sgstRate: item.sgstRate,
+              sku: item.sku,
+              taxableValue: item.taxableValue,
+              taxAmount: item.taxAmount,
+              taxRate: item.taxRate,
+              total: item.total,
+              unitPrice: item.unitPrice
+            }))
+          },
+          orderId: draft.orderId,
+          pdfStatus: draft.pdfStatus,
+          placeOfSupply: draft.placeOfSupply,
+          sgstTotal: draft.sgstTotal,
+          shippingTotal: draft.shippingTotal,
+          sourceState: draft.sourceState,
+          subtotal: draft.subtotal,
+          taxTotal: draft.taxTotal,
+          taxType: draft.taxType
         },
-        orderId: draft.orderId,
-        pdfStatus: draft.pdfStatus,
-        placeOfSupply: draft.placeOfSupply,
-        sgstTotal: draft.sgstTotal,
-        shippingTotal: draft.shippingTotal,
-        sourceState: draft.sourceState,
-        subtotal: draft.subtotal,
-        taxTotal: draft.taxTotal,
-        taxType: draft.taxType
-      },
-      include: INVOICE_INCLUDE
-    });
+        include: INVOICE_INCLUDE
+      });
 
-    return this.serializeInvoice(invoice);
+      return this.serializeInvoice(invoice);
+    } catch (error) {
+      // Two requests for the same order can both miss the lookup above. The
+      // unique orderId lets one create the invoice and the other return it.
+      // Inside a transaction the re-read fails too, so the error surfaces.
+      const concurrentInvoice = isUniqueConstraintError(error)
+        ? await client.gSTInvoice
+            .findFirst({ include: INVOICE_INCLUDE, where: { orderId: order.id } })
+            .catch(() => null)
+        : null;
+
+      if (!concurrentInvoice) {
+        throw error;
+      }
+
+      return this.serializeInvoice(concurrentInvoice);
+    }
   }
 
   private async findInvoiceOrder(
