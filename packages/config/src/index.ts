@@ -27,6 +27,8 @@ export const QUEUE_NAMES = {
   lowStockAlert: "low-stock-alert",
   nearExpiryAlert: "near-expiry-alert",
   notifications: "notifications",
+  // Processed by the API, which owns the order and stock logic.
+  orderMaintenance: "order-maintenance",
   otp: "otp",
   paymentWebhook: "payment-webhook"
 } as const;

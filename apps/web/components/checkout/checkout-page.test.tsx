@@ -415,6 +415,7 @@ describe("CheckoutPage", () => {
       expect(mocks.createOrder).toHaveBeenCalledWith({
         billingAddressId: null,
         couponCode: "SURGICAL10",
+        idempotencyKey: expect.stringMatching(/^web-checkout-/),
         paymentMethod: "COD",
         shippingAddressId: "address_1"
       });
@@ -435,11 +436,33 @@ describe("CheckoutPage", () => {
       expect(mocks.createOrder).toHaveBeenCalledWith({
         billingAddressId: null,
         couponCode: null,
+        idempotencyKey: expect.stringMatching(/^web-checkout-/),
         paymentMethod: "COD",
         shippingAddressId: "address_1"
       });
     });
     expect(mocks.routerReplace).toHaveBeenCalledWith("/order-success/order_1");
+  });
+
+  it("reuses the checkout key when a failed order is retried", async () => {
+    mocks.createOrder.mockRejectedValueOnce(new Error("Network error"));
+    renderCheckout();
+
+    expect(
+      await screen.findByText("Asha Clinic", undefined, asyncUiTimeout)
+    ).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Place COD order" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Place COD order" }));
+    await waitFor(() => expect(mocks.createOrder).toHaveBeenCalledTimes(2));
+
+    const [firstAttempt, retry] = mocks.createOrder.mock.calls.map(
+      ([input]) => (input as { idempotencyKey: string }).idempotencyKey
+    );
+    expect(retry).toBe(firstAttempt);
   });
 
   it("waits for coupon validation before permitting an order", async () => {
@@ -591,6 +614,7 @@ describe("CheckoutPage", () => {
       expect(mocks.createOrder).toHaveBeenCalledWith({
         billingAddressId: null,
         couponCode: null,
+        idempotencyKey: expect.stringMatching(/^web-checkout-/),
         paymentMethod: "ONLINE",
         shippingAddressId: "address_1"
       });

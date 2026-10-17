@@ -9,6 +9,7 @@ import { useAdminSession } from "@/lib/admin-session";
 import { getAdminSearchPages, searchAdmin } from "@/lib/admin-global-search";
 import styles from "./admin-topbar.module.css";
 
+
 export function AdminGlobalSearch() {
   const { admin, api } = useAdminSession();
   const router = useRouter();

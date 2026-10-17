@@ -11,8 +11,10 @@ import {
   AdminOrdersController,
   AdminReturnsRefundsController
 } from "./admin-orders.controller";
+import { OrderMaintenanceProcessor } from "./order-maintenance.processor";
 import { OrdersController } from "./orders.controller";
 import { OrdersService } from "./orders.service";
+import { UnpaidOrderExpiryService } from "./unpaid-order-expiry.service";
 
 @Module({
   controllers: [OrdersController, AdminOrdersController, AdminReturnsRefundsController],
@@ -27,6 +29,6 @@ import { OrdersService } from "./orders.service";
     ApiQueuesModule
   ],
   exports: [OrdersService],
-  providers: [OrdersService]
+  providers: [OrdersService, UnpaidOrderExpiryService, OrderMaintenanceProcessor]
 })
 export class OrdersModule {}

@@ -43,6 +43,13 @@ export const OTP_JOB_NAMES = {
 
 export type OtpJobName = (typeof OTP_JOB_NAMES)[keyof typeof OTP_JOB_NAMES];
 
+export const ORDER_MAINTENANCE_JOB_NAMES = {
+  expireUnpaidOrders: "expire-unpaid-orders"
+} as const;
+
+export type OrderMaintenanceJobName =
+  (typeof ORDER_MAINTENANCE_JOB_NAMES)[keyof typeof ORDER_MAINTENANCE_JOB_NAMES];
+
 export interface SendOtpJobData {
   mobileNumber: string;
   otp: string;

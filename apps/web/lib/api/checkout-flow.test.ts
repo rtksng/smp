@@ -7,7 +7,7 @@ import {
   updateCartItem
 } from "./cart";
 import { createCustomerAddress, listCustomerAddresses } from "./customer-profile";
-import { createOrder } from "./orders";
+import { createCheckoutIdempotencyKey, createOrder, createOrderInputSchema } from "./orders";
 import {
   createRazorpayOrder,
   getPaymentGatewayStatus,
@@ -189,6 +189,7 @@ describe("checkout flow API helpers", () => {
 
     await createOrder({
       billingAddressId: null,
+      idempotencyKey: "web-checkout-test-1",
       paymentMethod: "COD",
       shippingAddressId: "address_1"
     });
@@ -198,6 +199,7 @@ describe("checkout flow API helpers", () => {
       expect.objectContaining({
         body: JSON.stringify({
           billingAddressId: null,
+          idempotencyKey: "web-checkout-test-1",
           paymentMethod: "COD",
           shippingAddressId: "address_1"
         }),
@@ -294,3 +296,23 @@ function emptyCart() {
     updatedAt: "2026-05-25T10:00:00.000Z"
   };
 }
+
+describe("checkout idempotency keys", () => {
+  it("creates a new key the API accepts for each checkout attempt", () => {
+    const first = createCheckoutIdempotencyKey();
+    const second = createCheckoutIdempotencyKey();
+
+    expect(first).toMatch(/^web-checkout-[A-Za-z0-9._:-]+$/);
+    expect(first.length).toBeLessThanOrEqual(128);
+    expect(second).not.toBe(first);
+  });
+
+  it("refuses to place an order without a key", () => {
+    expect(
+      createOrderInputSchema.safeParse({
+        paymentMethod: "COD",
+        shippingAddressId: "address_1"
+      }).success
+    ).toBe(false);
+  });
+});

@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   UnauthorizedException
@@ -236,8 +237,22 @@ type StockAllocation = {
   warehouseId: string;
 };
 
+type PendingDeliveryNotification = {
+  assignmentId: string;
+  deliveryPartnerId: string;
+  notificationId: string;
+  orderNumber: string;
+};
+
+const UNPAID_ORDER_STATUSES = new Set<PaymentStatus>([
+  PaymentStatus.PENDING,
+  PaymentStatus.FAILED
+]);
+
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly warehouseAccessService: WarehouseAccessService,
@@ -413,13 +428,7 @@ export class OrdersService {
       throw error;
     }
 
-    await this.queueService?.enqueueOrderConfirmation({
-      customerId,
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      requestedAt: new Date().toISOString(),
-      version: 1
-    });
+    await this.enqueueOrderConfirmation(customerId, order);
     await this.customerEmails?.notify(
       orderEmailContact(order),
       orderReceivedEmail(order),
@@ -543,13 +552,7 @@ export class OrdersService {
       throw error;
     }
 
-    await this.queueService?.enqueueOrderConfirmation({
-      customerId,
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      requestedAt: new Date().toISOString(),
-      version: 1
-    });
+    await this.enqueueOrderConfirmation(customerId, order);
     await this.customerEmails?.notify(
       orderEmailContact(order),
       orderReceivedEmail(order),
@@ -642,7 +645,7 @@ export class OrdersService {
   async cancelMyOrder(customerId: string, orderId: string, input: CancelOrderDto) {
     await this.assertActiveCustomer(this.prisma, customerId);
 
-    const cancelledOrder = await this.prisma.$transaction(async (tx) => {
+    const { notifications, order: cancelledOrder } = await this.prisma.$transaction(async (tx) => {
       const order = await this.findCustomerOrder(tx, customerId, orderId);
 
       if (!CANCELLABLE_STATUSES.has(order.status)) {
@@ -653,7 +656,11 @@ export class OrdersService {
 
       await this.claimOrderCancellation(tx, order);
       await this.releaseReservedInventoryForCancelledOrder(tx, order);
-      await this.cancelActiveDeliveryAssignments(tx, order, input.reason);
+      const notifications = await this.cancelActiveDeliveryAssignments(
+        tx,
+        order,
+        input.reason
+      );
 
       const paidPayment = order.payments.find(
         (payment) => payment.status === PaymentStatus.PAID
@@ -688,9 +695,13 @@ export class OrdersService {
         }
       });
 
-      return this.serializeOrder(await this.findOrderById(tx, order.id));
+      return {
+        notifications,
+        order: this.serializeOrder(await this.findOrderById(tx, order.id))
+      };
     });
 
+    await this.sendDeliveryCancellationNotifications(notifications);
     // A paid order always gets a PENDING refund above, so "requested" is accurate.
     await this.notifyOrderCancelled(
       cancelledOrder,
@@ -1020,7 +1031,7 @@ export class OrdersService {
     input: CancelOrderDto,
     context: AdminActionContext
   ) {
-    const cancelledOrder = await this.prisma.$transaction(async (tx) => {
+    const { notifications, order: cancelledOrder } = await this.prisma.$transaction(async (tx) => {
       const order = await this.findAdminOrder(orderId, context.auth, tx);
 
       if (!CANCELLABLE_STATUSES.has(order.status)) {
@@ -1031,7 +1042,11 @@ export class OrdersService {
 
       await this.claimOrderCancellation(tx, order);
       await this.releaseReservedInventoryForCancelledOrder(tx, order);
-      await this.cancelActiveDeliveryAssignments(tx, order, input.reason);
+      const notifications = await this.cancelActiveDeliveryAssignments(
+        tx,
+        order,
+        input.reason
+      );
       await tx.order.update({
         data: {
           status: OrderStatus.CANCELLED
@@ -1049,9 +1064,13 @@ export class OrdersService {
         }
       });
 
-      return this.serializeOrder(await this.findOrderById(tx, order.id));
+      return {
+        notifications,
+        order: this.serializeOrder(await this.findOrderById(tx, order.id))
+      };
     });
 
+    await this.sendDeliveryCancellationNotifications(notifications);
     // Admin cancellation does not create a refund, so a paid order is only
     // promised a review, never a refund.
     await this.notifyOrderCancelled(
@@ -1061,6 +1080,76 @@ export class OrdersService {
     );
 
     return cancelledOrder;
+  }
+
+  // Cancels an online order whose payment never completed, releasing its
+  // stock and coupon use. Returns false when the order no longer qualifies,
+  // for example because a payment arrived after it was selected.
+  async expireUnpaidOrder(orderId: string, timeoutMinutes: number) {
+    const reason = `Payment was not completed within ${timeoutMinutes} minutes.`;
+    const expired = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        include: ORDER_INCLUDE,
+        where: { deletedAt: null, id: orderId }
+      });
+
+      if (!order || !isExpirableUnpaidOrder(order)) {
+        return null;
+      }
+
+      await this.claimOrderCancellation(tx, order);
+      await this.releaseReservedInventoryForCancelledOrder(tx, order);
+      const notifications = await this.cancelActiveDeliveryAssignments(tx, order, reason);
+      await this.releaseCouponUsage(tx, order.couponId);
+      await tx.order.update({
+        data: {
+          paymentStatus: PaymentStatus.CANCELLED,
+          status: OrderStatus.CANCELLED
+        },
+        where: { id: order.id }
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          note: reason,
+          orderId: order.id,
+          status: OrderStatus.CANCELLED
+        }
+      });
+
+      return {
+        notifications,
+        order: this.serializeOrder(await this.findOrderById(tx, order.id))
+      };
+    });
+
+    if (!expired) {
+      return false;
+    }
+
+    await this.sendDeliveryCancellationNotifications(expired.notifications);
+    await this.notifyOrderCancelled(expired.order, reason, "NOT_DUE");
+
+    return true;
+  }
+
+  // The order is already committed; a queue outage must not turn it into an
+  // error for the customer.
+  private async enqueueOrderConfirmation(customerId: string, order: SerializedOrder) {
+    try {
+      await this.queueService?.enqueueOrderConfirmation({
+        customerId,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        requestedAt: new Date().toISOString(),
+        version: 1
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Order confirmation for ${order.orderNumber} was not queued: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
 
   private async notifyOrderCancelled(
@@ -1421,6 +1510,26 @@ export class OrdersService {
     }
   }
 
+  private async releaseCouponUsage(client: OrderClient, couponId: string | null) {
+    if (!couponId) {
+      return;
+    }
+
+    await client.coupon.updateMany({
+      data: {
+        usedCount: {
+          decrement: 1
+        }
+      },
+      where: {
+        id: couponId,
+        usedCount: {
+          gt: 0
+        }
+      }
+    });
+  }
+
   private async reserveBatchesForStock(
     tx: Prisma.TransactionClient,
     line: FulfillmentLine,
@@ -1713,11 +1822,15 @@ export class OrdersService {
     order.deliveryAssignments = current.deliveryAssignments;
   }
 
+  // Returns the notifications to queue once the transaction has committed, so
+  // a rolled-back cancellation never notifies a delivery partner.
   private async cancelActiveDeliveryAssignments(
     tx: Prisma.TransactionClient,
     order: OrderRecord,
     reason?: string
   ) {
+    const notifications: PendingDeliveryNotification[] = [];
+
     for (const assignment of order.deliveryAssignments) {
       if (
         assignment.status === DeliveryStatus.CANCELLED ||
@@ -1759,22 +1872,39 @@ export class OrdersService {
             templateKey: "delivery_assignment_cancelled"
           }
         });
-        await this.queueService
-          .enqueueDeliveryAssignmentNotification({
-            assignmentId: assignment.id,
-            body: `Order ${order.orderNumber} is no longer assigned to you.`,
-            deliveryPartnerId: assignment.deliveryPartnerId,
-            notificationId: notification.id,
-            requestedAt: new Date().toISOString(),
-            title: "Delivery cancelled",
-            version: 1
+        notifications.push({
+          assignmentId: assignment.id,
+          deliveryPartnerId: assignment.deliveryPartnerId,
+          notificationId: notification.id,
+          orderNumber: order.orderNumber
+        });
+      }
+    }
+
+    return notifications;
+  }
+
+  private async sendDeliveryCancellationNotifications(
+    notifications: PendingDeliveryNotification[]
+  ) {
+    for (const notification of notifications) {
+      try {
+        await this.queueService?.enqueueDeliveryAssignmentNotification({
+          assignmentId: notification.assignmentId,
+          body: `Order ${notification.orderNumber} is no longer assigned to you.`,
+          deliveryPartnerId: notification.deliveryPartnerId,
+          notificationId: notification.notificationId,
+          requestedAt: new Date().toISOString(),
+          title: "Delivery cancelled",
+          version: 1
+        });
+      } catch {
+        await this.prisma.notificationLog
+          .update({
+            data: { status: "QUEUE_FAILED" },
+            where: { id: notification.notificationId }
           })
-          .catch(async () => {
-            await tx.notificationLog.update({
-              data: { status: "QUEUE_FAILED" },
-              where: { id: notification.id }
-            });
-          });
+          .catch(() => undefined);
       }
     }
   }
@@ -2149,6 +2279,19 @@ function parseDateBoundary(value: string | undefined, boundary: "end" | "start")
 type SerializedOrder = ReturnType<OrdersService["serializeOrder"]>;
 
 const RETURN_APPROVED_NOTE = "Return request approved.";
+
+function isExpirableUnpaidOrder(order: OrderRecord) {
+  return (
+    order.status === OrderStatus.CREATED &&
+    UNPAID_ORDER_STATUSES.has(order.paymentStatus) &&
+    order.payments.some((payment) => payment.method === PaymentMethod.ONLINE) &&
+    !order.payments.some(
+      (payment) =>
+        payment.status === PaymentStatus.PAID ||
+        payment.status === PaymentStatus.AUTHORIZED
+    )
+  );
+}
 
 function hasPaidPayment(order: SerializedOrder) {
   return order.paymentDetails.some((payment) => payment.status === PaymentStatus.PAID);
