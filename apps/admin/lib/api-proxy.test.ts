@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AdminApiProxyTimeoutError,
   buildAdminApiProxyHeaders,
+  buildAdminApiProxyRequestHeaders,
   buildAdminApiProxyErrorResponse,
   buildAdminApiProxyResponse,
   buildAdminApiProxyUrl,
@@ -44,6 +45,46 @@ describe("admin API proxy helpers", () => {
     expect(headers.has("Connection")).toBe(false);
     expect(headers.has("Content-Length")).toBe(false);
     expect(headers.has("Host")).toBe(false);
+  });
+
+  it("forwards the real client IP with the proxy key when a secret is configured", () => {
+    const headers = buildAdminApiProxyRequestHeaders(
+      new Headers({
+        Accept: "application/json",
+        "x-forwarded-for": "203.0.113.7, 10.0.0.1",
+        "x-real-ip": "203.0.113.7"
+      }),
+      "proxy-secret"
+    );
+
+    expect(headers.get("x-smp-client-ip")).toBe("203.0.113.7");
+    expect(headers.get("x-smp-proxy-key")).toBe("proxy-secret");
+    expect(headers.get("Accept")).toBe("application/json");
+  });
+
+  it("falls back to the first forwarded IP when x-real-ip is missing", () => {
+    const headers = buildAdminApiProxyRequestHeaders(
+      new Headers({ "x-forwarded-for": "198.51.100.4, 10.0.0.1" }),
+      "proxy-secret"
+    );
+
+    expect(headers.get("x-smp-client-ip")).toBe("198.51.100.4");
+  });
+
+  it("drops client-supplied trusted proxy headers", () => {
+    const spoofed = new Headers({
+      "x-real-ip": "203.0.113.7",
+      "x-smp-client-ip": "1.2.3.4",
+      "x-smp-proxy-key": "guess"
+    });
+
+    const withoutSecret = buildAdminApiProxyRequestHeaders(spoofed, "");
+    const withSecret = buildAdminApiProxyRequestHeaders(spoofed, "proxy-secret");
+
+    expect(withoutSecret.has("x-smp-client-ip")).toBe(false);
+    expect(withoutSecret.has("x-smp-proxy-key")).toBe(false);
+    expect(withSecret.get("x-smp-client-ip")).toBe("203.0.113.7");
+    expect(withSecret.get("x-smp-proxy-key")).toBe("proxy-secret");
   });
 
   it("returns the upstream response body from the proxy response", async () => {

@@ -16,6 +16,7 @@ REDIS_URL=redis://...
 REDIS_QUEUE_PREFIX=surgical-platform-prod
 CORS_ORIGINS=https://www.example.com,https://admin.example.com
 TRUST_PROXY=1
+API_PROXY_SHARED_SECRET=<long-random-secret-shared-with-web-and-admin>
 RATE_LIMIT_TTL_MS=60000
 RATE_LIMIT_MAX=100
 RATE_LIMIT_BLOCK_MS=60000
@@ -30,7 +31,13 @@ OTP_TTL_SECONDS=300
 OTP_RESEND_COOLDOWN_SECONDS=60
 OTP_RATE_LIMIT=5
 OTP_RATE_WINDOW_SECONDS=3600
+OTP_MAX_VERIFY_ATTEMPTS=5
 OTP_EXPOSE_IN_RESPONSE=false
+# Optional demo numbers for app-store review. They log in only with OTP_DEMO_CODE,
+# a random 6-digit Railway secret that is never returned or sent.
+OTP_DEMO_CUSTOMER_MOBILE_NUMBERS=
+OTP_DEMO_DELIVERY_MOBILE_NUMBERS=
+OTP_DEMO_CODE=<random-6-digit-code>
 RAZORPAY_KEY_ID=<production-key>
 RAZORPAY_KEY_SECRET=<production-secret>
 RAZORPAY_WEBHOOK_SECRET=<production-webhook-secret>
@@ -44,6 +51,7 @@ Customer website:
 NEXT_PUBLIC_API_URL=https://api.example.com/api/v1
 NEXT_PUBLIC_SITE_URL=https://www.example.com
 NEXT_PUBLIC_APP_ENV=production
+API_PROXY_SHARED_SECRET=<same-value-as-api>
 ```
 
 Admin dashboard:
@@ -51,6 +59,7 @@ Admin dashboard:
 ```bash
 NEXT_PUBLIC_API_URL=https://api.example.com/api/v1
 NEXT_PUBLIC_APP_ENV=production
+API_PROXY_SHARED_SECRET=<same-value-as-api>
 ```
 
 ## Vercel Frontend
@@ -87,6 +96,8 @@ node apps/api/dist/main.js
 ```
 
 Expose HTTPS through a reverse proxy/load balancer. Set `TRUST_PROXY=1` when the API is behind one proxy so audit logs and rate limiting use the client IP from forwarded headers.
+
+When the web or admin app proxies API calls through its own `/api/v1` route, those calls reach the API from the frontend host's IP. Set the same `API_PROXY_SHARED_SECRET` on the API, web, and admin deployments so the proxies can pass the real client IP. Without it, users behind the same frontend server share one rate-limit bucket, and login routes (10-20 requests per minute per IP) can lock them out.
 
 Health check:
 

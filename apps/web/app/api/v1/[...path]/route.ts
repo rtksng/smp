@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
   buildCustomerApiProxyErrorResponse,
-  buildCustomerApiProxyHeaders,
+  buildCustomerApiProxyRequestHeaders,
   buildCustomerApiProxyResponse,
   buildCustomerApiProxyUrl,
   fetchCustomerApiProxy,
@@ -40,7 +40,7 @@ async function proxyCustomerApi(
     const upstreamResponse = await fetchCustomerApiProxy(upstreamUrl, {
       body,
       cache: "no-store",
-      headers: buildCustomerApiProxyHeaders(request.headers),
+      headers: buildCustomerApiProxyRequestHeaders(request.headers),
       method: request.method,
       redirect: "manual"
     });
