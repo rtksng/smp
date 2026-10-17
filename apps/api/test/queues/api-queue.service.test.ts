@@ -1,19 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { OTP_JOB_NAMES, type SendOtpJobData } from "@surgical/types";
+import {
+  ORDER_MAINTENANCE_JOB_NAMES,
+  OTP_JOB_NAMES,
+  type SendOtpJobData
+} from "@surgical/types";
 import type { JobsOptions } from "bullmq";
 import { ApiQueueService } from "../../src/queues/api-queue.service";
 
 class RecordingQueue {
   readonly jobs: Array<{ data: unknown; name: string; options?: JobsOptions }> = [];
+  readonly schedulers: unknown[] = [];
 
   async add(name: string, data: unknown, options?: JobsOptions) {
     this.jobs.push({ data, name, options });
   }
+
+  async upsertJobScheduler(id: string, repeat: unknown, template: unknown) {
+    this.schedulers.push({ id, repeat, template });
+  }
+
+  async removeJobScheduler(id: string) {
+    this.schedulers.push({ removed: id });
+  }
 }
 
-test("enqueueOtp removes OTP jobs from Redis as soon as they finish or fail", async () => {
+function queueService() {
   const otpQueue = new RecordingQueue();
+  const orderMaintenanceQueue = new RecordingQueue();
   const otherQueue = new RecordingQueue();
   const service = new (ApiQueueService as unknown as new (
     ...queues: RecordingQueue[]
@@ -24,8 +38,15 @@ test("enqueueOtp removes OTP jobs from Redis as soon as they finish or fail", as
     otherQueue,
     otherQueue,
     otherQueue,
-    otherQueue
+    otherQueue,
+    orderMaintenanceQueue
   );
+
+  return { orderMaintenanceQueue, otherQueue, otpQueue, service };
+}
+
+test("enqueueOtp removes OTP jobs from Redis as soon as they finish or fail", async () => {
+  const { otherQueue, otpQueue, service } = queueService();
   const data: SendOtpJobData = {
     mobileNumber: "+919876543210",
     otp: "123456",
@@ -43,4 +64,27 @@ test("enqueueOtp removes OTP jobs from Redis as soon as they finish or fail", as
   assert.equal(otpQueue.jobs[0]?.options?.removeOnFail, true);
   assert.equal(otpQueue.jobs[0]?.options?.attempts, 3);
   assert.equal(otherQueue.jobs.length, 0);
+});
+
+test("unpaid order expiry uses one named schedule that replicas can upsert or remove", async () => {
+  const { orderMaintenanceQueue, service } = queueService();
+
+  await service.scheduleUnpaidOrderExpiry(300_000);
+  await service.scheduleUnpaidOrderExpiry(300_000);
+  await service.removeUnpaidOrderExpirySchedule();
+
+  const expected = {
+    id: "expire-unpaid-orders",
+    repeat: { every: 300_000 },
+    template: {
+      data: {},
+      name: ORDER_MAINTENANCE_JOB_NAMES.expireUnpaidOrders,
+      opts: { removeOnComplete: 100, removeOnFail: 500 }
+    }
+  };
+  assert.deepEqual(orderMaintenanceQueue.schedulers, [
+    expected,
+    expected,
+    { removed: "expire-unpaid-orders" }
+  ]);
 });

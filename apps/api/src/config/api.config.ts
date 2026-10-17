@@ -50,6 +50,18 @@ function demoOtpCode(value: string | undefined) {
   return code;
 }
 
+function unpaidOrderTimeoutMinutes(value: string | undefined) {
+  const minutes = Number(value ?? 30);
+
+  // Razorpay checkout needs a few minutes; a shorter window would cancel
+  // orders that customers are still paying for.
+  if (!Number.isInteger(minutes) || minutes < 15) {
+    throw new Error("UNPAID_ORDER_TIMEOUT_MINUTES must be a whole number of at least 15.");
+  }
+
+  return minutes;
+}
+
 function parseTrustProxy(value: string | undefined) {
   if (!value) {
     return false;
@@ -146,6 +158,8 @@ export type ApiEnvironment = {
   throttleLimit: number;
   throttleTtlMs: number;
   trustProxy: boolean | number;
+  unpaidOrderExpiryEnabled: boolean;
+  unpaidOrderTimeoutMinutes: number;
 };
 
 export function loadApiEnvironment(): ApiEnvironment {
@@ -217,7 +231,11 @@ export function loadApiEnvironment(): ApiEnvironment {
     throttleBlockMs: Number(process.env.RATE_LIMIT_BLOCK_MS ?? 60000),
     throttleLimit: Number(process.env.RATE_LIMIT_MAX ?? 100),
     throttleTtlMs: Number(process.env.RATE_LIMIT_TTL_MS ?? 60000),
-    trustProxy: parseTrustProxy(process.env.TRUST_PROXY)
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+    unpaidOrderExpiryEnabled: parseBoolean(process.env.UNPAID_ORDER_EXPIRY_ENABLED, true),
+    unpaidOrderTimeoutMinutes: unpaidOrderTimeoutMinutes(
+      process.env.UNPAID_ORDER_TIMEOUT_MINUTES
+    )
   };
 
   validateProductionEnvironment(apiEnvironment);

@@ -40,7 +40,7 @@ import {
   createCreateAddressMutation,
   createUpdateAddressMutation
 } from "../../lib/api/mutation-helpers";
-import { type PaymentMethod } from "../../lib/api/orders";
+import { createCheckoutIdempotencyKey, type PaymentMethod } from "../../lib/api/orders";
 import { getPaymentGatewayStatus } from "../../lib/api/payments";
 import { customerQueryKeys } from "../../lib/api/query-keys";
 import { getCheckoutSubmissionError } from "../../lib/checkout/checkout-validation";
@@ -118,6 +118,7 @@ function CheckoutContent() {
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
   const couponValidationRef = useRef(false);
+  const idempotencyKeyRef = useRef<string | null>(null);
   const customer = useCustomerAuthStore((state) => state.session?.customer);
   const setCartSummary = useCartStore((state) => state.setSummary);
   const resetCartSummary = useCartStore((state) => state.reset);
@@ -228,6 +229,16 @@ function CheckoutContent() {
       setCartSummary(cart);
     }
   }, [cart, setCartSummary]);
+
+  // A changed cart, coupon, address or payment method is a new checkout and
+  // must not return the order placed for the previous one.
+  useEffect(() => {
+    if (processingRef.current) {
+      return;
+    }
+
+    idempotencyKeyRef.current = createCheckoutIdempotencyKey();
+  }, [appliedCoupon?.code, couponCartKey, paymentMethod, selectedAddressId]);
 
   useEffect(() => {
     if (customer?.mobileNumber && addressForm.phone.length === 0) {
@@ -392,9 +403,11 @@ function CheckoutContent() {
     let pendingOnlineOrderId: string | null = null;
 
     try {
+      idempotencyKeyRef.current ??= createCheckoutIdempotencyKey();
       const order = await createOrderMutation.mutateAsync({
         billingAddressId: null,
         couponCode: appliedCoupon?.code ?? null,
+        idempotencyKey: idempotencyKeyRef.current,
         paymentMethod,
         shippingAddressId: selectedAddressId
       });

@@ -305,3 +305,31 @@ test("loadApiEnvironment parses the demo OTP code", () => {
 
   assert.equal(loadApiEnvironment().otpDemoCode, "482915");
 });
+
+test("loadApiEnvironment enables unpaid order expiry after 30 minutes by default", () => {
+  setRequiredApiEnv();
+  delete process.env.UNPAID_ORDER_EXPIRY_ENABLED;
+  delete process.env.UNPAID_ORDER_TIMEOUT_MINUTES;
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.unpaidOrderExpiryEnabled, true);
+  assert.equal(environment.unpaidOrderTimeoutMinutes, 30);
+});
+
+test("loadApiEnvironment reads and bounds the unpaid order expiry settings", () => {
+  setRequiredApiEnv({
+    UNPAID_ORDER_EXPIRY_ENABLED: "false",
+    UNPAID_ORDER_TIMEOUT_MINUTES: "60"
+  });
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.unpaidOrderExpiryEnabled, false);
+  assert.equal(environment.unpaidOrderTimeoutMinutes, 60);
+
+  for (const value of ["10", "30.5", "soon"]) {
+    setRequiredApiEnv({ UNPAID_ORDER_TIMEOUT_MINUTES: value });
+    assert.throws(() => loadApiEnvironment(), /UNPAID_ORDER_TIMEOUT_MINUTES/, value);
+  }
+});

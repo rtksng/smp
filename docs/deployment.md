@@ -41,6 +41,8 @@ OTP_DEMO_CODE=<random-6-digit-code>
 RAZORPAY_KEY_ID=<production-key>
 RAZORPAY_KEY_SECRET=<production-secret>
 RAZORPAY_WEBHOOK_SECRET=<production-webhook-secret>
+UNPAID_ORDER_EXPIRY_ENABLED=true
+UNPAID_ORDER_TIMEOUT_MINUTES=30
 STORAGE_PROVIDER=local
 STORAGE_PUBLIC_BASE_URL=https://api.example.com/uploads
 ```
@@ -98,6 +100,8 @@ node apps/api/dist/main.js
 Expose HTTPS through a reverse proxy/load balancer. Set `TRUST_PROXY=1` when the API is behind one proxy so audit logs and rate limiting use the client IP from forwarded headers.
 
 When the web or admin app proxies API calls through its own `/api/v1` route, those calls reach the API from the frontend host's IP. Set the same `API_PROXY_SHARED_SECRET` on the API, web, and admin deployments so the proxies can pass the real client IP. Without it, users behind the same frontend server share one rate-limit bucket, and login routes (10-20 requests per minute per IP) can lock them out.
+
+Unpaid online orders: every 5 minutes the API cancels online orders still unpaid after `UNPAID_ORDER_TIMEOUT_MINUTES` (default 30, minimum 15), releasing their stock and coupon use. Before cancelling it asks Razorpay; orders with a captured or authorized payment are kept, and a captured one is logged as needing reconciliation. Quote orders and cash-on-delivery orders are never expired. The job runs inside the API through the `order-maintenance` BullMQ queue, so every API replica can serve it and each run is handled once. Search the API logs for `orders.unpaid_expiry` to see each run's counts.
 
 Health check:
 

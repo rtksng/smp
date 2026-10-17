@@ -7,6 +7,7 @@ import {
   LOW_STOCK_ALERT_JOB_NAMES,
   NEAR_EXPIRY_ALERT_JOB_NAMES,
   NOTIFICATION_JOB_NAMES,
+  ORDER_MAINTENANCE_JOB_NAMES,
   OTP_JOB_NAMES,
   PAYMENT_WEBHOOK_JOB_NAMES,
   type CustomerEmailJobName,
@@ -15,6 +16,7 @@ import {
   type LowStockAlertJobName,
   type NearExpiryAlertJobName,
   type NotificationJobName,
+  type OrderMaintenanceJobName,
   type OtpJobName,
   type PaymentWebhookJobName,
   type ProcessPaymentWebhookJobData,
@@ -61,6 +63,8 @@ export const OTP_JOB_OPTIONS: JobsOptions = {
   removeOnFail: true
 };
 
+const UNPAID_ORDER_EXPIRY_SCHEDULER_ID = "expire-unpaid-orders";
+
 @Injectable()
 export class ApiQueueService {
   constructor(
@@ -101,8 +105,37 @@ export class ApiQueueService {
       SendNearExpiryAlertJobData,
       void,
       NearExpiryAlertJobName
+    >,
+    @InjectQueue(QUEUE_NAMES.orderMaintenance)
+    private readonly orderMaintenanceQueue: Queue<
+      Record<string, never>,
+      void,
+      OrderMaintenanceJobName
     >
   ) {}
+
+  // Job schedulers are stored in Redis by id, so every API replica can call
+  // this on startup and there is still one schedule.
+  async scheduleUnpaidOrderExpiry(everyMs: number) {
+    await this.orderMaintenanceQueue.upsertJobScheduler(
+      UNPAID_ORDER_EXPIRY_SCHEDULER_ID,
+      { every: everyMs },
+      {
+        data: {},
+        name: ORDER_MAINTENANCE_JOB_NAMES.expireUnpaidOrders,
+        opts: {
+          removeOnComplete: 100,
+          removeOnFail: 500
+        }
+      }
+    );
+  }
+
+  async removeUnpaidOrderExpirySchedule() {
+    await this.orderMaintenanceQueue.removeJobScheduler(
+      UNPAID_ORDER_EXPIRY_SCHEDULER_ID
+    );
+  }
 
   async enqueueOtp(data: SendOtpJobData) {
     await this.otpQueue.add(OTP_JOB_NAMES.sendOtp, data, OTP_JOB_OPTIONS);

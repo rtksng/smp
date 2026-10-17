@@ -28,6 +28,7 @@ export const orderStatusSchema = z.enum([
 export const createOrderInputSchema = z.object({
   billingAddressId: z.string().nullable().optional(),
   couponCode: z.string().trim().min(1).max(64).nullable().optional(),
+  idempotencyKey: z.string().max(128).regex(/^[A-Za-z0-9._:-]+$/),
   paymentMethod: paymentMethodSchema,
   shippingAddressId: z.string().min(1, "Select a delivery address.")
 });
@@ -143,6 +144,13 @@ export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderInputSchema>;
 export type Order = z.infer<typeof orderSchema>;
 export type OrderList = z.infer<typeof orderListSchema>;
+
+// One key per checkout attempt. Submitting the same attempt again (a double
+// click or a retry after a network error) returns the first order instead of
+// placing a second one.
+export function createCheckoutIdempotencyKey() {
+  return `web-checkout-${crypto.randomUUID()}`;
+}
 
 export function createOrder(input: CreateOrderInput) {
   const parsedInput = createOrderInputSchema.parse(input);

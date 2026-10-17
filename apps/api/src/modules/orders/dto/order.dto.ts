@@ -52,17 +52,15 @@ export class CreateOrderDto {
   @MaxLength(64)
   couponCode?: string | null;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description:
-      "Stable client-generated key used to make checkout retries idempotent.",
-    example: "checkout-20260627-001",
-    nullable: true
+      "Client-generated key, kept the same when a checkout is retried, so a double submit returns the first order instead of creating a second one.",
+    example: "web-checkout-6f1c2a9e-3b4d-4f5a-9c1e-2d7b8a0f4e61"
   })
-  @IsOptional()
   @IsString()
   @MaxLength(128)
   @Matches(/^[A-Za-z0-9._:-]+$/)
-  idempotencyKey?: string | null;
+  idempotencyKey!: string;
 }
 
 export class OrderListQueryDto {

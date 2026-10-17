@@ -37,6 +37,12 @@ export type RazorpayCreateRefundResult = {
 
 export type RazorpayFetchRefundResult = RazorpayCreateRefundResult;
 
+export type RazorpayOrderPayment = {
+  id: string;
+  // created, authorized, captured, refunded or failed.
+  status: string;
+};
+
 @Injectable()
 export class RazorpayClient {
   private readonly keyId: string;
@@ -167,6 +173,42 @@ export class RazorpayClient {
     }
 
     return payload;
+  }
+
+  async fetchOrderPayments(razorpayOrderId: string): Promise<RazorpayOrderPayment[]> {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Payment gateway is not configured yet."
+      );
+    }
+
+    const response = await this.request(
+      `https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpayOrderId)}/payments`,
+      {
+        headers: {
+          Authorization: this.authorizationHeader()
+        },
+        method: "GET"
+      }
+    );
+
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new BadGatewayException("Razorpay order payments fetch failed.");
+    }
+
+    if (!isRecord(payload) || !Array.isArray(payload.items)) {
+      throw new BadGatewayException("Razorpay returned an invalid payments response.");
+    }
+
+    return payload.items.map((item: unknown) => {
+      if (!isRecord(item) || typeof item.id !== "string" || typeof item.status !== "string") {
+        throw new BadGatewayException("Razorpay returned an invalid payment.");
+      }
+
+      return { id: item.id, status: item.status };
+    });
   }
 
   verifyPaymentSignature(

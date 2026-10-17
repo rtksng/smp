@@ -59,7 +59,8 @@ function createRedisConnection(configService: ConfigService): RedisOptions {
       { name: QUEUE_NAMES.invoice },
       { name: QUEUE_NAMES.paymentWebhook },
       { name: QUEUE_NAMES.lowStockAlert },
-      { name: QUEUE_NAMES.nearExpiryAlert }
+      { name: QUEUE_NAMES.nearExpiryAlert },
+      { name: QUEUE_NAMES.orderMaintenance }
     )
   ],
   providers: [ApiQueueService, CustomerEmailNotifier]

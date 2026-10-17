@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import type { PrismaService } from "../../src/database/prisma.service";
 import { AuthTokenAudience } from "../../src/modules/auth/common/auth-token.service";
@@ -164,7 +164,7 @@ test("checkout preserves accepted catalog quote prices, tax and shipping in the 
     quotation: { items: [{ productId: "product-1", variantId: null, quantity: 2, unitPrice: 100.25, taxRate: 5 }], validUntil: null, totals: { shippingTotal: 25.5 } }
   } } });
   const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService);
-  const order = await service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" });
+  const order = await service.createOrder("customer-1", { idempotencyKey: "checkout-test-1", paymentMethod: "COD", shippingAddressId: "address-1" });
   assert.equal(order.totals.grandTotal, 236.03);
   assert.equal(order.items[0]?.unitPrice, 100.25);
   assert.equal(order.items[0]?.taxRate, 5);
@@ -178,7 +178,7 @@ test("expired accepted quotations cannot silently proceed at catalog prices", as
     quotation: { items: [{ productId: "product-1", variantId: null, quantity: 2, unitPrice: 100, taxRate: 5 }], validUntil: "2000-01-01", totals: { shippingTotal: 0 } }
   } } });
   const service = new OrdersService(prisma as unknown as PrismaService, new FakeWarehouseAccess(["warehouse-1"]) as unknown as WarehouseAccessService);
-  await assert.rejects(service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" }), /quotation has expired/);
+  await assert.rejects(service.createOrder("customer-1", { idempotencyKey: "checkout-test-2", paymentMethod: "COD", shippingAddressId: "address-1" }), /quotation has expired/);
   assert.equal(prisma.calls.orderCreate.length, 0);
   assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
 });
@@ -218,8 +218,15 @@ function createOrdersPrismaMock(input?: {
     unitPrice: number | string;
     variantId?: string | null;
     warehouseId: string | null;
+    name?: string;
+    sku?: string;
+    taxAmount?: number | string;
+    taxRate?: number | string;
   }>;
   orderStatus?: string;
+  orderCouponId?: string | null;
+  reservedStock?: number;
+  paymentMethod?: string;
   deliveryStatusAtCancellation?: string;
   cancellationClaimCount?: number;
   paymentStatus?: string;
@@ -265,6 +272,10 @@ function createOrdersPrismaMock(input?: {
     unitPrice: number | string;
     variantId?: string | null;
     warehouseId: string | null;
+    name?: string;
+    sku?: string;
+    taxAmount?: number | string;
+    taxRate?: number | string;
   }> = [...(input?.existingOrderItems ?? [])];
   const statusHistory: Array<{
     changedById: string | null;
@@ -396,7 +407,7 @@ function createOrdersPrismaMock(input?: {
           availableQuantity: stockAvailable,
           id: "stock-1",
           productId: "product-1",
-          reservedQuantity: 0,
+          reservedQuantity: input?.reservedStock ?? 0,
           variantId: null,
           warehouseId: "warehouse-1"
         }
@@ -467,7 +478,7 @@ function createOrdersPrismaMock(input?: {
       amount: "283.20",
       createdAt: now,
       id: "payment-1",
-      method: "COD",
+      method: input?.paymentMethod ?? "COD",
       paidAt: null,
       provider: null,
       providerOrderId: null,
@@ -585,8 +596,15 @@ function createOrdersPrismaMock(input?: {
         calls.couponFindFirst.push(args);
         return { ...coupon };
       },
-      updateMany: async (args: { data: { usedCount?: { increment?: number } } }) => {
+      updateMany: async (args: {
+        data: { usedCount?: { decrement?: number; increment?: number } };
+      }) => {
         calls.couponUpdateMany.push(args);
+        if (args.data.usedCount?.decrement !== undefined) {
+          if (coupon.usedCount <= 0) return { count: 0 };
+          coupon.usedCount -= args.data.usedCount.decrement;
+          return { count: 1 };
+        }
         if (input?.couponUsedCountAtClaim !== undefined) {
           coupon.usedCount = input.couponUsedCountAtClaim;
         }
@@ -778,6 +796,7 @@ function createOrdersPrismaMock(input?: {
         }
 
         const order = orders[0] ?? {
+          couponId: input?.orderCouponId ?? null,
           createdAt: now,
           discountTotal: "0.00",
           grandTotal: "283.20",
@@ -1097,6 +1116,7 @@ test("createOrder reserves stock from a warehouse batch, snapshots items, create
   );
 
   const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-3",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1142,6 +1162,7 @@ test("createOrder allocates available cart lines across different warehouses", a
   );
 
   const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-4",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1178,6 +1199,7 @@ test("createOrder keeps the cart intact for pending online payment orders", asyn
   );
 
   await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-5",
     paymentMethod: "ONLINE",
     shippingAddressId: "address-1"
   });
@@ -1223,6 +1245,7 @@ test("createOrder applies a valid coupon to order and payment totals", async () 
   );
 
   await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-6",
     couponCode: " surgical10 ",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
@@ -1233,6 +1256,7 @@ test("createOrder applies a valid coupon to order and payment totals", async () 
     (prisma.calls.orderCreate[0] as { data: Record<string, unknown> }).data,
     {
       billingAddressId: "address-1",
+      checkoutIdempotencyKey: "checkout-test-6",
       couponId: "coupon-1",
       discountTotal: 24,
       grandTotal: 259.2,
@@ -1286,6 +1310,7 @@ test("createOrder rejects a coupon whose last use was claimed after validation",
 
   await assert.rejects(
     () => service.createOrder("customer-1", {
+      idempotencyKey: "checkout-test-7",
       couponCode: "SURGICAL10",
       paymentMethod: "COD",
       shippingAddressId: "address-1"
@@ -1310,6 +1335,7 @@ test("createOrder revalidates inactive and exhausted coupons before accepting an
     );
     await assert.rejects(
       () => service.createOrder("customer-1", {
+        idempotencyKey: "checkout-test-8",
         couponCode: "SURGICAL10",
         paymentMethod: "COD",
         shippingAddressId: "address-1"
@@ -1354,6 +1380,7 @@ test("createOrder stores dynamic delivery charge on order and payment totals", a
   );
 
   const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-9",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1390,7 +1417,7 @@ test("createOrder persists the same warehouse-specific shipping charge used by c
     new FakeWarehouseAccess() as unknown as WarehouseAccessService,
     undefined, undefined, undefined, deliveryCharges);
 
-  const order = await service.createOrder("customer-1", { paymentMethod: "COD", shippingAddressId: "address-1" });
+  const order = await service.createOrder("customer-1", { idempotencyKey: "checkout-test-10", paymentMethod: "COD", shippingAddressId: "address-1" });
   assert.equal(order.totals.deliveryCharge, 150);
   assert.equal(order.totals.grandTotal, 433.2);
   assert.equal((prisma.calls.orderCreate[0] as { data: { shippingTotal: number } }).data.shippingTotal, 150);
@@ -1407,6 +1434,7 @@ test("createOrder enqueues an order confirmation notification after checkout suc
   );
 
   const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-11",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1442,6 +1470,7 @@ test("createOrder rejects checkout when no warehouse can satisfy the cart", asyn
   await assert.rejects(
     () =>
       service.createOrder("customer-1", {
+        idempotencyKey: "checkout-test-12",
         paymentMethod: "ONLINE",
         shippingAddressId: "address-1"
       }),
@@ -1533,6 +1562,7 @@ test("cancelMyOrder lets a customer cancel an eligible owned order and releases 
   );
 
   await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-13",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1891,6 +1921,7 @@ test("cancelOrder releases reserved inventory and records a cancelled history en
   );
 
   await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-14",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -1949,6 +1980,7 @@ test("updateStatus enqueues invoice generation when an admin confirms an order",
   );
 
   await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-15",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -2170,6 +2202,7 @@ test("order lifecycle queues order received, progress, and cancellation emails",
   const { sent, service } = emailingOrdersService(prisma);
 
   const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-test-16",
     paymentMethod: "COD",
     shippingAddressId: "address-1"
   });
@@ -2250,4 +2283,171 @@ test("customer cancellation of an unpaid order says no refund is due", async () 
   assert.ok(cancelled?.template === "order-cancelled");
   assert.equal(cancelled.refund, "NOT_DUE");
   assert.equal(cancelled.cancellationReason, null);
+});
+
+const unpaidOnlineOrderItems = [
+  {
+    id: "item-1",
+    name: "Surgical gloves",
+    orderId: "order-1",
+    productId: "product-1",
+    quantity: 2,
+    sku: "GLV-001",
+    stockBatchId: "batch-1",
+    taxAmount: "43.20",
+    taxRate: "18.00",
+    total: "283.20",
+    unitPrice: "120.00",
+    variantId: null,
+    warehouseId: "warehouse-1"
+  }
+];
+
+test("expireUnpaidOrder cancels an unpaid online order and gives back its stock and coupon use", async () => {
+  const prisma = createOrdersPrismaMock({
+    couponUsedCount: 3,
+    existingOrderItems: unpaidOnlineOrderItems,
+    orderCouponId: "coupon-1",
+    paymentMethod: "ONLINE",
+    reservedStock: 2
+  });
+  const { sent, service } = emailingOrdersService(prisma);
+
+  assert.equal(await service.expireUnpaidOrder("order-1", 30), true);
+
+  assert.deepEqual(prisma.calls.inventoryStockUpdateMany[0], {
+    data: {
+      availableQuantity: { increment: 2 },
+      reservedQuantity: { decrement: 2 }
+    },
+    where: {
+      productId: "product-1",
+      reservedQuantity: { gte: 2 },
+      variantId: null,
+      warehouseId: "warehouse-1"
+    }
+  });
+  assert.deepEqual(
+    (prisma.calls.couponUpdateMany[0] as { data: unknown }).data,
+    { usedCount: { decrement: 1 } }
+  );
+  assert.deepEqual((prisma.calls.orderUpdate[0] as { data: unknown }).data, {
+    paymentStatus: "CANCELLED",
+    status: "CANCELLED"
+  });
+  assert.equal(
+    (prisma.calls.statusHistoryCreate[0] as { data: { note: string } }).data.note,
+    "Payment was not completed within 30 minutes."
+  );
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.event.template, "order-cancelled");
+  assert.equal((sent[0]?.event as { refund?: string }).refund, "NOT_DUE");
+});
+
+test("expireUnpaidOrder leaves cash-on-delivery, paid and progressed orders alone", async () => {
+  for (const options of [
+    { paymentMethod: "COD" },
+    { paymentMethod: "ONLINE", paymentStatus: "PAID" },
+    { orderStatus: "CONFIRMED", paymentMethod: "ONLINE" }
+  ]) {
+    const prisma = createOrdersPrismaMock({
+      existingOrderItems: unpaidOnlineOrderItems,
+      orderCouponId: "coupon-1",
+      ...options
+    });
+    const service = new OrdersService(
+      prisma as unknown as PrismaService,
+      new FakeWarehouseAccess() as unknown as WarehouseAccessService
+    );
+
+    assert.equal(await service.expireUnpaidOrder("order-1", 30), false, JSON.stringify(options));
+    assert.equal(prisma.calls.orderUpdateMany.length, 0);
+    assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
+    assert.equal(prisma.calls.couponUpdateMany.length, 0);
+  }
+});
+
+test("expireUnpaidOrder releases nothing when the order changed while it was being expired", async () => {
+  const prisma = createOrdersPrismaMock({
+    cancellationClaimCount: 0,
+    existingOrderItems: unpaidOnlineOrderItems,
+    orderCouponId: "coupon-1",
+    paymentMethod: "ONLINE"
+  });
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService
+  );
+
+  await assert.rejects(() => service.expireUnpaidOrder("order-1", 30), ConflictException);
+  assert.equal(prisma.calls.inventoryStockUpdateMany.length, 0);
+  assert.equal(prisma.calls.couponUpdateMany.length, 0);
+});
+
+test("cancellation queues delivery partner notifications only after the transaction commits", async () => {
+  for (const queueFails of [false, true]) {
+    const prisma = createOrdersPrismaMock({ orderStatus: "ASSIGNED" });
+    const runTransaction = prisma.$transaction;
+    const notificationUpdates: unknown[] = [];
+    let committed = false;
+    Object.assign(prisma, {
+      $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) => {
+        const result = await runTransaction(callback);
+        committed = true;
+        return result;
+      }
+    });
+    Object.assign(prisma.notificationLog, {
+      create: async () => ({ id: "notification-1" }),
+      update: async (args: unknown) => {
+        notificationUpdates.push(args);
+        return {};
+      }
+    });
+    const enqueued: unknown[] = [];
+    const queue = {
+      enqueueDeliveryAssignmentNotification: async (data: unknown) => {
+        assert.equal(committed, true, "notification queued before commit");
+        if (queueFails) throw new Error("Redis unavailable");
+        enqueued.push(data);
+      }
+    };
+    const service = new OrdersService(
+      prisma as unknown as PrismaService,
+      new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+      queue as unknown as ApiQueueService
+    );
+
+    const order = await service.cancelOrder("order-1", { reason: "QA cancellation" }, { auth: adminAuth() });
+
+    assert.equal(order.id, "order-1");
+    assert.equal(enqueued.length, queueFails ? 0 : 1);
+    assert.deepEqual(
+      notificationUpdates,
+      queueFails ? [{ data: { status: "QUEUE_FAILED" }, where: { id: "notification-1" } }] : []
+    );
+  }
+});
+
+test("createOrder still returns the saved order when the confirmation cannot be queued", async () => {
+  const prisma = createOrdersPrismaMock();
+  const queue = {
+    enqueueOrderConfirmation: async () => {
+      throw new Error("Redis unavailable");
+    }
+  };
+  const service = new OrdersService(
+    prisma as unknown as PrismaService,
+    new FakeWarehouseAccess() as unknown as WarehouseAccessService,
+    queue as unknown as ApiQueueService
+  );
+
+  const order = await service.createOrder("customer-1", {
+    idempotencyKey: "checkout-queue-down",
+    paymentMethod: "COD",
+    shippingAddressId: "address-1"
+  });
+
+  assert.equal(order.id, "order-1");
+  assert.equal(prisma.calls.orderCreate.length, 1);
 });
