@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import "dotenv/config";
+import "./instrument";
 import { resolve } from "node:path";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";

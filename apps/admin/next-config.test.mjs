@@ -34,3 +34,51 @@ describe("next config", () => {
     expect(nextConfig.rewrites).toBeUndefined();
   });
 });
+
+describe("security headers", () => {
+  function headerMap(headers) {
+    return Object.fromEntries(headers.map((header) => [header.key, header.value]));
+  }
+
+  it("are applied to every route", async () => {
+    vi.resetModules();
+    const { default: nextConfig } = await import("./next.config.mjs");
+    const routes = await nextConfig.headers();
+
+    expect(routes).toHaveLength(1);
+    expect(routes[0].source).toBe("/:path*");
+  });
+
+  it("enforce clickjacking protection and report the full policy", async () => {
+    const { securityHeaders } = await import("./security-headers.mjs");
+    const byKey = headerMap(
+      securityHeaders({ NEXT_PUBLIC_API_URL: "https://api.example.in/api/v1", NODE_ENV: "production" })
+    );
+    const reportOnly = byKey["Content-Security-Policy-Report-Only"];
+
+    expect(byKey["X-Frame-Options"]).toBe("DENY");
+    expect(byKey["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+    expect(byKey["X-Content-Type-Options"]).toBe("nosniff");
+    expect(byKey["Strict-Transport-Security"]).toContain("max-age=31536000");
+    expect(reportOnly).toContain("connect-src 'self' https://api.example.in");
+    expect(reportOnly).toContain("object-src 'none'");
+    expect(reportOnly).not.toContain("unsafe-eval");
+    expect(reportOnly).toContain("frame-src 'none'");
+    expect(byKey["X-Robots-Tag"]).toBe("noindex, nofollow");
+  });
+
+  it("enforce the full policy once CSP_ENFORCE is set", async () => {
+    const { securityHeaders } = await import("./security-headers.mjs");
+    const byKey = headerMap(securityHeaders({ CSP_ENFORCE: "true", NODE_ENV: "production" }));
+
+    expect(byKey["Content-Security-Policy"]).toContain("default-src 'self'");
+    expect(byKey["Content-Security-Policy-Report-Only"]).toBeUndefined();
+  });
+
+  it("skip HSTS outside production", async () => {
+    const { securityHeaders } = await import("./security-headers.mjs");
+    const byKey = headerMap(securityHeaders({ NODE_ENV: "development" }));
+
+    expect(byKey["Strict-Transport-Security"]).toBeUndefined();
+  });
+});

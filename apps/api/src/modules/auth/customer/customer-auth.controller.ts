@@ -11,6 +11,14 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import type { Response } from "express";
 import { AUTH_THROTTLE_LIMITS } from "../common/auth-throttle";
+import {
+  clearRefreshCookie,
+  CUSTOMER_REFRESH_COOKIE,
+  isBrowserRequest,
+  readCookie,
+  setRefreshCookie,
+  withoutRefreshToken
+} from "../common/refresh-cookie";
 import { getAuthRequestContext } from "../common/request-context";
 import {
   CustomerRequestOtpDto,
@@ -52,9 +60,10 @@ export class CustomerAuthController {
       getAuthRequestContext(request)
     );
 
-    setRefreshCookie(response, result.tokens.refreshToken, result.tokens.refreshTokenExpiresAt);
-
-    return result;
+    return {
+      ...result,
+      tokens: deliverRefreshToken(request, response, result.tokens)
+    };
   }
 
   @Post("refresh")
@@ -67,14 +76,14 @@ export class CustomerAuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     const result = await this.customerAuthService.refresh(
-      dto,
-      getAuthRequestContext(request),
-      readCookie(request, CUSTOMER_REFRESH_COOKIE)
+      presentedRefreshToken(request, dto),
+      getAuthRequestContext(request)
     );
 
-    setRefreshCookie(response, result.tokens.refreshToken, result.tokens.refreshTokenExpiresAt);
-
-    return result;
+    return {
+      ...result,
+      tokens: deliverRefreshToken(request, response, result.tokens)
+    };
   }
 
   @Post("logout")
@@ -87,47 +96,41 @@ export class CustomerAuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     const result = await this.customerAuthService.logout(
-      dto,
-      readCookie(request, CUSTOMER_REFRESH_COOKIE)
+      presentedRefreshToken(request, dto)
     );
 
-    clearRefreshCookie(response);
+    if (isBrowserRequest(request)) {
+      clearRefreshCookie(response, CUSTOMER_REFRESH_COOKIE, COOKIE_OPTIONS);
+    }
 
     return result;
   }
 }
 
-const CUSTOMER_REFRESH_COOKIE = "surgical_customer_refresh";
+const COOKIE_OPTIONS = { path: "/", sameSite: "lax" } as const;
 
-function setRefreshCookie(response: Response, refreshToken: string, expires: Date) {
-  response.cookie(CUSTOMER_REFRESH_COOKIE, refreshToken, {
-    expires,
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
-  });
+// Browsers use the httpOnly cookie only; native apps use the body only. The two
+// are never mixed, so a browser never sees a refresh token in a response body.
+function presentedRefreshToken(request: Request, dto: OptionalRefreshTokenDto) {
+  return isBrowserRequest(request)
+    ? readCookie(request, CUSTOMER_REFRESH_COOKIE)
+    : dto.refreshToken;
 }
 
-function clearRefreshCookie(response: Response) {
-  response.clearCookie(CUSTOMER_REFRESH_COOKIE, {
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
-  });
-}
-
-function readCookie(request: Request, name: string) {
-  const cookieHeader = request.headers.cookie;
-
-  if (!cookieHeader) {
-    return undefined;
+function deliverRefreshToken<
+  T extends { refreshToken: string; refreshTokenExpiresAt: Date }
+>(request: Request, response: Response, tokens: T) {
+  if (!isBrowserRequest(request)) {
+    return tokens;
   }
 
-  return cookieHeader
-    .split(";")
-    .map((entry) => entry.trim())
-    .map((entry) => entry.split("="))
-    .find(([key]) => key === name)?.[1];
+  setRefreshCookie(
+    response,
+    CUSTOMER_REFRESH_COOKIE,
+    tokens.refreshToken,
+    tokens.refreshTokenExpiresAt,
+    COOKIE_OPTIONS
+  );
+
+  return withoutRefreshToken(tokens);
 }

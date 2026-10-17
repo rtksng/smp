@@ -17,6 +17,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { WarehouseStatus } from "../../../generated/prisma/enums";
 import { AdminUserRoleResponseDto } from "../../admin-users/dto/admin-user.dto";
+import { IsAdminPassword } from "../../../common/validation/admin-password";
 
 const trimText = ({ value }: { value: unknown }) =>
   typeof value === "string" ? value.trim() : value;
@@ -286,10 +287,8 @@ export class CreateWarehouseStaffAccountDto {
   @Matches(/^\+[1-9]\d{7,14}$/)
   mobileNumber?: string | null;
 
-  @ApiProperty({ example: "StrongPass123", minLength: 8 })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @ApiProperty({ example: "Surgical-Ops-2026", minLength: 12 })
+  @IsAdminPassword()
   password!: string;
 
   @ApiProperty({

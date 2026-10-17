@@ -34,11 +34,12 @@ export type AdminProfile = {
   };
 };
 
+// The refresh token never reaches the dashboard's JavaScript: the API keeps it
+// in an httpOnly cookie scoped to its admin auth routes.
 export type AdminTokenSet = {
   accessToken: string;
   accessTokenExpiresAt: string;
   accessTokenExpiresInSeconds: number;
-  refreshToken: string;
   refreshTokenExpiresAt: string;
   refreshTokenExpiresInSeconds: number;
   tokenType: "Bearer";
@@ -55,6 +56,7 @@ export type AdminLoginResponse = {
 };
 
 type AdminRefreshResponse = {
+  admin: AdminProfile;
   tokens: AdminTokenSet;
 };
 
@@ -86,6 +88,7 @@ type AdminApiClientOptions = {
 };
 
 const REFRESH_SKEW_MS = 30_000;
+const REFRESH_RETRY_DELAY_MS = 500;
 const DEFAULT_ADMIN_API_TIMEOUT_MS = 30_000;
 const BROWSER_API_PROXY_BASE_PATH = "/api/v1";
 const BROWSER_PROXY_HOST_SUFFIXES = [".up.railway.app"];
@@ -155,6 +158,7 @@ export function getAdminApiBaseUrl() {
 export async function adminLogin(email: string, password: string) {
   const data = await rawAdminRequest<AdminLoginResponse>("/auth/admin/login", {
     body: JSON.stringify({ email, password }),
+    credentials: "include",
     method: "POST"
   });
 
@@ -164,16 +168,49 @@ export async function adminLogin(email: string, password: string) {
   };
 }
 
-export function refreshAdminTokens(refreshToken: string) {
-  return rawAdminRequest<AdminRefreshResponse>("/auth/admin/refresh", {
-    body: JSON.stringify({ refreshToken }),
-    method: "POST"
-  }).then((data) => data.tokens);
+let refreshInFlight: Promise<AdminSession> | null = null;
+
+// Restores or renews the session from the refresh cookie. Callers in this tab
+// share one request, because the API rotates the cookie on every refresh and
+// a second request with the old cookie would be refused.
+export function refreshAdminSession(): Promise<AdminSession> {
+  refreshInFlight ??= requestAdminRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
 }
 
-export async function logoutAdminSession(refreshToken: string) {
+async function requestAdminRefresh() {
+  try {
+    return await postAdminRefresh();
+  } catch (error) {
+    // Another tab rotated the cookie a moment ago; the browser now holds the
+    // new one, so a single retry succeeds.
+    if (error instanceof AdminApiClientError && error.status === 409) {
+      await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+      return postAdminRefresh();
+    }
+
+    throw error;
+  }
+}
+
+async function postAdminRefresh(): Promise<AdminSession> {
+  const data = await rawAdminRequest<AdminRefreshResponse>("/auth/admin/refresh", {
+    credentials: "include",
+    method: "POST"
+  });
+
+  return {
+    admin: data.admin,
+    tokens: data.tokens
+  };
+}
+
+export async function logoutAdminSession() {
   await rawAdminRequest("/auth/admin/logout", {
-    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
     method: "POST"
   });
 }
@@ -247,15 +284,8 @@ export class AdminApiClient {
   }
 
   async logout() {
-    const session = this.options.getSession();
-
-    if (!session) {
-      this.options.clearSession();
-      return;
-    }
-
     try {
-      await logoutAdminSession(session.tokens.refreshToken);
+      await logoutAdminSession();
     } finally {
       this.options.clearSession();
     }
@@ -284,19 +314,8 @@ export class AdminApiClient {
   }
 
   private async refreshSession() {
-    const session = this.options.getSession();
-
-    if (!session) {
-      this.options.clearSession();
-      return null;
-    }
-
     try {
-      const tokens = await refreshAdminTokens(session.tokens.refreshToken);
-      const nextSession = {
-        ...session,
-        tokens
-      };
+      const nextSession = await refreshAdminSession();
       this.options.setSession(nextSession);
 
       return nextSession;

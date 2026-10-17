@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./instrument";
 import { NestFactory } from "@nestjs/core";
 import {
   formatReadinessResult,

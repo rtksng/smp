@@ -44,10 +44,8 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
       lastOtpRequest: null,
       loginRedirectTo: null,
       logout: async () => {
-        const refreshToken = get().session?.tokens.refreshToken;
-
         try {
-          await logoutCustomerSession(refreshToken);
+          await logoutCustomerSession();
         } finally {
           set({
             isLoginOpen: false,
@@ -72,9 +70,7 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
         }
 
         try {
-          const tokens = await refreshCustomerTokens(
-            currentSession.tokens.refreshToken
-          );
+          const tokens = await refreshCustomerTokens();
           const nextSession = {
             ...currentSession,
             tokens

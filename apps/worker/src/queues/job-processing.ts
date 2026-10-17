@@ -1,5 +1,6 @@
 import type { QueueName } from "@surgical/config";
-import type { Job } from "bullmq";
+import * as Sentry from "@sentry/node";
+import { UnrecoverableError, type Job } from "bullmq";
 import type { StructuredLogger } from "../structured-logger.service";
 
 type WorkerLogger = Pick<StructuredLogger, "error" | "log">;
@@ -142,6 +143,7 @@ export function logJobFailed(
   startedAtMs: number,
   error: unknown
 ) {
+  reportFinalJobFailure(queueName, job, error);
   logger.error(
     stripUndefined({
       attemptsMade: job.attemptsMade ?? 0,
@@ -157,6 +159,25 @@ export function logJobFailed(
     undefined,
     context
   );
+}
+
+// Retries are routine (rate limits, brief outages); a job is reported to
+// Sentry only once it has no attempts left.
+function reportFinalJobFailure(queueName: QueueName, job: Job, error: unknown) {
+  const finalAttempt =
+    error instanceof UnrecoverableError ||
+    (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1);
+
+  if (!finalAttempt || !Sentry.isInitialized()) {
+    return;
+  }
+
+  Sentry.withScope((scope) => {
+    scope.setTag("queue", queueName);
+    scope.setTag("jobName", job.name);
+    scope.setContext("job", { attemptsMade: job.attemptsMade ?? 0, jobId: job.id?.toString() });
+    Sentry.captureException(error);
+  });
 }
 
 export function redactMobileNumber(mobileNumber: string) {

@@ -1,5 +1,7 @@
 /* global process, URL */
 
+import { securityHeaders } from "./security-headers.mjs";
+
 const apiUploadRemotePattern = remotePatternFromUrl(
   process.env.NEXT_PUBLIC_API_URL
 );
@@ -44,6 +46,9 @@ const nextConfig = {
         protocol: "https"
       }
     ])
+  },
+  async headers() {
+    return [{ headers: securityHeaders(), source: "/:path*" }];
   },
   transpilePackages: ["@surgical/config", "@surgical/types", "@surgical/ui"]
 };

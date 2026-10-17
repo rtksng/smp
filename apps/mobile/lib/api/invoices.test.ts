@@ -87,11 +87,11 @@ describe("authenticated invoice download and native share", () => {
     expect(new TextDecoder().decode(bytes)).toBe("%PDF-1.7 invoice");
     expect(fetchMock).toHaveBeenNthCalledWith(1,
       "https://api.example.com/api/v1/orders/order%2F1/invoice?format=pdf",
-      expect.objectContaining({ headers: { Accept: "application/pdf", Authorization: "Bearer current-test-session" } })
+      expect.objectContaining({ headers: { Accept: "application/pdf", Authorization: "Bearer current-test-session", "X-Client-Platform": "native" } })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(2,
       "https://api.example.com/api/v1/orders/order%2F1/invoice?format=pdf",
-      expect.objectContaining({ headers: { Accept: "application/pdf", Authorization: "Bearer refreshed-test-session" } })
+      expect.objectContaining({ headers: { Accept: "application/pdf", Authorization: "Bearer refreshed-test-session", "X-Client-Platform": "native" } })
     );
   });
 

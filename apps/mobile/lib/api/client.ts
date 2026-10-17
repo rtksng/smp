@@ -197,6 +197,9 @@ function buildHeaders(
 ) {
   const headers: Record<string, string> = {
     Accept: "application/json",
+    // Tells the API to return the refresh token in the body instead of a
+    // browser cookie; the app keeps it in secure storage.
+    "X-Client-Platform": "native",
     ...input
   };
 

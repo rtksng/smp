@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { normalizeIndianMobileNumber } from "../auth/mobile";
-import { requestApi } from "./client";
+import { ApiClientError, requestApi } from "./client";
 
 export const customerTokenSetSchema = z.object({
   accessToken: z.string(),
@@ -77,9 +77,38 @@ export async function verifyCustomerOtp(mobileNumber: string, otp: string) {
   } satisfies CustomerSession;
 }
 
-export async function refreshCustomerTokens(refreshToken?: string | null) {
+const REFRESH_RETRY_DELAY_MS = 500;
+let refreshInFlight: Promise<CustomerTokenSet> | null = null;
+
+// The refresh token is an httpOnly cookie the API rotates on every refresh,
+// so callers in this tab share one request: a second request with the old
+// cookie would be refused.
+export function refreshCustomerTokens(): Promise<CustomerTokenSet> {
+  refreshInFlight ??= requestCustomerRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+async function requestCustomerRefresh() {
+  try {
+    return await postCustomerRefresh();
+  } catch (error) {
+    // Another tab rotated the cookie a moment ago; the browser now holds the
+    // new one, so a single retry succeeds.
+    if (error instanceof ApiClientError && error.status === 409) {
+      await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+      return postCustomerRefresh();
+    }
+
+    throw error;
+  }
+}
+
+async function postCustomerRefresh() {
   const data = await requestApi("/auth/customer/refresh", customerRefreshResponseSchema, {
-    body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+    body: JSON.stringify({}),
     credentials: "include",
     method: "POST"
   });
@@ -87,9 +116,9 @@ export async function refreshCustomerTokens(refreshToken?: string | null) {
   return data.tokens;
 }
 
-export function logoutCustomerSession(refreshToken?: string | null) {
+export function logoutCustomerSession() {
   return requestApi("/auth/customer/logout", customerLogoutResponseSchema, {
-    body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+    body: JSON.stringify({}),
     credentials: "include",
     method: "POST"
   });

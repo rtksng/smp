@@ -191,16 +191,18 @@ model User {
 }
 
 model UserSession {
-  id           String    @id @default(uuid())
-  userId       String
-  refreshToken String    @unique
-  userAgent    String?
-  ipAddress    String?
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(uuid())
+  userId                String
+  refreshToken          String    @unique
+  previousRefreshToken  String?
+  refreshTokenRotatedAt DateTime?
+  userAgent             String?
+  ipAddress             String?
+  expiresAt             DateTime
+  revokedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -279,16 +281,18 @@ model CustomerSupportNote {
 }
 
 model AdminSession {
-  id           String    @id @default(uuid())
-  adminUserId  String
-  refreshToken String    @unique
-  userAgent    String?
-  ipAddress    String?
-  expiresAt    DateTime
-  revokedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  adminUser    AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(uuid())
+  adminUserId           String
+  refreshToken          String    @unique
+  previousRefreshToken  String?
+  refreshTokenRotatedAt DateTime?
+  userAgent             String?
+  ipAddress             String?
+  expiresAt             DateTime
+  revokedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  adminUser             AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])
   @@index([expiresAt])
@@ -933,16 +937,18 @@ model DeliveryPartnerWarehouse {
 }
 
 model DeliveryPartnerSession {
-  id                String          @id @default(uuid())
-  deliveryPartnerId String
-  refreshToken      String          @unique
-  userAgent         String?
-  ipAddress         String?
-  expiresAt         DateTime
-  revokedAt         DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
+  id                    String          @id @default(uuid())
+  deliveryPartnerId     String
+  refreshToken          String          @unique
+  previousRefreshToken  String?
+  refreshTokenRotatedAt DateTime?
+  userAgent             String?
+  ipAddress             String?
+  expiresAt             DateTime
+  revokedAt             DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  deliveryPartner       DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id], onDelete: Cascade)
 
   @@index([deliveryPartnerId])
   @@index([expiresAt])
