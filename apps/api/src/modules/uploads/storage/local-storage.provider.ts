@@ -1,5 +1,7 @@
+import { createReadStream } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
+import type { Readable } from "node:stream";
 
 export type StorageProviderOptions = {
   localRoot: string;
@@ -19,7 +21,15 @@ export type StoredObject = {
   url: string;
 };
 
+export type StoredObjectStream = {
+  body: Readable;
+  contentType?: string;
+  size?: number;
+};
+
 export interface StorageProvider {
+  // Returns null when no object has this key.
+  getObject(key: string): Promise<StoredObjectStream | null>;
   putObject(input: StoragePutObjectInput): Promise<StoredObject>;
 }
 
@@ -44,6 +54,18 @@ export class LocalStorageProvider implements StorageProvider {
       size: input.buffer.byteLength,
       url: `${this.publicBaseUrl}/${input.key}`
     };
+  }
+
+  async getObject(key: string): Promise<StoredObjectStream | null> {
+    const targetPath = this.resolveKey(key);
+
+    try {
+      const file = await stat(targetPath);
+
+      return file.isFile() ? { body: createReadStream(targetPath), size: file.size } : null;
+    } catch {
+      return null;
+    }
   }
 
   private resolveKey(key: string) {

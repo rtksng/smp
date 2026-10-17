@@ -206,6 +206,39 @@ SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
 
 The API reports 5xx errors, the worker reports jobs that fail their last attempt, and web and admin report browser and server errors. Request bodies, headers, cookies, query strings, queue arguments and stack-frame variables are never sent. Source maps are not uploaded yet, so browser stack traces show minified code.
 
+## Uploads And Stock Integrity
+
+Uploads are checked against their content: a file whose bytes are not the image, PDF or Word type it claims is rejected. Uploads are limited per account (admins 120 a minute, customers 10 and delivery partners 30 per 10 minutes).
+
+Customer documents and delivery partner documents, proofs and incident photos are private:
+
+- They are stored under `private/<customers|delivery-partners>/<owner id>/` and never get a public URL. Responses carry a link signed by the API (`/api/v1/files/...`) that works for 15 to 30 minutes.
+- A delivery partner can only attach files uploaded from their own account.
+- Set `S3_PRIVATE_BUCKET` to a bucket that is **not** behind the public media proxy. Without it, private files go to the main bucket under `private/`, where anyone who learns a key could fetch them through the proxy.
+- If the private bucket has its own credentials (each Railway bucket does), also set `S3_PRIVATE_ACCESS_KEY_ID` and `S3_PRIVATE_SECRET_ACCESS_KEY`, plus `S3_PRIVATE_ENDPOINT` and `S3_PRIVATE_REGION` if they differ from the main bucket's. Unset values fall back to the `S3_*` ones. The API refuses to start if only one of the key pair is set, or if any `S3_PRIVATE_*` value is set without `S3_PRIVATE_BUCKET`.
+- Documents uploaded before this release keep their old public keys and stay reachable at their old public URLs until moved or deleted.
+
+The web and admin `/uploads` routes follow at most one redirect from the storage proxy, only to `STORAGE_REDIRECT_HOSTS` (default `storage.railway.app`). There is no built-in storage host any more: set `NEXT_PUBLIC_STORAGE_PUBLIC_URL` on web and admin, and a real `STORAGE_PUBLIC_BASE_URL` on the API (it refuses to start with a placeholder such as `<UNKNOWN>`).
+
+Migration `20261020000100_stock_integrity` adds database rules: stock and batch quantities cannot go negative, and a product without variants has one stock row (and one row per batch number) per warehouse. Before deploying, check for rows the unique indexes would reject; the migration fails if any exist:
+
+```sql
+SELECT "productId", "warehouseId", count(*) FROM "InventoryStock"
+WHERE "variantId" IS NULL GROUP BY 1, 2 HAVING count(*) > 1;
+
+SELECT "productId", "warehouseId", "batchNumber", count(*) FROM "StockBatch"
+WHERE "variantId" IS NULL GROUP BY 1, 2, 3 HAVING count(*) > 1;
+```
+
+The no-negative rules apply to every new write at once but do not check existing rows. After fixing any negative rows, validate them:
+
+```sql
+SELECT id FROM "InventoryStock" WHERE "availableQuantity" < 0 OR "reservedQuantity" < 0;
+SELECT id FROM "StockBatch" WHERE quantity < 0;
+ALTER TABLE "InventoryStock" VALIDATE CONSTRAINT "InventoryStock_quantities_not_negative";
+ALTER TABLE "StockBatch" VALIDATE CONSTRAINT "StockBatch_quantity_not_negative";
+```
+
 ## Security Checklist
 
 - `CORS_ORIGINS` contains exact HTTPS origins only; no wildcards.

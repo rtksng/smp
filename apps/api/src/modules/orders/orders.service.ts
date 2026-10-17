@@ -11,6 +11,7 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
+import { signPrivateFileUrl } from "../uploads/private-files";
 import { ApiQueueService } from "../../queues/api-queue.service";
 import {
   CustomerEmailNotifier,
@@ -1975,7 +1976,8 @@ export class OrdersService {
         failureReason: assignment.failureReason,
         id: assignment.id,
         pickedUpAt: assignment.pickedUpAt,
-        proofOfDeliveryUrl: assignment.proofOfDeliveryUrl,
+        proofOfDeliveryUrl:
+          signPrivateFileUrl(assignment.proofOfDeliveryKey) ?? assignment.proofOfDeliveryUrl,
         status: assignment.status,
         statusHistory: assignment.statusHistory.map((entry) => ({
           createdAt: entry.createdAt,

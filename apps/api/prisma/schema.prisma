@@ -565,6 +565,10 @@ model WarehouseStaff {
   @@index([deletedAt])
 }
 
+/// Also constrained in migration 20261020000100_stock_integrity: quantities
+/// cannot go negative, and one row per product and warehouse when variantId
+/// is NULL. Prisma cannot express these; keep them if a migration proposes
+/// dropping the partial index.
 model InventoryStock {
   id                String          @id @default(uuid())
   productId         String
@@ -585,6 +589,9 @@ model InventoryStock {
   @@index([warehouseId])
 }
 
+/// Also constrained in migration 20261020000100_stock_integrity: quantity
+/// cannot go negative, and batch numbers are unique per product and warehouse
+/// when variantId is NULL.
 model StockBatch {
   id            String          @id @default(uuid())
   productId     String

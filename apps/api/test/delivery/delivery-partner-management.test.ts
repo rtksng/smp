@@ -47,7 +47,7 @@ async function deliver(service: DeliveryService) {
 
   const delivered = {
     cashCollectedAmount: 1225,
-    proofOfDeliveryKey: "proofs/order.jpg",
+    proofOfDeliveryKey: "private/delivery-partners/partner-1/proofs/order.jpg",
     proofOfDeliveryUrl: "https://example.test/proof.jpg",
     receiverName: "QA Receiver",
     status: "DELIVERED" as const

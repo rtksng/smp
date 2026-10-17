@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBadRequestResponse,
@@ -21,6 +23,7 @@ import { RequirePermission } from "../auth/decorators/require-permission.decorat
 import { CustomerJwtGuard } from "../auth/guards/customer-jwt.guard";
 import { DeliveryPartnerJwtGuard } from "../auth/guards/delivery-partner-jwt.guard";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
+import type { AuthenticatedRequest } from "../auth/guards/authenticated-request";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { PermissionCode } from "../permissions/permissions.constants";
 import {
@@ -31,6 +34,7 @@ import {
   UploadImageDto
 } from "./dto/upload-request.dto";
 import { UploadResponseDto } from "./dto/upload-response.dto";
+import { UPLOAD_THROTTLE_LIMITS } from "./upload-throttle";
 import {
   DOCUMENT_MAX_BYTES_DEFAULT,
   IMAGE_MAX_BYTES_DEFAULT,
@@ -68,6 +72,7 @@ export class AdminUploadsController {
 
   @Post("image")
   @RequirePermission(PermissionCode.ProductsUpdate)
+  @Throttle({ default: UPLOAD_THROTTLE_LIMITS.admin })
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
@@ -98,6 +103,7 @@ export class AdminUploadsController {
 
   @Post("document")
   @RequirePermission(PermissionCode.ProductsUpdate)
+  @Throttle({ default: UPLOAD_THROTTLE_LIMITS.admin })
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
@@ -135,6 +141,7 @@ export class CustomerUploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post("document")
+  @Throttle({ default: UPLOAD_THROTTLE_LIMITS.customer })
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
@@ -144,7 +151,7 @@ export class CustomerUploadsController {
   )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
-    summary: "Upload a customer-owned document."
+    summary: "Upload a customer-owned document. Returns a short-lived signed link, not a public URL."
   })
   @ApiBody({
     description: "Multipart upload for customer documents.",
@@ -161,9 +168,11 @@ export class CustomerUploadsController {
   @ApiUnauthorizedResponse({ description: "Customer access token is missing or invalid." })
   uploadDocument(
     @UploadedFile() file: UploadedFilePayload | undefined,
-    @Body() _body: CustomerUploadDocumentDto
+    @Body() _body: CustomerUploadDocumentDto,
+    @Req() request: AuthenticatedRequest
   ) {
-    return this.uploadsService.uploadDocument(file, {
+    return this.uploadsService.uploadPrivateFile(file, {
+      owner: { id: request.auth?.sub as string, kind: "customer" },
       purpose: UploadDocumentPurpose.CustomerDocument
     });
   }
@@ -177,6 +186,7 @@ export class DeliveryPartnerUploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post("document")
+  @Throttle({ default: UPLOAD_THROTTLE_LIMITS.deliveryPartner })
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
@@ -186,7 +196,7 @@ export class DeliveryPartnerUploadsController {
   )
   @ApiConsumes("multipart/form-data")
   @ApiOperation({
-    summary: "Upload a delivery partner-owned document."
+    summary: "Upload a delivery partner-owned document. Returns a short-lived signed link, not a public URL."
   })
   @ApiBody({
     description: "Multipart upload for delivery partner documents.",
@@ -203,14 +213,17 @@ export class DeliveryPartnerUploadsController {
   @ApiUnauthorizedResponse({ description: "Delivery partner access token is missing or invalid." })
   uploadDocument(
     @UploadedFile() file: UploadedFilePayload | undefined,
-    @Body() _body: DeliveryPartnerUploadDocumentDto
+    @Body() _body: DeliveryPartnerUploadDocumentDto,
+    @Req() request: AuthenticatedRequest
   ) {
-    return this.uploadsService.uploadDocument(file, {
+    return this.uploadsService.uploadPrivateFile(file, {
+      owner: { id: request.auth?.sub as string, kind: "delivery_partner" },
       purpose: UploadDocumentPurpose.DeliveryPartnerDocument
     });
   }
 
   @Post("proof")
+  @Throttle({ default: UPLOAD_THROTTLE_LIMITS.deliveryPartner })
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
@@ -237,9 +250,11 @@ export class DeliveryPartnerUploadsController {
   @ApiUnauthorizedResponse({ description: "Delivery partner access token is missing or invalid." })
   uploadProof(
     @UploadedFile() file: UploadedFilePayload | undefined,
-    @Body() _body: DeliveryProofUploadDocumentDto
+    @Body() _body: DeliveryProofUploadDocumentDto,
+    @Req() request: AuthenticatedRequest
   ) {
-    return this.uploadsService.uploadDocument(file, {
+    return this.uploadsService.uploadPrivateFile(file, {
+      owner: { id: request.auth?.sub as string, kind: "delivery_partner" },
       purpose: UploadDocumentPurpose.DeliveryProof
     });
   }

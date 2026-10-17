@@ -59,12 +59,11 @@ test("resolveStoredUploadUrl supports relative upload keys", () => {
   );
 });
 
-test("resolveStoredUploadUrl replaces Railway placeholder bases with the public storage host", () => {
-  process.env.NODE_ENV = "production";
-  process.env.STORAGE_PUBLIC_BASE_URL = "<UNKNOWN>";
+test("resolveStoredUploadUrl rebuilds Railway placeholder URLs with the configured storage host", () => {
+  process.env.STORAGE_PUBLIC_BASE_URL = "https://media.example.in";
 
   assert.equal(
     resolveStoredUploadUrl("<UNKNOWN>/catalog/products/images/product.png"),
-    "https://pxseurailproxy-production-1f3a.up.railway.app/catalog/products/images/product.png"
+    "https://media.example.in/catalog/products/images/product.png"
   );
 });

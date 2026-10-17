@@ -11,6 +11,7 @@ import { ConfigService } from "@nestjs/config";
 import type { CustomerEmailEvent } from "@surgical/types";
 import { isUniqueConstraintError } from "../../common/prisma/prisma-errors";
 import { PrismaService } from "../../database/prisma.service";
+import { isOwnedPrivateKey, signPrivateFileUrl } from "../uploads/private-files";
 import {
   CashCollectionStatus,
   DeliveryCommissionType,
@@ -790,11 +791,13 @@ export class DeliveryService {
     await this.findPartnerById(this.prisma, deliveryPartnerId, {
       requireActive: true
     });
+    assertPartnerOwnsFile(deliveryPartnerId, input.fileKey);
     await this.prisma.deliveryPartnerDocument.create({
       data: {
         deliveryPartnerId,
         fileKey: input.fileKey,
-        fileUrl: input.fileUrl,
+        // Private files have no public URL; responses sign fileKey instead.
+        fileUrl: "",
         title: input.title,
         type: input.type
       }
@@ -1118,13 +1121,16 @@ export class DeliveryService {
       deliveryPartnerId,
       assignmentId
     );
+    if (input.photoKey) {
+      assertPartnerOwnsFile(deliveryPartnerId, input.photoKey);
+    }
     const incident = await this.prisma.deliveryIncident.create({
       data: {
         deliveryAssignmentId: assignmentId,
         deliveryPartnerId,
         note: input.note?.trim() || null,
         photoKey: input.photoKey ?? null,
-        photoUrl: input.photoUrl ?? null,
+        photoUrl: null,
         status: DeliveryIncidentStatus.OPEN,
         type: input.type
       }
@@ -1431,6 +1437,9 @@ export class DeliveryService {
 
       this.assertAllowedAssignmentTransition(assignment.status, input.status);
       this.assertRequiredStatusPayload(assignment, input);
+      if (input.status === DeliveryStatus.DELIVERED) {
+        assertPartnerOwnsFile(deliveryPartnerId, input.proofOfDeliveryKey);
+      }
 
       // Lock the order before the assignment, matching order cancellation.
       const orderClaim = await tx.order.updateMany({
@@ -1907,7 +1916,8 @@ export class DeliveryService {
     if (input.status === DeliveryStatus.DELIVERED) {
       data.deliveredAt = new Date();
       data.proofOfDeliveryKey = input.proofOfDeliveryKey;
-      data.proofOfDeliveryUrl = input.proofOfDeliveryUrl;
+      // Private file: responses sign the key instead of storing a public URL.
+      data.proofOfDeliveryUrl = null;
       data.receiverName = trimToUndefined(input.receiverName);
       if (this.assignmentRequiresCodCollection(assignment)) {
         data.cashCollectedAmount = input.cashCollectedAmount;
@@ -1931,7 +1941,6 @@ export class DeliveryService {
     if (input.status === DeliveryStatus.DELIVERED) {
       if (
         !trimToUndefined(input.proofOfDeliveryKey) ||
-        !trimToUndefined(input.proofOfDeliveryUrl) ||
         !trimToUndefined(input.receiverName)
       ) {
         throw new BadRequestException(
@@ -2100,7 +2109,7 @@ export class DeliveryService {
       documents: partner.documents.map((document) => ({
         createdAt: document.createdAt,
         fileKey: document.fileKey,
-        fileUrl: document.fileUrl,
+        fileUrl: signPrivateFileUrl(document.fileKey),
         id: document.id,
         title: document.title,
         type: document.type,
@@ -2231,7 +2240,8 @@ export class DeliveryService {
         : null,
       pickupWarehouseId: assignment.pickupWarehouseId,
       proofOfDeliveryKey: assignment.proofOfDeliveryKey,
-      proofOfDeliveryUrl: assignment.proofOfDeliveryUrl,
+      proofOfDeliveryUrl:
+        signPrivateFileUrl(assignment.proofOfDeliveryKey) ?? assignment.proofOfDeliveryUrl,
       receiverName: assignment.receiverName,
       shippingAddress: assignment.order.shippingAddress
         ? {
@@ -2494,12 +2504,21 @@ function serializeDeliveryNotification(notification: {
   };
 }
 
+// Files a delivery partner attaches must come from that partner's own uploads,
+// so one partner cannot attach (and later view) another's documents.
+function assertPartnerOwnsFile(deliveryPartnerId: string, key: string | undefined) {
+  if (!isOwnedPrivateKey(key, { id: deliveryPartnerId, kind: "delivery_partner" })) {
+    throw new BadRequestException("Upload the file again from this account before attaching it.");
+  }
+}
+
 function serializeDeliveryIncident(incident: {
   id: string;
   deliveryAssignmentId: string;
   type: DeliveryIncidentType;
   status: DeliveryIncidentStatus;
   note: string | null;
+  photoKey: string | null;
   photoUrl: string | null;
   createdAt: Date;
 }) {
@@ -2508,7 +2527,7 @@ function serializeDeliveryIncident(incident: {
     deliveryAssignmentId: incident.deliveryAssignmentId,
     id: incident.id,
     note: incident.note,
-    photoUrl: incident.photoUrl,
+    photoUrl: signPrivateFileUrl(incident.photoKey) ?? incident.photoUrl,
     status: incident.status,
     type: incident.type
   };

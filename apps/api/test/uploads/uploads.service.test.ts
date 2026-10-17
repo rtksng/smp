@@ -22,12 +22,20 @@ type UploadedFileFixture = {
   size: number;
 };
 
+// Real leading bytes, because uploads are checked against their content.
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
+const PDF_BYTES = Buffer.from("%PDF-1.7 test");
+
 class MemoryStorageProvider implements StorageProvider {
   public stored: {
     buffer: Buffer;
     contentType: string;
     key: string;
   }[] = [];
+
+  async getObject() {
+    return null;
+  }
 
   async putObject(input: {
     buffer: Buffer;
@@ -48,7 +56,7 @@ class MemoryStorageProvider implements StorageProvider {
 function fileFixture(
   input: Partial<UploadedFileFixture> = {}
 ): UploadedFileFixture {
-  const buffer = input.buffer ?? Buffer.from("file-bytes");
+  const buffer = input.buffer ?? PNG_BYTES;
 
   return {
     buffer,
@@ -78,7 +86,7 @@ test("uploadImage stores validated product images and returns file metadata", as
   );
   assert.match(result.key, /^catalog\/products\/images\/[a-f0-9-]+\.png$/);
   assert.deepEqual(storage.stored[0], {
-    buffer: Buffer.from("file-bytes"),
+    buffer: PNG_BYTES,
     contentType: "image/png",
     key: result.key
   });
@@ -124,17 +132,50 @@ test("uploadDocument rejects documents larger than the configured limit", async 
   );
 });
 
-test("uploadDocument stores delivery proof uploads under the delivery proof folder", async () => {
+test("private uploads go under the owner's folder and return a signed link, not a public URL", async () => {
+  const storage = new MemoryStorageProvider();
+  const service = new UploadsService(storage, {
+    documentMaxBytes: 10 * 1024 * 1024,
+    imageMaxBytes: 5 * 1024 * 1024
+  });
+
+  const proof = await service.uploadPrivateFile(fileFixture(), {
+    owner: { id: "partner-1", kind: "delivery_partner" },
+    purpose: UploadDocumentPurpose.DeliveryProof
+  });
+  const document = await service.uploadPrivateFile(
+    fileFixture({ buffer: PDF_BYTES, mimetype: "application/pdf", originalname: "id.pdf" }),
+    { owner: { id: "customer-1", kind: "customer" }, purpose: UploadDocumentPurpose.CustomerDocument }
+  );
+
+  assert.match(proof.key, /^private\/delivery-partners\/partner-1\/proofs\/[a-f0-9-]+\.png$/);
+  assert.match(document.key, /^private\/customers\/customer-1\/documents\/[a-f0-9-]+\.pdf$/);
+  assert.match(proof.url, /\/api\/v1\/files\/private\/delivery-partners\/partner-1\/proofs\/.+\?expires=\d+&signature=/);
+  assert.doesNotMatch(proof.url, /\/uploads\//);
+});
+
+test("uploads are rejected when the bytes do not match the declared type", async () => {
   const service = new UploadsService(new MemoryStorageProvider(), {
     documentMaxBytes: 10 * 1024 * 1024,
     imageMaxBytes: 5 * 1024 * 1024
   });
 
-  const result = await service.uploadDocument(fileFixture(), {
-    purpose: UploadDocumentPurpose.DeliveryProof
-  });
-
-  assert.match(result.key, /^delivery\/proofs\/[a-f0-9-]+\.png$/);
+  // A script renamed to .png, and a PNG claiming to be a PDF.
+  await assert.rejects(
+    () =>
+      service.uploadImage(fileFixture({ buffer: Buffer.from("<script>alert(1)</script>") }), {
+        purpose: UploadImagePurpose.ProductImage
+      }),
+    /does not match its file type/
+  );
+  await assert.rejects(
+    () =>
+      service.uploadDocument(
+        fileFixture({ mimetype: "application/pdf", originalname: "manual.pdf" }),
+        { purpose: UploadDocumentPurpose.ProductDocument }
+      ),
+    /does not match its file type/
+  );
 });
 
 test("local storage provider writes files under the configured root", async () => {

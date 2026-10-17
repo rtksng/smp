@@ -346,11 +346,13 @@ export class AddDeliveryPartnerDocumentDto {
   @IsString()
   title!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    description: "Ignored; the server signs fileKey. Kept for older app versions.",
     example: "http://localhost:4000/uploads/license.pdf"
   })
+  @IsOptional()
   @IsString()
-  fileUrl!: string;
+  fileUrl?: string;
 
   @ApiProperty({
     example: "delivery-partners/documents/license.pdf"

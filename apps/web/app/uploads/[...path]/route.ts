@@ -9,10 +9,6 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const urlSchema = z.string().url();
-const RAILWAY_HOST_SUFFIX = ".up.railway.app";
-const DEFAULT_RAILWAY_UPLOAD_BASE_URL =
-  "https://pxseurailproxy-production-1f3a.up.railway.app";
-
 type UploadProxyContext = {
   params: Promise<{
     path?: string[];
@@ -43,15 +39,24 @@ export async function GET(request: NextRequest, { params }: UploadProxyContext) 
 
     const redirectLocation = upstreamResponse.headers.get("location");
 
-    if (
-      upstreamResponse.status >= 300 &&
-      upstreamResponse.status < 400 &&
-      redirectLocation
-    ) {
-      upstreamResponse = await fetchCustomerApiProxy(
-        new URL(redirectLocation, upstreamUrl),
-        { cache: "no-store", redirect: "follow" }
-      );
+    if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
+      const redirectTarget = redirectLocation
+        ? allowedRedirect(redirectLocation, upstreamUrl)
+        : null;
+
+      if (!redirectTarget) {
+        return imageUnavailable();
+      }
+
+      upstreamResponse = await fetchCustomerApiProxy(redirectTarget, {
+        cache: "no-store",
+        method: "GET",
+        redirect: "manual"
+      });
+
+      if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
+        return imageUnavailable();
+      }
     }
 
     const response = await buildCustomerApiProxyResponse(upstreamResponse);
@@ -65,35 +70,45 @@ export async function GET(request: NextRequest, { params }: UploadProxyContext) 
     );
     return response;
   } catch {
-    return new Response("Unable to load the requested image.", {
-      headers: { "cache-control": "no-store" },
-      status: 502
-    });
+    return imageUnavailable();
+  }
+}
+
+// The storage proxy answers with one redirect to the bucket host. Only that
+// single hop is followed, and only to the storage origin or an allowed bucket
+// host, so a redirect can never make this server fetch an arbitrary URL.
+function allowedRedirect(location: string, storageUrl: URL) {
+  try {
+    const target = new URL(location, storageUrl);
+    const allowedHosts = (process.env.STORAGE_REDIRECT_HOSTS ?? "storage.railway.app")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (target.origin === storageUrl.origin) {
+      return target;
+    }
+
+    return target.protocol === "https:" && allowedHosts.includes(target.hostname)
+      ? target
+      : null;
+  } catch {
+    return null;
   }
 }
 
 function getUploadBaseUrl() {
-  const storageBaseUrl =
+  // Local development serves uploads from the API itself.
+  return (
     process.env.NEXT_PUBLIC_STORAGE_PUBLIC_URL ??
-    process.env.STORAGE_PUBLIC_BASE_URL;
-
-  if (storageBaseUrl) {
-    return storageBaseUrl;
-  }
-
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  if (apiBaseUrl && isRailwayUrl(apiBaseUrl)) {
-    return DEFAULT_RAILWAY_UPLOAD_BASE_URL;
-  }
-
-  return apiBaseUrl;
+    process.env.STORAGE_PUBLIC_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL
+  );
 }
 
-function isRailwayUrl(value: string) {
-  try {
-    return new URL(value).hostname.endsWith(RAILWAY_HOST_SUFFIX);
-  } catch {
-    return false;
-  }
+function imageUnavailable() {
+  return new Response("Unable to load the requested image.", {
+    headers: { "cache-control": "no-store" },
+    status: 502
+  });
 }

@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { detectFileType } from "./file-type";
+import {
+  privateOwnerPrefix,
+  signPrivateFileUrl,
+  type PrivateFileOwner
+} from "./private-files";
 import {
   STORAGE_PROVIDER,
   UPLOAD_OPTIONS,
@@ -54,6 +60,14 @@ export type UploadDocumentInput = {
   purpose: UploadDocumentPurpose;
 };
 
+export type UploadPrivateFileInput = {
+  owner: PrivateFileOwner;
+  purpose:
+    | UploadDocumentPurpose.CustomerDocument
+    | UploadDocumentPurpose.DeliveryPartnerDocument
+    | UploadDocumentPurpose.DeliveryProof;
+};
+
 @Injectable()
 export class UploadsService {
   constructor(
@@ -93,6 +107,30 @@ export class UploadsService {
     });
   }
 
+  // Customer and delivery partner files: stored under the owner's private
+  // prefix and returned with a short-lived signed link instead of a public URL.
+  async uploadPrivateFile(
+    file: UploadedFilePayload | undefined,
+    input: UploadPrivateFileInput
+  ): Promise<StoredObject> {
+    const validated = this.validateFile(file, {
+      allowedMimeTypes: DOCUMENT_MIME_TYPES,
+      maxBytes: this.options.documentMaxBytes
+    });
+    const folder =
+      input.purpose === UploadDocumentPurpose.DeliveryProof ? "proofs" : "documents";
+    const stored = await this.storageProvider.putObject({
+      buffer: validated.file.buffer,
+      contentType: validated.file.mimetype,
+      key: `${privateOwnerPrefix(input.owner)}${folder}/${randomUUID()}${validated.extension}`
+    });
+
+    return {
+      ...stored,
+      url: signPrivateFileUrl(stored.key)
+    };
+  }
+
   private validateFile(
     file: UploadedFilePayload | undefined,
     options: {
@@ -126,6 +164,11 @@ export class UploadsService {
 
     if (actualSize > options.maxBytes) {
       throw new BadRequestException("File exceeds the maximum allowed size.");
+    }
+
+    // The declared type comes from the client; the bytes must agree with it.
+    if (detectFileType(file.buffer) !== file.mimetype) {
+      throw new BadRequestException("File content does not match its file type.");
     }
 
     return {
