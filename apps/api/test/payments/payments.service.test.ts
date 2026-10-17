@@ -124,7 +124,7 @@ function createPaymentsPrismaMock(input?: {
           providerRefundId: input.refund.providerRefundId ?? null,
           reason: input.refund.reason ?? "Customer requested return.",
           status: input.refund.status ?? "PENDING",
-          updatedAt: now
+          updatedAt: input.refund.updatedAt ?? now
         }
       ]
     : [];
@@ -136,9 +136,12 @@ function createPaymentsPrismaMock(input?: {
     paymentCreate: [],
     paymentFindFirst: [],
     paymentUpdate: [],
+    paymentUpdateMany: [],
     paymentWebhookCreate: [],
     paymentWebhookFindFirst: [],
+    queryRaw: [],
     refundCreate: [],
+    refundUpdateMany: [],
     refundFindFirst: [],
     refundFindMany: [],
     refundUpdate: []
@@ -159,6 +162,11 @@ function createPaymentsPrismaMock(input?: {
     },
     $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) =>
       callback(prisma),
+    // Row locks are a no-op here; real locking is covered by the database tests.
+    $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      calls.queryRaw.push({ sql: strings.join("?"), values });
+      return [];
+    },
     cartItem: {
       deleteMany: async (args: unknown) => {
         calls.cartItemDeleteMany.push(args);
@@ -267,6 +275,24 @@ function createPaymentsPrismaMock(input?: {
 
         Object.assign(targetPayment, args.data);
         return targetPayment;
+      },
+      updateMany: async (args: {
+        data: Partial<FakePayment>;
+        where: { id: string; providerOrderId?: string | null };
+      }) => {
+        calls.paymentUpdateMany.push(args);
+        const targetPayment = payments.find((candidate) => candidate.id === args.where.id);
+
+        if (
+          !targetPayment ||
+          ("providerOrderId" in args.where &&
+            targetPayment.providerOrderId !== args.where.providerOrderId)
+        ) {
+          return { count: 0 };
+        }
+
+        Object.assign(targetPayment, args.data);
+        return { count: 1 };
       }
     },
     paymentWebhook: {
@@ -309,11 +335,23 @@ function createPaymentsPrismaMock(input?: {
       update: async (args: unknown) => args
     },
     refund: {
-      create: async (args: unknown) => {
+      create: async (args: { data: Partial<FakeRefund> }) => {
         calls.refundCreate.push(args);
-        return {
-          id: "refund-1"
+        const createdRefund: FakeRefund = {
+          amount: String(args.data.amount ?? payment.amount),
+          createdAt: now,
+          id: `refund-${refunds.length + 1}`,
+          orderId: args.data.orderId ?? order.id,
+          paymentId: args.data.paymentId ?? null,
+          processedAt: null,
+          providerRefundId: null,
+          reason: args.data.reason ?? null,
+          status: args.data.status ?? "PENDING",
+          updatedAt: now
         };
+
+        refunds.push(createdRefund);
+        return createdRefund;
       },
       findFirst: async (args: unknown) => {
         calls.refundFindFirst.push(args);
@@ -322,6 +360,7 @@ function createPaymentsPrismaMock(input?: {
             where?: {
               id?: string;
               orderId?: string;
+              paymentId?: string;
               providerRefundId?: string;
               status?: { in?: string[] } | string;
             };
@@ -330,6 +369,10 @@ function createPaymentsPrismaMock(input?: {
         const refund =
           refunds.find((candidate) => {
             if (where.id && candidate.id !== where.id) {
+              return false;
+            }
+
+            if (where.paymentId && candidate.paymentId !== where.paymentId) {
               return false;
             }
 
@@ -407,6 +450,43 @@ function createPaymentsPrismaMock(input?: {
 
         Object.assign(refund, args.data);
         return refund;
+      },
+      updateMany: async (args: {
+        data: Partial<FakeRefund>;
+        where: {
+          OR?: Array<{ status: string | { in: string[] }; updatedAt?: { lt: Date } }>;
+          id: string;
+          providerRefundId?: null;
+          status?: string;
+        };
+      }) => {
+        calls.refundUpdateMany.push(args);
+        const refund = refunds.find((candidate) => candidate.id === args.where.id);
+        const matchesStatus = (
+          status: string | { in: string[] },
+          candidate: FakeRefund
+        ) =>
+          typeof status === "string"
+            ? candidate.status === status
+            : status.in.includes(candidate.status);
+
+        if (
+          !refund ||
+          ("providerRefundId" in args.where && refund.providerRefundId !== null) ||
+          (args.where.status !== undefined && refund.status !== args.where.status) ||
+          (args.where.OR !== undefined &&
+            !args.where.OR.some(
+              (branch) =>
+                matchesStatus(branch.status, refund) &&
+                (!branch.updatedAt || refund.updatedAt < branch.updatedAt.lt)
+            ))
+        ) {
+          return { count: 0 };
+        }
+
+        // Prisma sets @updatedAt on updateMany too.
+        Object.assign(refund, args.data, { updatedAt: new Date() });
+        return { count: 1 };
       }
     }
   };
@@ -418,6 +498,7 @@ function createRazorpayClientMock() {
   const calls: Record<string, unknown[]> = {
     createOrder: [],
     createRefund: [],
+    fetchPaymentRefunds: [],
     fetchRefund: []
   };
   const client = {
@@ -442,6 +523,16 @@ function createRazorpayClientMock() {
         payment_id: paymentId,
         status: "processed"
       };
+    },
+    fetchPaymentRefunds: async (paymentId: string) => {
+      calls.fetchPaymentRefunds.push(paymentId);
+      return [] as Array<{
+        amount: number;
+        id: string;
+        notes: Record<string, string>;
+        payment_id: string;
+        status: "failed" | "pending" | "processed";
+      }>;
     },
     fetchRefund: async (refundId: string) => {
       calls.fetchRefund.push(refundId);
@@ -477,6 +568,12 @@ class FakePaymentQueue {
 
   async enqueuePaymentWebhook(data: unknown) {
     this.paymentWebhookJobs.push(data);
+  }
+
+  readonly refundJobs: string[] = [];
+
+  async enqueueRefundProcessing(refundId: string) {
+    this.refundJobs.push(refundId);
   }
 
   async generateForConfirmedOrder() {
@@ -1166,4 +1263,299 @@ test("refund processing emails the recorded refund status", async () => {
     refetched.sent.map(({ dedupeKey }) => dedupeKey),
     ["refund-update:refund-1:COMPLETED"]
   );
+});
+
+function cancelledOrderPrisma(payment: Partial<FakePayment> = {}) {
+  return createPaymentsPrismaMock({
+    order: { paymentStatus: "CANCELLED", status: "CANCELLED" },
+    payment: {
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_razorpay_1",
+      ...payment
+    }
+  });
+}
+
+function verifyInput(razorpayPaymentId = "pay_late_1") {
+  return {
+    orderId: "order-1",
+    razorpay_order_id: "order_razorpay_1",
+    razorpay_payment_id: razorpayPaymentId,
+    razorpay_signature: createPaymentSignature("order_razorpay_1", razorpayPaymentId)
+  };
+}
+
+test("createRazorpayOrder attaches only the first Razorpay order when Pay is tapped twice", async () => {
+  const prisma = createPaymentsPrismaMock();
+  const razorpay = createRazorpayClientMock();
+  let created = 0;
+  razorpay.createOrder = async (input: unknown) => {
+    razorpay.calls.createOrder.push(input);
+    created += 1;
+    return {
+      amount: 28320,
+      currency: "INR",
+      id: `order_razorpay_${created}`,
+      receipt: "ORD-20260525-000001",
+      status: "created"
+    };
+  };
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  const [first, second] = await Promise.all([
+    service.createRazorpayOrder("customer-1", { orderId: "order-1" }),
+    service.createRazorpayOrder("customer-1", { orderId: "order-1" })
+  ]);
+
+  assert.equal(razorpay.calls.createOrder.length, 2);
+  assert.equal(first.razorpay.orderId, "order_razorpay_1");
+  assert.equal(second.razorpay.orderId, "order_razorpay_1");
+  assert.equal(prisma.records.payment.providerOrderId, "order_razorpay_1");
+});
+
+test("verifyRazorpayPayment locks the order and refunds a payment that arrives after cancellation", async () => {
+  const prisma = cancelledOrderPrisma();
+  const razorpay = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  await assert.rejects(
+    () => service.verifyRazorpayPayment("customer-1", verifyInput()),
+    (error: unknown) => {
+      assert.ok(error instanceof ConflictException);
+      assert.match(String(error.message), /cancelled before your payment completed/);
+      return true;
+    }
+  );
+
+  assert.deepEqual((prisma.calls.queryRaw[0] as { values: unknown[] }).values, ["order-1"]);
+  assert.equal(prisma.records.order.status, "CANCELLED");
+  assert.equal(prisma.records.payment.providerPaymentId, "pay_late_1");
+  assert.equal(prisma.records.refunds.length, 1);
+  assert.equal(prisma.records.refunds[0]?.status, "COMPLETED");
+  assert.equal(razorpay.calls.createRefund.length, 1);
+  assert.equal(prisma.records.payment.status, "REFUNDED");
+  assert.equal(prisma.records.order.paymentStatus, "REFUNDED");
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
+  assert.match(
+    String(
+      (prisma.calls.orderStatusHistoryCreate[0] as { data: { note: string } }).data.note
+    ),
+    /refund started/
+  );
+});
+
+test("verifyRazorpayPayment queues the refund for a cancelled order instead of invoicing it", async () => {
+  const prisma = cancelledOrderPrisma();
+  const queue = new FakePaymentQueue();
+  const razorpay = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient,
+    queue as unknown as ApiQueueService
+  );
+
+  await assert.rejects(
+    () => service.verifyRazorpayPayment("customer-1", verifyInput()),
+    ConflictException
+  );
+
+  assert.deepEqual(queue.refundJobs, ["refund-1"]);
+  assert.equal(queue.invoiceJobs.length, 0);
+  assert.equal(razorpay.calls.createRefund.length, 0);
+  assert.equal(prisma.records.refunds[0]?.status, "PENDING");
+});
+
+test("a late payment recorded by the webhook is not refunded twice by verification", async () => {
+  const prisma = cancelledOrderPrisma({
+    paidAt: now,
+    providerPaymentId: "pay_late_1",
+    status: "PAID"
+  });
+  prisma.records.refunds.push({
+    amount: "283.20",
+    createdAt: now,
+    id: "refund-existing",
+    orderId: "order-1",
+    paymentId: "payment-1",
+    processedAt: null,
+    providerRefundId: null,
+    reason: "Payment received after the order was cancelled.",
+    status: "PENDING",
+    updatedAt: now
+  });
+  const queue = new FakePaymentQueue();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient,
+    queue as unknown as ApiQueueService
+  );
+
+  await assert.rejects(
+    () => service.verifyRazorpayPayment("customer-1", verifyInput()),
+    ConflictException
+  );
+
+  assert.equal(prisma.calls.refundCreate.length, 0);
+  assert.deepEqual(queue.refundJobs, ["refund-existing"]);
+});
+
+test("handleRazorpayWebhook dedupes on the x-razorpay-event-id header", async () => {
+  const prisma = createPaymentsPrismaMock();
+  const queue = new FakePaymentQueue();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    createRazorpayClientMock() as unknown as RazorpayClient,
+    queue as unknown as ApiQueueService
+  );
+  // The webhook body has no top-level id; only the header identifies the event.
+  const payload = { entity: "event", event: "payment.authorized", payload: {} };
+  const rawBody = Buffer.from(JSON.stringify(payload));
+  const signature = createWebhookSignature(rawBody);
+
+  const first = await service.handleRazorpayWebhook(rawBody, payload, signature, "evt_header_1");
+  const retry = await service.handleRazorpayWebhook(rawBody, payload, signature, "evt_header_1");
+
+  assert.equal(
+    (prisma.calls.paymentWebhookCreate[0] as { data: { providerEventId: string } }).data
+      .providerEventId,
+    "evt_header_1"
+  );
+  assert.equal(
+    (queue.paymentWebhookJobs[0] as { providerEventId: string }).providerEventId,
+    "evt_header_1"
+  );
+  assert.equal(first.duplicate, false);
+  assert.equal(retry.duplicate, true);
+  assert.equal(queue.paymentWebhookJobs.length, 1);
+});
+
+test("a webhook payment captured on a cancelled order is refunded, not invoiced", async () => {
+  const prisma = cancelledOrderPrisma();
+  const razorpay = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+  const payload = {
+    entity: "event",
+    event: "payment.captured",
+    payload: {
+      payment: {
+        entity: { amount: 28320, id: "pay_late_1", order_id: "order_razorpay_1" }
+      }
+    }
+  };
+  const rawBody = Buffer.from(JSON.stringify(payload));
+
+  const result = await service.handleRazorpayWebhook(
+    rawBody,
+    payload,
+    createWebhookSignature(rawBody),
+    "evt_late_1"
+  );
+
+  assert.equal(result.processed, true);
+  assert.equal(prisma.records.order.status, "CANCELLED");
+  assert.equal(razorpay.calls.createRefund.length, 1);
+  assert.equal(prisma.records.refunds[0]?.status, "COMPLETED");
+  assert.equal(prisma.calls.cartItemDeleteMany.length, 0);
+});
+
+function refundPrisma(refund: Partial<FakeRefund> = {}) {
+  return createPaymentsPrismaMock({
+    order: { paymentStatus: "PAID", status: "CANCELLED" },
+    payment: {
+      paidAt: now,
+      provider: "razorpay",
+      providerAmountPaise: 28320,
+      providerOrderId: "order_razorpay_1",
+      providerPaymentId: "pay_razorpay_1",
+      status: "PAID"
+    },
+    refund
+  });
+}
+
+test("concurrent refund processing sends the refund to Razorpay only once", async () => {
+  const prisma = refundPrisma();
+  const razorpay = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  const results = await Promise.allSettled([
+    service.processRefund("refund-1"),
+    service.processRefund("refund-1")
+  ]);
+
+  assert.equal(razorpay.calls.createRefund.length, 1);
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  const rejected = results.find((result) => result.status === "rejected");
+  assert.ok(rejected && rejected.reason instanceof ConflictException);
+});
+
+test("refund processing reuses a Razorpay refund from an attempt that crashed", async () => {
+  const prisma = refundPrisma({
+    status: "PROCESSING",
+    updatedAt: new Date(Date.now() - 60 * 60_000)
+  });
+  const razorpay = createRazorpayClientMock();
+  razorpay.fetchPaymentRefunds = async (paymentId: string) => {
+    razorpay.calls.fetchPaymentRefunds.push(paymentId);
+    return [
+      {
+        amount: 28320,
+        id: "rfnd_earlier",
+        notes: { refundId: "refund-1" },
+        payment_id: paymentId,
+        status: "processed" as const
+      }
+    ];
+  };
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  const refund = await service.processRefund("refund-1");
+
+  assert.equal(razorpay.calls.createRefund.length, 0);
+  assert.equal(refund.providerRefundId, "rfnd_earlier");
+  assert.equal(refund.status, "COMPLETED");
+});
+
+test("a refund claimed moments ago by another attempt is left alone", async () => {
+  const prisma = refundPrisma({ status: "PROCESSING", updatedAt: new Date() });
+  const razorpay = createRazorpayClientMock();
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  await assert.rejects(() => service.processRefund("refund-1"), ConflictException);
+  assert.equal(razorpay.calls.fetchPaymentRefunds.length, 0);
+  assert.equal(razorpay.calls.createRefund.length, 0);
+});
+
+test("a failed Razorpay refund call releases the claim for a retry", async () => {
+  const prisma = refundPrisma();
+  const razorpay = createRazorpayClientMock();
+  razorpay.createRefund = async () => {
+    throw new Error("Razorpay request timed out.");
+  };
+  const service = new PaymentsService(
+    prisma as unknown as PrismaService,
+    razorpay as unknown as RazorpayClient
+  );
+
+  await assert.rejects(() => service.processRefund("refund-1"), /timed out/);
+  assert.equal(prisma.records.refunds[0]?.status, "PENDING");
 });

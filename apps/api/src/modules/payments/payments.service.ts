@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   ServiceUnavailableException,
@@ -92,9 +93,21 @@ type RazorpayRefundEntity = {
   paymentId: string;
   status: "failed" | "pending" | "processed";
 };
+type WebhookEffects = {
+  // Refund opened for a payment that arrived after the order was cancelled.
+  cancelledOrderRefundId: string | null;
+};
+
+// A PROCESSING refund with no Razorpay id this old belongs to an attempt that
+// crashed; it may be claimed again.
+const STALE_REFUND_CLAIM_MS = 10 * 60_000;
+const CANCELLED_ORDER_PAYMENT_MESSAGE =
+  "This order was cancelled before your payment completed. The payment will be refunded.";
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly razorpayClient: RazorpayClient,
@@ -161,7 +174,10 @@ export class PaymentsService {
       },
       receipt: order.orderNumber
     });
-    const updatedPayment = await this.prisma.payment.update({
+    // A double-tapped Pay button can reach this point twice. Only the first
+    // Razorpay order is attached; the other request returns that one, so the
+    // customer always pays an order this payment can be matched to.
+    await this.prisma.payment.updateMany({
       data: {
         provider: RAZORPAY_PROVIDER,
         providerAmountPaise: razorpayOrder.amount,
@@ -169,11 +185,21 @@ export class PaymentsService {
         transactionRef: razorpayOrder.id
       },
       where: {
+        id: payment.id,
+        providerOrderId: null
+      }
+    });
+    const attachedPayment = await this.prisma.payment.findFirst({
+      where: {
         id: payment.id
       }
     });
 
-    return this.serializeRazorpayOrder(order, updatedPayment, amountPaise);
+    if (!attachedPayment) {
+      throw new NotFoundException("Payment was not found.");
+    }
+
+    return this.serializeRazorpayOrder(order, attachedPayment, amountPaise);
   }
 
   async verifyRazorpayPayment(customerId: string, input: VerifyRazorpayPaymentDto) {
@@ -190,11 +216,28 @@ export class PaymentsService {
     let invoiceOrderId: string | null = null;
     let paidOrder = null as { amount: DecimalValue; orderId: string; orderNumber: string } | null;
     const result = await this.prisma.$transaction(async (tx) => {
+      await this.lockOrder(tx, input.orderId);
       const order = await this.findCustomerOrder(tx, customerId, input.orderId);
       const payment = this.findOnlinePaymentForProviderOrder(
         order,
         input.razorpay_order_id
       );
+
+      if (order.status === OrderStatus.CANCELLED) {
+        const amountPaise = this.resolvePaymentAmountPaise(order, payment);
+        this.assertStoredProviderAmountMatches(payment, amountPaise);
+
+        return {
+          cancelledOrderRefundId: await this.recordPaymentOnCancelledOrder(tx, {
+            amountPaise,
+            orderId: order.id,
+            payment,
+            providerPaymentId: input.razorpay_payment_id,
+            source: "verification"
+          })
+        };
+      }
+
       this.assertPaymentCanVerify(order, payment, input.razorpay_order_id);
       const amountPaise = this.resolvePaymentAmountPaise(order, payment);
       this.assertStoredProviderAmountMatches(payment, amountPaise);
@@ -254,6 +297,14 @@ export class PaymentsService {
       };
     });
 
+    if ("cancelledOrderRefundId" in result) {
+      if (result.cancelledOrderRefundId) {
+        await this.startCancelledOrderRefund(result.cancelledOrderRefundId);
+      }
+
+      throw new ConflictException(CANCELLED_ORDER_PAYMENT_MESSAGE);
+    }
+
     if (invoiceOrderId) {
       await this.queueService?.enqueueInvoice({
         orderId: invoiceOrderId,
@@ -284,17 +335,22 @@ export class PaymentsService {
   async handleRazorpayWebhook(
     rawBody: Buffer,
     payload: unknown,
-    signature: string | undefined
+    signature: string | undefined,
+    eventId?: string
   ) {
     if (!signature || !this.razorpayClient.verifyWebhookSignature(rawBody, signature)) {
       throw new UnauthorizedException("Razorpay webhook signature is invalid.");
     }
 
     const parsedPayload = normalizeWebhookPayload(payload);
+    // Razorpay identifies an event by the x-razorpay-event-id header; the
+    // body has no top-level id.
+    const providerEventId = readString(eventId?.trim()) ?? readString(parsedPayload.id);
     const receipt = await this.recordRazorpayWebhookReceipt(
       rawBody,
       parsedPayload,
-      signature
+      signature,
+      providerEventId
     );
 
     if (receipt.duplicate) {
@@ -311,7 +367,7 @@ export class PaymentsService {
       await this.queueService.enqueuePaymentWebhook({
         payload: parsedPayload,
         provider: RAZORPAY_PROVIDER,
-        providerEventId: readString(parsedPayload.id),
+        providerEventId,
         rawBodyBase64: rawBody.toString("base64"),
         receivedAt: new Date().toISOString(),
         signature,
@@ -332,6 +388,7 @@ export class PaymentsService {
       rawBody,
       parsedPayload,
       signature,
+      providerEventId,
       receipt.webhookId
     );
 
@@ -345,9 +402,9 @@ export class PaymentsService {
   private async recordRazorpayWebhookReceipt(
     rawBody: Buffer,
     parsedPayload: RazorpayWebhookPayload,
-    signature: string
+    signature: string,
+    providerEventId: string | null
   ) {
-    const providerEventId = readString(parsedPayload.id);
     const eventType = readString(parsedPayload.event) ?? "unknown";
 
     if (providerEventId) {
@@ -406,10 +463,9 @@ export class PaymentsService {
     rawBody: Buffer,
     parsedPayload: RazorpayWebhookPayload,
     signature: string,
+    providerEventId: string | null,
     webhookId?: string
   ) {
-    const providerEventId = readString(parsedPayload.id);
-
     if (providerEventId && !webhookId) {
       const existingWebhook = await this.prisma.paymentWebhook.findFirst({
         where: {
@@ -427,6 +483,7 @@ export class PaymentsService {
     }
 
     let invoiceOrderId: string | null = null;
+    const effects: WebhookEffects = { cancelledOrderRefundId: null };
     const result = await this.prisma
       .$transaction(async (tx) => {
         const paymentEntity = extractRazorpayPaymentEntity(parsedPayload);
@@ -489,11 +546,16 @@ export class PaymentsService {
               parsedPayload,
               payment,
               paymentEntity,
-              refundEntity
+              refundEntity,
+              effects
             )
           : false;
 
-        if (processed && readString(parsedPayload.event) === "payment.captured") {
+        if (
+          processed &&
+          readString(parsedPayload.event) === "payment.captured" &&
+          !effects.cancelledOrderRefundId
+        ) {
           invoiceOrderId = payment?.orderId ?? null;
         }
 
@@ -542,7 +604,34 @@ export class PaymentsService {
       });
     }
 
+    if (effects.cancelledOrderRefundId) {
+      await this.startCancelledOrderRefund(effects.cancelledOrderRefundId);
+    }
+
     return result;
+  }
+
+  // Processes one refund through Razorpay. Used by the refund job and for
+  // payments that arrive after their order was cancelled.
+  async processRefund(refundId: string) {
+    const refund = await this.prisma.refund.findFirst({
+      include: REFUND_WITH_PAYMENT_ORDER_INCLUDE,
+      where: {
+        id: refundId
+      }
+    });
+
+    if (!refund) {
+      throw new NotFoundException("Refund was not found.");
+    }
+
+    if (!this.isPaidRazorpayRefund(refund)) {
+      return this.serializeRefund(refund);
+    }
+
+    this.assertPaymentGatewayConfigured();
+
+    return this.processRazorpayRefund(refund);
   }
 
   async createRefundPlaceholder(input: {
@@ -778,7 +867,8 @@ export class PaymentsService {
     payload: RazorpayWebhookPayload,
     payment: PaymentWithOrder,
     paymentEntity: RazorpayPaymentEntity | null,
-    refundEntity: RazorpayRefundEntity | null
+    refundEntity: RazorpayRefundEntity | null,
+    effects: WebhookEffects
   ) {
     const event = readString(payload.event);
 
@@ -802,6 +892,18 @@ export class PaymentsService {
     if (event === "payment.captured") {
       if (payment.status === PaymentStatus.PAID) {
         return false;
+      }
+
+      if (payment.order.status === OrderStatus.CANCELLED) {
+        effects.cancelledOrderRefundId = await this.recordPaymentOnCancelledOrder(tx, {
+          amountPaise: paymentEntity.amount,
+          orderId: payment.orderId,
+          payment,
+          providerPaymentId: paymentEntity.id,
+          source: "webhook"
+        });
+
+        return true;
       }
 
       await this.assertProviderPaymentIdIsUnused(tx, paymentEntity.id, payment.id);
@@ -977,21 +1079,40 @@ export class PaymentsService {
       throw new BadRequestException("Refund amount must be greater than zero.");
     }
 
-    await this.prisma.refund.update({
+    // Only one caller may send this refund to Razorpay at a time.
+    const claim = await this.prisma.refund.updateMany({
       data: {
         status: RefundStatus.PROCESSING
       },
       where: {
-        id: refund.id
+        id: refund.id,
+        providerRefundId: null,
+        OR: [
+          { status: { in: [RefundStatus.PENDING, RefundStatus.FAILED] } },
+          {
+            status: RefundStatus.PROCESSING,
+            updatedAt: { lt: new Date(Date.now() - STALE_REFUND_CLAIM_MS) }
+          }
+        ]
       }
     });
+
+    if (claim.count !== 1) {
+      throw new ConflictException("This refund is already being processed.");
+    }
 
     let providerRefund: Awaited<ReturnType<RazorpayClient["createRefund"]>>;
 
     try {
-      providerRefund = await this.razorpayClient.createRefund(
-        payment.providerPaymentId,
-        {
+      // An earlier attempt may have reached Razorpay and crashed before
+      // saving the result; reuse that refund instead of refunding twice.
+      const earlierRefund = (
+        await this.razorpayClient.fetchPaymentRefunds(payment.providerPaymentId)
+      ).find((entry) => entry.notes.refundId === refund.id);
+
+      providerRefund =
+        earlierRefund ??
+        (await this.razorpayClient.createRefund(payment.providerPaymentId, {
           amount: amountPaise,
           notes: {
             orderId: refund.orderId,
@@ -1000,29 +1121,14 @@ export class PaymentsService {
           },
           receipt: `refund-${refund.id}`,
           speed: "normal"
-        }
-      );
+        }));
     } catch (error) {
-      await this.prisma.refund.update({
-        data: {
-          status: RefundStatus.PENDING
-        },
-        where: {
-          id: refund.id
-        }
-      });
+      await this.releaseRefundClaim(refund.id);
       throw error;
     }
 
     if (providerRefund.amount !== amountPaise) {
-      await this.prisma.refund.update({
-        data: {
-          status: RefundStatus.PENDING
-        },
-        where: {
-          id: refund.id
-        }
-      });
+      await this.releaseRefundClaim(refund.id);
       throw new BadRequestException("Razorpay refund amount does not match.");
     }
 
@@ -1049,6 +1155,122 @@ export class PaymentsService {
       ...refund,
       ...updatedRefund
     });
+  }
+
+  private async releaseRefundClaim(refundId: string) {
+    await this.prisma.refund.updateMany({
+      data: {
+        status: RefundStatus.PENDING
+      },
+      where: {
+        id: refundId,
+        providerRefundId: null,
+        status: RefundStatus.PROCESSING
+      }
+    });
+  }
+
+  // Serializes payment verification with cancellation, the unpaid order
+  // expiry job and webhooks, which all update this order row.
+  private async lockOrder(tx: Prisma.TransactionClient, orderId: string) {
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+  }
+
+  // Money was captured for an order that is already cancelled (for example
+  // by the unpaid order expiry). The order stays cancelled with its stock
+  // released; the payment is recorded and a refund opened for it. Returns the
+  // refund to process, or null when nothing is left to refund.
+  private async recordPaymentOnCancelledOrder(
+    tx: Prisma.TransactionClient,
+    input: {
+      amountPaise: number;
+      orderId: string;
+      payment: Pick<OrderPayment, "amount" | "id" | "status">;
+      providerPaymentId: string;
+      source: "verification" | "webhook";
+    }
+  ) {
+    if (
+      input.payment.status === PaymentStatus.REFUNDED ||
+      input.payment.status === PaymentStatus.PARTIALLY_REFUNDED
+    ) {
+      return null;
+    }
+
+    if (input.payment.status !== PaymentStatus.PAID) {
+      await this.assertProviderPaymentIdIsUnused(
+        tx,
+        input.providerPaymentId,
+        input.payment.id
+      );
+      await tx.payment.update({
+        data: {
+          paidAt: new Date(),
+          provider: RAZORPAY_PROVIDER,
+          providerAmountPaise: input.amountPaise,
+          providerPaymentId: input.providerPaymentId,
+          status: PaymentStatus.PAID,
+          transactionRef: input.providerPaymentId
+        },
+        where: {
+          id: input.payment.id
+        }
+      });
+      await tx.order.update({
+        data: {
+          paymentStatus: PaymentStatus.PAID
+        },
+        where: {
+          id: input.orderId
+        }
+      });
+    }
+
+    const existingRefund = await tx.refund.findFirst({
+      where: {
+        paymentId: input.payment.id
+      }
+    });
+
+    if (existingRefund) {
+      return existingRefund.status === RefundStatus.COMPLETED ? null : existingRefund.id;
+    }
+
+    const refund = await tx.refund.create({
+      data: {
+        amount: decimalToNumber(input.payment.amount),
+        orderId: input.orderId,
+        paymentId: input.payment.id,
+        reason: "Payment received after the order was cancelled.",
+        status: RefundStatus.PENDING
+      }
+    });
+    await tx.orderStatusHistory.create({
+      data: {
+        note: `Payment received after cancellation (Razorpay ${input.source}); refund started.`,
+        orderId: input.orderId,
+        status: OrderStatus.CANCELLED
+      }
+    });
+
+    return refund.id;
+  }
+
+  // Runs after the payment transaction commits. The queue retries Razorpay
+  // failures; a refund that still fails stays PENDING for an admin.
+  private async startCancelledOrderRefund(refundId: string) {
+    try {
+      if (this.queueService) {
+        await this.queueService.enqueueRefundProcessing(refundId);
+        return;
+      }
+
+      await this.processRefund(refundId);
+    } catch (error) {
+      this.logger.error(
+        `Refund ${refundId} for a payment on a cancelled order was not started: ${errorToMessage(error)}`
+      );
+    }
   }
 
   private async refreshRazorpayRefund(refund: RefundWithPaymentAndOrder) {

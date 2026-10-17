@@ -104,3 +104,40 @@ test("fetchOrderPayments rejects error and malformed responses", async () => {
     await assert.rejects(() => createClient().fetchOrderPayments("order_rzp_1"));
   }
 });
+
+test("fetchPaymentRefunds lists earlier refunds with their notes", async () => {
+  let requestUrl = "";
+  globalThis.fetch = (async (url) => {
+    requestUrl = String(url);
+
+    return new Response(
+      JSON.stringify({
+        count: 1,
+        entity: "collection",
+        items: [
+          {
+            amount: 28320,
+            id: "rfnd_1",
+            notes: { orderNumber: 42, refundId: "refund-1" },
+            payment_id: "pay_1",
+            status: "processed"
+          }
+        ]
+      }),
+      { headers: { "Content-Type": "application/json" }, status: 200 }
+    );
+  }) as typeof fetch;
+
+  const refunds = await createClient().fetchPaymentRefunds("pay_1");
+
+  assert.equal(requestUrl, "https://api.razorpay.com/v1/payments/pay_1/refunds");
+  assert.deepEqual(refunds, [
+    {
+      amount: 28320,
+      id: "rfnd_1",
+      notes: { refundId: "refund-1" },
+      payment_id: "pay_1",
+      status: "processed"
+    }
+  ]);
+});

@@ -44,11 +44,20 @@ export const OTP_JOB_NAMES = {
 export type OtpJobName = (typeof OTP_JOB_NAMES)[keyof typeof OTP_JOB_NAMES];
 
 export const ORDER_MAINTENANCE_JOB_NAMES = {
-  expireUnpaidOrders: "expire-unpaid-orders"
+  expireUnpaidOrders: "expire-unpaid-orders",
+  processRefund: "process-refund"
 } as const;
 
 export type OrderMaintenanceJobName =
   (typeof ORDER_MAINTENANCE_JOB_NAMES)[keyof typeof ORDER_MAINTENANCE_JOB_NAMES];
+
+// Queued by the API or the worker, processed by the API, which holds the
+// Razorpay keys.
+export interface ProcessRefundJobData {
+  refundId: string;
+  requestedAt: string;
+  version: 1;
+}
 
 export interface SendOtpJobData {
   mobileNumber: string;
