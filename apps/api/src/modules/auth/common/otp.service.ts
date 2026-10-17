@@ -33,10 +33,14 @@ export type OtpCache = {
 
 export type OtpServiceOptions = {
   cooldownSeconds: number;
+  // Fixed code for demo numbers. When set, demo numbers log in with it and the
+  // code is never returned in responses or sent to the phone.
+  demoCode?: string;
   demoCustomerMobileNumbers?: string[];
   demoDeliveryMobileNumbers?: string[];
   exposeOtpInResponse?: boolean;
   generator: () => string;
+  maxVerifyAttempts?: number;
   otpTtlSeconds: number;
   rateLimit: number;
   rateWindowSeconds: number;
@@ -65,6 +69,12 @@ function cooldownKey(purpose: OtpPurpose, mobileNumber: string) {
 function rateKey(purpose: OtpPurpose, mobileNumber: string) {
   return `auth:otp:${purpose}:${mobileNumber}:rate`;
 }
+
+function attemptsKey(purpose: OtpPurpose, mobileNumber: string) {
+  return `auth:otp:${purpose}:${mobileNumber}:attempts`;
+}
+
+const DEFAULT_MAX_VERIFY_ATTEMPTS = 5;
 
 function safeOtpCompare(expected: string, actual: string) {
   const expectedBuffer = Buffer.from(expected);
@@ -108,6 +118,7 @@ export class OtpService {
     this.options = {
       cooldownSeconds:
         configService?.get<number>("otpResendCooldownSeconds") ?? 60,
+      demoCode: configService?.get<string>("otpDemoCode"),
       demoCustomerMobileNumbers:
         configService?.get<string[]>("otpDemoCustomerMobileNumbers") ?? [],
       demoDeliveryMobileNumbers:
@@ -116,6 +127,9 @@ export class OtpService {
         configService?.get<boolean>("otpExposeInResponse") ??
         (process.env.NODE_ENV !== "production"),
       generator: defaultOtpGenerator,
+      maxVerifyAttempts:
+        configService?.get<number>("otpMaxVerifyAttempts") ??
+        DEFAULT_MAX_VERIFY_ATTEMPTS,
       otpTtlSeconds: configService?.get<number>("otpTtlSeconds") ?? 300,
       rateLimit: configService?.get<number>("otpRateLimit") ?? 5,
       rateWindowSeconds:
@@ -144,12 +158,17 @@ export class OtpService {
       throwTooManyRequests("Please wait before requesting another OTP.");
     }
 
-    const otp = this.options.generator();
+    const isDemoNumber = this.isDemoNumber(purpose, normalizedMobileNumber);
+    const useDemoCode = isDemoNumber && Boolean(this.options.demoCode);
+    const otp = useDemoCode
+      ? (this.options.demoCode as string)
+      : this.options.generator();
     await this.cache.set(
       otpKey(purpose, normalizedMobileNumber),
       otp,
       this.options.otpTtlSeconds
     );
+    await this.cache.delete(attemptsKey(purpose, normalizedMobileNumber));
 
     if (this.options.cooldownSeconds > 0) {
       await this.cache.set(
@@ -159,31 +178,16 @@ export class OtpService {
       );
     }
 
-    if (this.queueService) {
-      await this.queueService.enqueueOtp({
-        mobileNumber: normalizedMobileNumber,
-        otp,
-        purpose: toOtpAudience(purpose),
-        requestedAt: new Date().toISOString(),
-        version: 1
-      });
-    } else {
-      this.logger.log(
-        `Mock OTP for ${purpose} ${normalizedMobileNumber}: ${otp}`
-      );
+    // Demo codes are shared out of band, so there is nothing to deliver.
+    if (!useDemoCode) {
+      await this.deliverOtp(purpose, normalizedMobileNumber, otp);
     }
 
     const shouldExposeOtp =
-      (this.options.exposeOtpInResponse ??
+      !useDemoCode &&
+      ((this.options.exposeOtpInResponse ??
         (process.env.NODE_ENV !== "production")) ||
-      (purpose === OtpPurpose.Customer &&
-        this.options.demoCustomerMobileNumbers?.includes(
-          normalizedMobileNumber
-        )) ||
-      (purpose === OtpPurpose.DeliveryPartner &&
-        this.options.demoDeliveryMobileNumbers?.includes(
-          normalizedMobileNumber
-        ));
+        isDemoNumber);
 
     return {
       ...(shouldExposeOtp ? { devOtp: otp } : {}),
@@ -193,6 +197,34 @@ export class OtpService {
     };
   }
 
+  private async deliverOtp(
+    purpose: OtpPurpose,
+    mobileNumber: string,
+    otp: string
+  ) {
+    if (this.queueService) {
+      await this.queueService.enqueueOtp({
+        mobileNumber,
+        otp,
+        purpose: toOtpAudience(purpose),
+        requestedAt: new Date().toISOString(),
+        version: 1
+      });
+      return;
+    }
+
+    this.logger.log(`Mock OTP for ${purpose} ${mobileNumber}: ${otp}`);
+  }
+
+  private isDemoNumber(purpose: OtpPurpose, mobileNumber: string) {
+    const demoNumbers =
+      purpose === OtpPurpose.Customer
+        ? this.options.demoCustomerMobileNumbers
+        : this.options.demoDeliveryMobileNumbers;
+
+    return demoNumbers?.includes(mobileNumber) ?? false;
+  }
+
   async verifyOtp(
     purpose: OtpPurpose,
     mobileNumber: string,
@@ -200,13 +232,35 @@ export class OtpService {
   ): Promise<boolean> {
     const normalizedMobileNumber = normalizeMobileNumber(mobileNumber);
     const key = otpKey(purpose, normalizedMobileNumber);
-    const storedOtp = await this.cache.get(key);
+    const attemptKey = attemptsKey(purpose, normalizedMobileNumber);
+    const maxAttempts =
+      this.options.maxVerifyAttempts ?? DEFAULT_MAX_VERIFY_ATTEMPTS;
+    // Count the attempt before comparing so concurrent guesses cannot get
+    // more than maxAttempts comparisons against one code.
+    const attempt = await this.cache.increment(
+      attemptKey,
+      this.options.otpTtlSeconds
+    );
 
-    if (!storedOtp || !safeOtpCompare(storedOtp, otp)) {
-      return false;
+    if (attempt > maxAttempts) {
+      await this.cache.delete(key);
+      throwTooManyRequests(
+        "Too many incorrect OTP attempts. Request a new OTP."
+      );
     }
 
-    await this.cache.delete(key);
-    return true;
+    const storedOtp = await this.cache.get(key);
+
+    if (storedOtp && safeOtpCompare(storedOtp, otp)) {
+      await this.cache.delete(key);
+      await this.cache.delete(attemptKey);
+      return true;
+    }
+
+    if (storedOtp && attempt >= maxAttempts) {
+      await this.cache.delete(key);
+    }
+
+    return false;
   }
 }

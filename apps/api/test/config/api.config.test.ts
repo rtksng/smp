@@ -91,6 +91,7 @@ test("loadApiEnvironment hides OTP responses by default in production", () => {
 
 test("loadApiEnvironment parses a production demo customer mobile whitelist", () => {
   setProductionApiEnv({
+    OTP_DEMO_CODE: "482915",
     OTP_DEMO_CUSTOMER_MOBILE_NUMBERS:
       " +919000000000, +919876543210, +919000000000 "
   });
@@ -106,6 +107,7 @@ test("loadApiEnvironment parses a production demo customer mobile whitelist", ()
 
 test("loadApiEnvironment parses a production demo delivery mobile whitelist", () => {
   setProductionApiEnv({
+    OTP_DEMO_CODE: "482915",
     OTP_DEMO_DELIVERY_MOBILE_NUMBERS:
       " +919000000000, +919876543210, +919000000000 "
   });
@@ -227,4 +229,79 @@ test("loadApiEnvironment parses production security and monitoring settings", ()
   assert.equal(environment.throttleBlockMs, 120000);
   assert.equal(environment.throttleTtlMs, 30000);
   assert.equal(environment.trustProxy, 1);
+});
+
+test("loadApiEnvironment reads the OTP attempt limit and proxy secret", () => {
+  setRequiredApiEnv({
+    API_PROXY_SHARED_SECRET: "  local-proxy-secret  ",
+    OTP_MAX_VERIFY_ATTEMPTS: "4"
+  });
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.otpMaxVerifyAttempts, 4);
+  assert.equal(environment.apiProxySharedSecret, "local-proxy-secret");
+});
+
+test("loadApiEnvironment defaults the OTP attempt limit and leaves the proxy secret unset", () => {
+  setRequiredApiEnv();
+  delete process.env.API_PROXY_SHARED_SECRET;
+  delete process.env.OTP_MAX_VERIFY_ATTEMPTS;
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.otpMaxVerifyAttempts, 5);
+  assert.equal(environment.apiProxySharedSecret, undefined);
+});
+
+test("loadApiEnvironment rejects a short proxy secret in production", () => {
+  setProductionApiEnv({
+    API_PROXY_SHARED_SECRET: "too-short"
+  });
+
+  assert.throws(
+    () => loadApiEnvironment(),
+    /API_PROXY_SHARED_SECRET must be at least 32 characters/
+  );
+});
+
+test("loadApiEnvironment requires a demo OTP code for production demo numbers", () => {
+  for (const variable of [
+    "OTP_DEMO_CUSTOMER_MOBILE_NUMBERS",
+    "OTP_DEMO_DELIVERY_MOBILE_NUMBERS"
+  ]) {
+    setProductionApiEnv({ [variable]: "+919000000000" });
+    delete process.env.OTP_DEMO_CODE;
+
+    assert.throws(
+      () => loadApiEnvironment(),
+      /OTP_DEMO_CODE is required in production/,
+      variable
+    );
+  }
+});
+
+test("loadApiEnvironment allows demo numbers without a fixed code outside production", () => {
+  setRequiredApiEnv({
+    NODE_ENV: "development",
+    OTP_DEMO_CUSTOMER_MOBILE_NUMBERS: "+919000000000"
+  });
+  delete process.env.OTP_DEMO_CODE;
+
+  const environment = loadApiEnvironment();
+
+  assert.equal(environment.otpDemoCode, undefined);
+  assert.deepEqual(environment.otpDemoCustomerMobileNumbers, ["+919000000000"]);
+});
+
+test("loadApiEnvironment rejects a demo OTP code that is not 6 digits", () => {
+  setRequiredApiEnv({ OTP_DEMO_CODE: "12ab56" });
+
+  assert.throws(() => loadApiEnvironment(), /OTP_DEMO_CODE must be a 6-digit code/);
+});
+
+test("loadApiEnvironment parses the demo OTP code", () => {
+  setRequiredApiEnv({ OTP_DEMO_CODE: " 482915 " });
+
+  assert.equal(loadApiEnvironment().otpDemoCode, "482915");
 });
