@@ -64,7 +64,7 @@ test("staff account input normalizes the email and rejects weak or incomplete de
   const account = {
     email: " Picker@Example.TEST ",
     firstName: " Asha ",
-    password: "Password123",
+    password: "Picker-Shift-2026",
     roleId: "7d9f8f33-d348-4a89-94e8-907be76a91c6"
   };
   const dto = plainToInstance(CreateWarehouseStaffAccountDto, { ...account, lastName: "  ", mobileNumber: "" });
@@ -77,6 +77,9 @@ test("staff account input normalizes the email and rejects weak or incomplete de
 
   for (const [field, value] of [
     ["password", "short"],
+    ["password", "Password123"],
+    ["password", "letters-only-password"],
+    ["password", "aaaaaaaaaaa1"],
     ["roleId", "not-a-role"],
     ["email", "not-an-email"],
     ["firstName", "  "],

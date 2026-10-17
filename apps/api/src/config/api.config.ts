@@ -162,8 +162,22 @@ export type ApiEnvironment = {
   unpaidOrderTimeoutMinutes: number;
 };
 
+// Also used by src/instrument.ts, which starts Sentry before the app loads.
+export function resolveErrorMonitoring(env: NodeJS.ProcessEnv = process.env) {
+  const dsn = env.ERROR_MONITORING_DSN?.trim() || undefined;
+
+  return {
+    dsn,
+    enabled: parseBoolean(
+      env.ERROR_MONITORING_ENABLED,
+      (env.NODE_ENV ?? "development") === "production" && Boolean(dsn)
+    )
+  };
+}
+
 export function loadApiEnvironment(): ApiEnvironment {
   const environment = process.env.NODE_ENV ?? "development";
+  const errorMonitoring = resolveErrorMonitoring(process.env);
   const apiEnvironment: ApiEnvironment = {
     apiPrefix: API_VERSION_PREFIX.replace(/^\//, ""),
     apiProxySharedSecret: process.env.API_PROXY_SHARED_SECRET?.trim() || undefined,
@@ -171,11 +185,8 @@ export function loadApiEnvironment(): ApiEnvironment {
     corsOrigins: corsOriginsForEnvironment(environment),
     databaseUrl: required("DATABASE_URL"),
     environment,
-    errorMonitoringDsn: process.env.ERROR_MONITORING_DSN,
-    errorMonitoringEnabled: parseBoolean(
-      process.env.ERROR_MONITORING_ENABLED,
-      environment === "production" && Boolean(process.env.ERROR_MONITORING_DSN)
-    ),
+    errorMonitoringDsn: errorMonitoring.dsn,
+    errorMonitoringEnabled: errorMonitoring.enabled,
     jwtAccessSecret: required("JWT_ACCESS_SECRET"),
     jwtAccessTtlSeconds: Number(process.env.JWT_ACCESS_TTL_SECONDS ?? 900),
     jwtRefreshSecret: required("JWT_REFRESH_SECRET"),

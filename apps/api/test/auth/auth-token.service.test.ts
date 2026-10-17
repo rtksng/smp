@@ -60,3 +60,24 @@ test("refresh token digests are stable and do not expose raw tokens", async () =
     "orders:read"
   );
 });
+
+test("refresh tokens issued in the same second are still distinct", async () => {
+  const tokens = new AuthTokenService({
+    accessSecret: "test-access-secret",
+    accessTtlSeconds: 60,
+    refreshSecret: "test-refresh-secret",
+    refreshTtlSeconds: 3600
+  });
+  const input = {
+    audience: AuthTokenAudience.Customer,
+    sessionId: "session-1",
+    subject: "user-1"
+  };
+
+  const [first, second] = await Promise.all([
+    tokens.issueTokenPair(input),
+    tokens.issueTokenPair(input)
+  ]);
+
+  assert.notEqual(first.refreshToken, second.refreshToken);
+});

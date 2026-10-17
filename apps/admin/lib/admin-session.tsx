@@ -12,6 +12,11 @@ import { useAdminAuthStore } from "./auth-store";
 import { hasPermission, isSuperAdminRole } from "./permissions";
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
+  // Restores the session from the refresh cookie once per page load.
+  useEffect(() => {
+    void useAdminAuthStore.getState().restoreSession();
+  }, []);
+
   return children;
 }
 

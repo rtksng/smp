@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  refreshCustomerTokens,
   requestCustomerOtp,
   verifyCustomerOtp
 } from "./customer-auth";
@@ -103,5 +104,63 @@ describe("customer auth API", () => {
         tokenType: "Bearer"
       }
     });
+  });
+});
+
+describe("customer token refresh", () => {
+  const tokens = {
+    accessToken: "fresh-access-token",
+    accessTokenExpiresAt: "2099-05-25T10:15:00.000Z",
+    accessTokenExpiresInSeconds: 900,
+    refreshTokenExpiresAt: "2099-06-24T10:00:00.000Z",
+    refreshTokenExpiresInSeconds: 2592000,
+    tokenType: "Bearer"
+  };
+  const meta = { method: "POST", path: "/api/v1/auth/customer/refresh", timestamp: "" };
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com/api/v1";
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
+    vi.restoreAllMocks();
+  });
+
+  it("shares one cookie-based refresh between concurrent callers", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: { tokens }, meta, success: true }), { status: 200 })
+    );
+
+    const [first, second] = await Promise.all([refreshCustomerTokens(), refreshCustomerTokens()]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.credentials).toBe("include");
+    expect(init.body).toBe("{}");
+    expect(first.accessToken).toBe("fresh-access-token");
+    expect(second).toBe(first);
+  });
+
+  it("retries once when another tab refreshed a moment earlier", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: null,
+            error: { code: "CONFLICT", message: "This session was just refreshed." },
+            meta,
+            success: false
+          }),
+          { status: 409 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { tokens }, meta, success: true }), { status: 200 })
+      );
+
+    await expect(refreshCustomerTokens()).resolves.toMatchObject({ accessToken: "fresh-access-token" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

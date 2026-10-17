@@ -26,7 +26,6 @@ function makeSession(accessToken = "access-token"): AdminSession {
       accessToken,
       accessTokenExpiresAt: "2099-05-25T10:15:00.000Z",
       accessTokenExpiresInSeconds: 900,
-      refreshToken: "refresh-token",
       refreshTokenExpiresAt: "2099-06-24T10:00:00.000Z",
       refreshTokenExpiresInSeconds: 2592000,
       tokenType: "Bearer"

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -95,6 +95,9 @@ export class AuthTokenService {
     });
     const refreshToken = await this.jwtService.signAsync(refreshPayload, {
       expiresIn: this.options.refreshTtlSeconds,
+      // Unique per token, so two refreshes in the same second still rotate to
+      // a different token and an old one can be recognised.
+      jwtid: randomUUID(),
       secret: this.options.refreshSecret
     });
 

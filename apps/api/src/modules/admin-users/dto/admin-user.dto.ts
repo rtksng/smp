@@ -15,6 +15,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AdminStatus } from "../../../generated/prisma/enums";
 import { AdminRoleCode } from "../../roles/roles.constants";
+import { IsAdminPassword } from "../../../common/validation/admin-password";
 
 function trimString(value: unknown) {
   return typeof value === "string" ? value.trim() : value;
@@ -95,10 +96,8 @@ export class CreateAdminUserDto {
   @Matches(/^\+[1-9]\d{7,14}$/)
   mobileNumber?: string | null;
 
-  @ApiProperty({ example: "StrongPass123" })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @ApiProperty({ example: "Surgical-Ops-2026" })
+  @IsAdminPassword()
   password!: string;
 
   @ApiProperty({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })
@@ -141,11 +140,9 @@ export class UpdateAdminUserDto {
   @Matches(/^\+[1-9]\d{7,14}$/)
   mobileNumber?: string | null;
 
-  @ApiPropertyOptional({ example: "StrongPass123" })
+  @ApiPropertyOptional({ example: "Surgical-Ops-2026" })
   @IsOptional()
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsAdminPassword()
   password?: string;
 
   @ApiPropertyOptional({ example: "7d9f8f33-d348-4a89-94e8-907be76a91c6" })

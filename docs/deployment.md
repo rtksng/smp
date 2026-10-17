@@ -179,6 +179,33 @@ Before enabling:
 - Never edit an applied migration. Add a new migration instead.
 - Keep API and worker on compatible versions during deploys because queue names live in `packages/config` and payload versions live in `packages/types`.
 
+## Sessions, Browser Security, And Error Monitoring
+
+Refresh tokens:
+
+- Every refresh rotates the token. A token presented again within 30 seconds of being replaced (two tabs refreshing at once) gets a retryable 409; an older token ends the whole session, because someone else holds a copy.
+- Browsers never see a refresh token. The customer site and the admin dashboard get it only as an httpOnly cookie; the admin cookie is `SameSite=Strict` and limited to `/api/v1/auth/admin`. Native apps (requests without an `Origin` header, or with `X-Client-Platform: native`) keep it in the request and response body.
+- Migration `20261019000100_refresh_token_rotation` adds the rotation columns. After deploying, admins are signed out once, because their old refresh tokens were stored in the browser.
+
+Admin accounts:
+
+- 5 wrong passwords lock an account for 15 minutes (counted in Redis per email, on top of the per-IP limit). If Redis is down, logins continue without the lockout.
+- New and changed admin passwords need 12+ characters with letters and numbers. Existing shorter passwords still work until changed.
+
+Browser headers (web and admin): clickjacking protection, `nosniff`, a referrer policy and HSTS are enforced. The full Content Security Policy is sent as `Content-Security-Policy-Report-Only`; check the reports (set `CSP_REPORT_URI`, for example to the Sentry project's security endpoint), then set `CSP_ENFORCE=true` and rebuild.
+
+Error monitoring with Sentry: create one project per service and set the DSNs:
+
+```bash
+# API and worker
+ERROR_MONITORING_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
+# Web and admin
+NEXT_PUBLIC_SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
+SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
+```
+
+The API reports 5xx errors, the worker reports jobs that fail their last attempt, and web and admin report browser and server errors. Request bodies, headers, cookies, query strings, queue arguments and stack-frame variables are never sent. Source maps are not uploaded yet, so browser stack traces show minified code.
+
 ## Security Checklist
 
 - `CORS_ORIGINS` contains exact HTTPS origins only; no wildcards.

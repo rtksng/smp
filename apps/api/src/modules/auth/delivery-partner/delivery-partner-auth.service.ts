@@ -12,6 +12,11 @@ import {
   AuthTokenService
 } from "../common/auth-token.service";
 import { toTokenResponse } from "../common/auth-response";
+import {
+  assertCurrentRefreshToken,
+  revokeRefreshSession,
+  rotateRefreshToken
+} from "../common/refresh-rotation";
 import type { AuthRequestContext } from "../common/request-context";
 import { OtpPurpose, OtpService } from "../common/otp.service";
 import {
@@ -187,6 +192,7 @@ export class DeliveryPartnerAuthService {
       dto.refreshToken,
       AuthTokenAudience.DeliveryPartner
     );
+    const presentedHash = this.authTokenService.hashRefreshToken(dto.refreshToken);
     const session = await this.prisma.deliveryPartnerSession.findFirst({
       include: {
         deliveryPartner: true
@@ -196,7 +202,6 @@ export class DeliveryPartnerAuthService {
           gt: new Date()
         },
         id: payload.sessionId,
-        refreshToken: this.authTokenService.hashRefreshToken(dto.refreshToken),
         revokedAt: null
       }
     });
@@ -209,24 +214,24 @@ export class DeliveryPartnerAuthService {
       throw new UnauthorizedException("Invalid or expired refresh token.");
     }
 
+    await assertCurrentRefreshToken(
+      this.prisma.deliveryPartnerSession,
+      session,
+      presentedHash
+    );
+
     const tokenPair = await this.authTokenService.issueTokenPair({
       audience: AuthTokenAudience.DeliveryPartner,
       sessionId: session.id,
       subject: session.deliveryPartnerId
     });
 
-    await this.prisma.deliveryPartnerSession.update({
-      data: {
-        expiresAt: tokenPair.refreshTokenExpiresAt,
-        ipAddress: context.ipAddress,
-        refreshToken: this.authTokenService.hashRefreshToken(
-          tokenPair.refreshToken
-        ),
-        userAgent: context.userAgent
-      },
-      where: {
-        id: session.id
-      }
+    await rotateRefreshToken(this.prisma.deliveryPartnerSession, {
+      context,
+      nextExpiresAt: tokenPair.refreshTokenExpiresAt,
+      nextHash: this.authTokenService.hashRefreshToken(tokenPair.refreshToken),
+      presentedHash,
+      sessionId: session.id
     });
 
     return {
@@ -240,16 +245,11 @@ export class DeliveryPartnerAuthService {
       AuthTokenAudience.DeliveryPartner
     );
 
-    await this.prisma.deliveryPartnerSession.updateMany({
-      data: {
-        revokedAt: new Date()
-      },
-      where: {
-        id: payload.sessionId,
-        refreshToken: this.authTokenService.hashRefreshToken(dto.refreshToken),
-        revokedAt: null
-      }
-    });
+    await revokeRefreshSession(
+      this.prisma.deliveryPartnerSession,
+      payload.sessionId,
+      this.authTokenService.hashRefreshToken(dto.refreshToken)
+    );
 
     return {
       loggedOut: true

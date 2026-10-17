@@ -20,7 +20,8 @@ import { RedisCacheService } from "./redis-cache.service";
     DeliveryPartnerJwtGuard,
     OtpService,
     PasswordService,
-    PermissionGuard
+    PermissionGuard,
+    RedisCacheService
   ],
   imports: [JwtModule.register({}), ApiQueuesModule],
   providers: [

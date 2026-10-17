@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { StructuredLogger } from "../logging/structured-logger.service";
+import * as Sentry from "@sentry/node";
 
 export type ErrorMonitoringContext = {
   method?: string;
@@ -9,26 +8,24 @@ export type ErrorMonitoringContext = {
   statusCode?: number;
 };
 
+// Reports unexpected (5xx) errors to Sentry when src/instrument.ts started it;
+// otherwise does nothing, since the exception filter already logs them.
 @Injectable()
 export class ErrorMonitoringService {
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly logger: StructuredLogger
-  ) {}
-
   captureException(exception: unknown, context: ErrorMonitoringContext) {
-    if (!this.configService.get<boolean>("errorMonitoringEnabled", false)) {
+    if (!Sentry.isInitialized()) {
       return;
     }
 
-    this.logger.warn(
-      {
-        dsnConfigured: Boolean(this.configService.get<string>("errorMonitoringDsn")),
-        errorName: exception instanceof Error ? exception.name : "UnknownError",
-        event: "error_monitoring.capture_placeholder",
-        ...context
-      },
-      ErrorMonitoringService.name
-    );
+    Sentry.withScope((scope) => {
+      scope.setTag("method", context.method);
+      scope.setTag("statusCode", context.statusCode);
+      scope.setContext("request", {
+        // Query strings can carry search terms or phone numbers.
+        path: context.path?.split("?")[0],
+        requestId: context.requestId
+      });
+      Sentry.captureException(exception);
+    });
   }
 }
