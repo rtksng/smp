@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import {
   buildAdminApiProxyErrorResponse,
-  buildAdminApiProxyHeaders,
+  buildAdminApiProxyRequestHeaders,
   buildAdminApiProxyResponse,
   buildAdminApiProxyUrl,
   fetchAdminApiProxy
@@ -40,7 +40,7 @@ async function proxyAdminApi(
     const proxyInit = {
       body,
       cache: "no-store",
-      headers: buildAdminApiProxyHeaders(request.headers),
+      headers: buildAdminApiProxyRequestHeaders(request.headers),
       method: request.method,
       redirect: "manual"
     } satisfies RequestInit;

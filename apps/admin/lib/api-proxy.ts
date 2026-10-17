@@ -1,5 +1,6 @@
 import { Resolver } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
+import { TRUSTED_PROXY_HEADERS } from "@surgical/config";
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -63,6 +64,39 @@ export function buildAdminApiProxyHeaders(input: Headers) {
   });
 
   return headers;
+}
+
+// Adds the real client IP for the API's rate limiter and audit logs. The API
+// trusts it only when the shared secret matches API_PROXY_SHARED_SECRET there.
+// The frontend host must set x-real-ip / x-forwarded-for itself and not pass
+// through client-supplied values (Vercel overwrites both).
+export function buildAdminApiProxyRequestHeaders(
+  input: Headers,
+  proxySecret = process.env.API_PROXY_SHARED_SECRET
+) {
+  const headers = buildAdminApiProxyHeaders(input);
+  const secret = proxySecret?.trim();
+  const clientIp = readClientIp(input);
+
+  headers.delete(TRUSTED_PROXY_HEADERS.clientIp);
+  headers.delete(TRUSTED_PROXY_HEADERS.proxyKey);
+
+  if (secret && clientIp) {
+    headers.set(TRUSTED_PROXY_HEADERS.clientIp, clientIp);
+    headers.set(TRUSTED_PROXY_HEADERS.proxyKey, secret);
+  }
+
+  return headers;
+}
+
+function readClientIp(input: Headers) {
+  const realIp = input.get("x-real-ip")?.trim();
+
+  if (realIp) {
+    return realIp;
+  }
+
+  return input.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
 }
 
 export async function fetchAdminApiProxy(

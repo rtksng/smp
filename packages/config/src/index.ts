@@ -7,6 +7,14 @@ export const APP_NAMES = {
 
 export const API_VERSION_PREFIX = "/api/v1" as const;
 
+// Headers the web and admin API proxies use to pass the real client IP to the
+// API. The API trusts the client IP only when the proxy key matches
+// API_PROXY_SHARED_SECRET.
+export const TRUSTED_PROXY_HEADERS = {
+  clientIp: "x-smp-client-ip",
+  proxyKey: "x-smp-proxy-key"
+} as const;
+
 export const FEATURE_SCOPE = {
   deliveryPartnerWebApp: false,
   customerMobileApp: false,
