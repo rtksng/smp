@@ -24,6 +24,11 @@ import { NearExpiryAlertProcessor } from "./queues/near-expiry-alert.processor";
 import { NotificationsProcessor } from "./queues/notifications.processor";
 import { OtpProcessor } from "./queues/otp.processor";
 import {
+  OtpDeliveryService,
+  WHATSAPP_OTP_CONFIG
+} from "./otp/otp-delivery.service";
+import { loadWhatsAppOtpConfig } from "./otp/whatsapp-otp.config";
+import {
   PaymentWebhookProcessor,
   PaymentWebhookRepository
 } from "./queues/payment-webhook.processor";
@@ -66,6 +71,11 @@ import { StructuredLogger } from "./structured-logger.service";
       useFactory: () => loadCustomerEmailConfig()
     },
     {
+      // Fails startup when WHATSAPP_OTP_ENABLED=true but WhatsApp settings are missing.
+      provide: WHATSAPP_OTP_CONFIG,
+      useFactory: () => loadWhatsAppOtpConfig()
+    },
+    {
       provide: CustomerEmailLogRepository,
       useClass: PgCustomerEmailLogRepository
     },
@@ -79,6 +89,7 @@ import { StructuredLogger } from "./structured-logger.service";
     },
     CustomerEmailService,
     CustomerEmailProcessor,
+    OtpDeliveryService,
     OtpProcessor,
     NotificationsProcessor,
     InvoicesProcessor,

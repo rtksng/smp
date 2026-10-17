@@ -48,6 +48,19 @@ const CUSTOMER_EMAIL_JOB_OPTIONS: JobsOptions = {
   }
 };
 
+// OTP jobs carry the login code in plain text, so they are deleted as soon as
+// they finish or fail; the worker logs the outcome without the code. Retries
+// are quick because the code expires within minutes.
+export const OTP_JOB_OPTIONS: JobsOptions = {
+  attempts: 3,
+  backoff: {
+    delay: 2000,
+    type: "exponential"
+  },
+  removeOnComplete: true,
+  removeOnFail: true
+};
+
 @Injectable()
 export class ApiQueueService {
   constructor(
@@ -92,7 +105,7 @@ export class ApiQueueService {
   ) {}
 
   async enqueueOtp(data: SendOtpJobData) {
-    await this.otpQueue.add(OTP_JOB_NAMES.sendOtp, data, DEFAULT_JOB_OPTIONS);
+    await this.otpQueue.add(OTP_JOB_NAMES.sendOtp, data, OTP_JOB_OPTIONS);
   }
 
   async enqueueOrderConfirmation(data: SendOrderConfirmationJobData) {

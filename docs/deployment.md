@@ -143,6 +143,25 @@ CUSTOMER_SITE_URL=https://www.example.com
 
 Verify the sending domain in Resend (SPF, DKIM, DMARC) before enabling. See `apps/worker/src/email/README.md` for triggers, preview, and operations.
 
+Customer and delivery partner login codes are sent by the worker through the WhatsApp Cloud API. They stay off until configured:
+
+```bash
+WHATSAPP_OTP_ENABLED=true
+WHATSAPP_ACCESS_TOKEN=<permanent-system-user-token>
+WHATSAPP_PHONE_NUMBER_ID=<numeric-phone-number-id>
+WHATSAPP_GRAPH_API_VERSION=v23.0
+WHATSAPP_OTP_TEMPLATE_NAME=<approved-authentication-template>
+WHATSAPP_OTP_TEMPLATE_LANGUAGE=en_US
+OTP_TTL_SECONDS=300
+```
+
+Before enabling:
+
+- Create an **Authentication** template with a **Copy code** button in WhatsApp Manager and wait for approval. The worker sends the code as the body parameter and the button parameter.
+- Create a System User in Meta Business Settings, give it the WhatsApp Business Account, and generate a permanent token with `whatsapp_business_messaging`. The token on the API Setup page expires after 24 hours.
+- Keep `OTP_TTL_SECONDS` equal to the API's value. The worker skips codes that have already expired, for example after a queue backlog.
+- The worker refuses to start when `WHATSAPP_OTP_ENABLED=true` and a setting is missing. Failed sends are logged as `job.failed` with Meta's error code; codes and full phone numbers are never logged.
+
 ## Backups And Migration Notes
 
 - PostgreSQL is the source of truth; keep daily automated backups and test restores periodically.
